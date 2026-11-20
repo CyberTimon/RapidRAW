@@ -2167,6 +2167,11 @@
         "modeAuto": "Automatisk (systemprofil)",
         "modeCustom": "Anpassad ICC-profil",
         "modeOff": "Av",
+        "previewGamut": "Förhandsgranskningens färgomfång",
+        "previewGamutDesc": "Välj samma färgrymd som du exporterar i. sRGB visar hur en sRGB- eller webbexport kommer att se ut. Brett färgomfång visar även färgerna utanför sRGB som din skärm kan visa, som vid export i Display P3 eller Adobe RGB.",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "Brett färgomfång",
+        "previewGamutWideSpace": "Brett färgomfång ({{space}})",
         "profile": "Bildskärmsprofil",
         "profileDesc": "Omvandlar redigerarens förhandsvisning till bildskärmens färgprofil, så att färgerna ser rätt ut på kalibrerade skärmar och skärmar med stort färgomfång. Exporten påverkas inte.",
         "statusInvalid": "Den här profilen kunde inte läsas in.",
@@ -2174,10 +2179,7 @@
         "statusProfile": "Använder {{name}}.",
         "statusSystem": "Färgerna hanteras av operativsystemet.",
         "statusUnavailable": "Färghantering kräver Direktrendering med WGPU.",
-        "wideGamut": "Förhandsvisning med stort färgomfång ({{space}}).",
-        "wideGamutPreview": "Förhandsvisning med stort färgomfång",
-        "wideGamutPreviewDesc": "Visar färger utanför sRGB på skärmar med stort färgomfång. Aktivera detta när du exporterar i Display P3, Adobe RGB eller en annan färgrymd med stort färgomfång. Låt det vara avstängt för att se hur en export i sRGB kommer att se ut.",
-        "wideGamutPreviewEnable": "Visa ett stort färgomfång"
+        "wideGamut": "Förhandsvisning med stort färgomfång ({{space}})."
       },
       "defaultAdjustments": {
         "addCamera": "Lägg till kamera…",

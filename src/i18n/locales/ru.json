@@ -1017,7 +1017,7 @@
     },
     "toolbar": {
       "history": "История",
-      "switchToVariant": "Switch to {{label}}",
+      "switchToVariant": "Переключиться на {{label}}",
       "tooltips": {
         "aperture": "Диафрагма",
         "backToLibrary": "Назад в библиотеку",
@@ -1432,12 +1432,12 @@
           "gte": "Этот рейтинг и выше",
           "lte": "Этот рейтинг и ниже"
         },
-        "groupEditedFiles": "Include edited files in groups",
-        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
-        "groupOff": "Off",
-        "groupPreferJpeg": "Prefer JPEG",
-        "groupPreferRaw": "Prefer RAW",
-        "groupRawJpeg": "Group RAW + JPEG",
+        "groupEditedFiles": "Включать отредактированные файлы в группы",
+        "groupIgnoreMetadata": "Игнорировать несовпадающие даты EXIF",
+        "groupOff": "Выкл.",
+        "groupPreferJpeg": "Предпочитать JPEG",
+        "groupPreferRaw": "Предпочитать RAW",
+        "groupRawJpeg": "Группировать RAW + JPEG",
         "metadataAlways": "Всегда",
         "metadataHover": "При наведении",
         "metadataOff": "Выкл",
@@ -2255,6 +2255,11 @@
         "modeAuto": "Автоматически (системный профиль)",
         "modeCustom": "Свой ICC-профиль",
         "modeOff": "Выключено",
+        "previewGamut": "Цветовой охват превью",
+        "previewGamutDesc": "Выберите пространство, в котором вы экспортируете. sRGB показывает, как будет выглядеть экспорт в sRGB или для веба. Широкий охват показывает также цвета за пределами sRGB, которые может отобразить монитор, как при экспорте в Display P3 или Adobe RGB.",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "Широкий охват",
+        "previewGamutWideSpace": "Широкий охват ({{space}})",
         "profile": "Профиль монитора",
         "profileDesc": "Преобразует предпросмотр в редакторе в цветовой профиль вашего монитора, чтобы цвета были точными на откалиброванных дисплеях и дисплеях с широким охватом. На экспорт это не влияет.",
         "statusInvalid": "Не удалось загрузить этот профиль.",
@@ -2262,10 +2267,7 @@
         "statusProfile": "Используется {{name}}.",
         "statusSystem": "Цветами управляет операционная система.",
         "statusUnavailable": "Для управления цветом нужен Прямой рендеринг WGPU.",
-        "wideGamut": "Предпросмотр с широким охватом ({{space}}).",
-        "wideGamutPreview": "Предпросмотр широкого охвата",
-        "wideGamutPreviewDesc": "Показывает цвета за пределами sRGB на мониторах с широким цветовым охватом. Включите, если экспортируете в Display P3, Adobe RGB или другое широкое цветовое пространство. В выключенном состоянии видно, как будет выглядеть экспорт в sRGB.",
-        "wideGamutPreviewEnable": "Показывать цвета широкого охвата"
+        "wideGamut": "Предпросмотр с широким охватом ({{space}})."
       },
       "defaultAdjustments": {
         "addCamera": "Добавить камеру…",

@@ -934,6 +934,7 @@
         "focalLength": "Židinio nuotolis",
         "iso": "ISO",
         "lens": "Objektyvas",
+        "model": "Modelis",
         "shutterSpeed": "Išlaikymas",
         "title": "Kameros informacija"
       },
@@ -2294,6 +2295,11 @@
         "modeAuto": "Automatinis (sistemos profilis)",
         "modeCustom": "Pasirinktinis ICC profilis",
         "modeOff": "Išjungta",
+        "previewGamut": "Peržiūros spalvų gama",
+        "previewGamutDesc": "Pasirinkite spalvų erdvę, kuria eksportuojate. sRGB rodo, kaip atrodys sRGB ar žiniatinklio eksportas. Plati gama papildomai rodo už sRGB ribų esančias spalvas, kurias gali parodyti monitorius, kaip eksportuojant „Display P3“ ar „Adobe RGB“.",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "Plati gama",
+        "previewGamutWideSpace": "Plati gama ({{space}})",
         "profile": "Monitoriaus profilis",
         "profileDesc": "Konvertuoja redaktoriaus peržiūrą į jūsų monitoriaus spalvų profilį, kad spalvos būtų tikslios kalibruotuose ir plačios gamos ekranuose. Eksportui tai įtakos neturi.",
         "statusInvalid": "Šio profilio įkelti nepavyko.",
@@ -2301,10 +2307,7 @@
         "statusProfile": "Naudojamas {{name}}.",
         "statusSystem": "Spalvas valdo operacinė sistema.",
         "statusUnavailable": "Spalvų valdymui reikalingas WGPU tiesioginis atvaizdavimas.",
-        "wideGamut": "Plačios gamos peržiūra ({{space}}).",
-        "wideGamutPreview": "Plačios gamos peržiūra",
-        "wideGamutPreviewDesc": "Plačios gamos monitoriuose rodo spalvas už sRGB ribų. Įjunkite, jei eksportuojate į Display P3, Adobe RGB ar kitą plačią spalvų erdvę. Išjungus matysite, kaip atrodys sRGB eksportas.",
-        "wideGamutPreviewEnable": "Rodyti plačios gamos spalvas"
+        "wideGamut": "Plačios gamos peržiūra ({{space}})."
       },
       "defaultAdjustments": {
         "addCamera": "Pridėti fotoaparatą…",

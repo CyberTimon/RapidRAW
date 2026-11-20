@@ -2211,6 +2211,11 @@
         "modeAuto": "Automatico (profilo di sistema)",
         "modeCustom": "Profilo ICC personalizzato",
         "modeOff": "Disattivato",
+        "previewGamut": "Gamut anteprima",
+        "previewGamutDesc": "Scegli lo spazio colore in cui esporti. sRGB mostra come apparirà un'esportazione sRGB o per il web. Gamut esteso mostra anche i colori oltre sRGB che il monitor può visualizzare, come nelle esportazioni Display P3 o Adobe RGB.",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "Gamut esteso",
+        "previewGamutWideSpace": "Gamut esteso ({{space}})",
         "profile": "Profilo del monitor",
         "profileDesc": "Converte l'anteprima dell'editor nel profilo colore del monitor, così i colori sono corretti su schermi calibrati e ad ampio gamut. Le esportazioni non cambiano.",
         "statusInvalid": "Impossibile caricare questo profilo.",
@@ -2218,10 +2223,7 @@
         "statusProfile": "In uso: {{name}}.",
         "statusSystem": "I colori sono gestiti dal sistema operativo.",
         "statusUnavailable": "La gestione del colore richiede il Direct Rendering WGPU.",
-        "wideGamut": "Anteprima ad ampio gamut ({{space}}).",
-        "wideGamutPreview": "Anteprima gamut esteso",
-        "wideGamutPreviewDesc": "Mostra i colori oltre sRGB sui monitor a gamut esteso. Attivala se esporti in Display P3, Adobe RGB o un altro spazio colore ampio. Disattivata, vedi l'aspetto di un'esportazione sRGB.",
-        "wideGamutPreviewEnable": "Mostra colori a gamut esteso"
+        "wideGamut": "Anteprima ad ampio gamut ({{space}})."
       },
       "defaultAdjustments": {
         "addCamera": "Aggiungi fotocamera…",

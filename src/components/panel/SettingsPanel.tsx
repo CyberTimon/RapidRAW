@@ -698,11 +698,23 @@ export default function SettingsPanel({
   const displayColorOptions = useMemo<OptionItem<string>[]>(
     () => [
       { value: 'auto', label: t('settings.processing.colorManagement.modeAuto') },
-      { value: 'off', label: t('settings.processing.colorManagement.modeOff') },
       { value: 'custom', label: t('settings.processing.colorManagement.modeCustom') },
+      { value: 'off', label: t('settings.processing.colorManagement.modeOff') },
     ],
     [t],
   );
+  const previewGamutOptions = useMemo<OptionItem<string>[]>(() => {
+    const space = displayStatus && PREVIEW_SPACE_NAMES[displayStatus.previewSpace];
+    return [
+      { value: 'srgb', label: t('settings.processing.colorManagement.previewGamutSrgb') },
+      {
+        value: 'wide',
+        label: space
+          ? t('settings.processing.colorManagement.previewGamutWideSpace', { space })
+          : t('settings.processing.colorManagement.previewGamutWide'),
+      },
+    ];
+  }, [displayStatus, t]);
   const displayColorStatus = useMemo(() => {
     if (!displayStatus || displayColorMode === 'off') return null;
     if (!displayStatus.rendererActive) return t('settings.processing.colorManagement.statusUnavailable');
@@ -2228,6 +2240,91 @@ export default function SettingsPanel({
 
                   <div className="p-6 bg-surface rounded-xl shadow-md">
                     <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
+                      {t('settings.processing.display.title')}
+                    </Text>
+                    <div className="space-y-4">
+                      <SettingItem
+                        label={t('settings.processing.colorManagement.profile')}
+                        description={t('settings.processing.colorManagement.profileDesc')}
+                        status={displayColorStatus}
+                      >
+                        <Dropdown
+                          onChange={(value: any) => onSettingsChange({ ...appSettings, displayColorMode: value })}
+                          options={displayColorOptions}
+                          value={displayColorMode}
+                          triggerClassName="bg-bg-primary"
+                        />
+                        {displayColorMode === 'custom' && (
+                          <div className="mt-3 flex items-center gap-3">
+                            <Button onClick={pickDisplayProfile}>
+                              {t('settings.processing.colorManagement.chooseProfile')}
+                            </Button>
+                            {appSettings?.displayIccProfile && (
+                              <Text variant={TextVariants.small} className="truncate">
+                                {appSettings.displayIccProfile.split(/[\\/]/).pop()}
+                              </Text>
+                            )}
+                          </div>
+                        )}
+                      </SettingItem>
+                      {displayColorMode !== 'off' && (
+                        <SettingItem
+                          label={t('settings.processing.colorManagement.previewGamut')}
+                          description={t('settings.processing.colorManagement.previewGamutDesc')}
+                        >
+                          <Dropdown
+                            onChange={(value: string) =>
+                              onSettingsChange({ ...appSettings, wideGamutPreview: value === 'wide' })
+                            }
+                            options={previewGamutOptions}
+                            value={appSettings?.wideGamutPreview ? 'wide' : 'srgb'}
+                            triggerClassName="bg-bg-primary"
+                          />
+                        </SettingItem>
+                      )}
+
+                      <SettingItem
+                        label={t('settings.processing.hdr.display')}
+                        description={t('settings.processing.hdr.displayDesc')}
+                        status={
+                          displayStatus &&
+                          (!displayStatus.hdrSupported
+                            ? t('settings.processing.hdr.statusUnsupported')
+                            : displayStatus.hdrActive
+                              ? t('settings.processing.hdr.statusActive')
+                              : t('settings.processing.hdr.statusInactive'))
+                        }
+                      >
+                        <Switch
+                          checked={appSettings?.hdrDisplay ?? false}
+                          disabled={displayStatus?.hdrSupported === false && !appSettings?.hdrDisplay}
+                          id="hdr-display-toggle"
+                          label={t('settings.processing.hdr.enableDisplay')}
+                          onChange={(checked) => onSettingsChange({ ...appSettings, hdrDisplay: checked })}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.hdr.headroom')}
+                        description={t('settings.processing.hdr.headroomDesc')}
+                      >
+                        <Slider
+                          label={t('settings.tagging.amount')}
+                          min={1}
+                          max={4}
+                          step={0.1}
+                          value={processingSettings.hdrHeadroom}
+                          defaultValue={DEFAULT_HDR_HEADROOM}
+                          onChange={(e) => handleProcessingSettingChange('hdrHeadroom', Number(e.target.value))}
+                          fillOrigin="min"
+                          suffix=" EV"
+                        />
+                      </SettingItem>
+                    </div>
+                  </div>
+
+                  <div className="p-6 bg-surface rounded-xl shadow-md">
+                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
                       {t('settings.processing.preprocessing.title')}
                     </Text>
                     <div className="space-y-8">
@@ -2443,89 +2540,6 @@ export default function SettingsPanel({
                           )}
                         </AnimatePresence>
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.processing.display.title')}
-                    </Text>
-                    <div className="space-y-4">
-                      <SettingItem
-                        label={t('settings.processing.colorManagement.profile')}
-                        description={t('settings.processing.colorManagement.profileDesc')}
-                        status={displayColorStatus}
-                      >
-                        <Dropdown
-                          onChange={(value: any) => onSettingsChange({ ...appSettings, displayColorMode: value })}
-                          options={displayColorOptions}
-                          value={displayColorMode}
-                          triggerClassName="bg-bg-primary"
-                        />
-                        {displayColorMode === 'custom' && (
-                          <div className="mt-3 flex items-center gap-3">
-                            <Button onClick={pickDisplayProfile}>
-                              {t('settings.processing.colorManagement.chooseProfile')}
-                            </Button>
-                            {appSettings?.displayIccProfile && (
-                              <Text variant={TextVariants.small} className="truncate">
-                                {appSettings.displayIccProfile.split(/[\\/]/).pop()}
-                              </Text>
-                            )}
-                          </div>
-                        )}
-                      </SettingItem>
-                      {displayColorMode !== 'off' && (
-                        <SettingItem
-                          label={t('settings.processing.colorManagement.wideGamutPreview')}
-                          description={t('settings.processing.colorManagement.wideGamutPreviewDesc')}
-                        >
-                          <Switch
-                            checked={appSettings?.wideGamutPreview ?? false}
-                            id="wide-gamut-preview-toggle"
-                            label={t('settings.processing.colorManagement.wideGamutPreviewEnable')}
-                            onChange={(checked) => onSettingsChange({ ...appSettings, wideGamutPreview: checked })}
-                          />
-                        </SettingItem>
-                      )}
-
-                      <SettingItem
-                        label={t('settings.processing.hdr.display')}
-                        description={t('settings.processing.hdr.displayDesc')}
-                        status={
-                          displayStatus &&
-                          (!displayStatus.hdrSupported
-                            ? t('settings.processing.hdr.statusUnsupported')
-                            : displayStatus.hdrActive
-                              ? t('settings.processing.hdr.statusActive')
-                              : t('settings.processing.hdr.statusInactive'))
-                        }
-                      >
-                        <Switch
-                          checked={appSettings?.hdrDisplay ?? false}
-                          disabled={displayStatus?.hdrSupported === false && !appSettings?.hdrDisplay}
-                          id="hdr-display-toggle"
-                          label={t('settings.processing.hdr.enableDisplay')}
-                          onChange={(checked) => onSettingsChange({ ...appSettings, hdrDisplay: checked })}
-                        />
-                      </SettingItem>
-
-                      <SettingItem
-                        label={t('settings.processing.hdr.headroom')}
-                        description={t('settings.processing.hdr.headroomDesc')}
-                      >
-                        <Slider
-                          label={t('settings.tagging.amount')}
-                          min={1}
-                          max={4}
-                          step={0.1}
-                          value={processingSettings.hdrHeadroom}
-                          defaultValue={DEFAULT_HDR_HEADROOM}
-                          onChange={(e) => handleProcessingSettingChange('hdrHeadroom', Number(e.target.value))}
-                          fillOrigin="min"
-                          suffix=" EV"
-                        />
-                      </SettingItem>
                     </div>
                   </div>
 

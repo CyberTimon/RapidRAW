@@ -2004,6 +2004,7 @@
         "copy_files": "Geselecteerd(e) bestand(en) kopiëren",
         "copy_image_path": "Pad van geselecteerde afbeelding(en) kopiëren",
         "cycle_zoom": "Zoom wisselen (passend, 2x passend, 100%)",
+        "delete_rejected": "Afgewezen bestand(en) verwijderen",
         "delete_selected": "Geselecteerd(e) bestand(en) verwijderen",
         "focus_search": "Zoekveld activeren",
         "open_image": "Geselecteerde afbeelding openen",
@@ -2037,10 +2038,13 @@
         "toggle_library_exif": "EXIF-overlay aan/uit",
         "toggle_masks": "Maskerpaneel aan/uit",
         "toggle_metadata": "Metadatapaneel aan/uit",
+        "toggle_pick": "Keuzemarkering in-/uitschakelen",
         "toggle_presets": "Voorinstellingspaneel aan/uit",
+        "toggle_reject": "Afwijsmarkering in-/uitschakelen",
         "toggle_right_panel": "Rechterpaneel aan/uit",
         "toggle_viewer_window": "Tweede venster in-/uitschakelen",
         "undo": "Aanpassing ongedaan maken",
+        "unflag": "Markering verwijderen",
         "zoom_100": "Zoomen naar 100%",
         "zoom_fit": "Zoomen om te passen",
         "zoom_in": "Inzoomen",
@@ -2163,6 +2167,11 @@
         "modeAuto": "Automatisch (systeemprofiel)",
         "modeCustom": "Aangepast ICC-profiel",
         "modeOff": "Uit",
+        "previewGamut": "Gamut van voorbeeld",
+        "previewGamutDesc": "Stem dit af op de kleurruimte waarin je exporteert. sRGB toont hoe een sRGB- of webexport eruitziet. Breed gamut toont ook de kleuren buiten sRGB die je monitor kan weergeven, zoals bij exports in Display P3 of Adobe RGB.",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "Breed gamut",
+        "previewGamutWideSpace": "Breed gamut ({{space}})",
         "profile": "Monitorprofiel",
         "profileDesc": "Zet de voorvertoning in de editor om naar het kleurprofiel van je monitor, zodat kleuren kloppen op gekalibreerde en wide-gamutschermen. Exports blijven ongewijzigd.",
         "statusInvalid": "Dit profiel kon niet worden geladen.",
@@ -2170,10 +2179,7 @@
         "statusProfile": "Gebruikt {{name}}.",
         "statusSystem": "Kleuren worden beheerd door het besturingssysteem.",
         "statusUnavailable": "Kleurbeheer vereist WGPU directe rendering.",
-        "wideGamut": "Wide-gamutvoorvertoning ({{space}}).",
-        "wideGamutPreview": "Wide-gamut-voorbeeld",
-        "wideGamutPreviewDesc": "Toont kleuren buiten sRGB op wide-gamut-monitoren. Zet dit aan als je exporteert in Display P3, Adobe RGB of een andere brede kleurruimte. Uitgeschakeld zie je hoe een sRGB-export eruit zal zien.",
-        "wideGamutPreviewEnable": "Wide-gamut-kleuren tonen"
+        "wideGamut": "Wide-gamutvoorvertoning ({{space}})."
       },
       "defaultAdjustments": {
         "addCamera": "Camera toevoegen…",
@@ -2519,6 +2525,10 @@
         "showClipping": "Uitknipwaarschuwingen weergeven",
         "vectorscope": "Vectoroscoop"
       }
+    },
+    "flags": {
+      "togglePick": "Keuze in-/uitschakelen",
+      "toggleReject": "Afwijzen in-/uitschakelen"
     }
   }
 }

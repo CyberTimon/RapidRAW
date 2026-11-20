@@ -964,7 +964,7 @@
     },
     "toolbar": {
       "history": "履歴",
-      "switchToVariant": "Switch to {{label}}",
+      "switchToVariant": "{{label}} に切り替え",
       "tooltips": {
         "aperture": "絞り値",
         "backToLibrary": "ライブラリに戻る",
@@ -1369,12 +1369,12 @@
           "gte": "この評価以上",
           "lte": "この評価以下"
         },
-        "groupEditedFiles": "Include edited files in groups",
-        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
-        "groupOff": "Off",
-        "groupPreferJpeg": "Prefer JPEG",
-        "groupPreferRaw": "Prefer RAW",
-        "groupRawJpeg": "Group RAW + JPEG",
+        "groupEditedFiles": "編集済みファイルもグループに含める",
+        "groupIgnoreMetadata": "一致しない EXIF 日付を無視",
+        "groupOff": "オフ",
+        "groupPreferJpeg": "JPEG を優先",
+        "groupPreferRaw": "RAW を優先",
+        "groupRawJpeg": "RAW + JPEG をグループ化",
         "metadataAlways": "常に表示",
         "metadataHover": "ホバー時に表示",
         "metadataOff": "オフ",
@@ -2161,6 +2161,11 @@
         "modeAuto": "自動（システムのプロファイル）",
         "modeCustom": "カスタム ICC プロファイル",
         "modeOff": "オフ",
+        "previewGamut": "プレビューの色域",
+        "previewGamutDesc": "書き出しに使う色空間に合わせてください。sRGB では sRGB や Web 向け書き出しの見え方を表示します。広色域では、Display P3 や Adobe RGB での書き出しのように、モニターが表示できる sRGB 外の色も表示します。",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "広色域",
+        "previewGamutWideSpace": "広色域（{{space}}）",
         "profile": "モニタープロファイル",
         "profileDesc": "エディターのプレビューをモニターのカラープロファイルに変換し、キャリブレーション済みや広色域のディスプレイで正確な色を表示します。書き出しには影響しません。",
         "statusInvalid": "このプロファイルを読み込めませんでした。",
@@ -2168,10 +2173,7 @@
         "statusProfile": "{{name}} を使用中です。",
         "statusSystem": "色は OS によって管理されています。",
         "statusUnavailable": "カラーマネジメントには WGPUダイレクトレンダリング が必要です。",
-        "wideGamut": "広色域プレビュー（{{space}}）。",
-        "wideGamutPreview": "広色域プレビュー",
-        "wideGamutPreviewDesc": "広色域モニターで sRGB を超える色を表示します。Display P3、Adobe RGB などの広い色空間で書き出す場合はオンにしてください。オフにすると sRGB で書き出した場合の見た目を確認できます。",
-        "wideGamutPreviewEnable": "広色域の色を表示"
+        "wideGamut": "広色域プレビュー（{{space}}）。"
       },
       "defaultAdjustments": {
         "addCamera": "カメラを追加…",

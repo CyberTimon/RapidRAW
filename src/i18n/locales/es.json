@@ -992,7 +992,7 @@
     },
     "toolbar": {
       "history": "Historial",
-      "switchToVariant": "Switch to {{label}}",
+      "switchToVariant": "Cambiar a {{label}}",
       "tooltips": {
         "aperture": "Apertura",
         "backToLibrary": "Volver a la Biblioteca",
@@ -1403,12 +1403,12 @@
           "gte": "Esta puntuación o superior",
           "lte": "Esta puntuación o inferior"
         },
-        "groupEditedFiles": "Include edited files in groups",
-        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
-        "groupOff": "Off",
-        "groupPreferJpeg": "Prefer JPEG",
-        "groupPreferRaw": "Prefer RAW",
-        "groupRawJpeg": "Group RAW + JPEG",
+        "groupEditedFiles": "Incluir archivos editados en grupos",
+        "groupIgnoreMetadata": "Ignorar fechas EXIF que no coinciden",
+        "groupOff": "Desactivado",
+        "groupPreferJpeg": "Preferir JPEG",
+        "groupPreferRaw": "Preferir RAW",
+        "groupRawJpeg": "Agrupar RAW + JPEG",
         "metadataAlways": "Siempre",
         "metadataHover": "Al pasar el ratón",
         "metadataOff": "Desactivado",
@@ -2211,6 +2211,11 @@
         "modeAuto": "Automático (perfil del sistema)",
         "modeCustom": "Perfil ICC personalizado",
         "modeOff": "Desactivado",
+        "previewGamut": "Gama de vista previa",
+        "previewGamutDesc": "Elige el espacio de color en el que exportas. sRGB muestra cómo se verá una exportación sRGB o para la web. Gama amplia muestra también los colores fuera de sRGB que tu monitor puede mostrar, como en exportaciones Display P3 o Adobe RGB.",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "Gama amplia",
+        "previewGamutWideSpace": "Gama amplia ({{space}})",
         "profile": "Perfil del monitor",
         "profileDesc": "Convierte la vista previa del editor al perfil de color de tu monitor para que los colores se vean correctamente en pantallas calibradas y de gama amplia. Las exportaciones no se ven afectadas.",
         "statusInvalid": "No se pudo cargar este perfil.",
@@ -2218,10 +2223,7 @@
         "statusProfile": "Usando {{name}}.",
         "statusSystem": "El sistema operativo gestiona los colores.",
         "statusUnavailable": "La gestión del color requiere el Renderizado directo WGPU.",
-        "wideGamut": "Vista previa de gama amplia ({{space}}).",
-        "wideGamutPreview": "Vista previa de gama amplia",
-        "wideGamutPreviewDesc": "Muestra colores más allá de sRGB en monitores de gama amplia. Actívalo si exportas en Display P3, Adobe RGB u otro espacio de color amplio. Desactivado, verás cómo quedará una exportación sRGB.",
-        "wideGamutPreviewEnable": "Mostrar colores de gama amplia"
+        "wideGamut": "Vista previa de gama amplia ({{space}})."
       },
       "defaultAdjustments": {
         "addCamera": "Añadir cámara…",

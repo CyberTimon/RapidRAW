@@ -992,7 +992,7 @@
     },
     "toolbar": {
       "history": "Historique",
-      "switchToVariant": "Switch to {{label}}",
+      "switchToVariant": "Passer à {{label}}",
       "tooltips": {
         "aperture": "Ouverture",
         "backToLibrary": "Retour à la bibliothèque",
@@ -1404,12 +1404,12 @@
           "gte": "Cette note ou plus",
           "lte": "Cette note ou moins"
         },
-        "groupEditedFiles": "Include edited files in groups",
-        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
-        "groupOff": "Off",
-        "groupPreferJpeg": "Prefer JPEG",
-        "groupPreferRaw": "Prefer RAW",
-        "groupRawJpeg": "Group RAW + JPEG",
+        "groupEditedFiles": "Inclure les fichiers modifiés dans les groupes",
+        "groupIgnoreMetadata": "Ignorer les dates EXIF divergentes",
+        "groupOff": "Désactivé",
+        "groupPreferJpeg": "Préférer JPEG",
+        "groupPreferRaw": "Préférer RAW",
+        "groupRawJpeg": "Grouper RAW + JPEG",
         "metadataAlways": "Toujours",
         "metadataHover": "Au survol",
         "metadataOff": "Désactivé",
@@ -2212,6 +2212,11 @@
         "modeAuto": "Automatique (profil système)",
         "modeCustom": "Profil ICC personnalisé",
         "modeOff": "Désactivé",
+        "previewGamut": "Gamut de l'aperçu",
+        "previewGamutDesc": "Choisissez l'espace colorimétrique de votre export. sRGB montre le rendu d'un export sRGB ou web. Gamut étendu affiche aussi les couleurs hors sRGB que votre écran peut reproduire, comme pour un export Display P3 ou Adobe RGB.",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "Gamut étendu",
+        "previewGamutWideSpace": "Gamut étendu ({{space}})",
         "profile": "Profil du moniteur",
         "profileDesc": "Convertit l'aperçu de l'éditeur vers le profil colorimétrique de votre moniteur, pour des couleurs justes sur les écrans calibrés et à gamut étendu. Les exports ne sont pas affectés.",
         "statusInvalid": "Ce profil n'a pas pu être chargé.",
@@ -2219,10 +2224,7 @@
         "statusProfile": "Utilise {{name}}.",
         "statusSystem": "Les couleurs sont gérées par le système d'exploitation.",
         "statusUnavailable": "La gestion des couleurs nécessite le Rendu Direct WGPU.",
-        "wideGamut": "Aperçu à gamut étendu ({{space}}).",
-        "wideGamutPreview": "Aperçu gamut étendu",
-        "wideGamutPreviewDesc": "Affiche les couleurs au-delà de sRGB sur les moniteurs à gamut étendu. Activez cette option si vous exportez en Display P3, Adobe RGB ou un autre espace colorimétrique étendu. Désactivée, l'aperçu montre le rendu d'un export sRGB.",
-        "wideGamutPreviewEnable": "Afficher les couleurs à gamut étendu"
+        "wideGamut": "Aperçu à gamut étendu ({{space}})."
       },
       "defaultAdjustments": {
         "addCamera": "Ajouter un appareil…",

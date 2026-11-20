@@ -967,7 +967,7 @@
     },
     "toolbar": {
       "history": "Verlauf",
-      "switchToVariant": "Switch to {{label}}",
+      "switchToVariant": "Zu {{label}} wechseln",
       "tooltips": {
         "aperture": "Blende",
         "backToLibrary": "Zurück zur Bibliothek",
@@ -1374,12 +1374,12 @@
           "gte": "Diese Bewertung oder höher",
           "lte": "Diese Bewertung oder niedriger"
         },
-        "groupEditedFiles": "Include edited files in groups",
-        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
-        "groupOff": "Off",
-        "groupPreferJpeg": "Prefer JPEG",
-        "groupPreferRaw": "Prefer RAW",
-        "groupRawJpeg": "Group RAW + JPEG",
+        "groupEditedFiles": "Bearbeitete Dateien in Gruppen einbeziehen",
+        "groupIgnoreMetadata": "Abweichende EXIF-Daten ignorieren",
+        "groupOff": "Aus",
+        "groupPreferJpeg": "JPEG bevorzugen",
+        "groupPreferRaw": "RAW bevorzugen",
+        "groupRawJpeg": "RAW + JPEG gruppieren",
         "metadataAlways": "Immer",
         "metadataHover": "Beim Darüberfahren",
         "metadataOff": "Aus",
@@ -2167,6 +2167,11 @@
         "modeAuto": "Automatisch (Systemprofil)",
         "modeCustom": "Eigenes ICC-Profil",
         "modeOff": "Aus",
+        "previewGamut": "Vorschau-Farbraum",
+        "previewGamutDesc": "Wähle hier den Farbraum, in dem du exportierst. sRGB zeigt, wie ein sRGB- oder Web-Export aussieht. Großer Farbraum zeigt zusätzlich die Farben jenseits von sRGB, die dein Monitor darstellen kann, wie bei Exporten in Display P3 oder Adobe RGB.",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "Großer Farbraum",
+        "previewGamutWideSpace": "Großer Farbraum ({{space}})",
         "profile": "Monitorprofil",
         "profileDesc": "Wandelt die Editor-Vorschau in das Farbprofil deines Monitors um, damit Farben auf kalibrierten und Wide-Gamut-Displays stimmen. Exporte sind nicht betroffen.",
         "statusInvalid": "Dieses Profil konnte nicht geladen werden.",
@@ -2174,10 +2179,7 @@
         "statusProfile": "Verwendet {{name}}.",
         "statusSystem": "Die Farben werden vom Betriebssystem verwaltet.",
         "statusUnavailable": "Farbmanagement benötigt WGPU Direkt-Rendering.",
-        "wideGamut": "Wide-Gamut-Vorschau ({{space}}).",
-        "wideGamutPreview": "Wide-Gamut-Vorschau",
-        "wideGamutPreviewDesc": "Zeigt auf Wide-Gamut-Monitoren Farben jenseits von sRGB. Aktiviere dies, wenn du in Display P3, Adobe RGB oder einem anderen großen Farbraum exportierst. Deaktiviert siehst du, wie ein sRGB-Export aussehen wird.",
-        "wideGamutPreviewEnable": "Wide-Gamut-Farben anzeigen"
+        "wideGamut": "Wide-Gamut-Vorschau ({{space}})."
       },
       "defaultAdjustments": {
         "addCamera": "Kamera hinzufügen…",

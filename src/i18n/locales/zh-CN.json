@@ -964,7 +964,7 @@
     },
     "toolbar": {
       "history": "历史记录",
-      "switchToVariant": "Switch to {{label}}",
+      "switchToVariant": "切换到 {{label}}",
       "tooltips": {
         "aperture": "光圈",
         "backToLibrary": "返回图库",
@@ -1369,12 +1369,12 @@
           "gte": "此评分及以上",
           "lte": "此评分及以下"
         },
-        "groupEditedFiles": "Include edited files in groups",
-        "groupIgnoreMetadata": "Ignore mismatched EXIF dates",
-        "groupOff": "Off",
-        "groupPreferJpeg": "Prefer JPEG",
-        "groupPreferRaw": "Prefer RAW",
-        "groupRawJpeg": "Group RAW + JPEG",
+        "groupEditedFiles": "将已编辑的文件纳入分组",
+        "groupIgnoreMetadata": "忽略不一致的 EXIF 日期",
+        "groupOff": "关闭",
+        "groupPreferJpeg": "优先 JPEG",
+        "groupPreferRaw": "优先 RAW",
+        "groupRawJpeg": "RAW + JPEG 分组",
         "metadataAlways": "始终",
         "metadataHover": "悬停时",
         "metadataOff": "关闭",
@@ -2161,6 +2161,11 @@
         "modeAuto": "自动（系统配置文件）",
         "modeCustom": "自定义 ICC 配置文件",
         "modeOff": "关闭",
+        "previewGamut": "预览色域",
+        "previewGamutDesc": "请与导出所用的色彩空间保持一致。sRGB 显示 sRGB 或网页导出的效果。广色域还会显示显示器能呈现的超出 sRGB 的颜色，例如 Display P3 或 Adobe RGB 导出。",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "广色域",
+        "previewGamutWideSpace": "广色域（{{space}}）",
         "profile": "显示器配置文件",
         "profileDesc": "将编辑器预览转换为显示器的色彩配置文件，使颜色在已校准和广色域显示器上准确显示。导出不受影响。",
         "statusInvalid": "无法加载此配置文件。",
@@ -2168,10 +2173,7 @@
         "statusProfile": "正在使用 {{name}}。",
         "statusSystem": "颜色由操作系统管理。",
         "statusUnavailable": "色彩管理需要 WGPU 直接渲染。",
-        "wideGamut": "广色域预览（{{space}}）。",
-        "wideGamutPreview": "广色域预览",
-        "wideGamutPreviewDesc": "在广色域显示器上显示超出 sRGB 的颜色。以 Display P3、Adobe RGB 或其他宽色彩空间导出时请开启。关闭时预览与 sRGB 导出效果一致。",
-        "wideGamutPreviewEnable": "显示广色域颜色"
+        "wideGamut": "广色域预览（{{space}}）。"
       },
       "defaultAdjustments": {
         "addCamera": "添加相机…",

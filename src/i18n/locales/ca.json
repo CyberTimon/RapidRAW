@@ -2211,6 +2211,11 @@
         "modeAuto": "Automàtic (perfil del sistema)",
         "modeCustom": "Perfil ICC personalitzat",
         "modeOff": "Desactivat",
+        "previewGamut": "Gamma de la previsualització",
+        "previewGamutDesc": "Tria l'espai de color en què exportes. sRGB mostra com es veurà una exportació sRGB o per al web. Gamma àmplia mostra també els colors fora d'sRGB que el monitor pot mostrar, com en exportacions Display P3 o Adobe RGB.",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "Gamma àmplia",
+        "previewGamutWideSpace": "Gamma àmplia ({{space}})",
         "profile": "Perfil del monitor",
         "profileDesc": "Converteix la previsualització de l'editor al perfil de color del teu monitor perquè els colors es vegin correctament en pantalles calibrades i de gamma àmplia. Les exportacions no es veuen afectades.",
         "statusInvalid": "No s'ha pogut carregar aquest perfil.",
@@ -2218,10 +2223,7 @@
         "statusProfile": "S'està utilitzant {{name}}.",
         "statusSystem": "El sistema operatiu gestiona els colors.",
         "statusUnavailable": "La gestió del color necessita la Renderització directa WGPU.",
-        "wideGamut": "Previsualització de gamma àmplia ({{space}}).",
-        "wideGamutPreview": "Previsualització de gamma àmplia",
-        "wideGamutPreviewDesc": "Mostra colors més enllà de sRGB en monitors de gamma àmplia. Activa-ho si exportes en Display P3, Adobe RGB o un altre espai de color ampli. Desactivat, veus com quedarà una exportació sRGB.",
-        "wideGamutPreviewEnable": "Mostra colors de gamma àmplia"
+        "wideGamut": "Previsualització de gamma àmplia ({{space}})."
       },
       "defaultAdjustments": {
         "addCamera": "Afegir càmera…",

@@ -2167,6 +2167,11 @@
         "modeAuto": "Automatic (system profile)",
         "modeCustom": "Custom ICC profile",
         "modeOff": "Off",
+        "previewGamut": "Preview Gamut",
+        "previewGamutDesc": "Match this to the color space you export in. sRGB shows what an sRGB or web export will look like. Wide gamut also shows the colors beyond sRGB that your monitor can display, as in Display P3 or Adobe RGB exports.",
+        "previewGamutSrgb": "sRGB",
+        "previewGamutWide": "Wide gamut",
+        "previewGamutWideSpace": "Wide gamut ({{space}})",
         "profile": "Monitor Profile",
         "profileDesc": "Converts the editor preview to your monitor's color profile, so colors look right on calibrated and wide gamut displays. Exports are not affected.",
         "statusInvalid": "This profile could not be loaded.",
@@ -2174,10 +2179,7 @@
         "statusProfile": "Using {{name}}.",
         "statusSystem": "Colors are managed by the operating system.",
         "statusUnavailable": "Color management needs WGPU Direct Rendering.",
-        "wideGamut": "Wide gamut preview ({{space}}).",
-        "wideGamutPreview": "Wide Gamut Preview",
-        "wideGamutPreviewDesc": "Shows colors beyond sRGB on wide gamut monitors. Turn this on when you export in Display P3, Adobe RGB or another wide color space. Leave it off to see what an sRGB export will look like.",
-        "wideGamutPreviewEnable": "Show wide gamut colors"
+        "wideGamut": "Wide gamut preview ({{space}})."
       },
       "defaultAdjustments": {
         "addCamera": "Add camera…",
