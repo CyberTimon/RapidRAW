@@ -128,6 +128,8 @@
       "copyParametric": "Копировать параметрическую кривую ({{channel}})",
       "copyPoint": "Копировать точечную кривую ({{channel}})",
       "curveDataUnavailable": "Данные кривой недоступны.",
+      "input": "Вход",
+      "output": "Выход",
       "parametricCurve": "Параметрическая кривая",
       "params": {
         "blackLevel": "Точка черного",
