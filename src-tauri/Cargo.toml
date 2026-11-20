@@ -12,6 +12,13 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [features]
 default = []
 tethering = ["dep:gphoto2"]
+# Makes the modules listed with test_api_mod! in lib.rs public for the tests in ../tests/rust.
+test-api = []
+
+[[test]]
+name = "rust"
+path = "../tests/rust/main.rs"
+required-features = ["test-api"]
 
 [dependencies]
 tauri = { version = "2.12", features = [ "macos-private-api", "rustls-tls", "protocol-asset" ] }
