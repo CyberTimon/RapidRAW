@@ -2173,9 +2173,8 @@
         "statusNone": "Ingen bildskärmsprofil hittades. Förhandsvisningen visas som sRGB.",
         "statusProfile": "Använder {{name}}.",
         "statusSystem": "Färgerna hanteras av operativsystemet.",
-        "statusUnavailable": "Färghantering kräver GPU-rendering.",
+        "statusUnavailable": "Färghantering kräver Direktrendering med WGPU.",
         "wideGamut": "Förhandsvisning med stort färgomfång ({{space}}).",
-        "wideGamutHdrNote": "Används inte när redigeraren visar HDR.",
         "wideGamutPreview": "Förhandsvisning med stort färgomfång",
         "wideGamutPreviewDesc": "Visar färger utanför sRGB på skärmar med stort färgomfång. Aktivera detta när du exporterar i Display P3, Adobe RGB eller en annan färgrymd med stort färgomfång. Låt det vara avstängt för att se hur en export i sRGB kommer att se ut.",
         "wideGamutPreviewEnable": "Visa ett stort färgomfång"
@@ -2233,7 +2232,7 @@
         "headroomDesc": "Hur mycket ljusare än normalt vitt högdagrarna får vara. Används även vid HDR-export.",
         "statusActive": "Den här skärmen är i HDR-läge.",
         "statusInactive": "Den här skärmen är inte i HDR-läge. Aktivera HDR i systemets bildskärmsinställningar för att se effekten.",
-        "statusUnsupported": "HDR kräver GPU-rendering i Windows eller macOS."
+        "statusUnsupported": "HDR kräver Direktrendering med WGPU och i Linux en Wayland-session med HDR-stöd."
       },
       "highDpi": "Rendering med hög DPI",
       "highDpiDesc": "Rendera förhandsvisningar med skärmens faktiska upplösning på {{dpr}}× i fysiska pixlar. Ger skarpast möjliga förhandsvisning men använder betydligt mer minne.",

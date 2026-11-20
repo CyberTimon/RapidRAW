@@ -2300,9 +2300,8 @@
         "statusNone": "Monitoriaus profilis nerastas. Peržiūra rodoma kaip sRGB.",
         "statusProfile": "Naudojamas {{name}}.",
         "statusSystem": "Spalvas valdo operacinė sistema.",
-        "statusUnavailable": "Spalvų valdymui reikalingas GPU atvaizdavimas.",
+        "statusUnavailable": "Spalvų valdymui reikalingas WGPU tiesioginis atvaizdavimas.",
         "wideGamut": "Plačios gamos peržiūra ({{space}}).",
-        "wideGamutHdrNote": "Nenaudojama, kol redaktorius rodo HDR.",
         "wideGamutPreview": "Plačios gamos peržiūra",
         "wideGamutPreviewDesc": "Plačios gamos monitoriuose rodo spalvas už sRGB ribų. Įjunkite, jei eksportuojate į Display P3, Adobe RGB ar kitą plačią spalvų erdvę. Išjungus matysite, kaip atrodys sRGB eksportas.",
         "wideGamutPreviewEnable": "Rodyti plačios gamos spalvas"
@@ -2365,7 +2364,7 @@
         "headroomDesc": "Kiek šviesios sritys gali viršyti įprastą baltą. Taip pat naudojama HDR eksportui.",
         "statusActive": "Šis ekranas veikia HDR režimu.",
         "statusInactive": "Šis ekranas neveikia HDR režimu. Įjunkite HDR sistemos ekrano nustatymuose, kad pamatytumėte efektą.",
-        "statusUnsupported": "HDR reikia GPU atvaizdavimo „Windows“ arba „macOS“ sistemoje."
+        "statusUnsupported": "HDR reikia WGPU tiesioginio atvaizdavimo, o „Linux“ sistemoje – ir HDR palaikančios „Wayland“ sesijos."
       },
       "highDpi": "Didelės raiškos (High-DPI) atvaizdavimas",
       "highDpiDesc": "Atvaizduoti peržiūras jūsų ekrano fizine {{dpr}}x raiška. Užtikrina ryškiausią peržiūrą, bet naudoja žymiai daugiau atminties.",

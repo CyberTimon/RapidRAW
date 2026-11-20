@@ -1121,7 +1121,7 @@ pub fn refresh_displays(
         };
         outputs.push((display, state.hdr.filter(|_| settings.hdr_display), color));
     }
-    let space = if !settings.wide_gamut_preview || outputs.iter().any(|(_, hdr, _)| hdr.is_some()) {
+    let space = if !settings.wide_gamut_preview {
         OutputColorSpace::Srgb
     } else {
         shared_space(outputs.iter().map(|(_, _, color)| color.preferred_space()))

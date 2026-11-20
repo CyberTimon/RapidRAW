@@ -2167,9 +2167,8 @@
         "statusNone": "모니터 프로파일을 찾을 수 없습니다. 미리보기는 sRGB로 표시됩니다.",
         "statusProfile": "{{name}} 사용 중.",
         "statusSystem": "색상은 운영 체제에서 관리합니다.",
-        "statusUnavailable": "색상 관리를 사용하려면 GPU 렌더러가 필요합니다.",
+        "statusUnavailable": "색상 관리를 사용하려면 WGPU 직접 렌더링이 필요합니다.",
         "wideGamut": "광색역 미리보기({{space}}).",
-        "wideGamutHdrNote": "편집기가 HDR로 표시하는 동안에는 사용되지 않습니다.",
         "wideGamutPreview": "광색역 미리보기",
         "wideGamutPreviewDesc": "광색역 모니터에서 sRGB를 넘는 색을 표시합니다. Display P3, Adobe RGB 등 넓은 색 공간으로 내보낼 때 켜세요. 끄면 sRGB로 내보낸 결과를 미리 볼 수 있습니다.",
         "wideGamutPreviewEnable": "광색역 색상 표시"
@@ -2227,7 +2226,7 @@
         "headroomDesc": "하이라이트가 일반 흰색보다 얼마나 밝아질 수 있는지 정합니다. HDR 내보내기에도 사용됩니다.",
         "statusActive": "이 디스플레이는 HDR 모드입니다.",
         "statusInactive": "이 디스플레이는 HDR 모드가 아닙니다. 효과를 보려면 시스템 디스플레이 설정에서 HDR을 켜세요.",
-        "statusUnsupported": "HDR에는 Windows 또는 macOS의 GPU 렌더러가 필요합니다."
+        "statusUnsupported": "HDR에는 WGPU 직접 렌더링이 필요하며, Linux에서는 HDR을 지원하는 Wayland 세션도 필요합니다."
       },
       "highDpi": "고해상도(High-DPI) 렌더링",
       "highDpiDesc": "화면의 네이티브 {{dpr}}배 물리적 픽셀 해상도로 미리보기를 렌더링합니다. 가능한 가장 선명한 미리보기를 제공하지만 메모리를 훨씬 많이 사용합니다.",

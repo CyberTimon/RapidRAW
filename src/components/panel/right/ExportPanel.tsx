@@ -36,8 +36,7 @@ import { Panel } from '../../../types/ui';
 import ExportPresetsList from './ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
-import { DEFAULT_HDR_HEADROOM, useDisplayStatus } from '../../../hooks/useDisplayStatus';
-import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useDisplayStatus } from '../../../hooks/useDisplayStatus';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
@@ -409,30 +408,6 @@ export default function ExportPanel({
   const filenameInputRef = useRef<HTMLInputElement>(null);
   const osPlatform = useOsPlatform();
   const displayStatus = useDisplayStatus();
-  const [hdrHeadroom, setHdrHeadroom] = useState(appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM);
-  const pendingHdrHeadroom = useRef<number | null>(null);
-  useEffect(() => {
-    if (pendingHdrHeadroom.current === null) {
-      setHdrHeadroom(appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM);
-    }
-  }, [appSettings?.hdrHeadroom]);
-  const saveHdrHeadroom = useMemo(
-    () =>
-      debounce((value: number) => {
-        const { appSettings: latest, handleSettingsChange } = useSettingsStore.getState();
-        if (latest) {
-          handleSettingsChange({ ...latest, hdrHeadroom: value });
-        }
-        pendingHdrHeadroom.current = null;
-      }, 200),
-    [],
-  );
-  useEffect(() => () => saveHdrHeadroom.flush(), [saveHdrHeadroom]);
-  const handleHdrHeadroomChange = (value: number) => {
-    pendingHdrHeadroom.current = value;
-    setHdrHeadroom(value);
-    saveHdrHeadroom(value);
-  };
   const hdrPreviewHint = !displayStatus
     ? null
     : !displayStatus.hdrActive
@@ -1245,25 +1220,8 @@ export default function ExportPanel({
                             disabled={isExporting}
                           />
                         )}
-                        {HDR_FILE_FORMATS.includes(fileFormat) && hdr && (
-                          <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
-                            <Slider
-                              defaultValue={DEFAULT_HDR_HEADROOM}
-                              label={t('settings.processing.hdr.headroom')}
-                              max={4}
-                              min={1}
-                              onChange={(e) => handleHdrHeadroomChange(Number(e.target.value))}
-                              step={0.1}
-                              value={hdrHeadroom}
-                              fillOrigin="min"
-                              suffix=" EV"
-                            />
-                            {hdrPreviewHint && (
-                              <Text variant={TextVariants.small} className="mt-1">
-                                {hdrPreviewHint}
-                              </Text>
-                            )}
-                          </div>
+                        {HDR_FILE_FORMATS.includes(fileFormat) && hdr && hdrPreviewHint && (
+                          <Text variant={TextVariants.small}>{hdrPreviewHint}</Text>
                         )}
                         {COLOR_SPACE_FILE_FORMATS.includes(fileFormat) && !(hdr && fileFormat === FileFormats.Jxl) && (
                           <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>

@@ -2169,9 +2169,8 @@
         "statusNone": "Geen monitorprofiel gevonden. De voorvertoning wordt als sRGB weergegeven.",
         "statusProfile": "Gebruikt {{name}}.",
         "statusSystem": "Kleuren worden beheerd door het besturingssysteem.",
-        "statusUnavailable": "Kleurbeheer vereist de GPU-renderer.",
+        "statusUnavailable": "Kleurbeheer vereist WGPU directe rendering.",
         "wideGamut": "Wide-gamutvoorvertoning ({{space}}).",
-        "wideGamutHdrNote": "Niet gebruikt zolang de editor HDR toont.",
         "wideGamutPreview": "Wide-gamut-voorbeeld",
         "wideGamutPreviewDesc": "Toont kleuren buiten sRGB op wide-gamut-monitoren. Zet dit aan als je exporteert in Display P3, Adobe RGB of een andere brede kleurruimte. Uitgeschakeld zie je hoe een sRGB-export eruit zal zien.",
         "wideGamutPreviewEnable": "Wide-gamut-kleuren tonen"
@@ -2229,7 +2228,7 @@
         "headroomDesc": "Hoe ver hooglichten boven normaal wit mogen uitkomen. Geldt ook voor HDR-exports.",
         "statusActive": "Dit scherm staat in HDR-modus.",
         "statusInactive": "Dit scherm staat niet in HDR-modus. Schakel HDR in bij de beeldscherminstellingen van het systeem om het effect te zien.",
-        "statusUnsupported": "HDR vereist de GPU-renderer op Windows of macOS."
+        "statusUnsupported": "HDR vereist WGPU directe rendering en op Linux een Wayland-sessie met HDR-ondersteuning."
       },
       "highDpi": "High-DPI-rendering",
       "highDpiDesc": "Voorbeelden renderen op de native {{dpr}}x fysieke pixelresolutie van uw scherm. Produceert het scherpste mogelijk voorbeeld maar gebruikt aanzienlijk meer geheugen.",

@@ -1039,8 +1039,11 @@ pub async fn get_display_status(app_handle: AppHandle) -> DisplayStatus {
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let renderer_active = settings.wgpu_renderer_enabled();
-    let hdr_supported = cfg!(any(target_os = "windows", target_os = "macos"))
-        && renderer_active
+    let hdr_supported = cfg!(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux"
+    )) && renderer_active
         && display::main_display_supports_hdr(&app_handle);
     let mut status = DisplayStatus {
         renderer_active,

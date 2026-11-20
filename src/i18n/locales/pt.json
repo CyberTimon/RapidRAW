@@ -2217,9 +2217,8 @@
         "statusNone": "Nenhum perfil de monitor encontrado. A pré-visualização é mostrada como sRGB.",
         "statusProfile": "A usar {{name}}.",
         "statusSystem": "As cores são geridas pelo sistema operativo.",
-        "statusUnavailable": "A gestão de cores requer o renderizador GPU.",
+        "statusUnavailable": "A gestão de cores requer a Renderização Direta WGPU.",
         "wideGamut": "Pré-visualização de gama ampla ({{space}}).",
-        "wideGamutHdrNote": "Não é usado enquanto o editor mostra HDR.",
         "wideGamutPreview": "Pré-visualização de gama ampla",
         "wideGamutPreviewDesc": "Mostra cores além do sRGB em monitores de gama ampla. Ative ao exportar em Display P3, Adobe RGB ou outro espaço de cor amplo. Desativado, vê como ficará uma exportação sRGB.",
         "wideGamutPreviewEnable": "Mostrar cores de gama ampla"
@@ -2277,7 +2276,7 @@
         "headroomDesc": "Até onde os realces podem ultrapassar o branco normal. Também é usada nas exportações HDR.",
         "statusActive": "Esta tela está em modo HDR.",
         "statusInactive": "Esta tela não está em modo HDR. Ative o HDR nas configurações de tela do sistema para ver o efeito.",
-        "statusUnsupported": "O HDR requer o renderizador por GPU no Windows ou macOS."
+        "statusUnsupported": "O HDR requer a Renderização Direta WGPU e, no Linux, uma sessão Wayland com suporte a HDR."
       },
       "highDpi": "Renderização de Alto DPI",
       "highDpiDesc": "Renderizar visualizações na resolução de pixel físico nativa {{dpr}}x da tela. Produz a visualização mais nítida possível, mas usa significativamente mais memória.",

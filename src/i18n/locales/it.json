@@ -2217,9 +2217,8 @@
         "statusNone": "Nessun profilo del monitor trovato. L'anteprima viene mostrata come sRGB.",
         "statusProfile": "In uso: {{name}}.",
         "statusSystem": "I colori sono gestiti dal sistema operativo.",
-        "statusUnavailable": "La gestione del colore richiede il renderer GPU.",
+        "statusUnavailable": "La gestione del colore richiede il Direct Rendering WGPU.",
         "wideGamut": "Anteprima ad ampio gamut ({{space}}).",
-        "wideGamutHdrNote": "Non usata mentre l'editor mostra l'HDR.",
         "wideGamutPreview": "Anteprima gamut esteso",
         "wideGamutPreviewDesc": "Mostra i colori oltre sRGB sui monitor a gamut esteso. Attivala se esporti in Display P3, Adobe RGB o un altro spazio colore ampio. Disattivata, vedi l'aspetto di un'esportazione sRGB.",
         "wideGamutPreviewEnable": "Mostra colori a gamut esteso"
@@ -2277,7 +2276,7 @@
         "headroomDesc": "Quanto le luci possono superare il bianco normale. Usato anche per le esportazioni HDR.",
         "statusActive": "Questo schermo è in modalità HDR.",
         "statusInactive": "Questo schermo non è in modalità HDR. Attiva HDR nelle impostazioni dello schermo del sistema per vedere l'effetto.",
-        "statusUnsupported": "HDR richiede il renderer GPU su Windows o macOS."
+        "statusUnsupported": "HDR richiede il Direct Rendering WGPU e, su Linux, una sessione Wayland con supporto HDR."
       },
       "highDpi": "Rendering High-DPI",
       "highDpiDesc": "Renderizza le anteprime alla risoluzione nativa in pixel fisici {{dpr}}x del tuo schermo. Produce l'anteprima più nitida possibile ma utilizza molta più memoria.",

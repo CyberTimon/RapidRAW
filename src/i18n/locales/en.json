@@ -2173,9 +2173,8 @@
         "statusNone": "No monitor profile found. The preview is shown as sRGB.",
         "statusProfile": "Using {{name}}.",
         "statusSystem": "Colors are managed by the operating system.",
-        "statusUnavailable": "Color management needs the GPU renderer.",
+        "statusUnavailable": "Color management needs WGPU Direct Rendering.",
         "wideGamut": "Wide gamut preview ({{space}}).",
-        "wideGamutHdrNote": "Not used while the editor shows HDR.",
         "wideGamutPreview": "Wide Gamut Preview",
         "wideGamutPreviewDesc": "Shows colors beyond sRGB on wide gamut monitors. Turn this on when you export in Display P3, Adobe RGB or another wide color space. Leave it off to see what an sRGB export will look like.",
         "wideGamutPreviewEnable": "Show wide gamut colors"
@@ -2233,7 +2232,7 @@
         "headroomDesc": "How far highlights may rise above normal white. Also used for HDR exports.",
         "statusActive": "This display is in HDR mode.",
         "statusInactive": "This display is not in HDR mode. Turn on HDR in the system display settings to see the effect.",
-        "statusUnsupported": "HDR needs the GPU renderer on Windows or macOS."
+        "statusUnsupported": "HDR needs WGPU Direct Rendering, and on Linux a Wayland session with HDR support."
       },
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Render previews at your screen's native {{dpr}}x physical pixel resolution. Produces the sharpest possible preview but uses significantly more memory.",

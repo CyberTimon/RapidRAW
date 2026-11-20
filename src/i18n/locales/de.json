@@ -2173,9 +2173,8 @@
         "statusNone": "Kein Monitorprofil gefunden. Die Vorschau wird als sRGB angezeigt.",
         "statusProfile": "Verwendet {{name}}.",
         "statusSystem": "Die Farben werden vom Betriebssystem verwaltet.",
-        "statusUnavailable": "Farbmanagement benötigt den GPU-Renderer.",
+        "statusUnavailable": "Farbmanagement benötigt WGPU Direkt-Rendering.",
         "wideGamut": "Wide-Gamut-Vorschau ({{space}}).",
-        "wideGamutHdrNote": "Nicht aktiv, solange der Editor HDR anzeigt.",
         "wideGamutPreview": "Wide-Gamut-Vorschau",
         "wideGamutPreviewDesc": "Zeigt auf Wide-Gamut-Monitoren Farben jenseits von sRGB. Aktiviere dies, wenn du in Display P3, Adobe RGB oder einem anderen großen Farbraum exportierst. Deaktiviert siehst du, wie ein sRGB-Export aussehen wird.",
         "wideGamutPreviewEnable": "Wide-Gamut-Farben anzeigen"
@@ -2233,7 +2232,7 @@
         "headroomDesc": "Wie weit Lichter über normales Weiß hinausgehen dürfen. Gilt auch für HDR-Exporte.",
         "statusActive": "Dieser Bildschirm ist im HDR-Modus.",
         "statusInactive": "Dieser Bildschirm ist nicht im HDR-Modus. Aktiviere HDR in den Anzeigeeinstellungen des Systems, um den Effekt zu sehen.",
-        "statusUnsupported": "HDR benötigt den GPU-Renderer unter Windows oder macOS."
+        "statusUnsupported": "HDR benötigt WGPU Direkt-Rendering und unter Linux eine Wayland-Sitzung mit HDR-Unterstützung."
       },
       "highDpi": "High-DPI Rendering",
       "highDpiDesc": "Rendern Sie Vorschauen in der nativen {{dpr}}x Auflösung Ihres Bildschirms. Erzeugt die schärfste Vorschau, verbraucht aber mehr Speicher.",

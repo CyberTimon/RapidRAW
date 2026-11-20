@@ -718,7 +718,6 @@ export default function SettingsPanel({
         return appSettings?.displayIccProfile ? t('settings.processing.colorManagement.statusInvalid') : null;
     }
   }, [displayStatus, displayColorMode, appSettings?.displayIccProfile, t]);
-  const hdrPreviewActive = Boolean(appSettings?.hdrDisplay && displayStatus?.hdrActive);
   const pickDisplayProfile = async () => {
     const selected = await openDialog({
       multiple: false,
@@ -2480,11 +2479,9 @@ export default function SettingsPanel({
                         <SettingItem
                           label={t('settings.processing.colorManagement.wideGamutPreview')}
                           description={t('settings.processing.colorManagement.wideGamutPreviewDesc')}
-                          status={hdrPreviewActive ? t('settings.processing.colorManagement.wideGamutHdrNote') : null}
                         >
                           <Switch
                             checked={appSettings?.wideGamutPreview ?? false}
-                            disabled={hdrPreviewActive}
                             id="wide-gamut-preview-toggle"
                             label={t('settings.processing.colorManagement.wideGamutPreviewEnable')}
                             onChange={(checked) => onSettingsChange({ ...appSettings, wideGamutPreview: checked })}

@@ -2217,9 +2217,8 @@
         "statusNone": "No s'ha trobat cap perfil de monitor. La previsualització es mostra com a sRGB.",
         "statusProfile": "S'està utilitzant {{name}}.",
         "statusSystem": "El sistema operatiu gestiona els colors.",
-        "statusUnavailable": "La gestió del color necessita el renderitzador GPU.",
+        "statusUnavailable": "La gestió del color necessita la Renderització directa WGPU.",
         "wideGamut": "Previsualització de gamma àmplia ({{space}}).",
-        "wideGamutHdrNote": "No s'utilitza mentre l'editor mostra HDR.",
         "wideGamutPreview": "Previsualització de gamma àmplia",
         "wideGamutPreviewDesc": "Mostra colors més enllà de sRGB en monitors de gamma àmplia. Activa-ho si exportes en Display P3, Adobe RGB o un altre espai de color ampli. Desactivat, veus com quedarà una exportació sRGB.",
         "wideGamutPreviewEnable": "Mostra colors de gamma àmplia"
@@ -2277,7 +2276,7 @@
         "headroomDesc": "Fins on poden superar les altes llums el blanc normal. També s'utilitza en les exportacions HDR.",
         "statusActive": "Aquesta pantalla està en mode HDR.",
         "statusInactive": "Aquesta pantalla no està en mode HDR. Activa l'HDR a la configuració de pantalla del sistema per veure l'efecte.",
-        "statusUnsupported": "L'HDR necessita el renderitzador per GPU a Windows o macOS."
+        "statusUnsupported": "L'HDR necessita la Renderització directa WGPU i, a Linux, una sessió Wayland amb suport HDR."
       },
       "highDpi": "Renderització High-DPI",
       "highDpiDesc": "Renderitzar vistes prèvies a la resolució nativa de {{dpr}}x píxels de la pantalla. Produeix la vista prèvia més nítida possible, però utilitza molta més memòria.",

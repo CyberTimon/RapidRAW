@@ -2261,9 +2261,8 @@
         "statusNone": "Profil monitoru nebyl nalezen. Náhled se zobrazuje jako sRGB.",
         "statusProfile": "Používá se {{name}}.",
         "statusSystem": "Barvy spravuje operační systém.",
-        "statusUnavailable": "Správa barev vyžaduje GPU renderer.",
+        "statusUnavailable": "Správa barev vyžaduje Přímé vykreslování WGPU.",
         "wideGamut": "Náhled v širokém gamutu ({{space}}).",
-        "wideGamutHdrNote": "Nepoužívá se, dokud editor zobrazuje HDR.",
         "wideGamutPreview": "Náhled širokého gamutu",
         "wideGamutPreviewDesc": "Na monitorech se širokým gamutem zobrazí barvy mimo sRGB. Zapněte, pokud exportujete do Display P3, Adobe RGB nebo jiného širokého barevného prostoru. Vypnuté ukazuje, jak bude vypadat export do sRGB.",
         "wideGamutPreviewEnable": "Zobrazit barvy širokého gamutu"
@@ -2321,7 +2320,7 @@
         "headroomDesc": "Jak daleko mohou světla přesáhnout běžnou bílou. Platí také pro HDR exporty.",
         "statusActive": "Tento displej je v režimu HDR.",
         "statusInactive": "Tento displej není v režimu HDR. Zapněte HDR v nastavení zobrazení systému, abyste efekt viděli.",
-        "statusUnsupported": "HDR vyžaduje GPU renderer ve Windows nebo macOS."
+        "statusUnsupported": "HDR vyžaduje Přímé vykreslování WGPU a v Linuxu relaci Wayland s podporou HDR."
       },
       "highDpi": "High-DPI rendering",
       "highDpiDesc": "Vykreslovat náhledy v nativním {{dpr}}x fyzickém rozlišení pixelů obrazovky. Poskytuje nejostřejší možný náhled, ale spotřebovává výrazně více paměti.",

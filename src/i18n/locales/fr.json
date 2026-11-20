@@ -2218,9 +2218,8 @@
         "statusNone": "Aucun profil de moniteur trouvé. L'aperçu est affiché en sRGB.",
         "statusProfile": "Utilise {{name}}.",
         "statusSystem": "Les couleurs sont gérées par le système d'exploitation.",
-        "statusUnavailable": "La gestion des couleurs nécessite le moteur de rendu GPU.",
+        "statusUnavailable": "La gestion des couleurs nécessite le Rendu Direct WGPU.",
         "wideGamut": "Aperçu à gamut étendu ({{space}}).",
-        "wideGamutHdrNote": "Inactif tant que l'éditeur affiche en HDR.",
         "wideGamutPreview": "Aperçu gamut étendu",
         "wideGamutPreviewDesc": "Affiche les couleurs au-delà de sRGB sur les moniteurs à gamut étendu. Activez cette option si vous exportez en Display P3, Adobe RGB ou un autre espace colorimétrique étendu. Désactivée, l'aperçu montre le rendu d'un export sRGB.",
         "wideGamutPreviewEnable": "Afficher les couleurs à gamut étendu"
@@ -2278,7 +2277,7 @@
         "headroomDesc": "Jusqu'où les hautes lumières peuvent dépasser le blanc normal. Également utilisé pour les exports HDR.",
         "statusActive": "Cet écran est en mode HDR.",
         "statusInactive": "Cet écran n'est pas en mode HDR. Activez le HDR dans les réglages d'affichage du système pour voir l'effet.",
-        "statusUnsupported": "Le HDR nécessite le moteur de rendu GPU sous Windows ou macOS."
+        "statusUnsupported": "Le HDR nécessite le Rendu Direct WGPU et, sous Linux, une session Wayland compatible HDR."
       },
       "highDpi": "Rendu haute résolution (DPI)",
       "highDpiDesc": "Rendez les aperçus à la résolution native de {{dpr}}x pixels physiques de votre écran. Produit l'aperçu le plus net possible mais utilise beaucoup plus de mémoire.",
