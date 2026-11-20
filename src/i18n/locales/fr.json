@@ -176,6 +176,7 @@
       "threshold": "Seuil"
     },
     "effects": {
+      "chromaticAberration": "Aberration chromatique",
       "amount": "Intensité",
       "bokehCircular": "Circulaire",
       "bokehHexagonal": "Hexagonal",

@@ -506,6 +506,20 @@ function EffectsPanel({
               onDragStateChange={onDragStateChange}
             />
           )}
+
+          <Slider
+            label={t('adjustments.effects.chromaticAberration')}
+            max={100}
+            min={0}
+            defaultValue={0}
+            onChange={(e: SliderChangeEvent) =>
+              handleAdjustmentChange(CreativeAdjustment.ChromaticAberrationAmount, e.target.value)
+            }
+            step={1}
+            value={adjustments.chromaticAberrationAmount ?? 0}
+            onDragStateChange={onDragStateChange}
+            fillOrigin="min"
+          />
         </AdjustmentSubSection>
       )}
 

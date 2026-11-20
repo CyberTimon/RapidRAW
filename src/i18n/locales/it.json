@@ -176,6 +176,7 @@
       "threshold": "Soglia"
     },
     "effects": {
+      "chromaticAberration": "Aberrazione Cromatica",
       "amount": "Quantità",
       "bokehCircular": "Circolare",
       "bokehHexagonal": "Esagonale",

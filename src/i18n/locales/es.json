@@ -176,6 +176,7 @@
       "threshold": "Umbral"
     },
     "effects": {
+      "chromaticAberration": "Aberración cromática",
       "amount": "Cantidad",
       "bokehCircular": "Circular",
       "bokehHexagonal": "Hexagonal",

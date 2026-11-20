@@ -181,6 +181,7 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "vignetteRoundness",
         "vignetteCenterX",
         "vignetteCenterY",
+        "chromaticAberrationAmount",
         "grainAmount",
         "grainRoughness",
         "grainSize",

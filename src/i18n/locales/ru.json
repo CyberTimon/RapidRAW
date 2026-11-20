@@ -176,6 +176,7 @@
       "threshold": "Порог"
     },
     "effects": {
+      "chromaticAberration": "Хроматическая аберрация",
       "amount": "Величина",
       "bokehCircular": "Круглая",
       "bokehHexagonal": "Шестиугольная",

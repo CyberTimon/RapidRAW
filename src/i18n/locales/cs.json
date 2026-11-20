@@ -176,6 +176,7 @@
       "threshold": "Práh"
     },
     "effects": {
+      "chromaticAberration": "Chromatická aberace",
       "amount": "Množství",
       "bokehCircular": "Kruhový",
       "bokehHexagonal": "Šestiúhelníkový",

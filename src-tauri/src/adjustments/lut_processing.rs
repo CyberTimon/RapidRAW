@@ -758,6 +758,7 @@ pub fn export_adjustments_as_lut(
     all_adjustments.global.show_clipping = 0;
     all_adjustments.global.vignette_amount = 0.0;
     all_adjustments.global.grain_amount = 0.0;
+    all_adjustments.global.chromatic_aberration_amount = 0.0;
     all_adjustments.global.grain_softness = 0.0;
     all_adjustments.global.sharpness = 0.0;
     all_adjustments.global.clarity = 0.0;

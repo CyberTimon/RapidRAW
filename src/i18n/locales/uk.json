@@ -176,6 +176,7 @@
       "threshold": "Поріг"
     },
     "effects": {
+      "chromaticAberration": "Хроматична аберація",
       "amount": "Величина",
       "bokehCircular": "Кругла",
       "bokehHexagonal": "Шестикутна",

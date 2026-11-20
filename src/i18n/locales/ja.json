@@ -176,6 +176,7 @@
       "threshold": "しきい値"
     },
     "effects": {
+      "chromaticAberration": "色収差",
       "amount": "適用量",
       "bokehCircular": "円形",
       "bokehHexagonal": "六角形",

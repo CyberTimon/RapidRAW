@@ -176,6 +176,7 @@
       "threshold": "Schwellenwert"
     },
     "effects": {
+      "chromaticAberration": "Chromatische Aberration",
       "amount": "Stärke",
       "bokehCircular": "Kreisförmig",
       "bokehHexagonal": "Sechseckig",

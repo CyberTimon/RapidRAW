@@ -190,6 +190,7 @@
   "flipVertical": false,
   "flareAmount": 0,
   "glowAmount": 0,
+  "chromaticAberrationAmount": 0,
   "grainAmount": 0,
   "grainRoughness": 50,
   "grainSize": 25,

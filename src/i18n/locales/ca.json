@@ -176,6 +176,7 @@
       "threshold": "Llindar"
     },
     "effects": {
+      "chromaticAberration": "Aberració cromàtica",
       "amount": "Quantitat",
       "bokehCircular": "Circular",
       "bokehHexagonal": "Hexagonal",
