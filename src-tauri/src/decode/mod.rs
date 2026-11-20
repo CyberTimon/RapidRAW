@@ -5,6 +5,10 @@ pub mod demosaic;
 pub mod develop;
 pub mod formats;
 pub mod gpu_fallback;
+pub mod heif_avif;
+pub mod heif_parser;
+#[cfg(target_os = "windows")]
+pub mod heif_wic;
 pub mod image_loader;
 pub mod image_preload;
 pub mod multi_exposure;
