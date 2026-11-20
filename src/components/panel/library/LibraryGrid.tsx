@@ -7,7 +7,7 @@ import { Row } from './LibraryItems';
 import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { LibraryViewMode, LibraryDisplayMode, ThumbnailAspectRatio, ExifOverlay } from '../../../types/settings';
-import { SortDirection, ImageFile } from '../../../types/library';
+import { SortDirection, ImageFile, LibraryGridRow } from '../../../types/library';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
 import { useSettingsStore } from '../../../store/useSettingsStore';
@@ -459,26 +459,45 @@ export default function LibraryGrid(props: any) {
     [gridData],
   );
 
+  const getItemSize = useCallback(
+    (index: number) => {
+      if (!gridData) return 0;
+      const row = gridData.rows[index];
+      if (!row) return 0;
+      if (row.type === 'footer') return gridData.isListView ? 24 : gridData.OUTER_PADDING;
+      if (row.type === 'header') return gridData.headerHeight;
+      return gridData.isListView ? gridData.listRowHeight : (row.rowHeight || gridData.itemWidth) + gridData.ITEM_GAP;
+    },
+    [gridData],
+  );
+
   useEffect(() => {
     if (!gridData) {
-      setLibrary({ libraryGridRows: [] });
+      setLibrary({ libraryGridRows: [], libraryViewportHeight: 0 });
       return;
     }
-    const navRows = gridData.rows
-      .filter((row) => row.type === 'images')
-      .map((row) => {
+    let top = 0;
+    const navRows: LibraryGridRow[] = [];
+    gridData.rows.forEach((row, index) => {
+      if (row.type === 'images') {
         let x = 0;
-        return row.images.map((image: ImageFile, i: number) => {
+        const items = row.images.map((image: ImageFile, i: number) => {
           const width = row.justifiedWidths ? row.justifiedWidths[i] : gridData.itemWidth;
           const center = x + width / 2;
           x += width + gridData.ITEM_GAP;
           return { path: image.path, center };
         });
-      });
-    setLibrary({ libraryGridRows: navRows });
-  }, [gridData, setLibrary]);
+        navRows.push({ top, items });
+      }
+      top += getItemSize(index);
+    });
+    setLibrary({
+      libraryGridRows: navRows,
+      libraryViewportHeight: listHandle?.element?.clientHeight ?? 0,
+    });
+  }, [gridData, getItemSize, gridSize.height, listHandle, setLibrary]);
 
-  useEffect(() => () => setLibrary({ libraryGridRows: [] }), [setLibrary]);
+  useEffect(() => () => setLibrary({ libraryGridRows: [], libraryViewportHeight: 0 }), [setLibrary]);
 
   const handleImageClick = useCallback(
     (path: string, e: any) => {
@@ -502,18 +521,6 @@ export default function LibraryGrid(props: any) {
       element.scrollTop = savedTop;
     }
   }, [listHandle, currentFolderPath]);
-
-  const getItemSize = useCallback(
-    (index: number) => {
-      if (!gridData) return 0;
-      const row = gridData.rows[index];
-      if (!row) return 0;
-      if (row.type === 'footer') return gridData.isListView ? 24 : gridData.OUTER_PADDING;
-      if (row.type === 'header') return gridData.headerHeight;
-      return gridData.isListView ? gridData.listRowHeight : (row.rowHeight || gridData.itemWidth) + gridData.ITEM_GAP;
-    },
-    [gridData],
-  );
 
   const prevActivePath = useRef<string | null>(null);
   const prevDisplayMode = useRef<LibraryDisplayMode | null>(null);
