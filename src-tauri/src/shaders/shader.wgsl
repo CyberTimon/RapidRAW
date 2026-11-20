@@ -101,7 +101,7 @@ struct GlobalAdjustments {
     wb_rgb_to_lms_matrix: mat3x3<f32>,
     wb_lms_to_rgb_matrix: mat3x3<f32>,
 
-    _pad_cg1: f32,
+    source_peak: f32,
     _pad_cg2: f32,
     _pad_cg3: f32,
     _pad_cg4: f32,
@@ -1741,6 +1741,18 @@ fn hdr_soft_clip(v: vec3<f32>, peak: f32) -> vec3<f32> {
     return select(start + span * (1.0 - exp((start - v) / span)), v, v <= vec3<f32>(start));
 }
 
+fn sdr_rolloff(c: vec3<f32>, peak: f32) -> vec3<f32> {
+    let brightest = max(c.r, max(c.g, c.b));
+    if (peak <= 1.0 || brightest <= SDR_ROLLOFF_KNEE) {
+        return c;
+    }
+    let span = 1.0 - SDR_ROLLOFF_KNEE;
+    let t = (brightest - SDR_ROLLOFF_KNEE) / span;
+    let t_peak = max((peak - SDR_ROLLOFF_KNEE) / span, 1.0);
+    let mapped = min(SDR_ROLLOFF_KNEE + span * t * (1.0 + t / (t_peak * t_peak)) / (1.0 + t), 1.0);
+    return c * (mapped / brightest);
+}
+
 fn display_encode(linear: vec3<f32>) -> vec3<f32> {
     return linear_to_srgb_extended(min(linear, vec3<f32>(adjustments.global.hdr_headroom)));
 }
@@ -1792,7 +1804,7 @@ fn display_transform(c: vec3<f32>) -> vec3<f32> {
         return select(linear_to_srgb_extended(extended), display, c <= vec3<f32>(BASIC_HDR_KNEE_SCENE));
     }
     if (headroom <= 1.0) {
-        return linear_to_srgb(c);
+        return linear_to_srgb(sdr_rolloff(c, adjustments.global.source_peak));
     }
     return linear_to_srgb_extended(hdr_soft_clip(c, headroom));
 }

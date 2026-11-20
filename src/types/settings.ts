@@ -155,6 +155,7 @@ export interface AppSettings {
   baselineExposure?: number;
   compensateHighlightPreservation?: boolean;
   hdrDisplay?: boolean;
+  gainMapMode?: 'auto' | 'always' | 'never';
   hdrHeadroom?: number;
   displayColorMode?: 'auto' | 'off' | 'custom';
   displayIccProfile?: string | null;

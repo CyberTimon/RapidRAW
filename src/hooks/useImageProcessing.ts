@@ -109,14 +109,22 @@ export function useImageProcessing(
       if (view === 'off' || !image?.isReady || ui.activeView !== 'editor' || ui.activePanel === Panel.Crop) return;
 
       const originalAdjustments = getOriginalAdjustments(currentAdjustments);
-      const { useWgpuRenderer, hdrDisplay, hdrHeadroom, displayColorMode, displayIccProfile, wideGamutPreview } =
-        useSettingsStore.getState().appSettings ?? {};
+      const {
+        useWgpuRenderer,
+        hdrDisplay,
+        hdrHeadroom,
+        gainMapMode,
+        displayColorMode,
+        displayIccProfile,
+        wideGamutPreview,
+      } = useSettingsStore.getState().appSettings ?? {};
       const key = JSON.stringify([
         image.path,
         targetRes,
         useWgpuRenderer,
         hdrDisplay,
         hdrHeadroom,
+        gainMapMode,
         displayColorMode,
         displayIccProfile,
         wideGamutPreview,
@@ -560,6 +568,7 @@ export function useImageProcessing(
     appSettings?.compensateHighlightPreservation,
     appSettings?.hdrDisplay,
     appSettings?.hdrHeadroom,
+    appSettings?.gainMapMode,
     appSettings?.displayColorMode,
     appSettings?.displayIccProfile,
     appSettings?.wideGamutPreview,

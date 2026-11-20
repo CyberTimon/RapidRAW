@@ -87,6 +87,15 @@ pub struct CustomAspectRatio {
     pub height: f64,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
+pub enum GainMapMode {
+    #[default]
+    Auto,
+    Always,
+    Never,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum EditInMode {
@@ -728,6 +737,8 @@ pub struct AppSettings {
     pub compensate_highlight_preservation: bool,
     #[serde(default)]
     pub hdr_display: bool,
+    #[serde(default)]
+    pub gain_map_mode: GainMapMode,
     #[serde(default = "default_hdr_headroom")]
     pub hdr_headroom: f32,
     #[serde(default)]
@@ -826,6 +837,14 @@ pub fn apply_saved_ui_scale(window: &tauri::WebviewWindow, settings: &AppSetting
 }
 
 impl AppSettings {
+    pub fn decode_gain_maps(&self) -> bool {
+        match self.gain_map_mode {
+            GainMapMode::Auto => self.hdr_display,
+            GainMapMode::Always => true,
+            GainMapMode::Never => false,
+        }
+    }
+
     pub fn wgpu_renderer_enabled(&self) -> bool {
         cfg!(not(target_os = "android"))
             && wgpu_renderer_available()
@@ -949,6 +968,7 @@ impl Default for AppSettings {
             baseline_exposure: default_baseline_exposure(),
             compensate_highlight_preservation: default_compensate_highlight_preservation(),
             hdr_display: false,
+            gain_map_mode: GainMapMode::default(),
             hdr_headroom: default_hdr_headroom(),
             display_color_mode: DisplayColorMode::default(),
             display_icc_profile: None,
@@ -1090,6 +1110,7 @@ pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
     if !wgpu_renderer_available() {
         settings.use_wgpu_renderer = Some(false);
     }
+    crate::decode::hdr_source::set_gain_maps_enabled(settings.decode_gain_maps());
     Ok(settings)
 }
 
@@ -1190,9 +1211,13 @@ pub fn set_ui_scale(scale: f64, app_handle: AppHandle) {
 
 #[tauri::command]
 pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result<(), String> {
-    let previous_gpu_acceleration = load_settings(app_handle.clone())
-        .map(|previous| previous.ai_gpu_acceleration)
-        .ok();
+    let previous = load_settings(app_handle.clone()).ok();
+    let previous_gpu_acceleration = previous
+        .as_ref()
+        .map(|previous| previous.ai_gpu_acceleration);
+    let gain_maps_changed = previous
+        .as_ref()
+        .is_some_and(|previous| previous.decode_gain_maps() != settings.decode_gain_maps());
     if !wgpu_renderer_available()
         && let Some(stored) = settings_cache().as_ref()
     {
@@ -1203,6 +1228,22 @@ pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result
     crate::library::file_ops::write_file_atomic(&path, json_string.as_bytes())
         .map_err(|e| e.to_string())?;
     *settings_cache() = None;
+    crate::decode::hdr_source::set_gain_maps_enabled(settings.decode_gain_maps());
+    if gain_maps_changed {
+        let app_handle = app_handle.clone();
+        let settings = settings.clone();
+        std::thread::spawn(move || {
+            let state = app_handle.state::<AppState>();
+            let loaded = state
+                .original_image
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone();
+            if let Some(loaded) = loaded {
+                crate::decode::image_loader::refresh_gain_map_decode(&state, loaded, &settings);
+            }
+        });
+    }
     crate::integrations::immich::apply_settings(&settings.immich);
     crate::render::gpu::display::invalidate_displays();
 

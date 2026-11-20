@@ -166,6 +166,8 @@ pub struct LoadedImage {
     pub image: Arc<DynamicImage>,
     pub is_raw: bool,
     pub as_shot: AsShot,
+    pub has_gain_map: bool,
+    pub gain_maps: bool,
 }
 
 #[derive(Clone)]
@@ -200,6 +202,7 @@ pub struct CachedPreview {
     pub preview: PreviewSource,
     pub transform_hash: u64,
     pub preview_dim: u32,
+    pub source: usize,
 }
 
 #[derive(Default)]

@@ -573,6 +573,7 @@ pub fn read_as_shot(file_bytes: &[u8]) -> Option<AsShot> {
             file_bytes,
             is_monochrome,
         ),
+        source_peak: 1.0,
     })
 }
 

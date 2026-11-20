@@ -512,6 +512,7 @@ impl DecodeFingerprint {
             .hash(&mut hasher);
         settings.apply_preprocessing_to_non_raws.hash(&mut hasher);
         settings.use_apple_raw9.hash(&mut hasher);
+        settings.decode_gain_maps().hash(&mut hasher);
         Some(Self {
             len: metadata.len(),
             modified: metadata.modified().ok(),

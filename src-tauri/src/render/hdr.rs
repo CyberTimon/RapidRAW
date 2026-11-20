@@ -7,6 +7,7 @@ pub const REFERENCE_WHITE_NITS: f32 = 203.0;
 const BASIC_BRIGHTNESS_GAMMA: f32 = 1.1;
 const BASIC_CONTRAST_MIX: f32 = 0.75;
 const SOFT_CLIP_START: f32 = 0.75;
+pub const SDR_ROLLOFF_KNEE: f32 = 0.8;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Headroom(f32);
@@ -86,6 +87,7 @@ pub fn shader_constants() -> String {
         ("BASIC_HDR_KNEE_SCENE", knee.scene),
         ("BASIC_HDR_KNEE_LINEAR", knee.display),
         ("HDR_SOFT_CLIP_START", SOFT_CLIP_START),
+        ("SDR_ROLLOFF_KNEE", SDR_ROLLOFF_KNEE),
     ]
     .iter()
     .map(|(name, value)| format!("const {}: f32 = {:?};\n", name, value))

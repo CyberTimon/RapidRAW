@@ -604,6 +604,11 @@ fn generate_thumbnail_data_with_metadata(
             crate::render::image_processing::apply_cpu_agx_tonemap(&mut owned_image);
         } else if is_raw {
             apply_cpu_default_raw_processing(&mut owned_image);
+        } else {
+            crate::decode::hdr_source::roll_off_encoded(
+                &mut owned_image,
+                as_shot(&source_path_str).source_peak,
+            );
         }
     }
     crate::render::image_processing::apply_working_display_to_srgb(&mut owned_image, is_raw);

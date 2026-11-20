@@ -49,6 +49,8 @@ fn process_preview_job(
     drop(loaded_image_guard);
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let loaded_image =
+        crate::decode::image_loader::refresh_gain_map_decode(&state, loaded_image, &settings);
     let is_raw = loaded_image.is_raw;
     let use_wgpu_renderer = settings.wgpu_renderer_enabled();
     let render = if use_wgpu_renderer {
@@ -106,10 +108,11 @@ fn process_preview_job(
         .lock()
         .unwrap_or_else(|e| e.into_inner());
 
-    let preview = match cached_preview_lock
-        .as_ref()
-        .filter(|c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim)
-    {
+    let preview = match cached_preview_lock.as_ref().filter(|c| {
+        c.transform_hash == new_transform_hash
+            && c.preview_dim == preview_dim
+            && c.source == Arc::as_ptr(&loaded_image.image) as usize
+    }) {
         Some(cached) => cached.preview.clone(),
         None => {
             if let Some(cache) = state
@@ -131,6 +134,7 @@ fn process_preview_job(
                 preview: preview.clone(),
                 transform_hash: new_transform_hash,
                 preview_dim,
+                source: Arc::as_ptr(&loaded_image.image) as usize,
             });
             preview
         }

@@ -703,6 +703,14 @@ export default function SettingsPanel({
     ],
     [t],
   );
+  const gainMapOptions = useMemo<OptionItem<string>[]>(
+    () => [
+      { value: 'auto', label: t('settings.processing.hdr.gainMapsAuto') },
+      { value: 'always', label: t('settings.processing.hdr.gainMapsAlways') },
+      { value: 'never', label: t('settings.processing.hdr.gainMapsNever') },
+    ],
+    [t],
+  );
   const previewGamutOptions = useMemo<OptionItem<string>[]>(() => {
     const space = displayStatus && PREVIEW_SPACE_NAMES[displayStatus.previewSpace];
     return [
@@ -2301,6 +2309,24 @@ export default function SettingsPanel({
                           id="hdr-display-toggle"
                           label={t('settings.processing.hdr.enableDisplay')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, hdrDisplay: checked })}
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        label={t('settings.processing.hdr.gainMaps')}
+                        description={t('settings.processing.hdr.gainMapsDesc')}
+                      >
+                        <Dropdown
+                          onChange={async (value: string) => {
+                            await onSettingsChange({
+                              ...appSettings,
+                              gainMapMode: value as 'auto' | 'always' | 'never',
+                            });
+                            await invoke('clear_image_caches');
+                          }}
+                          options={gainMapOptions}
+                          value={appSettings?.gainMapMode ?? 'auto'}
+                          triggerClassName="bg-bg-primary"
                         />
                       </SettingItem>
 

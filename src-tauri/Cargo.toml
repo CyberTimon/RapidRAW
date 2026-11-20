@@ -66,8 +66,11 @@ quick-xml = { version = "0.41", features = ["serialize"] }
 fuzzy-matcher = "0.3.7"
 mozjpeg-rs = "0.9.2"
 webp = "0.3"
-jxl-oxide = { version = "0.12.6", features = ["image"] }
-jxl-encoder = "0.3.1"
+jxl = "0.8.0"
+zenavif = { version = "0.1.6", default-features = false }
+zenpixels = "0.2.16"
+jxl-image-rs-integration = "0.8.0"
+jxl-encoder = "0.3.4"
 filetime = "0.2"
 libc = "0.2.189"
 rgb = "0.8.53"

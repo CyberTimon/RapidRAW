@@ -353,7 +353,7 @@ pub fn run() {
                 );
             }
 
-            jxl_oxide::integration::register_image_decoding_hook();
+            jxl_image_rs_integration::register_image_decoding_hook();
 
             match launch_req {
                 LaunchRequest::HeadlessExport(session) => {
