@@ -740,7 +740,7 @@ export const useKeyboardShortcuts = ({
         state.ui.isImportModalOpen ||
         state.ui.isCopyPasteSettingsModalOpen ||
         state.ui.confirmModalState.isOpen ||
-        state.ui.panoramaModalState.isOpen ||
+        state.ui.mergeModalState.isOpen ||
         state.ui.cullingModalState.isOpen ||
         state.ui.collageModalState.isOpen;
 

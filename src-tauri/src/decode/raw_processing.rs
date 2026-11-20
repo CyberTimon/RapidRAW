@@ -15,7 +15,7 @@ use rawler::{
         xyz::{FlatColorMatrix, Illuminant},
     },
     pixarray::Color2D,
-    rawimage::{RawImage, RawPhotometricInterpretation},
+    rawimage::{RawImage, RawImageData, RawPhotometricInterpretation},
     rawsource::RawSource,
 };
 use rayon::prelude::*;
@@ -276,6 +276,7 @@ pub fn develop_raw_image(
     let orientation = metadata_orientation(decoder.as_ref(), &source)?;
 
     let is_linear_format = is_linear_raw_format(&raw_image);
+    let is_floating_point = matches!(raw_image.data, RawImageData::Float(_));
 
     let (apply_ungamma, apply_calibration) = match linear_mode.as_str() {
         "gamma" => (true, true),
@@ -445,7 +446,11 @@ pub fn develop_raw_image(
                     b = srgb_to_linear(b.max(0.0));
                 }
 
-                let (rec_r, rec_g, rec_b) = recover_clipped_pixel(r, g, b);
+                let (rec_r, rec_g, rec_b) = if is_floating_point {
+                    (r, g, b)
+                } else {
+                    recover_clipped_pixel(r, g, b)
+                };
                 let recovered = Vec3::new(rec_r, rec_g, rec_b);
                 let rgb = uncalibrated_to_working.map_or(recovered, |matrix| matrix * recovered);
 

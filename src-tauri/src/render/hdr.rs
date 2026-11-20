@@ -69,7 +69,7 @@ pub fn scene_linear_knee(curve: impl Fn(f32) -> f32, from: f32, to: f32) -> Knee
     }
 }
 
-fn basic_raw_display(scene: f32) -> f32 {
+pub fn basic_raw_display(scene: f32) -> f32 {
     let srgb = TransferCurve::SRGB;
     let encoded = srgb
         .encode(scene.min(1.0))

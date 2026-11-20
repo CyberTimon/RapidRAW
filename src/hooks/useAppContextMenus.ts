@@ -60,7 +60,7 @@ import { useContextMenu } from '../context/ContextMenuContext';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { JobKind, useProcessStore } from '../store/useProcessStore';
-import { CLOSED_PANORAMA_MODAL_STATE, useUIStore } from '../store/useUIStore';
+import { openMergeModal, useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { getOpenImageDefaults, hasCustomDefaults, openImageHasCustomDefaults } from '../utils/developDefaults';
 import { Invokes } from '../types/invokes';
@@ -884,50 +884,19 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               disabled: selectionCount < 2 || selectionCount > 30,
               icon: SquaresUnite,
               label: stitchLabel,
-              onClick: () => {
-                setUI({
-                  panoramaModalState: {
-                    ...CLOSED_PANORAMA_MODAL_STATE,
-                    isOpen: true,
-                    stitchingSourcePaths: finalSelection,
-                  },
-                });
-              },
+              onClick: () => openMergeModal('panorama', finalSelection),
             },
             {
               disabled: selectionCount < 2 || selectionCount > 9,
               icon: Images,
               label: mergeLabel,
-              onClick: () => {
-                setUI({
-                  hdrModalState: {
-                    error: null,
-                    finalImageBase64: null,
-                    isOpen: true,
-                    isProcessing: false,
-                    progressMessage: null,
-                    stitchingSourcePaths: finalSelection,
-                  },
-                });
-              },
+              onClick: () => openMergeModal('hdr', finalSelection),
             },
             {
               disabled: selectionCount < 2,
               icon: Layers,
               label: t('contextMenus.merge.focusStack'),
-              onClick: () => {
-                setUI({
-                  focusStackModalState: {
-                    error: null,
-                    finalImageBase64: null,
-                    depthMapBase64: null,
-                    isOpen: true,
-                    isProcessing: false,
-                    progressMessage: null,
-                    sourcePaths: finalSelection,
-                  },
-                });
-              },
+              onClick: () => openMergeModal('focusStack', finalSelection),
             },
           ],
         },

@@ -37,7 +37,7 @@ mod retouch;
 use std::collections::HashMap;
 #[cfg(target_os = "macos")]
 use std::sync::atomic::Ordering;
-use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize};
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -590,9 +590,8 @@ pub fn run() {
             ai_init_lock: TokioMutex::new(()),
             active_ai_tasks: Mutex::new(HashMap::new()),
             export_task_token: Arc::new(Mutex::new(None)),
-            hdr_result: Arc::new(Mutex::new(None)),
-            panorama_result: Arc::new(Mutex::new(None)),
-            focus_stack_result: Arc::new(Mutex::new(None)),
+            merge_session: Arc::new(Mutex::new(None)),
+            merge_generation: Arc::new(AtomicU64::new(0)),
             indexing_task_handle: Mutex::new(None),
             lut_cache: Mutex::new(HashMap::new()),
             initial_file_path: Mutex::new(None),
@@ -636,8 +635,10 @@ pub fn run() {
             app::logging::get_log_file_path,
             app::logging::frontend_log,
             merge::save_collage,
-            merge::hdr::merge_hdr,
-            merge::hdr::save_hdr,
+            merge::start_merge,
+            merge::update_merge_preview,
+            merge::save_merge,
+            merge::discard_merge,
             adjustments::lut_processing::load_and_parse_lut,
             adjustments::lut_processing::list_luts,
             adjustments::lut_processing::import_luts,
@@ -692,15 +693,9 @@ pub fn run() {
             retouch::inpainting::generate_manual_cleanup_patch,
             retouch::inpainting::generate_liquify_patch,
             retouch::inpainting::generate_retouch_patch,
-            merge::focus_stacking::stitch_focus_stack,
-            merge::focus_stacking::save_focus_stack,
             decode::image_loader::load_image,
             decode::image_loader::is_image_cached,
             decode::image_preload::preload_images,
-            merge::panorama::stitch_panorama,
-            merge::panorama::save_panorama,
-            merge::panorama::update_panorama_preview,
-            merge::panorama::discard_panorama,
             export::export_images,
             export::resolve_export_file_stem,
             export::tasks::cancel_export,

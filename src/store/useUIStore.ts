@@ -6,9 +6,10 @@ import { Invokes } from '../types/invokes';
 import {
   ImageFile,
   CullingSuggestions,
-  DEFAULT_PANORAMA_SETTINGS,
-  PanoramaPreviewInfo,
-  PanoramaSettings,
+  DEFAULT_MERGE_SETTINGS,
+  MergeKind,
+  MergePreview,
+  MergeSettings,
 } from '../types/library';
 import { Panel, UiVisibility, PanelRegion, CollapsibleSectionsState } from '../types/ui';
 import { WorkspaceState } from '../types/settings';
@@ -36,48 +37,29 @@ interface CollageModalState {
   sourceImages: Array<Pick<ImageFile, 'path'>>;
 }
 
-interface PanoramaModalState {
+export interface MergeModalState {
   error: string | null;
-  finalImageBase64: string | null;
   isOpen: boolean;
   isProcessing: boolean;
   isUpdatingPreview: boolean;
-  previewInfo: PanoramaPreviewInfo | null;
+  kind: MergeKind;
+  preview: MergePreview | null;
   progressMessage: string | null;
-  settings: PanoramaSettings;
-  stitchingSourcePaths: Array<string>;
-}
-
-export const CLOSED_PANORAMA_MODAL_STATE: PanoramaModalState = {
-  error: null,
-  finalImageBase64: null,
-  isOpen: false,
-  isProcessing: false,
-  isUpdatingPreview: false,
-  previewInfo: null,
-  progressMessage: null,
-  settings: DEFAULT_PANORAMA_SETTINGS,
-  stitchingSourcePaths: [],
-};
-
-interface FocusStackModalState {
-  error: string | null;
-  finalImageBase64: string | null;
-  depthMapBase64: string | null;
-  isOpen: boolean;
-  isProcessing: boolean;
-  progressMessage: string | null;
+  settings: MergeSettings;
   sourcePaths: Array<string>;
 }
 
-interface HdrModalState {
-  error: string | null;
-  finalImageBase64: string | null;
-  isOpen: boolean;
-  isProcessing: boolean;
-  progressMessage: string | null;
-  stitchingSourcePaths: Array<string>;
-}
+export const CLOSED_MERGE_MODAL_STATE: MergeModalState = {
+  error: null,
+  isOpen: false,
+  isProcessing: false,
+  isUpdatingPreview: false,
+  kind: 'panorama',
+  preview: null,
+  progressMessage: null,
+  settings: DEFAULT_MERGE_SETTINGS.panorama,
+  sourcePaths: [],
+};
 
 interface CullingModalState {
   isOpen: boolean;
@@ -369,9 +351,7 @@ export interface UIState {
   albumActionTarget: string | null;
 
   confirmModalState: ConfirmModalState;
-  panoramaModalState: PanoramaModalState;
-  focusStackModalState: FocusStackModalState;
-  hdrModalState: HdrModalState;
+  mergeModalState: MergeModalState;
   cullingModalState: CullingModalState;
   collageModalState: CollageModalState;
 
@@ -452,24 +432,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   albumActionTarget: null,
 
   confirmModalState: { isOpen: false },
-  panoramaModalState: CLOSED_PANORAMA_MODAL_STATE,
-  focusStackModalState: {
-    error: null,
-    finalImageBase64: null,
-    depthMapBase64: null,
-    isOpen: false,
-    isProcessing: false,
-    progressMessage: '',
-    sourcePaths: [],
-  },
-  hdrModalState: {
-    error: null,
-    finalImageBase64: null,
-    isOpen: false,
-    isProcessing: false,
-    progressMessage: '',
-    stitchingSourcePaths: [],
-  },
+  mergeModalState: CLOSED_MERGE_MODAL_STATE,
   cullingModalState: { isOpen: false, suggestions: null, progress: null, error: null, pathsToCull: [] },
   collageModalState: { isOpen: false, sourceImages: [] },
 
@@ -616,7 +579,19 @@ useUIStore.subscribe((state, prev) => {
   }
 });
 
-export const closePanoramaModal = () => {
-  useUIStore.getState().setUI({ panoramaModalState: CLOSED_PANORAMA_MODAL_STATE });
-  invoke(Invokes.DiscardPanorama).catch((err) => console.error('Failed to discard panorama:', err));
+export const openMergeModal = (kind: MergeKind, sourcePaths: Array<string>) => {
+  useUIStore.getState().setUI({
+    mergeModalState: {
+      ...CLOSED_MERGE_MODAL_STATE,
+      isOpen: true,
+      kind,
+      settings: DEFAULT_MERGE_SETTINGS[kind],
+      sourcePaths,
+    },
+  });
+};
+
+export const closeMergeModal = () => {
+  useUIStore.getState().setUI({ mergeModalState: CLOSED_MERGE_MODAL_STATE });
+  invoke(Invokes.DiscardMerge).catch((err) => console.error('Failed to discard the merge:', err));
 };

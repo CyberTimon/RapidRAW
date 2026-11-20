@@ -1203,8 +1203,6 @@ pub async fn load_image(
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clear();
-
-        *state.hdr_result.lock().unwrap_or_else(|e| e.into_inner()) = None;
     }
 
     crate::integrations::immich::ensure_local(&app_handle, &source_path).await?;

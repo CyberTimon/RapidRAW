@@ -1,4 +1,4 @@
-use crate::merge::focus_stacking::gaussian_kernel;
+use crate::render::color_space::{luminance, srgb_transfer};
 use rayon::prelude::*;
 
 #[derive(Clone)]
@@ -54,6 +54,11 @@ impl Raster {
     pub fn pixel(&self, x: usize, y: usize) -> &[f32] {
         let i = self.index(x, y);
         &self.data[i..i + self.channels]
+    }
+
+    #[inline]
+    pub fn pixel_at(&self, index: usize) -> &[f32] {
+        &self.data[index * self.channels..(index + 1) * self.channels]
     }
 
     pub fn bilinear(&self, x: f32, y: f32, out: &mut [f32]) {
@@ -125,6 +130,21 @@ fn cubic_weights(t: f32) -> [f32; 4] {
         -(A + 2.0) * t3 + (2.0 * A + 3.0) * t2 - A * t,
         -A * t3 + A * t2,
     ]
+}
+
+pub fn gaussian_kernel(sigma: f32) -> Vec<f32> {
+    let sigma = sigma.max(1e-3);
+    let radius = (sigma * 3.0).ceil().max(1.0) as usize;
+    let denom = 2.0 * sigma * sigma;
+    let mut kernel: Vec<f32> = (0..2 * radius + 1)
+        .map(|i| {
+            let d = i as f32 - radius as f32;
+            (-d * d / denom).exp()
+        })
+        .collect();
+    let sum: f32 = kernel.iter().sum();
+    kernel.iter_mut().for_each(|v| *v /= sum);
+    kernel
 }
 
 pub fn gaussian_blur(src: &Raster, sigma: f32) -> Raster {
@@ -421,4 +441,247 @@ impl Rect {
     pub fn contains(&self, x: usize, y: usize) -> bool {
         x >= self.x && y >= self.y && x < self.right() && y < self.bottom()
     }
+
+    pub fn full(width: usize, height: usize) -> Rect {
+        Rect {
+            x: 0,
+            y: 0,
+            width,
+            height,
+        }
+    }
+
+    pub fn scaled_inward(&self, from: (usize, usize), to: (usize, usize)) -> Rect {
+        if *self == Rect::full(from.0, from.1) {
+            return Rect::full(to.0, to.1);
+        }
+        let sx = to.0 as f64 / from.0 as f64;
+        let sy = to.1 as f64 / from.1 as f64;
+        let x0 = ((self.x as f64 + 0.5) * sx).ceil() as usize;
+        let y0 = ((self.y as f64 + 0.5) * sy).ceil() as usize;
+        let x1 = ((self.right() as f64 - 0.5) * sx).floor() as usize;
+        let y1 = ((self.bottom() as f64 - 0.5) * sy).floor() as usize;
+        let x0 = x0.min(to.0 - 1);
+        let y0 = y0.min(to.1 - 1);
+        Rect {
+            x: x0,
+            y: y0,
+            width: x1.min(to.0).saturating_sub(x0).max(1),
+            height: y1.min(to.1).saturating_sub(y0).max(1),
+        }
+    }
+}
+
+fn area_taps(source: usize, target: usize) -> Vec<(usize, Vec<f32>)> {
+    let ratio = source as f64 / target as f64;
+    (0..target)
+        .map(|i| {
+            let start = i as f64 * ratio;
+            let end = (i + 1) as f64 * ratio;
+            let first = start.floor() as usize;
+            let last = (end.ceil() as usize).min(source);
+            let weights: Vec<f32> = (first..last)
+                .map(|s| ((end.min(s as f64 + 1.0) - start.max(s as f64)) / ratio) as f32)
+                .collect();
+            (first, weights)
+        })
+        .collect()
+}
+
+pub fn resize_area(src: &Raster, width: usize, height: usize) -> Raster {
+    if src.width == width && src.height == height {
+        return src.clone();
+    }
+    assert!(
+        width <= src.width && height <= src.height,
+        "area resampling only reduces"
+    );
+    let ch = src.channels;
+    let columns = area_taps(src.width, width);
+    let rows = area_taps(src.height, height);
+    let mut horizontal = vec![0.0f32; width * src.height * ch];
+    horizontal
+        .par_chunks_mut(width * ch)
+        .zip(src.data.par_chunks(src.width * ch))
+        .for_each(|(out_row, in_row)| {
+            for (x, (first, weights)) in columns.iter().enumerate() {
+                for (k, w) in weights.iter().enumerate() {
+                    let s = (first + k) * ch;
+                    for c in 0..ch {
+                        out_row[x * ch + c] += w * in_row[s + c];
+                    }
+                }
+            }
+        });
+    let mut out = vec![0.0f32; width * height * ch];
+    out.par_chunks_mut(width * ch)
+        .zip(rows.par_iter())
+        .for_each(|(out_row, (first, weights))| {
+            for (k, w) in weights.iter().enumerate() {
+                let in_row = &horizontal[(first + k) * width * ch..(first + k + 1) * width * ch];
+                for (o, i) in out_row.iter_mut().zip(in_row) {
+                    *o += w * i;
+                }
+            }
+        });
+    Raster::from_data(width, height, ch, out)
+}
+
+pub fn fit_size(width: usize, height: usize, max_dimension: usize) -> (usize, usize) {
+    let long = width.max(height);
+    if long <= max_dimension {
+        return (width, height);
+    }
+    let scale = max_dimension as f64 / long as f64;
+    (
+        ((width as f64 * scale).round() as usize).max(1),
+        ((height as f64 * scale).round() as usize).max(1),
+    )
+}
+
+pub fn map_pixels(src: &Raster, channels: usize, f: impl Fn(&[f32], &mut [f32]) + Sync) -> Raster {
+    let mut out = Raster::new(src.width, src.height, channels);
+    out.data
+        .par_chunks_mut(channels)
+        .zip(src.data.par_chunks(src.channels))
+        .for_each(|(o, i)| f(i, o));
+    out
+}
+
+pub fn max_filter(src: &Raster, radius: usize) -> Raster {
+    assert_eq!(src.channels, 1, "max filter expects a single channel");
+    if radius == 0 {
+        return src.clone();
+    }
+    let (w, h) = (src.width, src.height);
+    let mut horizontal = vec![0.0f32; w * h];
+    horizontal
+        .par_chunks_mut(w)
+        .zip(src.data.par_chunks(w))
+        .for_each(|(out, row)| {
+            for (x, value) in out.iter_mut().enumerate() {
+                let lo = x.saturating_sub(radius);
+                let hi = (x + radius + 1).min(w);
+                *value = row[lo..hi]
+                    .iter()
+                    .copied()
+                    .fold(f32::NEG_INFINITY, f32::max);
+            }
+        });
+    let mut out = vec![0.0f32; w * h];
+    out.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
+        let lo = y.saturating_sub(radius);
+        let hi = (y + radius + 1).min(h);
+        for (x, value) in row.iter_mut().enumerate() {
+            *value = (lo..hi)
+                .map(|yy| horizontal[yy * w + x])
+                .fold(f32::NEG_INFINITY, f32::max);
+        }
+    });
+    Raster::from_data(w, h, 1, out)
+}
+
+pub fn largest_rectangle(
+    data: &[bool],
+    width: usize,
+    height: usize,
+) -> Option<(usize, usize, usize, usize)> {
+    let mut heights = vec![0usize; width];
+    let mut best: Option<(usize, usize, usize, usize)> = None;
+    let mut best_area = 0;
+    let mut stack: Vec<usize> = Vec::with_capacity(width + 1);
+    for y in 0..height {
+        for (h, &valid) in heights.iter_mut().zip(&data[y * width..(y + 1) * width]) {
+            *h = if valid { *h + 1 } else { 0 };
+        }
+        stack.clear();
+        for x in 0..=width {
+            let current = if x < width { heights[x] } else { 0 };
+            while let Some(&top) = stack.last() {
+                if heights[top] < current {
+                    break;
+                }
+                stack.pop();
+                let h = heights[top];
+                let left = stack.last().map_or(0, |&s| s + 1);
+                let area = h * (x - left);
+                if area > best_area {
+                    best_area = area;
+                    best = Some((left, y + 1 - h, x - left, h));
+                }
+            }
+            stack.push(x);
+        }
+    }
+    best
+}
+
+pub fn crop_rects(
+    valid: &[&[f32]],
+    preview: (usize, usize),
+    full: (usize, usize),
+    auto_crop: bool,
+) -> (Rect, Rect) {
+    let rect = if auto_crop {
+        coverage_rect(valid, preview.0, preview.1)
+    } else {
+        Rect::full(preview.0, preview.1)
+    };
+    (rect, rect.scaled_inward(preview, full))
+}
+
+fn coverage_rect(valid: &[&[f32]], width: usize, height: usize) -> Rect {
+    let mask: Vec<bool> = (0..width * height)
+        .into_par_iter()
+        .map(|i| valid.iter().all(|v| v[i] >= 1.0))
+        .collect();
+    largest_rectangle(&mask, width, height)
+        .map(|(x, y, w, h)| Rect {
+            x,
+            y,
+            width: w,
+            height: h,
+        })
+        .unwrap_or_else(|| Rect::full(width, height))
+}
+
+pub fn crop(image: &Raster, rect: &Rect) -> Raster {
+    if *rect == Rect::full(image.width, image.height) {
+        return image.clone();
+    }
+    let ch = image.channels;
+    let mut out = Raster::new(rect.width, rect.height, ch);
+    out.data
+        .par_chunks_mut(rect.width * ch)
+        .enumerate()
+        .for_each(|(y, row)| {
+            let start = image.index(rect.x, rect.y + y);
+            row.copy_from_slice(&image.data[start..start + rect.width * ch]);
+        });
+    out
+}
+
+pub fn srgb_encoded(image: &Raster) -> Raster {
+    let transfer = srgb_transfer();
+    map_pixels(image, image.channels, |p, o| {
+        for (o, v) in o.iter_mut().zip(p) {
+            *o = transfer.encode(v.max(0.0));
+        }
+    })
+}
+
+pub fn srgb_decoded(mut image: Raster) -> Raster {
+    let transfer = srgb_transfer();
+    image
+        .data
+        .par_iter_mut()
+        .for_each(|v| *v = transfer.decode(v.max(0.0)));
+    image
+}
+
+pub fn encoded_luminance(image: &Raster) -> Raster {
+    let transfer = srgb_transfer();
+    map_pixels(image, 1, |p, o| {
+        o[0] = transfer.encode(luminance(p).max(0.0))
+    })
 }
