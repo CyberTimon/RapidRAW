@@ -1279,6 +1279,49 @@ impl GpuProcessor {
         created
     }
 
+    #[cfg(test)]
+    pub(crate) fn warm_all_shaders(&self) {
+        let high_precision = self.high_precision_pipeline();
+        self.hsl_probe_pipeline();
+        self.pipelines.motion_blur.get_or_init(|| {
+            crate::effects::motion_blur::MotionBlurPipelines::new(&self.context.device)
+        });
+        if self.context.shares_one_gl_context() {
+            return;
+        }
+        let variants = [
+            (
+                false,
+                &self.pipelines.main_shader_module,
+                &self.pipelines.main_pipeline_layout,
+            ),
+            (true, &high_precision.shader, &high_precision.layout),
+        ];
+        let feature_sets = std::iter::once(0).chain(crate::render::gpu::pipelines::SHADER_FEATURES);
+        for (is_high_precision, shader, layout) in variants {
+            for features in feature_sets.clone() {
+                let mut constants = vec![("FEATURES", features as f64)];
+                if is_high_precision {
+                    constants.push(("HIGH_PRECISION_OUTPUT", 1.0));
+                }
+                let _ =
+                    self.context
+                        .device
+                        .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                            label: Some("Specialized Compute Pipeline"),
+                            layout: Some(layout),
+                            module: shader,
+                            entry_point: Some("main"),
+                            compilation_options: wgpu::PipelineCompilationOptions {
+                                constants: &constants,
+                                ..Default::default()
+                            },
+                            cache: None,
+                        });
+            }
+        }
+    }
+
     fn high_precision_pipeline(&self) -> &HighPrecisionPipeline {
         self.pipelines.high_precision_pipeline.get_or_init(|| {
             let device = &self.context.device;

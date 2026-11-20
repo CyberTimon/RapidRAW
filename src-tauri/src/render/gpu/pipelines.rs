@@ -15,6 +15,21 @@ type SpecializedPipelines =
     Arc<std::sync::Mutex<HashMap<(bool, u32), Option<wgpu::ComputePipeline>>>>;
 
 pub const ALL_SHADER_FEATURES: u32 = u32::MAX;
+#[cfg(test)]
+pub const SHADER_FEATURES: [u32; 12] = [
+    F_NOISE_REDUCTION,
+    F_HSL,
+    F_MASKS,
+    F_SHARPEN,
+    F_DEHAZE,
+    F_GLOW_HALATION_FLARE,
+    F_GRAIN,
+    F_VIGNETTE,
+    F_LUT,
+    F_CA,
+    F_AGX,
+    F_MONOCHROME,
+];
 
 const F_NOISE_REDUCTION: u32 = 1;
 

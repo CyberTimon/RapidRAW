@@ -4,3 +4,5 @@ pub mod display;
 pub mod output;
 pub mod pipelines;
 pub mod processor;
+#[cfg(test)]
+mod shader_check;

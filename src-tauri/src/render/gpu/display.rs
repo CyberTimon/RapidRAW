@@ -773,6 +773,19 @@ fn display_bind_group(
     })
 }
 
+#[cfg(test)]
+pub(crate) fn warm_display_pipelines(device: &wgpu::Device) {
+    let (_, create_pipeline) = display_pipelines(device);
+    for format in [
+        wgpu::TextureFormat::Bgra8Unorm,
+        wgpu::TextureFormat::Rgba8Unorm,
+        wgpu::TextureFormat::Rgb10a2Unorm,
+        HDR_FORMAT,
+    ] {
+        create_pipeline(format);
+    }
+}
+
 fn display_pipelines(
     device: &wgpu::Device,
 ) -> (
