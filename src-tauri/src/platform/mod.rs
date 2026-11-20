@@ -1,4 +1,6 @@
 pub mod android;
+#[cfg(target_os = "linux")]
+pub mod linux_graphics;
 pub mod main_window;
 pub mod monitor;
 pub mod viewer_window;
