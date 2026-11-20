@@ -1146,6 +1146,10 @@
       "removeGps": "Pašalinti GPS duomenis",
       "saveWithMetadata": "Išsaugoti su metaduomenimis"
     },
+    "openWith": {
+      "enable": "Atidaryti eksportuotas nuotraukas kitoje programoje",
+      "noApps": "Photoshop ar GIMP nerasta. Pridėkite programą skiltyje Nustatymai › Redaguoti su."
+    },
     "pad": {
       "aspectRatio": "Kraštinių santykis",
       "backgroundColor": "Fono spalva",
@@ -1172,6 +1176,7 @@
       "fileSettings": "Failų nustatymai",
       "imageSizing": "Nuotraukos dydis",
       "metadata": "Metaduomenys",
+      "openWith": "Atidaryti po eksporto",
       "watermark": "Vandens ženklas"
     },
     "status": {

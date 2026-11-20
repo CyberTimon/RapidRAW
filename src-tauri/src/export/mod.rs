@@ -321,6 +321,7 @@ pub(crate) async fn export_images_impl(
             .collect();
 
         let used_paths = Arc::new(Mutex::new(std::collections::HashSet::new()));
+        let exported_paths: Arc<Mutex<Vec<(usize, PathBuf)>>> = Arc::new(Mutex::new(Vec::new()));
         let semaphore = Arc::new(tokio::sync::Semaphore::new(num_threads));
         let mut join_handles = Vec::new();
 
@@ -345,6 +346,7 @@ pub(crate) async fn export_images_impl(
             let cancellation_token_clone = Arc::clone(&cancellation_token);
             let adjustments_mode = adjustments_mode.clone();
             let used_paths_clone = Arc::clone(&used_paths);
+            let exported_paths_clone = Arc::clone(&exported_paths);
             let memory_budget = Arc::clone(&memory_budget);
 
             let handle = tokio::task::spawn_blocking(move || {
@@ -708,6 +710,12 @@ pub(crate) async fn export_images_impl(
                         &output_path,
                     )
                 })();
+                if result.is_ok() && export_settings.open_with.is_some() {
+                    exported_paths_clone
+                        .lock()
+                        .unwrap()
+                        .push((global_index, output_path.clone()));
+                }
 
                 if !cancellation_token_clone.load(Ordering::SeqCst) {
                     let current_progress =
@@ -772,6 +780,16 @@ pub(crate) async fn export_images_impl(
                         serde_json::json!({ "current": total_paths, "total": total_paths, "path": "" }),
                     );
                     let _ = app_handle.emit("export-complete", ());
+                    if let Some(app) = &export_settings.open_with {
+                        let mut exported = std::mem::take(&mut *exported_paths.lock().unwrap());
+                        exported.sort_by_key(|(index, _)| *index);
+                        let files: Vec<PathBuf> =
+                            exported.into_iter().map(|(_, path)| path).collect();
+                        if let Err(e) = crate::integrations::edit_in::open_files(app, &files) {
+                            log::error!("{}", e);
+                            let _ = app_handle.emit("export-open-with-error", e);
+                        }
+                    }
                 }
             },
         );
@@ -954,6 +972,7 @@ pub async fn run_headless_export(
         subfolder: None,
         dpi: None,
         export_original: session.export_original,
+        open_with: None,
     };
 
     let mut custom_adjustments = None;

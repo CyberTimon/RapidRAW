@@ -1052,6 +1052,10 @@
       "removeGps": "GPS 데이터 제거",
       "saveWithMetadata": "메타데이터와 함께 저장"
     },
+    "openWith": {
+      "enable": "내보낸 이미지를 다른 프로그램에서 열기",
+      "noApps": "Photoshop 또는 GIMP를 찾을 수 없습니다. 설정 › 다른 프로그램에서 편집에서 프로그램을 추가하세요."
+    },
     "pad": {
       "aspectRatio": "종횡비",
       "backgroundColor": "배경색",
@@ -1078,6 +1082,7 @@
       "fileSettings": "파일 설정",
       "imageSizing": "이미지 크기",
       "metadata": "메타데이터",
+      "openWith": "내보낸 후 열기",
       "watermark": "워터마크"
     },
     "status": {

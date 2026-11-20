@@ -1052,6 +1052,10 @@
       "removeGps": "GPSデータを削除",
       "saveWithMetadata": "メタデータを含めて保存"
     },
+    "openWith": {
+      "enable": "書き出した画像を別のアプリで開く",
+      "noApps": "Photoshop または GIMP が見つかりません。設定 › 外部アプリで編集 でアプリを追加してください。"
+    },
     "pad": {
       "aspectRatio": "アスペクト比",
       "backgroundColor": "背景色",
@@ -1078,6 +1082,7 @@
       "fileSettings": "ファイル設定",
       "imageSizing": "画像サイズ",
       "metadata": "メタデータ",
+      "openWith": "書き出し後に開く",
       "watermark": "ウォーターマーク"
     },
     "status": {

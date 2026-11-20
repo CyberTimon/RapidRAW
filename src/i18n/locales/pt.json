@@ -1081,6 +1081,10 @@
       "removeGps": "Remover Dados de GPS",
       "saveWithMetadata": "Salvar com Metadados"
     },
+    "openWith": {
+      "enable": "Abrir as imagens exportadas noutro programa",
+      "noApps": "Photoshop ou GIMP não encontrados. Adicione um programa em Definições › Editar em."
+    },
     "pad": {
       "aspectRatio": "Proporção de Tela",
       "backgroundColor": "Cor de Fundo",
@@ -1107,6 +1111,7 @@
       "fileSettings": "Configurações de Arquivo",
       "imageSizing": "Dimensionamento de Imagem",
       "metadata": "Metadados",
+      "openWith": "Abrir após exportar",
       "watermark": "Marca D'água"
     },
     "status": {

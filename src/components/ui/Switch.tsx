@@ -47,17 +47,17 @@ const Switch = ({
   return (
     <label
       className={clsx(
-        'flex items-center justify-between',
+        'flex items-center justify-between gap-3',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
         className,
       )}
       htmlFor={uniqueId}
       data-tooltip={tooltip}
     >
-      <Text variant={TextVariants.label} className="select-none">
+      <Text variant={TextVariants.label} className="select-none min-w-0">
         {label}
       </Text>
-      <div className="relative w-10 h-5">
+      <div className="relative w-10 h-5 shrink-0">
         <input
           checked={checked}
           className="sr-only"

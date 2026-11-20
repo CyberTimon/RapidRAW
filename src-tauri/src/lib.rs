@@ -693,6 +693,7 @@ pub fn run() {
             export::size_estimate::estimate_export_sizes,
             integrations::edit_in::edit_in_app,
             integrations::edit_in::cancel_edit_in_app,
+            integrations::edit_in::list_external_editors,
             adjustments::auto_adjust::calculate_auto_adjustments,
             adjustments::white_balance_picker::sample_white_balance,
             adjustments::auto_straighten::calculate_auto_straighten,

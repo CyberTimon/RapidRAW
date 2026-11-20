@@ -1052,6 +1052,10 @@
       "removeGps": "移除 GPS 数据",
       "saveWithMetadata": "保存时包含元数据"
     },
+    "openWith": {
+      "enable": "在其他程序中打开导出的图像",
+      "noApps": "未找到 Photoshop 或 GIMP。请在 设置 › 在其他程序中编辑 中添加程序。"
+    },
     "pad": {
       "aspectRatio": "宽高比",
       "backgroundColor": "背景颜色",
@@ -1078,6 +1082,7 @@
       "fileSettings": "文件设置",
       "imageSizing": "图像大小",
       "metadata": "元数据",
+      "openWith": "导出后打开",
       "watermark": "水印"
     },
     "status": {

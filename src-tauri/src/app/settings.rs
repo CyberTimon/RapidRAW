@@ -378,6 +378,10 @@ pub struct ExportPreset {
     pub hdr: Option<bool>,
     #[serde(default)]
     pub preserve_timestamps: Option<bool>,
+    #[serde(default)]
+    pub open_after_export: Option<bool>,
+    #[serde(default)]
+    pub open_after_export_app: Option<String>,
 }
 
 pub fn default_export_presets() -> Vec<ExportPreset> {
@@ -421,6 +425,8 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             color_space: Some(OutputColorSpace::Srgb),
             hdr: Some(false),
             preserve_timestamps: Some(false),
+            open_after_export: None,
+            open_after_export_app: None,
         },
         ExportPreset {
             id: "default-fast".to_string(),
@@ -461,6 +467,8 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             color_space: Some(OutputColorSpace::Srgb),
             hdr: Some(false),
             preserve_timestamps: Some(false),
+            open_after_export: None,
+            open_after_export_app: None,
         },
     ]
 }

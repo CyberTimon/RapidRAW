@@ -352,6 +352,9 @@ export function useTauriListeners({
         useProcessStore.getState().setExportState({ status: Status.Success });
         refreshAfterExport();
       }),
+      listen<string>('export-open-with-error', (event) => {
+        if (isEffectActive) toast.error(String(event.payload));
+      }),
       listen('export-error', (event: any) => {
         if (!isEffectActive) return;
         useProcessStore.getState().setExportState({
