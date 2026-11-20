@@ -1057,17 +1057,17 @@ If the application crashes immediately when you try to start editing a picture, 
 <details>
 <summary>Linux Wayland/WebKit Crash</summary>
 
-If RapidRAW crashes on Wayland (e.g. GNOME + NVIDIA), try launching it with:
+RapidRAW works around the known NVIDIA problems on its own: on X11 with the proprietary NVIDIA driver it routes the webview through shared memory, and on Wayland it prepares the window for NVIDIA's explicit sync before the first frame.
+
+If you still get a blank window or a crash on launch, turn on **Linux Compatibility Mode** in Settings → Processing, or launch it with:
 
 ```bash
-WEBKIT_DISABLE_DMABUF_RENDERER=1 RapidRAW
+WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 RapidRAW
 ```
 
-or
+If that does not help, try `__NV_DISABLE_EXPLICIT_SYNC=1` on Wayland, or `WEBKIT_DISABLE_DMABUF_RENDERER=1` as a last resort. The last one switches the webview to full software rendering, and on WebKitGTK 2.54.0 to 2.54.2 parts of the window may only repaint when you hover over them.
 
-```bash
-WEBKIT_DISABLE_COMPOSITING_MODE=1 RapidRAW
-```
+If you set `WEBKIT_DMABUF_RENDERER_FORCE_SHM` or `WEBKIT_DISABLE_DMABUF_RENDERER` yourself, RapidRAW leaves the webview transport alone, including in Compatibility Mode.
 
 This issue is related to **WebKit** and **NVIDIA drivers**, not RapidRAW directly. Switching to **X11** or using **AMD / Intel GPUs** may also help.
 
