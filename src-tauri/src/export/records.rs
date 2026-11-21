@@ -43,27 +43,27 @@ impl ExportRecords {
         app_settings: &AppSettings,
         is_raw: bool,
     ) -> String {
-        let mut settings = serde_json::to_value(export_settings).unwrap_or_default();
-        if let Some(obj) = settings.as_object_mut() {
-            obj.remove("onConflict");
-        }
+        let settings = ExportSettings {
+            on_conflict: None,
+            ..export_settings.clone()
+        };
         let watermark = export_settings
             .watermark
             .as_ref()
             .map(|watermark| file_stamp(Path::new(&watermark.path)));
-        let payload = serde_json::json!({
+        let context = serde_json::json!({
             "version": self.app_version,
             "source": record_key(source_path),
             "decode": format!("{:?}", DecodeFingerprint::for_file(source_path, app_settings)),
             "render": format!("{:?}", resolve_render_options(app_settings, is_raw)),
-            "adjustments": adjustments,
             "format": output_format,
             "settings": settings,
             "watermark": watermark,
         });
-        blake3::hash(payload.to_string().as_bytes())
-            .to_hex()
-            .to_string()
+        let mut hasher = blake3::Hasher::new();
+        hash_canonical(&mut hasher, &context);
+        hash_canonical(&mut hasher, adjustments);
+        hasher.finalize().to_hex().to_string()
     }
 
     pub fn is_current(&self, output_path: &Path, fingerprint: &str) -> bool {
@@ -102,9 +102,14 @@ impl ExportRecords {
                 None => records.remove(&path),
             };
         }
+        let mut reachable_roots: HashMap<PathBuf, bool> = HashMap::new();
         records.retain(|path, _| {
             let path = Path::new(path);
-            path.exists() || !path.parent().is_some_and(Path::exists)
+            let root = path.ancestors().last().unwrap_or(path);
+            let root_reachable = *reachable_roots
+                .entry(root.to_path_buf())
+                .or_insert_with(|| root.exists());
+            !root_reachable || path.exists()
         });
         let result = serde_json::to_vec(&records)
             .map_err(std::io::Error::other)
@@ -116,6 +121,34 @@ impl ExportRecords {
             });
         if let Err(e) = result {
             log::warn!("Failed to save export records to {}: {}", file.display(), e);
+        }
+    }
+}
+
+fn hash_canonical(hasher: &mut blake3::Hasher, value: &Value) {
+    match value {
+        Value::Object(map) => {
+            let mut entries: Vec<_> = map.iter().collect();
+            entries.sort_unstable_by(|a, b| a.0.cmp(b.0));
+            hasher.update(b"{");
+            for (key, value) in entries {
+                let _ = serde_json::to_writer(&mut *hasher, key);
+                hasher.update(b":");
+                hash_canonical(hasher, value);
+                hasher.update(b",");
+            }
+            hasher.update(b"}");
+        }
+        Value::Array(items) => {
+            hasher.update(b"[");
+            for item in items {
+                hash_canonical(hasher, item);
+                hasher.update(b",");
+            }
+            hasher.update(b"]");
+        }
+        scalar => {
+            let _ = serde_json::to_writer(&mut *hasher, scalar);
         }
     }
 }

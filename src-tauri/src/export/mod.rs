@@ -863,7 +863,8 @@ pub(crate) async fn export_images_impl(
             }
         }
 
-        export_records.save();
+        let records = Arc::clone(&export_records);
+        let _ = tokio::task::spawn_blocking(move || records.save()).await;
 
         let errors: Vec<String> = results.into_iter().filter_map(Result::err).collect();
         let error_count = errors.len();
