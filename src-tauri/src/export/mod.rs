@@ -541,6 +541,7 @@ pub(crate) async fn export_images_impl(
                         loaded_image
                             .as_ref()
                             .map(|loaded| (loaded.image.width(), loaded.image.height())),
+                        crate::export::geometry::upscale_factor(&js_adjustments),
                         js_adjustments["masks"].as_array().map_or(0, |m| m.len()),
                         &output_format,
                         export_settings.jpeg_quality,
