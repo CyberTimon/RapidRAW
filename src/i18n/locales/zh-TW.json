@@ -67,8 +67,8 @@
           "extendedRed": "紅色敏感底片，膚色透亮，天空更暗",
           "infrared": "植被發光，天空近乎全黑",
           "neutral": "符合每種顏色的感知亮度",
-          "orthoPanchromatic": "紅色略暗，綠色清晰",
           "orthochromatic": "對紅色不敏感，紅色更暗，天空明亮",
+          "orthoPanchromatic": "紅色略暗，綠色清晰",
           "panchromatic": "經典底片響應，藍天更亮"
         },
         "films": {
@@ -76,8 +76,8 @@
           "extendedRed": "延伸紅",
           "infrared": "紅外線",
           "neutral": "中性",
-          "orthoPanchromatic": "正全色",
           "orthochromatic": "正色",
+          "orthoPanchromatic": "正全色",
           "panchromatic": "全色"
         },
         "filter": "濾鏡",
@@ -118,13 +118,13 @@
       "whiteBalance": "白平衡"
     },
     "curves": {
-      "channelTitle": "{{channel}} 通道",
       "channels": {
         "blue": "藍色",
         "green": "綠色",
         "luma": "亮度",
         "red": "紅色"
       },
+      "channelTitle": "{{channel}} 通道",
       "copyParametric": "複製 {{channel}} 參數曲線",
       "copyPoint": "複製 {{channel}} 點曲線",
       "curveDataUnavailable": "曲線資料不可用。",
@@ -148,7 +148,6 @@
     },
     "details": {
       "aiDenoise": "AI 降噪",
-      "classicDenoise": "經典降噪",
       "aiDenoiseDetail": "細節",
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "細節",
@@ -156,6 +155,7 @@
       "centre": "置中",
       "chromaticAberration": "色差",
       "clarity": "清晰度",
+      "classicDenoise": "經典降噪",
       "color": "顏色",
       "convertNegative": "轉換負片",
       "dehaze": "去朦朧",
@@ -167,12 +167,12 @@
       "negativeGreen": "綠色",
       "negativeRed": "紅色",
       "noiseReduction": "降噪",
-      "superResolution": "RapidRes",
       "presence": "質感",
       "redCyan": "紅/青",
       "sharpening": "銳化",
       "sharpness": "銳度",
       "structure": "結構",
+      "superResolution": "RapidRes",
       "threshold": "臨界值"
     },
     "effects": {
@@ -197,6 +197,24 @@
       "lightFlares": "光線耀斑",
       "lut": "LUT",
       "midpoint": "中點",
+      "motionBlur": "動態模糊",
+      "motionBlurAngle": "角度",
+      "motionBlurDepth": "深度",
+      "motionBlurHighlights": "亮部",
+      "motionBlurLayer": "運動",
+      "motionBlurLayers": {
+        "auto": "自動",
+        "panning": "追焦",
+        "subject": "移動主體",
+        "uniform": "均勻"
+      },
+      "motionBlurType": "類型",
+      "motionBlurTypes": {
+        "linear": "線性",
+        "smooth": "平滑",
+        "spin": "旋轉",
+        "zoom": "縮放"
+      },
       "relight": "重新打光",
       "relightAddLight": "新增燈光",
       "relightAmbient": "環境光",
@@ -225,25 +243,7 @@
       "roundness": "圓度",
       "size": "大小",
       "spatial": "空間",
-      "vignette": "暗角",
-      "motionBlur": "動態模糊",
-      "motionBlurAngle": "角度",
-      "motionBlurDepth": "深度",
-      "motionBlurHighlights": "亮部",
-      "motionBlurLayer": "運動",
-      "motionBlurLayers": {
-        "auto": "自動",
-        "panning": "追焦",
-        "subject": "移動主體",
-        "uniform": "均勻"
-      },
-      "motionBlurType": "類型",
-      "motionBlurTypes": {
-        "linear": "線性",
-        "zoom": "縮放",
-        "spin": "旋轉",
-        "smooth": "平滑"
-      }
+      "vignette": "暗角"
     }
   },
   "contextMenus": {
@@ -392,8 +392,6 @@
       "deleteSelected": "僅刪除選中項",
       "denoise_one": "降噪",
       "denoise_other": "降噪",
-      "superResolution_one": "RapidRes (2x)",
-      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "複製影像",
       "enable": "啟用",
       "exportImage_one": "匯出影像",
@@ -412,6 +410,8 @@
       "resetAdjustments_one": "重置調整",
       "resetAdjustments_other": "重置 {{count}} 張影像的調整",
       "showExplorer": "在檔案資源管理器中顯示",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "virtualCopy": "虛擬副本"
     },
     "toasts": {
@@ -519,7 +519,6 @@
       "createNewTitle": "建立新的生成式編輯",
       "createNewTooltip": "建立新的 {{name}} 編輯",
       "denoising": "正在進行 AI 降噪...",
-      "upscaling": "正在執行 RapidRes...",
       "dropzoneText": "拖放到此處以建立新編輯",
       "editSettingsTitle": "編輯設定",
       "editsTitle": "編輯",
@@ -583,7 +582,8 @@
         "selectionPropertiesTitle": "選區屬性",
         "useBasicInpaint": "使用基礎影像修復"
       },
-      "touchUpTitle": "潤色"
+      "touchUpTitle": "潤色",
+      "upscaling": "正在執行 RapidRes..."
     },
     "compare": {
       "horizontal": "上下分割",
@@ -600,8 +600,8 @@
         "hPlaceholder": "高",
         "hTooltip": "高度",
         "removeTooltip": "刪除已儲存的寬高比",
-        "saveTooltip": "將寬高比儲存為預設",
         "savedTooltip": "已儲存的寬高比 {{ratio}}",
+        "saveTooltip": "將寬高比儲存為預設",
         "wPlaceholder": "寬",
         "wTooltip": "寬度"
       },
@@ -803,8 +803,8 @@
         "copySectionSettings": "複製 {{section}} 設定",
         "faceParts": {
           "bodySkin": "身體皮膚",
-          "eyeWhites": "眼白",
           "eyebrows": "眉毛",
+          "eyeWhites": "眼白",
           "faceSkin": "臉部皮膚",
           "hair": "頭髮",
           "iris": "虹膜與瞳孔",
@@ -876,8 +876,8 @@
       "organization": {
         "addTagPlaceholder": "新增標籤...",
         "colorLabel": "顏色標籤",
-        "noTags": "無標籤",
         "none": "無",
+        "noTags": "無標籤",
         "rating": "評分",
         "ratingLabels": "評分與標籤",
         "tags": "標籤",
@@ -1098,12 +1098,12 @@
       "estimatedSize": "預計檔案大小：約 {{size}}",
       "estimatedTotalSize": "預計總大小：約 {{size}}",
       "estimatingSize": "正在估算大小...",
+      "exporting": "匯出中…",
+      "exportingProgress": "匯出中…（{{current}}/{{total}}）",
       "exportMultiple": "匯出 {{count}} {{label}}",
       "exportMultiple_one": "匯出 {{count}} {{label}}",
       "exportMultiple_other": "匯出 {{count}} {{label}}",
       "exportSingle": "匯出 {{label}}",
-      "exporting": "匯出中…",
-      "exportingProgress": "匯出中…（{{current}}/{{total}}）",
       "failed": "匯出失敗",
       "noImageSelected": "未選擇要匯出的影像。",
       "noImagesSelected": "未選擇影像。",
@@ -1140,12 +1140,12 @@
       "title": "編輯尚未同步到 Immich"
     },
     "export": {
-      "newAlbum": "新增相簿…",
-      "newAlbumName": "相簿名稱",
-      "createAlbum": "建立",
-      "newAlbumFailed": "無法建立相簿：{{error}}",
       "album": "相簿",
+      "createAlbum": "建立",
       "destination": "Immich",
+      "newAlbum": "新增相簿…",
+      "newAlbumFailed": "無法建立相簿：{{error}}",
+      "newAlbumName": "相簿名稱",
       "noAlbum": "不加入相簿",
       "sourceAlbum": "開啟該影像時所在的相簿",
       "withOriginal": "同時上傳原始檔",
@@ -1182,10 +1182,10 @@
       "pending": "等待同步到 Immich 的編輯：{{number}}"
     },
     "toasts": {
-      "editsStayLocal": "{{fileName}} 屬於其他人，因此 Immich 不接受對它的編輯。你的編輯會保留在這台電腦上。",
       "backOnline": "Immich 已重新連線，所有編輯內容都已儲存。",
       "downloadFailed": "無法從 Immich 下載：{{error}}",
       "editsConflict": "{{fileName}} 也在另一台電腦上被編輯過。你的編輯內容會保留，另一個版本已儲存為虛擬副本。",
+      "editsStayLocal": "{{fileName}} 屬於其他人，因此 Immich 不接受對它的編輯。你的編輯會保留在這台電腦上。",
       "offline": "無法連線到 Immich。你的編輯內容會保留在這裡，並在恢復連線後傳送。",
       "transferFailed": "未能新增到 Immich：{{number}}（{{error}}）",
       "transferred": "已新增到 Immich：{{number}}",
@@ -1201,7 +1201,6 @@
       "failed": "失敗（{{failedCount}}）",
       "kinds": {
         "denoise": "正在 AI 降噪",
-        "upscale": "正在 RapidRes 放大",
         "depthMap": "正在分析深度",
         "depthMask": "正在產生深度遮罩",
         "faceMask": "正在產生臉部遮罩",
@@ -1209,7 +1208,8 @@
         "normalMap": "正在分析表面",
         "skyMask": "正在產生天空遮罩",
         "subjectMask": "正在產生主體遮罩",
-        "textMask": "正在產生文字遮罩"
+        "textMask": "正在產生文字遮罩",
+        "upscale": "正在 RapidRes 放大"
       },
       "more": "另外 {{moreCount}} 項",
       "pause": "暫停 AI 處理",
@@ -1259,8 +1259,8 @@
       "iso": "ISO",
       "metadata": "中繼資料",
       "noMetadataAvailable": "無可用中繼資料",
-      "noTagsAdded": "未新增標籤",
       "none": "無",
+      "noTagsAdded": "未新增標籤",
       "rateAndLabel": "評分與標籤",
       "rating": "評分",
       "selectImagesToCompare": "選擇要比較的影像",
@@ -1271,8 +1271,8 @@
       "vc": "VC"
     },
     "filterExit": {
-      "hiddenSingle": "{{name}} 已不再符合篩選條件",
       "hiddenMultiple_other": "{{count}} 張影像已不再符合篩選條件",
+      "hiddenSingle": "{{name}} 已不再符合篩選條件",
       "undo": "復原"
     },
     "filters": {
@@ -1375,11 +1375,6 @@
         "filterByFileType": "按檔案型別過濾",
         "filterByFlag": "按標記過濾",
         "filterByRating": "按評分過濾",
-        "ratingOperator": {
-          "eq": "僅此評分",
-          "gte": "此評分及以上",
-          "lte": "此評分及以下"
-        },
         "groupEditedFiles": "將已編輯的檔案納入分組",
         "groupIgnoreMetadata": "忽略不一致的 EXIF 日期",
         "groupOff": "關閉",
@@ -1390,6 +1385,11 @@
         "metadataHover": "懸停時",
         "metadataOff": "關閉",
         "noLabel": "無標籤",
+        "ratingOperator": {
+          "eq": "僅此評分",
+          "gte": "此評分及以上",
+          "lte": "此評分及以下"
+        },
         "recursive": "遞迴",
         "showMetadata": "顯示後設資料",
         "sortAscending": "升序排列",
@@ -1402,12 +1402,12 @@
     },
     "items": {
       "cloudPlaceholder": "儲存在 iCloud 中 — 未下載",
-      "immichPlaceholder": "儲存在 Immich 中 — 未下載",
       "collapseFolder": "摺疊資料夾",
       "currentFolder": "當前資料夾",
       "expandFolder": "展開資料夾",
       "imagesCount_one": "1 張影像",
       "imagesCount_other": "{{count}} 張影像",
+      "immichPlaceholder": "儲存在 Immich 中 — 未下載",
       "rejected": "已拒絕",
       "tooltipAperture": "光圈",
       "tooltipFocalLength": "焦距",
@@ -1604,10 +1604,10 @@
         "halationGlow": "光暈與發光",
         "hueShift": "全域色相偏移",
         "lensBlur": "鏡頭模糊",
-        "motionBlur": "動態模糊",
         "lensCorrection": "鏡頭校正",
         "lut": "LUT",
         "masks": "遮色片",
+        "motionBlur": "動態模糊",
         "negativeConversion": "負片轉換",
         "noiseReduction": "降噪",
         "presence": "質感",
@@ -1645,9 +1645,9 @@
       "applyButton_one": "應用到 1 張影像",
       "applyButton_other": "應用到 {{count}} 張影像",
       "bestImage": "最佳影像",
+      "blurryImagesTab": "模糊影像",
       "blurThreshold": "模糊臨界值",
       "blurThresholdDesc": "銳度評分低於此值的影像將被標記。值越高越嚴格。",
-      "blurryImagesTab": "模糊影像",
       "cancel": "取消",
       "close": "關閉",
       "cullingFailed": "篩選失敗",
@@ -1859,14 +1859,14 @@
           "fine": "按 Shift 精細調整"
         },
         "keys": {
-          "hold": "單擊 / 按住",
-          "previousImage": "上一張",
-          "nextImage": "下一張",
-          "reset": "重設",
-          "previousAdjustment": "上一個滑桿",
-          "nextAdjustment": "下一個滑桿",
           "copy": "複製",
+          "hold": "單擊 / 按住",
+          "nextAdjustment": "下一個滑桿",
+          "nextImage": "下一張",
           "paste": "貼上",
+          "previousAdjustment": "上一個滑桿",
+          "previousImage": "上一張",
+          "reset": "重設",
           "stepDown": "−1 步",
           "stepUp": "+1 步"
         },
@@ -1892,9 +1892,9 @@
       "limit": "上限",
       "modals": {
         "aiDenoiseMessage": "確定要清除 AI 降噪快取嗎？\n\n啟用 AI 降噪的影像需要重新降噪，每張影像可能需要數分鐘。",
-        "aiUpscaleMessage": "確定要清除 RapidRes 快取嗎？\n\n啟用 RapidRes 的影像需要重新放大。",
         "aiMapsMessage": "確定要清除深度與法線貼圖嗎？\n\n使用鏡頭模糊、霧效或重新打光的影像會在下次開啟時重新產生貼圖。",
         "aiMessage": "您確定要從所有活動根資料夾中的所有影像中移除所有 AI 生成的標籤嗎？\n\n這不會影響使用者新增的標籤。此操作無法復原。",
+        "aiUpscaleMessage": "確定要清除 RapidRes 快取嗎？\n\n啟用 RapidRes 的影像需要重新放大。",
         "allMessage": "您確定要從所有活動根資料夾中的所有影像中移除所有 AI 生成和使用者新增的標籤嗎？\n\n此操作無法復原。",
         "cacheMessage": "您確定要清除縮圖快取嗎？\n\n所有縮圖將需要重新生成，對於大型資料夾可能會很慢。",
         "confirmAiTitle": "確認刪除 AI 標籤",
@@ -1920,10 +1920,10 @@
       "show": "顯示",
       "statuses": {
         "aiDenoiseSuccess": "AI 降噪快取已成功清除。",
-        "aiUpscaleSuccess": "RapidRes 快取已成功清除。",
         "aiSuccess": "{{count}} 個檔案已更新。AI 標籤已移除。",
         "aiSuccess_one": "{{count}} 個檔案已更新。AI 標籤已移除。",
         "aiSuccess_other": "{{count}} 個檔案已更新。AI 標籤已移除。",
+        "aiUpscaleSuccess": "RapidRes 快取已成功清除。",
         "allSuccess": "{{count}} 個檔案已更新。所有非顏色標籤已移除。",
         "allSuccess_one": "{{count}} 個檔案已更新。所有非顏色標籤已移除。",
         "allSuccess_other": "{{count}} 個檔案已更新。所有非顏色標籤已移除。",
@@ -1937,10 +1937,10 @@
       "storage": {
         "aiDenoise": "AI 降噪",
         "aiDenoiseDesc": "快取的降噪結果。",
-        "aiUpscale": "RapidRes",
-        "aiUpscaleDesc": "快取的 RapidRes 2 倍放大結果。",
         "aiMaps": "深度與法線貼圖",
         "aiMapsDesc": "用於鏡頭模糊、霧效和重新打光。",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "快取的 RapidRes 2 倍放大結果。",
         "immich": "Immich",
         "immichDesc": "已下載的原始檔。達到上限後會刪除最久未使用的原始檔；你的編輯會保留。",
         "logs": "記錄檔",
@@ -2081,16 +2081,23 @@
     },
     "processing": {
       "advanced": {
-        "heading": "進階",
-        "headingDesc": "縮圖、快取與匯出的效能調整。預設值適合大多數使用者。",
-        "title": "進階設定",
         "auto": "自動",
+        "exportMemoryLimit": "匯出記憶體上限",
+        "exportMemoryLimitDesc": "批次匯出可使用的可用記憶體比例。調低可在大型匯出期間讓其他應用程式保持流暢。",
         "exportThreads": "並行匯出",
         "exportThreadsDesc": "同時匯出的影像數量。「自動」會依據你的 CPU 選擇合適的值。如果大型匯出失敗或顯示卡記憶體較少，請調低。",
-        "exportMemoryLimit": "匯出記憶體上限",
-        "exportMemoryLimitDesc": "批次匯出可使用的可用記憶體比例。調低可在大型匯出期間讓其他應用程式保持流暢。"
+        "heading": "進階",
+        "headingDesc": "縮圖、快取與匯出的效能調整。預設值適合大多數使用者。",
+        "title": "進階設定"
       },
       "ai": {
+        "aiFree": {
+          "description": "關閉所有 AI 功能。所有與 AI 相關的控制項都會從介面中隱藏，RapidRAW 將作為純傳統的 RAW 編輯器運作。",
+          "feature1": "介面中不顯示 AI 遮色片、鏡頭模糊或生成式編輯",
+          "feature2": "現有的 AI 編輯仍會正常呈現",
+          "feature3": "更簡潔、更專注的介面",
+          "title": "無 AI"
+        },
         "cloud": {
           "description": "對於那些想要更簡單解決方案的使用者，可選訂閱提供與自託管相同的高品質結果，無需任何麻煩。這是最方便的選擇，也是支援本專案的最佳方式。",
           "feature1": "最大便利，無需設定",
@@ -2139,13 +2146,6 @@
           "gpuAccelerationDesc": "在顯示卡上執行降噪、遮罩、深度圖與法線圖以及標籤等內建 AI 功能，大幅提升速度。如果遇到當機或 AI 結果不正確，請關閉此選項。",
           "gpuAccelerationLabel": "為 AI 模型使用 GPU",
           "title": "內建 AI"
-        },
-        "aiFree": {
-          "description": "關閉所有 AI 功能。所有與 AI 相關的控制項都會從介面中隱藏，RapidRAW 將作為純傳統的 RAW 編輯器運作。",
-          "feature1": "介面中不顯示 AI 遮色片、鏡頭模糊或生成式編輯",
-          "feature2": "現有的 AI 編輯仍會正常呈現",
-          "feature3": "更簡潔、更專注的介面",
-          "title": "無 AI"
         },
         "description": "RapidRAW 的 AI 專為靈活性而設計。選擇您理想的工作流程，從快速的本地工具到強大的自託管。",
         "providers": {
@@ -2318,7 +2318,6 @@
       },
       "rawDecoding": "RAW 解碼",
       "rawDecodingDesc": "選擇在何處解碼 RAW 檔案。「自動」使用 GPU，並在 GPU 無法處理您的影像時切換到 CPU。「GPU」始終先嘗試 GPU。「CPU」較慢，但適用於所有系統。",
-      "rawDecodingUnavailable": "此 GPU 無法執行 RAW 解碼，因此 RAW 檔案在 CPU 上解碼。",
       "rawDecodingFallback": "GPU 處理大型 RAW 檔案失敗，因此 {{megapixels}} MP 以上的檔案暫時在 CPU 上顯影。",
       "rawDecodingFallbackRetry": "重新嘗試 GPU",
       "rawDecodingOptions": {
@@ -2326,6 +2325,7 @@
         "cpu": "CPU",
         "gpu": "GPU"
       },
+      "rawDecodingUnavailable": "此 GPU 無法執行 RAW 解碼，因此 RAW 檔案在 CPU 上解碼。",
       "renderScale": "渲染解析度縮放",
       "renderScaleDesc": "相對於顯示器縮放渲染解析度。較低的值可在高解析度螢幕上提高效能，但會犧牲一些清晰度。",
       "restartRequired": "處理引擎的更改需要重啟應用程式才能生效。",
@@ -2349,8 +2349,8 @@
     "tagging": {
       "addCustomPlaceholder": "新增自定義 AI 標籤（逗號分隔）...",
       "addCustomTooltip": "新增 AI 標籤",
-      "addShortcutTooltip": "新增快捷方式",
       "addShortcutsPlaceholder": "新增快捷方式（逗號分隔）...",
+      "addShortcutTooltip": "新增快捷方式",
       "aiTagging": "AI 標籤",
       "aiTaggingDesc": "使用 AI（CLIP）模型啟用自動影像標籤。這將下載額外的模型，並在瀏覽資料夾時影響效能。標籤用於搜尋資料夾。",
       "amount": "數量",
@@ -2382,9 +2382,9 @@
         "mediapipe": "感謝其快速的臉部特徵點與分割模型，為 AI 臉部遮罩提供支援。",
         "negpy": "為負片轉換邏輯提供了靈感。",
         "nind": "為 AI 模型提供支援，驅動了 RapidRAW 中的 AI 降噪功能。",
-        "span": "RapidRAW 的 AI 2 倍放大功能 RapidRes 的基礎 AI 模型，由 RapidRAW 針對自身的 RAW 處理流程進行微調（作者 Philip Hofmann，CC BY 4.0）。",
         "rawler": "為優秀的 Rust 庫提供支援，構成了本專案 RAW 檔案處理的基礎。",
         "sam2": "為提供基礎模型，用於 AI 主體檢測功能。",
+        "span": "RapidRAW 的 AI 2 倍放大功能 RapidRes 的基礎 AI 模型，由 RapidRAW 針對自身的 RAW 處理流程進行微調（作者 Philip Hofmann，CC BY 4.0）。",
         "spektrafilm": "感謝 Andrea Volpato 提供基於光譜的底片模擬 LUT，為 RapidRAW 的內建底片模擬提供支援。採用 CC BY-SA 4.0 授權。",
         "you": "感謝您使用和支援 RapidRAW。您的關注使本專案持續發展。",
         "youLabel": "您"
