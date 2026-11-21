@@ -181,7 +181,7 @@ const ThumbnailComponent = ({
       ? 'ring-2 ring-inset ring-gray-400'
       : isForcedHover
         ? 'ring-2 ring-inset ring-hover-color'
-        : 'group-hover:ring-2 group-hover:ring-inset group-hover:ring-hover-color';
+        : 'group-hover:ring-1 group-hover:ring-inset group-hover:ring-hover-color/40';
 
   const colorTag = tags?.find((t: string) => t.startsWith('color:'))?.substring(6);
   const colorLabel = COLOR_LABELS.find((c: Color) => c.name === colorTag);
