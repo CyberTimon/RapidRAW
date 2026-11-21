@@ -97,6 +97,7 @@ pub fn save_metadata_and_update_thumbnail(
                 );
             }
             metadata.adjustments = final_adjustments;
+            metadata.last_modified = Some(chrono::Utc::now().to_rfc3339());
         })
         .map_err(|e| e.to_string())?;
 
