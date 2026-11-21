@@ -451,7 +451,8 @@ var<workgroup> hz_mean: array<vec4<f32>, 256>;
 var<workgroup> hz_threshold: u32;
 
 fn hz_bin(rgb: vec3<f32>) -> u32 {
-    let d = log2(max(min(rgb.r, min(rgb.g, rgb.b)), 1.0e-8));
+    let srgb = WORKING_TO_SRGB * rgb;
+    let d = log2(max(min(srgb.r, min(srgb.g, srgb.b)), 1.0e-8));
     return u32(clamp((d - HZ_LOG_FLOOR) * HZ_BINS_PER_STOP, 0.0, f32(HZ_BINS - 1u)));
 }
 
@@ -461,7 +462,7 @@ fn hz_guide(rgb: vec3<f32>, air_luma: f32) -> f32 {
 }
 
 fn hz_dark(rgb: vec3<f32>, air: vec3<f32>) -> f32 {
-    let n = max(rgb, vec3<f32>(0.0)) / air;
+    let n = max(WORKING_TO_SRGB * rgb, vec3<f32>(0.0)) / air;
     return clamp(min(n.r, min(n.g, n.b)), 0.0, 1.0);
 }
 
