@@ -237,7 +237,7 @@ function DetailsPanel({
                         handleAdjustmentChange(DetailsAdjustment.AiDenoiseDetail, String(e.target.value))
                       }
                       step={1}
-                      value={adjustments.aiDenoiseDetail ?? 0}
+                      value={adjustments.aiDenoiseDetail ?? 15}
                       onDragStateChange={onDragStateChange}
                     />
                   </>

@@ -75,7 +75,7 @@ pub fn blend_strength(adjustments: &serde_json::Value) -> (f32, f32) {
     let amount =
         (adjustments["aiDenoiseAmount"].as_f64().unwrap_or(100.0) as f32 / 100.0).clamp(0.0, 1.0);
     let detail =
-        (adjustments["aiDenoiseDetail"].as_f64().unwrap_or(0.0) as f32 / 100.0).clamp(0.0, 1.0);
+        (adjustments["aiDenoiseDetail"].as_f64().unwrap_or(15.0) as f32 / 100.0).clamp(0.0, 1.0);
     (amount, detail)
 }
 
