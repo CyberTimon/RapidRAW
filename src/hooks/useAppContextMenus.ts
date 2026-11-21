@@ -73,6 +73,9 @@ import {
   COLOR_LABELS,
   getAiDenoiseEnablePatch,
   INITIAL_ADJUSTMENTS,
+  isLensCorrectionActive,
+  LENS_CORRECTION_AUTO,
+  LENS_CORRECTION_OFF,
 } from '../utils/adjustments';
 import TaggingSubMenu from '../components/panel/library/TaggingSubMenu';
 import {
@@ -353,15 +356,22 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               submenu: buildAutoAdjustModeOptions(t, handleAutoAdjustments),
             },
             {
-              label: t('contextMenus.editor.autoLensCorrection'),
-              icon: Aperture,
-              onClick: () => handleAutoLensCorrection([selectedImage.path]),
-              disabled: !selectedImage?.isReady,
-            },
-            {
               label: t('contextMenus.editor.autoStraighten'),
               icon: ScanLine,
               onClick: handleAutoStraighten,
+              disabled: !selectedImage?.isReady,
+            },
+            { type: OPTION_SEPARATOR },
+            {
+              label: isLensCorrectionActive(adjustments)
+                ? t('contextMenus.editor.removeLensCorrection')
+                : t('contextMenus.editor.lensCorrection'),
+              icon: Aperture,
+              onClick: () =>
+                handleEnableAdjustments(
+                  [selectedImage.path],
+                  isLensCorrectionActive(adjustments) ? LENS_CORRECTION_OFF : LENS_CORRECTION_AUTO,
+                ),
               disabled: !selectedImage?.isReady,
             },
             {
@@ -415,24 +425,14 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 }),
               disabled: !selectedImage?.isReady,
             },
-            {
-              icon: LayoutTemplate,
-              label: t('contextMenus.editor.frameImage'),
-              onClick: () => {
-                setUI({ collageModalState: { isOpen: true, sourceImages: [selectedImage] } });
-              },
-            },
-            { label: t('contextMenus.editor.cullImage'), icon: Users, disabled: true },
           ],
         },
         {
-          label: t('contextMenus.merge.title'),
-          icon: LayersArrowDown,
-          submenu: [
-            { disabled: true, icon: SquaresUnite, label: t('contextMenus.editor.stitchPanorama') },
-            { disabled: true, icon: Images, label: t('contextMenus.editor.mergeHdr') },
-            { disabled: true, icon: Layers, label: t('contextMenus.merge.focusStack') },
-          ],
+          icon: LayoutTemplate,
+          label: t('contextMenus.editor.frameImage'),
+          onClick: () => {
+            setUI({ collageModalState: { isOpen: true, sourceImages: [selectedImage] } });
+          },
         },
         { type: OPTION_SEPARATOR },
         {
@@ -765,14 +765,42 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               submenu: buildAutoAdjustModeOptions(t, handleApplyAutoAdjustmentsToSelection),
             },
             {
-              label: t('contextMenus.thumbnail.autoLensCorrection', { count: selectionCount }),
-              icon: Aperture,
-              onClick: () => handleAutoLensCorrection(finalSelection),
-            },
-            {
               label: t('contextMenus.thumbnail.autoStraighten', { count: selectionCount }),
               icon: ScanLine,
               onClick: () => handleAutoStraightenPaths(finalSelection),
+            },
+            {
+              label: cullLabel,
+              icon: Users,
+              onClick: () =>
+                setUI({
+                  cullingModalState: {
+                    isOpen: true,
+                    progress: null,
+                    suggestions: null,
+                    error: null,
+                    pathsToCull: finalSelection,
+                  },
+                }),
+              disabled: selectionCount < 2,
+            },
+            { type: OPTION_SEPARATOR },
+            {
+              label: t('contextMenus.thumbnail.lensCorrection', { count: selectionCount }),
+              icon: Aperture,
+              disabled: selectionCount === 0,
+              submenu: [
+                {
+                  label: t('contextMenus.thumbnail.enable'),
+                  icon: Check,
+                  onClick: () => handleAutoLensCorrection(finalSelection),
+                },
+                {
+                  label: t('contextMenus.thumbnail.remove'),
+                  icon: X,
+                  onClick: () => handleEnableAdjustments(finalSelection, LENS_CORRECTION_OFF),
+                },
+              ],
             },
             {
               label: denoiseLabel,
@@ -850,30 +878,6 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 },
               ],
             },
-            {
-              icon: LayoutTemplate,
-              label: collageLabel,
-              onClick: () => {
-                const imagesForCollage = imageList.filter((img) => finalSelection.includes(img.path));
-                setUI({ collageModalState: { isOpen: true, sourceImages: imagesForCollage } });
-              },
-              disabled: selectionCount === 0 || selectionCount > 9,
-            },
-            {
-              label: cullLabel,
-              icon: Users,
-              onClick: () =>
-                setUI({
-                  cullingModalState: {
-                    isOpen: true,
-                    progress: null,
-                    suggestions: null,
-                    error: null,
-                    pathsToCull: finalSelection,
-                  },
-                }),
-              disabled: selectionCount < 2,
-            },
           ],
         },
         {
@@ -897,6 +901,16 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               icon: Layers,
               label: t('contextMenus.merge.focusStack'),
               onClick: () => openMergeModal('focusStack', finalSelection),
+            },
+            { type: OPTION_SEPARATOR },
+            {
+              icon: LayoutTemplate,
+              label: collageLabel,
+              onClick: () => {
+                const imagesForCollage = imageList.filter((img) => finalSelection.includes(img.path));
+                setUI({ collageModalState: { isOpen: true, sourceImages: imagesForCollage } });
+              },
+              disabled: selectionCount === 0 || selectionCount > 9,
             },
           ],
         },
