@@ -8,9 +8,12 @@ import { getFitRenderSize, ImageDimensions, RenderSize, useImageRenderSize } fro
 import {
   Adjustments,
   AiPatch,
+  CropGeometry,
   MaskContainer,
   INITIAL_ADJUSTMENTS,
+  isSameCropGeometry,
   omitTonalAdjustments,
+  pickCropGeometry,
 } from '../../utils/adjustments';
 import { useShallow } from 'zustand/react/shallow';
 import { prepareAdjustmentsPayload } from '../../utils/backendPayload';
@@ -781,7 +784,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const wasCroppingRef = useRef(isCropping);
   const preCropViewRef = useRef<{
     path: string;
-    orientationSteps: number;
+    geometry: CropGeometry;
     x: number;
     y: number;
     zoom: number;
@@ -815,7 +818,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         scale > 1.01
           ? {
               path: selectedImage.path,
-              orientationSteps,
+              geometry: pickCropGeometry(adjustments),
               x: crop.x + ((centerX - positionX) / scale - layout.offsetX) / layout.scale,
               y: crop.y + ((centerY - positionY) / scale - layout.offsetY) / layout.scale,
               zoom: scale * layout.scale,
@@ -827,7 +830,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
     const saved = preCropViewRef.current;
     preCropViewRef.current = null;
-    if (!saved || saved.path !== selectedImage.path || saved.orientationSteps !== orientationSteps) {
+    if (!saved || saved.path !== selectedImage.path || !isSameCropGeometry(adjustments, saved.geometry)) {
       applyTransform(0, 0, 1);
       return;
     }
@@ -839,7 +842,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       scale,
     );
     applyTransform(bounded.x, bounded.y, bounded.scale);
-  }, [isCropping, selectedImage, adjustments.crop, adjustments.orientationSteps, applyTransform, clampToBounds]);
+  }, [isCropping, selectedImage, adjustments, applyTransform, clampToBounds]);
 
   useImperativeHandle(
     transformWrapperRef,
@@ -2596,10 +2599,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
       const newPixelCrop: Crop = {
         unit: 'px',
-        x: Math.ceil((pc.x / 100) * baseW),
-        y: Math.ceil((pc.y / 100) * baseH),
-        width: Math.floor((pc.width / 100) * baseW),
-        height: Math.floor((pc.height / 100) * baseH),
+        x: Math.ceil((pc.x / 100) * baseW - 1e-6),
+        y: Math.ceil((pc.y / 100) * baseH - 1e-6),
+        width: Math.floor((pc.width / 100) * baseW + 1e-6),
+        height: Math.floor((pc.height / 100) * baseH + 1e-6),
       };
 
       setAdjustments((prev: Adjustments) => {

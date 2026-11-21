@@ -748,6 +748,9 @@ export type CropGeometry = Pick<Adjustments, (typeof CROP_GEOMETRY_KEYS)[number]
 export const pickCropGeometry = (adjustments: Adjustments): CropGeometry =>
   Object.fromEntries(CROP_GEOMETRY_KEYS.map((key) => [key, structuredClone(adjustments[key])])) as CropGeometry;
 
+export const isSameCropGeometry = (a: CropGeometry, b: CropGeometry) =>
+  CROP_GEOMETRY_KEYS.every((key) => JSON.stringify(a[key]) === JSON.stringify(b[key]));
+
 export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any => {
   if (!loadedAdjustments) {
     return INITIAL_ADJUSTMENTS;
