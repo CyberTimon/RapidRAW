@@ -2565,7 +2565,7 @@ const ImageCanvas = memo(
       }
       setWbBox(null);
       resetWbSample();
-    }, [isWbPickerActive, selectedImage.path, resetWbSample]);
+    }, [isWbPickerActive, isMixerPickerActive, selectedImage.path, resetWbSample]);
 
     const handleStart = useCallback(
       (e: any) => {

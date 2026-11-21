@@ -9,7 +9,6 @@ import {
   Loader2,
   LucideIcon,
   Map as MapIcon,
-  RefreshCw,
   Save,
   Square,
   SquaresUnite,
@@ -161,6 +160,7 @@ export default function MergeModal({
   const mouseDownTarget = useRef<EventTarget | null>(null);
   const commitTimer = useRef<number | null>(null);
   const pendingSettings = useRef<MergeSettings | null>(null);
+  const projectionNote = useRef<string | null>(null);
 
   useEffect(() => {
     setDraftSettings(settings);
@@ -265,86 +265,106 @@ export default function MergeModal({
   const renderPanoramaOptions = (panorama: PanoramaSettings) => {
     const projectionLabel = (value: PanoramaProjectionMode) =>
       t(PROJECTION_OPTIONS.find((option) => option.value === value)?.label ?? 'modals.panorama.projectionAuto');
-    let note = null;
-    if (preview?.projection && !isUpdatingPreview) {
-      if (panorama.projection === 'auto') {
+    if (!isUpdatingPreview) {
+      const requested = (settings as PanoramaSettings).projection;
+      let note = null;
+      if (preview?.projection && requested === 'auto') {
         note = t('modals.panorama.autoProjectionUsed', { projection: projectionLabel(preview.projection) });
-      } else if (panorama.projection !== preview.projection) {
+      } else if (preview?.projection && requested !== preview.projection) {
         note = t('modals.panorama.projectionFallback', {
-          requested: projectionLabel(panorama.projection),
+          requested: projectionLabel(requested),
           projection: projectionLabel(preview.projection),
         });
       }
+      projectionNote.current = note;
     }
-    return (
-      <>
-        <div>
-          <Text variant={TextVariants.heading} className="mb-2">
-            {t('modals.panorama.projection')}
-          </Text>
-          <Segmented
-            options={PROJECTION_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
-            value={panorama.projection}
-            onChange={(projection) => updateSettings({ projection })}
-          />
-          <Text variant={TextVariants.small} className="mt-2 min-h-8">
-            {note}
-          </Text>
-        </div>
-        <div>
-          <Slider
-            label={t('modals.panorama.boundaryWarp')}
-            min={0}
-            max={100}
-            step={1}
-            defaultValue={0}
-            value={panorama.boundaryWarp}
-            onChange={(e) => updateSettings({ boundaryWarp: Number(e.target.value) })}
-            fillOrigin="min"
-          />
-          <Text variant={TextVariants.small} className="mt-2">
-            {t('modals.panorama.boundaryWarpHint')}
-          </Text>
-        </div>
-        <div className="space-y-3">
-          {renderAutoCrop(panorama.autoCrop)}
-          <Switch
-            label={t('modals.panorama.exposureCompensation')}
-            checked={panorama.exposureCompensation}
-            onChange={(exposureCompensation) => updateSettings({ exposureCompensation })}
-            tooltip={t('modals.panorama.exposureCompensationHint')}
-          />
-        </div>
-      </>
-    );
-  };
-
-  const renderFocusStackOptions = (focusStack: FocusStackSettings) => (
-    <>
-      <div>
+    return [
+      <div key="projection">
         <Text variant={TextVariants.heading} className="mb-2">
-          {t('modals.focusStack.method')}
+          {t('modals.panorama.projection')}
         </Text>
         <Segmented
-          options={METHOD_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
-          value={focusStack.method}
-          onChange={(method) => updateSettings({ method })}
+          options={PROJECTION_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
+          value={panorama.projection}
+          onChange={(projection) => updateSettings({ projection })}
+        />
+        <Text variant={TextVariants.small} className="mt-2 min-h-8">
+          {projectionNote.current}
+        </Text>
+      </div>,
+      <div key="boundaryWarp">
+        <Slider
+          label={t('modals.panorama.boundaryWarp')}
+          min={0}
+          max={100}
+          step={1}
+          defaultValue={0}
+          value={panorama.boundaryWarp}
+          onChange={(e) => updateSettings({ boundaryWarp: Number(e.target.value) })}
+          fillOrigin="min"
         />
         <Text variant={TextVariants.small} className="mt-2">
-          {t('modals.focusStack.methodHint')}
+          {t('modals.panorama.boundaryWarpHint')}
         </Text>
-      </div>
-      <div className="space-y-3">{renderAutoCrop(focusStack.autoCrop)}</div>
-    </>
-  );
+      </div>,
+      <div key="toggles" className="space-y-3">
+        {renderAutoCrop(panorama.autoCrop)}
+        <Switch
+          label={t('modals.panorama.exposureCompensation')}
+          checked={panorama.exposureCompensation}
+          onChange={(exposureCompensation) => updateSettings({ exposureCompensation })}
+          tooltip={t('modals.panorama.exposureCompensationHint')}
+        />
+      </div>,
+    ];
+  };
 
-  const renderOptions = () => (
-    <div className={clsx('grid grid-cols-1 md:grid-cols-3 gap-6 mt-5', isSaving && 'opacity-50 pointer-events-none')}>
-      {kind === 'panorama' && renderPanoramaOptions(draftSettings as PanoramaSettings)}
-      {kind === 'hdr' && <div className="space-y-3">{renderAutoCrop(draftSettings.autoCrop)}</div>}
-      {kind === 'focusStack' && renderFocusStackOptions(draftSettings as FocusStackSettings)}
-    </div>
-  );
+  const renderFocusStackOptions = (focusStack: FocusStackSettings) => [
+    <div key="method">
+      <Text variant={TextVariants.heading} className="mb-2">
+        {t('modals.focusStack.method')}
+      </Text>
+      <Segmented
+        options={METHOD_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
+        value={focusStack.method}
+        onChange={(method) => updateSettings({ method })}
+      />
+      <Text variant={TextVariants.small} className="mt-2">
+        {t('modals.focusStack.methodHint')}
+      </Text>
+    </div>,
+    <div key="toggles" className="space-y-3">
+      {renderAutoCrop(focusStack.autoCrop)}
+    </div>,
+  ];
+
+  const renderOptions = () => {
+    const columns =
+      kind === 'panorama'
+        ? renderPanoramaOptions(draftSettings as PanoramaSettings)
+        : kind === 'focusStack'
+          ? renderFocusStackOptions(draftSettings as FocusStackSettings)
+          : [
+              <div key="toggles" className="space-y-3">
+                {renderAutoCrop(draftSettings.autoCrop)}
+              </div>,
+            ];
+    const sharedColumn = columns.length === 3 ? columns.pop() : null;
+    const settingsClass = clsx(isSaving && 'opacity-50 pointer-events-none');
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-5">
+        {columns.map((column) => (
+          <div key={column.key} className={settingsClass}>
+            {column}
+          </div>
+        ))}
+        <div className="flex flex-col gap-4 md:col-start-3">
+          {sharedColumn && <div className={settingsClass}>{sharedColumn}</div>}
+          <div className="mt-auto">{renderButtons()}</div>
+        </div>
+      </div>
+    );
+  };
 
   const renderOverlayToggle = () => {
     if (!preview?.overlayBase64 || !text.overlay || !tool.overlayIcon) return null;
@@ -558,21 +578,19 @@ export default function MergeModal({
           {preview ? t('modals.merge.close') : t('modals.merge.cancel')}
         </button>
 
-        <Button onClick={onStart} disabled={isProcessing} variant={preview ? 'secondary' : 'primary'}>
-          {isProcessing ? (
-            <Loader2 className="animate-spin mr-2" size={16} />
-          ) : preview ? (
-            <RefreshCw className="mr-2" size={16} />
-          ) : (
-            <ToolIcon className="mr-2" size={16} />
-          )}
-          {preview ? t('modals.merge.retry') : t('modals.merge.start')}
-        </Button>
-
-        {preview && (
+        {preview ? (
           <Button onClick={handleSave} disabled={isSaving || isProcessing || isUpdatingPreview}>
             {isSaving ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save className="mr-2" size={16} />}
             {isSaving ? t('modals.merge.saving') : t('modals.merge.save')}
+          </Button>
+        ) : (
+          <Button onClick={onStart} disabled={isProcessing}>
+            {isProcessing ? (
+              <Loader2 className="animate-spin mr-2" size={16} />
+            ) : (
+              <ToolIcon className="mr-2" size={16} />
+            )}
+            {t('modals.merge.start')}
           </Button>
         )}
       </div>
@@ -580,6 +598,8 @@ export default function MergeModal({
   };
 
   if (!isMounted) return null;
+
+  const showsInlineButtons = !error && !savedPath && !isProcessing && !!preview;
 
   return (
     <div
@@ -600,9 +620,11 @@ export default function MergeModal({
       >
         <div className="flex flex-col">
           {renderContent()}
-          <div className={clsx('mt-4 flex justify-end gap-3', !savedPath && 'pt-4 border-t border-surface/50')}>
-            {renderButtons()}
-          </div>
+          {!showsInlineButtons && (
+            <div className={clsx('mt-4 flex justify-end gap-3', !savedPath && 'pt-4 border-t border-surface/50')}>
+              {renderButtons()}
+            </div>
+          )}
         </div>
       </div>
     </div>

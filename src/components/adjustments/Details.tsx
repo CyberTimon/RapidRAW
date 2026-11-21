@@ -240,6 +240,7 @@ function DetailsPanel({
                       value={adjustments.aiDenoiseDetail ?? 15}
                       defaultValue={15}
                       onDragStateChange={onDragStateChange}
+                      fillOrigin="min"
                     />
                   </>
                 )}

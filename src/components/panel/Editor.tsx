@@ -35,7 +35,7 @@ import { CompareView } from '../../types/settings';
 import { Panel } from '../../types/ui';
 import { TransformState } from '../../types/editor';
 import { Invokes } from '../../types/invokes';
-import { useEditorStore, WgpuPhase } from '../../store/useEditorStore';
+import { cancelCanvasTool, useEditorStore, WgpuPhase } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
@@ -1341,6 +1341,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     (e: React.MouseEvent) => {
       if (suppressContextMenuRef.current && e.ctrlKey) {
         suppressContextMenuRef.current = false;
+        e.preventDefault();
+        return;
+      }
+      if (cancelCanvasTool()) {
         e.preventDefault();
         return;
       }

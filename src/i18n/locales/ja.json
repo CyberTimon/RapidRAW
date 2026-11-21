@@ -1752,7 +1752,6 @@
       "openInEditor": "エディタで開く",
       "outputInfo": "{{images}} 枚 · {{width}} × {{height}} px",
       "result": "結果",
-      "retry": "再試行",
       "save": "保存",
       "saving": "保存中…",
       "speedNotice": "画像枚数や画像サイズによって、数分かかる場合があります。",

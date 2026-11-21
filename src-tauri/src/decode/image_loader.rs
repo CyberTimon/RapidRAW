@@ -75,7 +75,7 @@ fn srgb_to_linear_lut() -> &'static [f32; 256] {
 }
 
 pub fn load_and_composite(
-    base_image: &[u8],
+    bytes: &[u8],
     path: &str,
     adjustments: &Value,
     use_fast_raw_dev: bool,
@@ -83,19 +83,38 @@ pub fn load_and_composite(
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<(DynamicImage, f32)> {
     let base_image =
-        load_base_image_from_bytes(base_image, path, use_fast_raw_dev, settings, cancel_token)?;
-    let prepared = match prepare_base_image_cow(&base_image, path, adjustments)? {
+        load_base_image_from_bytes(bytes, path, use_fast_raw_dev, settings, cancel_token)?;
+    let (base_w, base_h) = base_image.dimensions();
+    let decode_scale = if use_fast_raw_dev && is_raw_file(path) {
+        crate::decode::raw_processing::get_fast_demosaic_scale_factor(bytes, base_w, base_h)
+    } else {
+        1.0
+    };
+    let full_dims = (
+        (base_w as f32 / decode_scale).round() as u32,
+        (base_h as f32 / decode_scale).round() as u32,
+    );
+    let prepared = match prepare_base_image_at(&base_image, full_dims, path, adjustments)? {
         Cow::Owned(img) => Some(img),
         Cow::Borrowed(_) => None,
     };
     let scale = prepared.as_ref().map_or(1.0, |img| {
         crate::ai::upscale::scale_between(&base_image, img)
     });
-    Ok((prepared.unwrap_or(base_image), scale))
+    Ok((prepared.unwrap_or(base_image), scale * decode_scale))
 }
 
 pub fn prepare_base_image_cow<'a>(
     base_image: &'a DynamicImage,
+    path: &str,
+    adjustments: &Value,
+) -> Result<Cow<'a, DynamicImage>> {
+    prepare_base_image_at(base_image, base_image.dimensions(), path, adjustments)
+}
+
+fn prepare_base_image_at<'a>(
+    base_image: &'a DynamicImage,
+    full_dims: (u32, u32),
     path: &str,
     adjustments: &Value,
 ) -> Result<Cow<'a, DynamicImage>> {
@@ -112,7 +131,7 @@ pub fn prepare_base_image_cow<'a>(
         adjustments,
     ) {
         Cow::Owned(prepared) if !has_patches => Ok(Cow::Owned(prepared)),
-        prepared => composite_patches_cow(prepared, base_image.dimensions(), path, adjustments),
+        prepared => composite_patches_cow(prepared, full_dims, path, adjustments),
     }
 }
 
@@ -1009,7 +1028,8 @@ fn composite_patches_cow<'a>(
     }
 
     let (base_w, base_h) = base_image.dimensions();
-    let scale = (base_w / canon_w.max(1)).max(1);
+    let scale = base_w as f64 / canon_w.max(1) as f64;
+    let scaled = |v: u32| (v as f64 * scale).round() as u32;
 
     struct DecodedPatch {
         offset_x: Option<u32>,
@@ -1120,11 +1140,11 @@ fn composite_patches_cow<'a>(
                 color_image_u8
             };
 
-            let (mask_bitmap, final_color) = if scale == 1 {
+            let (mask_bitmap, final_color) = if scale == 1.0 {
                 (mask_bitmap, final_color)
             } else {
                 let (w, h) = mask_bitmap.dimensions();
-                let (sw, sh) = (w * scale, h * scale);
+                let (sw, sh) = (scaled(w).max(1), scaled(h).max(1));
                 (
                     imageops::resize(&mask_bitmap, sw, sh, imageops::FilterType::Triangle),
                     imageops::resize(&final_color, sw, sh, imageops::FilterType::CatmullRom),
@@ -1132,8 +1152,8 @@ fn composite_patches_cow<'a>(
             };
 
             Ok(DecodedPatch {
-                offset_x: offset_x.map(|v| v * scale),
-                offset_y: offset_y.map(|v| v * scale),
+                offset_x: offset_x.map(scaled),
+                offset_y: offset_y.map(scaled),
                 mask: mask_bitmap,
                 color: final_color,
                 is_srgb_encoded,

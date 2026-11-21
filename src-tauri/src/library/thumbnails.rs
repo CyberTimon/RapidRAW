@@ -395,14 +395,6 @@ fn generate_thumbnail_data_with_metadata(
                 )?;
 
                 raw_scale_factor = upscale;
-                if is_raw {
-                    raw_scale_factor *=
-                        crate::decode::raw_processing::get_fast_demosaic_scale_factor(
-                            file_slice,
-                            (img.width() as f32 / upscale).round() as u32,
-                            (img.height() as f32 / upscale).round() as u32,
-                        );
-                }
                 Cow::Owned(img)
             };
 

@@ -1759,7 +1759,6 @@
       "openInEditor": "Open in Editor",
       "outputInfo": "{{images}} images · {{width}} × {{height}} px",
       "result": "Result",
-      "retry": "Retry",
       "save": "Save",
       "saving": "Saving…",
       "speedNotice": "This may take a few minutes depending on the number and size of images.",

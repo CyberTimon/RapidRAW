@@ -1752,7 +1752,6 @@
       "openInEditor": "在编辑器中打开",
       "outputInfo": "{{images}} 张图像 · {{width}} × {{height}} 像素",
       "result": "结果",
-      "retry": "重试",
       "save": "保存",
       "saving": "正在保存…",
       "speedNotice": "这可能需要几分钟，具体取决于图像的数量和大小。",

@@ -142,16 +142,50 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       label: t('contextMenus.editor.flag'),
       icon: Flag,
       submenu: [
+        { label: t('contextMenus.editor.unflagged'), icon: FlagOff, onClick: () => handleSetFlag(null, paths) },
+        { type: OPTION_SEPARATOR },
         { label: t('contextMenus.editor.flagPick'), icon: Flag, onClick: () => handleSetFlag(ImageFlag.Pick, paths) },
         {
           label: t('contextMenus.editor.flagReject'),
           icon: Ban,
           onClick: () => handleSetFlag(ImageFlag.Reject, paths),
         },
-        { label: t('contextMenus.editor.unflagged'), icon: FlagOff, onClick: () => handleSetFlag(null, paths) },
       ],
     }),
     [handleSetFlag, t],
+  );
+
+  const buildRatingMenu = useCallback(
+    (paths?: string[]) => ({
+      label: t('contextMenus.editor.rating'),
+      icon: Star,
+      submenu: [
+        { label: t('contextMenus.editor.noRating'), onClick: () => handleRate(0, paths) },
+        { type: OPTION_SEPARATOR },
+        ...[1, 2, 3, 4, 5].map((rating: number) => ({
+          label: t('contextMenus.editor.ratingLabel', { count: rating }),
+          onClick: () => handleRate(rating, paths),
+        })),
+      ],
+    }),
+    [handleRate, t],
+  );
+
+  const buildColorLabelMenu = useCallback(
+    (paths?: string[]) => ({
+      label: t('contextMenus.editor.colorLabel'),
+      icon: Palette,
+      submenu: [
+        { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null, paths) },
+        { type: OPTION_SEPARATOR },
+        ...COLOR_LABELS.map((label: Color) => ({
+          label: t(`contextMenus.colors.${label.name}` as ParseKeys),
+          color: label.color,
+          onClick: () => handleSetColorLabel(label.name, paths),
+        })),
+      ],
+    }),
+    [handleSetColorLabel, t],
   );
 
   const albumIcons = useMemo(
@@ -435,30 +469,9 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           },
         },
         { type: OPTION_SEPARATOR },
-        {
-          label: t('contextMenus.editor.rating'),
-          icon: Star,
-          submenu: [0, 1, 2, 3, 4, 5].map((rating: number) => ({
-            label:
-              rating === 0
-                ? t('contextMenus.editor.noRating')
-                : t('contextMenus.editor.ratingLabel', { count: rating }),
-            onClick: () => handleRate(rating),
-          })),
-        },
+        buildRatingMenu(),
         buildFlagMenu(),
-        {
-          label: t('contextMenus.editor.colorLabel'),
-          icon: Palette,
-          submenu: [
-            { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null) },
-            ...COLOR_LABELS.map((label: Color) => ({
-              label: t(`contextMenus.colors.${label.name}` as ParseKeys),
-              color: label.color,
-              onClick: () => handleSetColorLabel(label.name),
-            })),
-          ],
-        },
+        buildColorLabelMenu(),
         {
           label: t('contextMenus.editor.tagging'),
           icon: Tag,
@@ -516,9 +529,9 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       handleCopyAdjustments,
       handlePasteAdjustments,
       handleAutoAdjustments,
-      handleRate,
+      buildRatingMenu,
       buildFlagMenu,
-      handleSetColorLabel,
+      buildColorLabelMenu,
       handleTagsChanged,
       buildEditInOptions,
       showContextMenu,
@@ -927,6 +940,12 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           label: t('contextMenus.thumbnail.duplicateImage'),
           submenu: [
             {
+              label: t('contextMenus.thumbnail.virtualCopy'),
+              icon: CopyPlus,
+              disabled: !isSingleSelection,
+              onClick: () => handleCreateVirtualCopy(finalSelection[0]),
+            },
+            {
               label: t('contextMenus.thumbnail.physicalCopy'),
               icon: Copy,
               disabled: !isSingleSelection,
@@ -947,40 +966,13 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 }
               },
             },
-            {
-              label: t('contextMenus.thumbnail.virtualCopy'),
-              icon: CopyPlus,
-              disabled: !isSingleSelection,
-              onClick: () => handleCreateVirtualCopy(finalSelection[0]),
-            },
           ],
         },
         { icon: FileEdit, label: renameLabel, onClick: () => props.handleRenameFiles(finalSelection) },
         { type: OPTION_SEPARATOR },
-        {
-          icon: Star,
-          label: t('contextMenus.editor.rating'),
-          submenu: [0, 1, 2, 3, 4, 5].map((rating: number) => ({
-            label:
-              rating === 0
-                ? t('contextMenus.editor.noRating')
-                : t('contextMenus.editor.ratingLabel', { count: rating }),
-            onClick: () => handleRate(rating, finalSelection),
-          })),
-        },
+        buildRatingMenu(finalSelection),
         buildFlagMenu(finalSelection),
-        {
-          label: t('contextMenus.editor.colorLabel'),
-          icon: Palette,
-          submenu: [
-            { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null, finalSelection) },
-            ...COLOR_LABELS.map((label: Color) => ({
-              label: t(`contextMenus.colors.${label.name}` as ParseKeys),
-              color: label.color,
-              onClick: () => handleSetColorLabel(label.name, finalSelection),
-            })),
-          ],
-        },
+        buildColorLabelMenu(finalSelection),
         {
           label: t('contextMenus.editor.tagging'),
           icon: Tag,
@@ -1070,9 +1062,9 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       handleCopyAdjustments,
       handlePasteAdjustments,
       handleAutoAdjustments,
-      handleRate,
+      buildRatingMenu,
       buildFlagMenu,
-      handleSetColorLabel,
+      buildColorLabelMenu,
       handleTagsChanged,
       handleResetAdjustments,
       buildEditInOptions,

@@ -1798,7 +1798,6 @@
       "openInEditor": "Abrir en el editor",
       "outputInfo": "{{images}} imágenes · {{width}} × {{height}} px",
       "result": "Resultado",
-      "retry": "Reintentar",
       "save": "Guardar",
       "saving": "Guardando…",
       "speedNotice": "Esto puede tardar unos minutos dependiendo del número y tamaño de las imágenes.",
