@@ -4,7 +4,7 @@ import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
 
-import { ImageDimensions, RenderSize, useImageRenderSize } from '../../hooks/useImageRenderSize';
+import { getFitRenderSize, ImageDimensions, RenderSize, useImageRenderSize } from '../../hooks/useImageRenderSize';
 import {
   Adjustments,
   AiPatch,
@@ -24,7 +24,6 @@ import {
   moveCropInsideBounds,
   zoomCrop,
   normalizeCropChange,
-  getCropViewLayout,
   getCroppedDimensions,
 } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
@@ -779,49 +778,68 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     [animateTransform, applyTransform, clampToBounds],
   );
 
-  const isCropViewShown = isCropping && !!uncroppedAdjustedPreviewUrl;
-  const wasCropViewShownRef = useRef(isCropViewShown);
+  const wasCroppingRef = useRef(isCropping);
+  const preCropViewRef = useRef<{
+    path: string;
+    orientationSteps: number;
+    x: number;
+    y: number;
+    zoom: number;
+  } | null>(null);
 
   useLayoutEffect(() => {
-    if (wasCropViewShownRef.current === isCropViewShown) return;
-    wasCropViewShownRef.current = isCropViewShown;
+    if (wasCroppingRef.current === isCropping) return;
+    wasCroppingRef.current = isCropping;
+
+    if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+    if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
 
     const container = imageContainerRef.current;
-    const crop = getEffectiveCrop();
-    const irs = imageRenderSizeRef.current;
-    const { positionX, positionY, scale } = transformStateRef.current;
-    if (!container || !crop || !selectedImage || !irs.width || !crop.width || scale <= 1.01) return;
+    if (!container || !selectedImage?.width || !selectedImage.height) {
+      preCropViewRef.current = null;
+      applyTransform(0, 0, 1);
+      return;
+    }
 
-    const { width: W, height: H } = getOrientedDimensions(
-      selectedImage.width,
-      selectedImage.height,
-      adjustments.orientationSteps || 0,
-    );
-    const {
-      left: uncroppedLeft,
-      top: uncroppedTop,
-      scale: uncroppedScale,
-    } = getCropViewLayout(irs.width + 2 * irs.offsetX, irs.height + 2 * irs.offsetY, W, H);
-    const croppedScale = irs.width / crop.width;
-
+    const orientationSteps = adjustments.orientationSteps || 0;
+    const { width: W, height: H } = getOrientedDimensions(selectedImage.width, selectedImage.height, orientationSteps);
+    const crop =
+      adjustments.crop?.width && adjustments.crop.height ? adjustments.crop : { x: 0, y: 0, width: W, height: H };
+    const layout = getFitRenderSize(container.clientWidth, container.clientHeight, crop.width, crop.height);
     const centerX = container.clientWidth / 2;
     const centerY = container.clientHeight / 2;
-    const contentX = (centerX - positionX) / scale;
-    const contentY = (centerY - positionY) / scale;
 
-    const target = isCropViewShown
-      ? {
-          x: uncroppedLeft + (crop.x + (contentX - irs.offsetX) / croppedScale) * uncroppedScale,
-          y: uncroppedTop + (crop.y + (contentY - irs.offsetY) / croppedScale) * uncroppedScale,
-        }
-      : {
-          x: irs.offsetX + ((contentX - uncroppedLeft) / uncroppedScale - crop.x) * croppedScale,
-          y: irs.offsetY + ((contentY - uncroppedTop) / uncroppedScale - crop.y) * croppedScale,
-        };
+    if (isCropping) {
+      const { positionX, positionY, scale } = transformStateRef.current;
+      preCropViewRef.current =
+        scale > 1.01
+          ? {
+              path: selectedImage.path,
+              orientationSteps,
+              x: crop.x + ((centerX - positionX) / scale - layout.offsetX) / layout.scale,
+              y: crop.y + ((centerY - positionY) / scale - layout.offsetY) / layout.scale,
+              zoom: scale * layout.scale,
+            }
+          : null;
+      applyTransform(0, 0, 1);
+      return;
+    }
 
-    const bounded = clampToBounds(centerX - target.x * scale, centerY - target.y * scale, scale);
+    const saved = preCropViewRef.current;
+    preCropViewRef.current = null;
+    if (!saved || saved.path !== selectedImage.path || saved.orientationSteps !== orientationSteps) {
+      applyTransform(0, 0, 1);
+      return;
+    }
+
+    const scale = Math.max(1, saved.zoom / layout.scale);
+    const bounded = clampToBounds(
+      centerX - (layout.offsetX + (saved.x - crop.x) * layout.scale) * scale,
+      centerY - (layout.offsetY + (saved.y - crop.y) * layout.scale) * scale,
+      scale,
+    );
     applyTransform(bounded.x, bounded.y, bounded.scale);
-  }, [isCropViewShown, getEffectiveCrop, selectedImage, adjustments.orientationSteps, applyTransform, clampToBounds]);
+  }, [isCropping, selectedImage, adjustments.crop, adjustments.orientationSteps, applyTransform, clampToBounds]);
 
   useImperativeHandle(
     transformWrapperRef,
