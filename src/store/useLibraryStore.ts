@@ -56,6 +56,7 @@ interface LibraryState {
   libraryScrollTop: number;
   listColumnWidths: ColumnWidths;
   libraryGridRows: Array<Array<{ path: string; center: number }>>;
+  libraryGridPageRows: number;
 
   // Navigation History
   navHistory: NavHistoryItem[];
@@ -97,6 +98,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   isViewLoading: false,
   libraryScrollTop: 0,
   libraryGridRows: [],
+  libraryGridPageRows: 1,
   listColumnWidths: {
     thumbnail: 4,
     name: 20,
