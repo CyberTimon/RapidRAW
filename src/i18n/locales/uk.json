@@ -2403,6 +2403,7 @@
       },
       "rawDecoding": "Декодування RAW",
       "rawDecodingDesc": "Виберіть, де декодуються файли RAW. «Авто» використовує GPU і перемикається на CPU, якщо GPU не справляється з вашими знімками. «GPU» завжди спочатку пробує GPU. «CPU» працює повільніше, але на будь-якій системі.",
+      "rawDecodingUnavailable": "Цей GPU не може виконувати декодування RAW, тому RAW-файли декодуються на CPU.",
       "rawDecodingFallback": "GPU не впорався з великими RAW-файлами, тому файли від {{megapixels}} МП поки проявляються на CPU.",
       "rawDecodingFallbackRetry": "Спробувати GPU знову",
       "rawDecodingOptions": {

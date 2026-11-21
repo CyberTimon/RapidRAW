@@ -303,9 +303,7 @@ pub fn get_or_init_gpu_context(
     if !new_context.shares_one_gl_context() {
         let warm = new_context.clone();
         std::thread::spawn(move || {
-            let decode = decode_gpu_for(&warm);
-            crate::decode::demosaic::warm(&decode.device);
-            crate::decode::develop::warm(&decode.device);
+            crate::decode::gpu_fallback::prepare(&decode_gpu_for(&warm));
             warm.compute
                 .get_or_init(|| crate::render::gpu::compute::ComputePipelines::new(&warm.device))
                 .warm(&warm.device);

@@ -2403,6 +2403,7 @@
       },
       "rawDecoding": "Dekodowanie RAW",
       "rawDecodingDesc": "Wybierz, gdzie dekodowane są pliki RAW. 'Auto' używa GPU i przełącza się na CPU, jeśli GPU nie radzi sobie z Twoimi zdjęciami. 'GPU' zawsze najpierw próbuje GPU. 'CPU' jest wolniejsze, ale działa na każdym systemie.",
+      "rawDecodingUnavailable": "To GPU nie obsługuje dekodowania RAW, więc pliki RAW są dekodowane na CPU.",
       "rawDecodingFallback": "GPU zawiodło przy dużych plikach RAW, więc pliki od {{megapixels}} MP są na razie wywoływane na CPU.",
       "rawDecodingFallbackRetry": "Spróbuj ponownie GPU",
       "rawDecodingOptions": {

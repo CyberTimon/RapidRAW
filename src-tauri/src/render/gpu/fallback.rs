@@ -220,6 +220,7 @@ pub fn gpu_started(backend: wgpu::Backend) {
 pub struct GpuFallbacks {
     backend: Option<BackendFallback>,
     raw_decoding_megapixels: Option<f32>,
+    raw_decoding_unavailable: bool,
 }
 
 #[tauri::command]
@@ -231,6 +232,7 @@ pub fn get_gpu_fallbacks() -> GpuFallbacks {
             .clone(),
         raw_decoding_megapixels: crate::decode::gpu_fallback::cpu_limit()
             .map(|pixels| pixels as f32 / 1_000_000.0),
+        raw_decoding_unavailable: crate::decode::gpu_fallback::kernels_failed(),
     }
 }
 

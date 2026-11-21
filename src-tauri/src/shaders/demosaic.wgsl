@@ -537,8 +537,7 @@ fn xt_green(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let f = tint(p);
     let v = pick(p);
-    var init = vec4<f32>(0.0);
-    init[f] = v;
+    let init = select(vec4<f32>(0.0), vec4<f32>(v), vec4<u32>(0u, 1u, 2u, 3u) == vec4<u32>(f));
     for (var d = 0u; d < 4u; d++) {
         b1[slot(p, d)] = init;
     }
@@ -576,7 +575,12 @@ fn solitary_axis(p: vec2<i32>, d: u32, unit: vec2<i32>) -> vec3<f32> {
         let cp = chan(p + o, d, c);
         let cm = chan(p - o, d, c);
         let g = 2.0 * g0 - gp - gm;
-        out[c >> 1u] = (g + cp + cm) * 0.5;
+        let value = (g + cp + cm) * 0.5;
+        if ((c >> 1u) == 0u) {
+            out.x = value;
+        } else {
+            out.y = value;
+        }
         out.z += sq(gp - gm - cp + cm) + sq(g);
     }
     return out;

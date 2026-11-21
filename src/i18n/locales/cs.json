@@ -2403,6 +2403,7 @@
       },
       "rawDecoding": "Dekódování RAW",
       "rawDecodingDesc": "Vyberte, kde se dekódují soubory RAW. „Auto“ používá GPU a přepne na CPU, pokud GPU vaše snímky nezvládne. „GPU“ vždy nejprve zkusí GPU. „CPU“ je pomalejší, ale funguje na každém systému.",
+      "rawDecodingUnavailable": "Tato GPU nezvládne dekódování RAW, proto se soubory RAW dekódují na CPU.",
       "rawDecodingFallback": "GPU selhala u velkých souborů RAW, proto se soubory od {{megapixels}} MP zatím vyvolávají na CPU.",
       "rawDecodingFallbackRetry": "Zkusit znovu GPU",
       "rawDecodingOptions": {

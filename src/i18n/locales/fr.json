@@ -2360,6 +2360,7 @@
       },
       "rawDecoding": "Décodage RAW",
       "rawDecodingDesc": "Sélectionnez où les fichiers RAW sont décodés. 'Auto' utilise le GPU et passe au CPU s'il ne peut pas traiter vos images. 'GPU' essaie toujours le GPU en premier. 'CPU' est plus lent, mais fonctionne sur tous les systèmes.",
+      "rawDecodingUnavailable": "Ce GPU ne peut pas exécuter le décodage RAW, les fichiers RAW sont donc décodés sur le CPU.",
       "rawDecodingFallback": "Le GPU a échoué sur les gros fichiers RAW, les fichiers de {{megapixels}} MP et plus sont donc développés sur le CPU pour le moment.",
       "rawDecodingFallbackRetry": "Réessayer le GPU",
       "rawDecodingOptions": {

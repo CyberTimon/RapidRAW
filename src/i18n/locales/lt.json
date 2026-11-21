@@ -2455,6 +2455,7 @@
       },
       "rawDecoding": "RAW dekodavimas",
       "rawDecodingDesc": "Pasirinkite, kur dekoduojami RAW failai. „Auto“ naudoja GPU ir persijungia į CPU, jei GPU nesusidoroja su jūsų nuotraukomis. „GPU“ visada pirmiausia bando GPU. „CPU“ yra lėtesnis, bet veikia visose sistemose.",
+      "rawDecodingUnavailable": "Šis GPU negali atlikti RAW dekodavimo, todėl RAW failai dekoduojami CPU.",
       "rawDecodingFallback": "GPU nesusitvarkė su dideliais RAW failais, todėl kol kas {{megapixels}} MP ir didesni failai ryškinami CPU.",
       "rawDecodingFallbackRetry": "Bandyti GPU dar kartą",
       "rawDecodingOptions": {

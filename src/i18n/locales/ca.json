@@ -2359,6 +2359,7 @@
       },
       "rawDecoding": "Descodificació RAW",
       "rawDecodingDesc": "Seleccioneu on es descodifiquen els fitxers RAW. 'Auto' utilitza la GPU i canvia a la CPU si no pot gestionar les vostres imatges. 'GPU' sempre prova primer la GPU. 'CPU' és més lenta, però funciona a tots els sistemes.",
+      "rawDecodingUnavailable": "Aquesta GPU no pot fer la descodificació RAW, així que els fitxers RAW es descodifiquen a la CPU.",
       "rawDecodingFallback": "La GPU ha fallat amb fitxers RAW grans, així que de moment els fitxers de {{megapixels}} MP o més es revelen a la CPU.",
       "rawDecodingFallbackRetry": "Tornar a provar la GPU",
       "rawDecodingOptions": {

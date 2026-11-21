@@ -2315,6 +2315,7 @@
       },
       "rawDecoding": "RAW-avkodning",
       "rawDecodingDesc": "Välj var RAW-filer avkodas. ”Automatiskt” använder GPU:n och växlar till CPU:n om GPU:n inte kan hantera dina bilder. ”GPU” försöker alltid med GPU:n först. ”CPU” är långsammare men fungerar på alla system.",
+      "rawDecodingUnavailable": "Den här GPU:n kan inte köra RAW-avkodningen, så RAW-filer avkodas på CPU:n.",
       "rawDecodingFallback": "GPU:n misslyckades med stora RAW-filer, så filer på {{megapixels}} MP och större framkallas på CPU:n tills vidare.",
       "rawDecodingFallbackRetry": "Försök med GPU:n igen",
       "rawDecodingOptions": {

@@ -69,15 +69,20 @@ fn check(backend: &str) -> Result<String, CheckError> {
         .map_err(CheckError::Failed)?
         .warm_all_shaders();
     crate::render::gpu::compute::ComputePipelines::new(&device).warm(&device);
-    crate::decode::demosaic::warm(&device);
-    crate::decode::develop::warm(&device);
+    let decode_errors = [
+        crate::decode::demosaic::warm(&device),
+        crate::decode::develop::warm(&device),
+    ]
+    .into_iter()
+    .filter_map(|built| built.err().map(|e| e.to_string()));
     crate::render::gpu::display::warm_display_pipelines(&device);
     let _ = device.poll(wgpu::PollType::Wait {
         submission_index: None,
         timeout: None,
     });
 
-    let errors = errors.lock().unwrap_or_else(|e| e.into_inner());
+    let mut errors = errors.lock().unwrap_or_else(|e| e.into_inner());
+    errors.extend(decode_errors);
     let adapter_name = format!("{} ({:?}, {:?})", info.name, info.backend, info.device_type);
     if errors.is_empty() {
         Ok(format!(

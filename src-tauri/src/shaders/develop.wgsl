@@ -105,6 +105,10 @@ fn ease(e0: f32, e1: f32, x: f32) -> f32 {
     return t * t * (3.0 - 2.0 * t);
 }
 
+fn with_channel(v: vec3<f32>, c: u32, value: f32) -> vec3<f32> {
+    return select(v, vec3<f32>(value), vec3<u32>(0u, 1u, 2u) == vec3<u32>(c));
+}
+
 fn croot(v: f32) -> f32 {
     return select(0.0, pow(v, 1.0 / 3.0), v > 0.0);
 }
@@ -213,13 +217,13 @@ fn rebuild(x: i32, y: i32, obs: vec3<f32>) -> vec3<f32> {
         for (var c = 0u; c < 3u; c++) {
             if (blend[c] > 0.0) {
                 let rebuilt = max(obs[c], opposed(roots, c) + offset[c]);
-                pixel[c] = obs[c] + (rebuilt - obs[c]) * blend[c];
+                pixel = with_channel(pixel, c, obs[c] + (rebuilt - obs[c]) * blend[c]);
             }
         }
         if (iteration + 1 < ITERATIONS) {
             for (var c = 0u; c < 3u; c++) {
                 if (blend[c] > 0.0) {
-                    roots[c] = croot(pixel[c]);
+                    roots = with_channel(roots, c, croot(pixel[c]));
                 }
             }
         }
@@ -237,7 +241,7 @@ fn rebuild(x: i32, y: i32, obs: vec3<f32>) -> vec3<f32> {
     for (var c = 0u; c < 3u; c++) {
         if (blend[c] > 0.0) {
             let faded = max(obs[c], mean + (pixel[c] - mean) * keep);
-            pixel[c] = obs[c] + (faded - obs[c]) * blend[c];
+            pixel = with_channel(pixel, c, obs[c] + (faded - obs[c]) * blend[c]);
         }
     }
     return pixel;
@@ -384,7 +388,7 @@ fn hl_levels() {
             above += atomicLoad(&stats[HIST + c * LEVEL_BINS + b]);
         }
         if (f32(count) >= PLATEAU_RATIO * (baseline + 1.0) && above < count) {
-            found[c] = LEVEL_LOW + (f32(peak) + 0.5) / per_unit;
+            found = with_channel(found, c, LEVEL_LOW + (f32(peak) + 0.5) / per_unit);
         }
     }
     var fallback = 1.0;
@@ -487,8 +491,8 @@ fn hl_inpaint(@builtin(global_invocation_id) id: vec3<u32>) {
                     }
                     let lv = p[c] * (1.0 / cl[c]);
                     let w = lv * lv;
-                    weight[c] += w;
-                    offset[c] += w * (p[c] - opposed(roots, c));
+                    weight = with_channel(weight, c, weight[c] + w);
+                    offset = with_channel(offset, c, offset[c] + w * (p[c] - opposed(roots, c)));
                 }
             }
         }
@@ -576,7 +580,7 @@ fn pp_up(@builtin(global_invocation_id) id: vec3<u32>) {
     var out = vec3<f32>(0.0);
     if (T.z == 1u) {
         for (var i = 0u; i < 3u; i++) {
-            out[i] = select(0.0, offset[i] / weight[i], weight[i] > 0.0);
+            out = with_channel(out, i, select(0.0, offset[i] / weight[i], weight[i] > 0.0));
         }
     } else {
         let up = level(T.x, T.y + 1u);
@@ -587,9 +591,9 @@ fn pp_up(@builtin(global_invocation_id) id: vec3<u32>) {
         for (var i = 0u; i < 3u; i++) {
             if (weight[i] > 0.0) {
                 let alpha = min(weight[i] / full_weight, 1.0);
-                out[i] = coarse[i] + (offset[i] / weight[i] - coarse[i]) * alpha;
+                out = with_channel(out, i, coarse[i] + (offset[i] / weight[i] - coarse[i]) * alpha);
             } else {
-                out[i] = coarse[i];
+                out = with_channel(out, i, coarse[i]);
             }
         }
     }

@@ -96,6 +96,7 @@ interface SettingItemProps {
 interface GpuFallbacks {
   backend: { failed: string; using: string; retryPending: boolean } | null;
   rawDecodingMegapixels: number | null;
+  rawDecodingUnavailable: boolean;
 }
 
 interface SettingsPanelProps {
@@ -730,7 +731,8 @@ export default function SettingsPanel({
   const backendName = (backend: string) =>
     t(BACKEND_NAME_KEYS[backend as keyof typeof BACKEND_NAME_KEYS] ?? BACKEND_NAME_KEYS.auto);
   const backendFallback = gpuFallbacks?.backend;
-  const rawDecodingMegapixels = gpuFallbacks?.rawDecodingMegapixels;
+  const rawDecodingUnavailable = gpuFallbacks?.rawDecodingUnavailable ?? false;
+  const rawDecodingMegapixels = rawDecodingUnavailable ? null : gpuFallbacks?.rawDecodingMegapixels;
   const displayColorMode = appSettings?.displayColorMode ?? 'auto';
   const displayColorOptions = useMemo<OptionItem<string>[]>(
     () => [
@@ -2162,11 +2164,13 @@ export default function SettingsPanel({
                         label={t('settings.processing.rawDecoding')}
                         description={t('settings.processing.rawDecodingDesc')}
                         status={
-                          rawDecodingMegapixels
-                            ? t('settings.processing.rawDecodingFallback', {
-                                megapixels: Math.round(rawDecodingMegapixels),
-                              })
-                            : null
+                          rawDecodingUnavailable
+                            ? t('settings.processing.rawDecodingUnavailable')
+                            : rawDecodingMegapixels
+                              ? t('settings.processing.rawDecodingFallback', {
+                                  megapixels: Math.round(rawDecodingMegapixels),
+                                })
+                              : null
                         }
                         statusAction={
                           rawDecodingMegapixels

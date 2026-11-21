@@ -2309,6 +2309,7 @@
       },
       "rawDecoding": "RAW 解码",
       "rawDecodingDesc": "选择在何处解码 RAW 文件。「自动」使用 GPU，并在 GPU 无法处理您的图像时切换到 CPU。「GPU」始终先尝试 GPU。「CPU」较慢，但适用于所有系统。",
+      "rawDecodingUnavailable": "此 GPU 无法运行 RAW 解码，因此 RAW 文件在 CPU 上解码。",
       "rawDecodingFallback": "GPU 处理大型 RAW 文件失败，因此 {{megapixels}} MP 及以上的文件暂时在 CPU 上显影。",
       "rawDecodingFallbackRetry": "重新尝试 GPU",
       "rawDecodingOptions": {
