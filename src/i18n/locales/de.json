@@ -2247,7 +2247,7 @@
       "imageCacheDesc": "Maximale Anzahl der im RAM gehaltenen Bilder in voller Auflösung. Höhere Werte machen das Wechseln blitzschnell, nutzen aber mehr Speicher.",
       "images": "Bilder",
       "linuxCompat": "Linux Kompatibilitätsmodus",
-      "linuxCompatDesc": "Aktiviert Workarounds für häufige Treiberprobleme. Deaktivieren, um die volle GPU-Beschleunigung zu nutzen.",
+      "linuxCompatDesc": "Leitet die Webansicht über gemeinsamen Speicher statt über GPU-Puffer-Sharing, um GPU-Treiberprobleme wie ein leeres Fenster zu umgehen. Nvidia-GPUs unter X11 erhalten dies bereits automatisch, daher nur aktivieren, wenn das Fenster weiterhin leer oder fehlerhaft ist.",
       "linuxCompatLabel": "Kompatibilitätsmodus aktivieren",
       "livePreviewQuality": "Qualität der Live-Vorschau",
       "livePreviewQualityDesc": "Steuert die Auflösung beim Ziehen von Reglern. Niedrigere Qualität verbessert die Reaktionsfähigkeit erheblich.",

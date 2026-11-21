@@ -2380,7 +2380,7 @@
       "imageCacheDesc": "Maksimalus pilnos raiškos nuotraukų skaičius RAM atmintyje. Didesnė reikšmė leidžia akimirksniu perjungti neseniai redaguotas nuotraukas, bet naudoja daugiau atminties.",
       "images": "Nuotraukos",
       "linuxCompat": "Linux suderinamumo režimas",
-      "linuxCompatDesc": "Priverstinis programinis komponavimas vaizdo plokštės tvarkyklės strigtims apeiti.",
+      "linuxCompatDesc": "Nukreipia žiniatinklio rodinį per bendrinamą atmintį vietoj vaizdo plokštės buferių bendrinimo, kad būtų apeitos vaizdo plokštės tvarkyklės problemos, pavyzdžiui, tuščias langas. Nvidia vaizdo plokštėms su X11 tai jau taikoma automatiškai, todėl įjunkite tik tada, jei langas vis dar tuščias arba sugadintas.",
       "linuxCompatLabel": "Įjungti suderinamumo režimą",
       "livePreviewQuality": "Tiesioginės peržiūros kokybė",
       "livePreviewQualityDesc": "Valdo nuotraukos raišką ir glaudinimą tempiant slankiklius. Mažesnė kokybė žymiai pagerina atsaką.",

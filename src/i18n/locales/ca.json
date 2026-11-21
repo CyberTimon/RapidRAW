@@ -2291,7 +2291,7 @@
       "imageCacheDesc": "Nombre màxim d'imatges de resolució completa que es mantenen a la memòria RAM. Valors més alts fan que canviar entre imatges editades recentment sigui instantani, però utilitzen moltíssima més memòria.",
       "images": "Imatges",
       "linuxCompat": "Mode de compatibilitat de Linux",
-      "linuxCompatDesc": "Força la composició de programari per evitar bloquejos del controlador de la GPU. Les GPU Nvidia ja tenen una solució automàtica més lleugera, així que només activeu-ho si encara experimenteu bloquejos a l'inici o en obrir imatges.",
+      "linuxCompatDesc": "Envia la vista web a través de memòria compartida en lloc de compartir memòries intermèdies de la GPU per evitar problemes del controlador de la GPU, com ara una finestra en blanc. Les GPU Nvidia amb X11 ja ho tenen automàticament, així que només activeu-ho si encara veieu una finestra en blanc o trencada.",
       "linuxCompatLabel": "Activar el mode de compatibilitat",
       "livePreviewQuality": "Qualitat de la vista prèvia en directe",
       "livePreviewQualityDesc": "Controla la resolució i compressió de la imatge quan s'arrosseguen els controls lliscants. Una qualitat inferior millora significativament la resposta.",

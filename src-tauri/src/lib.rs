@@ -293,6 +293,11 @@ pub fn run() {
 
             adjustments::lens_correction::init_lensfun_db(&app_handle);
 
+            #[cfg(target_os = "linux")]
+            let webkit_transport = platform::linux_graphics::configure_webkit_transport(
+                settings.linux_gpu_optimization.unwrap_or(false),
+            );
+
             unsafe {
                 if let Some(backend) = &backend {
                     std::env::set_var("WGPU_BACKEND", backend);
@@ -301,8 +306,6 @@ pub fn run() {
                 #[cfg(target_os = "linux")]
                 {
                     if settings.linux_gpu_optimization.unwrap_or(false) {
-                        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-                        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
                         std::env::set_var("NODEVICE_SELECT", "1");
                     }
                 }
@@ -337,9 +340,12 @@ pub fn run() {
             }
 
             #[cfg(target_os = "linux")]
-            if settings.linux_gpu_optimization.unwrap_or(false) {
-                log::info!("Applied Linux Compatibility Mode (forced software compositing).");
-            } else {
+            {
+                log::info!(
+                    "WebKitGTK {}, buffer transport: {:?}",
+                    platform::linux_graphics::webkit_version(),
+                    webkit_transport
+                );
                 log::info!(
                     "Wayland Nvidia quirk status: {:?}",
                     tauri_plugin_wayland_nvidia_quirk::status()

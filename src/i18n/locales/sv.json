@@ -2247,7 +2247,7 @@
       "imageCacheDesc": "Maximalt antal bilder i full upplösning som hålls i RAM-minnet. Högre värden gör växlingen mellan nyligen redigerade bilder omedelbar, men använder betydligt mer minne.",
       "images": "Bilder",
       "linuxCompat": "Kompatibilitetsläge för Linux",
-      "linuxCompatDesc": "Tvinga mjukvarukomposition för att kringgå krascher i grafikdrivrutinen. Nvidia-grafikkort får redan en enklare automatisk lösning, så aktivera detta endast om du fortfarande upplever krascher vid start eller när du öppnar bilder.",
+      "linuxCompatDesc": "Skickar webbvyn via delat minne i stället för delning av GPU-buffertar för att kringgå problem med grafikdrivrutinen, till exempel ett tomt fönster. Nvidia-grafikkort på X11 får redan detta automatiskt, så aktivera detta endast om du fortfarande ser ett tomt eller trasigt fönster.",
       "linuxCompatLabel": "Aktivera kompatibilitetsläge",
       "livePreviewQuality": "Kvalitet för förhandsvisning i realtid",
       "livePreviewQualityDesc": "Styr bildens upplösning och komprimering medan du drar i reglagen. Lägre kvalitet ger betydligt snabbare respons.",

@@ -2241,7 +2241,7 @@
       "imageCacheDesc": "保存在内存中的全分辨率图像最大数量。较高的值可使最近编辑的图像之间切换即时完成，但会显著增加内存使用。",
       "images": "张图像",
       "linuxCompat": "Linux 兼容模式",
-      "linuxCompatDesc": "启用针对常见 GPU 驱动和显示服务器问题的兼容方案。禁用此选项以启用完整的 GPU 加速。",
+      "linuxCompatDesc": "通过共享内存而不是 GPU 缓冲区共享来传输网页视图，以规避窗口空白等 GPU 驱动问题。X11 上的 Nvidia GPU 已自动应用此方案，因此仅在窗口仍然空白或显示异常时才启用此选项。",
       "linuxCompatLabel": "启用兼容模式",
       "livePreviewQuality": "实时预览质量",
       "livePreviewQualityDesc": "控制拖动滑块时图像的分辨率和压缩。较低的质量可显著提高响应速度。",

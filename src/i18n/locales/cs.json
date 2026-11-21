@@ -2335,7 +2335,7 @@
       "imageCacheDesc": "Maximální počet snímků v plném rozlišení uchovávaných v paměti RAM. Vyšší hodnoty okamžitě zrychlí přepínání mezi nedávno upravenými snímky, ale spotřebovávají výrazně více paměti.",
       "images": "snímky",
       "linuxCompat": "Režim kompatibility se systémem Linux",
-      "linuxCompatDesc": "Vynutit softwarové skládání pro obejití pádů ovladačů GPU. Grafické karty Nvidia již mají lehčí automatické zástupné řešení, takže toto povolte pouze tehdy, pokud stále dochází k pádům při spuštění nebo otevírání snímků.",
+      "linuxCompatDesc": "Přesměruje webové zobrazení přes sdílenou paměť místo sdílení bufferů GPU, aby obešlo problémy ovladačů GPU, například prázdné okno. Grafické karty Nvidia na X11 to již mají automaticky, takže toto povolte pouze tehdy, pokud stále vidíte prázdné nebo poškozené okno.",
       "linuxCompatLabel": "Povolit režim kompatibility",
       "livePreviewQuality": "Kvalita živého náhledu",
       "livePreviewQualityDesc": "Ovládá rozlišení a kompresi snímku při přetahování posuvníků. Nižší kvalita výrazně zlepšuje odezvu.",
