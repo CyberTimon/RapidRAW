@@ -2034,6 +2034,10 @@ fn apply_halation(color: vec3<f32>, energy: f32, amount: f32) -> vec3<f32> {
     return contrast_reduced + tint * max(energy, 0.0) * amount * 2.5;
 }
 
+fn store_output(coords: vec2<u32>, color: vec4<f32>) {
+    textureStore(output_texture, coords, color);
+}
+
 @compute @workgroup_size(8, 8, 1)
 fn main(
     @builtin(global_invocation_id) id: vec3<u32>,
@@ -2270,7 +2274,7 @@ fn main(
         composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
     }
     if (HSL_PROBE == 1u) {
-        textureStore(output_texture, id.xy, hsl_probe(composite_rgb_linear));
+        store_output(id.xy, hsl_probe(composite_rgb_linear));
         return;
     }
     if (is_monochrome) {
@@ -2399,5 +2403,5 @@ fn main(
         final_rgb += dither(id.xy) * dither_amount;
     }
 
-    textureStore(output_texture, id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(adjustments.global.output_peak)), original_alpha));
+    store_output(id.xy, vec4<f32>(clamp(final_rgb, vec3<f32>(0.0), vec3<f32>(adjustments.global.output_peak)), original_alpha));
 }
