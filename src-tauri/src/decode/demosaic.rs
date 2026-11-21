@@ -258,6 +258,26 @@ fn with_kernels<T>(device: &Arc<wgpu::Device>, f: impl FnOnce(&Kernels) -> Resul
     f(kernels.as_ref().map_err(|e| anyhow!("{}", e))?)
 }
 
+pub(crate) fn active_domain(raw_image: &RawImage, min_size: usize) -> Option<Rect> {
+    let domain = raw_image
+        .active_area
+        .unwrap_or(Rect::new(Point::zero(), raw_image.dim()));
+    (domain.p.x + domain.d.w <= raw_image.width
+        && domain.p.y + domain.d.h <= raw_image.height
+        && domain.d.w >= min_size
+        && domain.d.h >= min_size)
+        .then_some(domain)
+}
+
+pub(crate) fn white_level(raw_image: &RawImage) -> f32 {
+    raw_image
+        .whitelevel
+        .0
+        .first()
+        .copied()
+        .unwrap_or(u16::MAX as u32) as f32
+}
+
 pub fn warm(device: &Arc<wgpu::Device>) -> Result<()> {
     with_kernels(device, |_| Ok(()))
 }
@@ -294,23 +314,9 @@ impl<'a> Mosaic<'a> {
             Pattern::XTrans => return None,
         };
 
-        let full = Rect::new(Point::zero(), raw_image.dim());
-        let domain = raw_image.active_area.unwrap_or(full);
-        if domain.p.x + domain.d.w > raw_image.width
-            || domain.p.y + domain.d.h > raw_image.height
-            || domain.d.w < 64
-            || domain.d.h < 64
-        {
-            return None;
-        }
-
+        let domain = active_domain(raw_image, 64)?;
         let black = raw_image.blacklevel.as_bayer_array();
-        let white = raw_image
-            .whitelevel
-            .0
-            .first()
-            .copied()
-            .unwrap_or(u16::MAX as u32) as f32;
+        let white = white_level(raw_image);
 
         Some(Self {
             data,

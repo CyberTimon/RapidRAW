@@ -7,6 +7,7 @@ pub mod develop;
 pub mod formats;
 pub mod gpu_fallback;
 pub mod hdr_source;
+pub mod hot_pixels;
 pub mod image_loader;
 pub mod image_preload;
 pub mod multi_exposure;

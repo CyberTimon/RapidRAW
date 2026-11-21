@@ -805,6 +805,7 @@ export default function SettingsPanel({
     rawPreprocessingSharpening: appSettings?.rawPreprocessingSharpening ?? 0.35,
     applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
     useAppleRaw9: appSettings?.useAppleRaw9 ?? false,
+    removeHotPixels: appSettings?.removeHotPixels ?? true,
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
@@ -945,6 +946,7 @@ export default function SettingsPanel({
       rawPreprocessingSharpening: appSettings?.rawPreprocessingSharpening ?? 0.35,
       applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
       useAppleRaw9: appSettings?.useAppleRaw9 ?? false,
+      removeHotPixels: appSettings?.removeHotPixels ?? true,
     });
     setRestartRequired(false);
   }, [appSettings]);
@@ -970,7 +972,8 @@ export default function SettingsPanel({
         key === 'rawPreprocessingColorNr' ||
         key === 'rawPreprocessingSharpening' ||
         key === 'applyPreprocessingToNonRaws' ||
-        key === 'useAppleRaw9'
+        key === 'useAppleRaw9' ||
+        key === 'removeHotPixels'
       ) {
         await invoke('clear_image_caches');
       }
@@ -2452,6 +2455,18 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
                       */}
+
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.hotPixels')}
+                        description={t('settings.processing.preprocessing.hotPixelsDesc')}
+                      >
+                        <Switch
+                          checked={processingSettings.removeHotPixels}
+                          id="hot-pixels-toggle"
+                          label={t('settings.processing.preprocessing.enableHotPixels')}
+                          onChange={(checked) => handleProcessingSettingChange('removeHotPixels', checked)}
+                        />
+                      </SettingItem>
 
                       <SettingItem
                         label={t('settings.processing.preprocessing.colorNr')}

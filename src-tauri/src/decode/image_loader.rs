@@ -129,6 +129,7 @@ pub fn load_base_image_from_bytes(
         .clamp(0.0, 1.0);
     let sharpening_amount = settings.raw_preprocessing_sharpening.unwrap_or(0.35);
     let apply_to_non_raws = settings.apply_preprocessing_to_non_raws.unwrap_or(false);
+    let remove_hot_pixels = settings.remove_hot_pixels.unwrap_or(true);
 
     crate::metadata::sidecar::persist_exif_if_missing(
         Path::new(path_for_ext_check),
@@ -174,6 +175,7 @@ pub fn load_base_image_from_bytes(
                 linear_mode,
                 color_nr_amount,
                 sharpening_amount,
+                remove_hot_pixels,
                 cancel_token,
             )
         }) {
