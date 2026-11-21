@@ -14,6 +14,7 @@ import {
   Camera,
   Folder as FolderIcon,
   Film,
+  History as HistoryIcon,
   type LucideIcon,
 } from 'lucide-react';
 import { Panel, PanelRegion } from '../../types/ui';
@@ -26,6 +27,7 @@ export const PANEL_ICONS: Record<Panel, LucideIcon> = {
   [Panel.Crop]: Crop,
   [Panel.Masks]: Layers,
   [Panel.Ai]: Paintbrush,
+  [Panel.History]: HistoryIcon,
   [Panel.Presets]: SwatchBook,
   [Panel.Export]: FileInput,
   [Panel.FolderTree]: FolderIcon,
@@ -39,6 +41,7 @@ const PANEL_TITLES: Record<Panel, ParseKeys> = {
   [Panel.Crop]: 'editor.switcher.tooltips.crop',
   [Panel.Masks]: 'editor.switcher.tooltips.masks',
   [Panel.Ai]: 'editor.switcher.tooltips.inpaint',
+  [Panel.History]: 'editor.switcher.tooltips.history',
   [Panel.Presets]: 'editor.switcher.tooltips.presets',
   [Panel.Export]: 'editor.switcher.tooltips.export',
   [Panel.FolderTree]: 'library.folders.sourcesTitle',
@@ -297,6 +300,7 @@ export function MobilePanelSwitcher({
     Panel.Crop,
     Panel.Masks,
     Panel.Ai,
+    Panel.History,
     Panel.Presets,
     Panel.Export,
   ];
