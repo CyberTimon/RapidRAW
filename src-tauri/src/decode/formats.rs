@@ -78,6 +78,11 @@ pub const NON_RAW_EXTENSIONS: &[&str] = &[
     "pnm", "pbm", "pgm", "ppm", "pam", // Netpbm family
 ];
 
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+pub const OS_DECODED_EXTENSIONS: &[&str] = &["heic", "heif"];
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub const OS_DECODED_EXTENSIONS: &[&str] = &[];
+
 pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
     let ext = match path.as_ref().extension().and_then(|s| s.to_str()) {
         Some(e) => e,
@@ -114,5 +119,6 @@ pub fn is_supported_image_file<P: AsRef<Path>>(path: P) -> bool {
 
     NON_RAW_EXTENSIONS
         .iter()
+        .chain(OS_DECODED_EXTENSIONS)
         .any(|non_raw_ext| non_raw_ext.eq_ignore_ascii_case(ext))
 }

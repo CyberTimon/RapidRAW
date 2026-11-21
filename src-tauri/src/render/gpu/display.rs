@@ -1151,7 +1151,7 @@ pub fn refresh_displays(
         }
     }
     if changed {
-        let (space, headroom) = frame_output(context, settings);
+        let (space, headroom) = frame_output(context);
         crate::platform::viewer_window::handle_display_changed(app_handle, space, headroom);
         let _ = app_handle.emit(DISPLAY_CHANGED_EVENT, ());
     }
@@ -1191,7 +1191,7 @@ fn shared_headroom(context: &GpuContext) -> Option<f32> {
     }
 }
 
-pub fn frame_output(context: &GpuContext, settings: &AppSettings) -> (OutputColorSpace, Headroom) {
+pub fn frame_output(context: &GpuContext) -> (OutputColorSpace, Headroom) {
     let space = context
         .display
         .lock()
@@ -1199,7 +1199,7 @@ pub fn frame_output(context: &GpuContext, settings: &AppSettings) -> (OutputColo
         .as_ref()
         .map_or(OutputColorSpace::Srgb, WgpuDisplay::space);
     let headroom = shared_headroom(context).map_or(Headroom::SDR, |limit| {
-        Headroom::from_settings(settings).limited_to(limit)
+        Headroom::from_stops(Headroom::MAX_STOPS).limited_to(limit)
     });
     (space, headroom)
 }

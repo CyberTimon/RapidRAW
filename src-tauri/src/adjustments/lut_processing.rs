@@ -688,7 +688,8 @@ pub async fn generate_lut_previews(
         let is_raw = loaded_image.is_raw;
 
         let base_json = serde_json::json!({});
-        let preview = prepare_preview_source(&state, &context, &loaded_image, &base_json, size)?;
+        let preview =
+            prepare_preview_source(&state, &context, &loaded_image, &base_json, size, None)?;
         let source = preview.render_source(&base_json);
 
         let render = resolve_render_options_from_handle(&app_handle, is_raw);

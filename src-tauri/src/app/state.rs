@@ -167,7 +167,6 @@ pub struct LoadedImage {
     pub is_raw: bool,
     pub as_shot: AsShot,
     pub has_gain_map: bool,
-    pub gain_maps: bool,
 }
 
 #[derive(Clone)]
@@ -203,6 +202,7 @@ pub struct CachedPreview {
     pub transform_hash: u64,
     pub preview_dim: u32,
     pub source: usize,
+    pub gain_weight: u32,
 }
 
 #[derive(Default)]

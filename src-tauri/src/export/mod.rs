@@ -173,19 +173,45 @@ fn process_image_for_export(
             .map(|options| (options, RenderOutputPrecision::Float)),
     );
 
-    let mut images = process_image_for_export_pipeline(
-        path,
-        base_image,
-        base_scale,
-        js_adjustments,
-        context,
-        state,
-        is_raw,
-        "process_image_for_export",
-        &renders,
-    )?
-    .into_iter()
-    .map(|image| {
+    let gains: Vec<_> = renders
+        .iter()
+        .map(|(options, _)| {
+            crate::decode::image_loader::gain_layer_for(path, &settings, options.headroom)
+        })
+        .collect();
+    let rendered = if gains.iter().all(Option::is_none) {
+        process_image_for_export_pipeline(
+            path,
+            base_image,
+            base_scale,
+            js_adjustments,
+            context,
+            state,
+            is_raw,
+            "process_image_for_export",
+            &renders,
+        )?
+    } else {
+        let mut rendered = Vec::with_capacity(renders.len());
+        for (render, gain) in renders.iter().zip(&gains) {
+            let gained = gain
+                .as_ref()
+                .and_then(|(layer, weight)| layer.apply(base_image, *weight));
+            rendered.extend(process_image_for_export_pipeline(
+                path,
+                gained.as_ref().unwrap_or(base_image),
+                base_scale,
+                js_adjustments,
+                context,
+                state,
+                is_raw,
+                "process_image_for_export",
+                std::slice::from_ref(render),
+            )?);
+        }
+        rendered
+    };
+    let mut images = rendered.into_iter().map(|image| {
         apply_export_geometry_and_watermark(image, export_settings, color_space)
             .map(|(image, _)| image)
     });
@@ -941,6 +967,7 @@ pub async fn run_headless_export(
         tiff_bit_depth: session.tiff_bit_depth,
         color_space: session.color_space,
         hdr: session.hdr,
+        hdr_headroom: session.hdr_headroom,
         resize: None,
         border: None,
         pad: None,

@@ -1006,6 +1006,7 @@ rapidraw export /path/to/photos --output /path/to/output_dir --export-original
 | `--tiff-bit-depth <n>`     | TIFF channel depth (`8` or `16`)                                       | `16`              |
 | `--color-space <space>`    | Color space for JPEG, PNG, TIFF, WebP and JXL output                   | `srgb`            |
 | `--hdr`                    | Export HDR: JPEG with a gain map, or JXL as PQ / Rec. 2020             | `false`           |
+| `--hdr-headroom <stops>`   | HDR headroom of the exported file in stops above SDR white (1 to 4)    | `2`               |
 | `--keep-metadata`          | Retain EXIF/capture metadata in exported files                         | `false`           |
 | `--adjustments <path>`     | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
 | `--export-original`        | Also export the unedited original as `<name>_original`                 | `false`           |

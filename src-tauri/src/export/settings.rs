@@ -90,6 +90,8 @@ pub struct ExportSettings {
     pub color_space: OutputColorSpace,
     #[serde(default)]
     pub hdr: bool,
+    #[serde(default = "default_hdr_headroom")]
+    pub hdr_headroom: f32,
     pub resize: Option<ResizeOptions>,
     #[serde(default)]
     pub border: Option<BorderOptions>,
@@ -113,6 +115,10 @@ pub struct ExportSettings {
     pub dpi: Option<u16>,
     #[serde(default)]
     pub export_original: Option<OriginalExportOptions>,
+}
+
+fn default_hdr_headroom() -> f32 {
+    Headroom::DEFAULT_STOPS
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -149,7 +155,7 @@ impl ExportSettings {
         RenderOptions {
             output_space: self.color_space_for(output_format),
             headroom: if self.hdr_output(output_format) == Some(HdrOutput::Pq) {
-                Headroom::from_settings(settings)
+                Headroom::from_stops(self.hdr_headroom)
             } else {
                 Headroom::SDR
             },
@@ -164,7 +170,7 @@ impl ExportSettings {
         is_raw: bool,
     ) -> Option<RenderOptions> {
         (self.hdr_output(output_format) == Some(HdrOutput::GainMap)).then(|| RenderOptions {
-            headroom: Headroom::from_settings(settings),
+            headroom: Headroom::from_stops(self.hdr_headroom),
             ..self.render_options(output_format, settings, is_raw)
         })
     }

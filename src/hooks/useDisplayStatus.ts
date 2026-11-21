@@ -4,8 +4,6 @@ import { Invokes } from '../types/invokes';
 import { useEditorStore } from '../store/useEditorStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 
-export const DEFAULT_HDR_HEADROOM = 2;
-
 export interface DisplayStatus {
   rendererActive: boolean;
   hdrSupported: boolean;

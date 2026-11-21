@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import {
   BorderBasis,
   DEFAULT_EXPORT_DPI,
+  DEFAULT_HDR_HEADROOM,
   ExportColorSpace,
   ExportPreset,
   TiffBitDepth,
@@ -14,6 +15,7 @@ export function useExportSettings() {
   const [tiffBitDepth, setTiffBitDepth] = useState<TiffBitDepth>(16);
   const [colorSpace, setColorSpace] = useState<ExportColorSpace>(ExportColorSpace.Srgb);
   const [hdr, setHdr] = useState(false);
+  const [hdrHeadroom, setHdrHeadroom] = useState(DEFAULT_HDR_HEADROOM);
   const [dpi, setDpi] = useState(DEFAULT_EXPORT_DPI);
   const [enableResize, setEnableResize] = useState(false);
   const [resizeMode, setResizeMode] = useState('longEdge');
@@ -52,6 +54,7 @@ export function useExportSettings() {
     setTiffBitDepth(preset.tiffBitDepth ?? 16);
     setColorSpace(preset.colorSpace ?? ExportColorSpace.Srgb);
     setHdr(preset.hdr ?? false);
+    setHdrHeadroom(preset.hdrHeadroom ?? DEFAULT_HDR_HEADROOM);
     setDpi(preset.dpi ?? DEFAULT_EXPORT_DPI);
     setEnableResize(preset.enableResize);
     setResizeMode(preset.resizeMode);
@@ -92,6 +95,7 @@ export function useExportSettings() {
       tiffBitDepth,
       colorSpace,
       hdr,
+      hdrHeadroom,
       dpi,
       enableResize,
       resizeMode,
@@ -130,6 +134,7 @@ export function useExportSettings() {
       tiffBitDepth,
       colorSpace,
       hdr,
+      hdrHeadroom,
       dpi,
       enableResize,
       resizeMode,
@@ -175,6 +180,8 @@ export function useExportSettings() {
     setColorSpace,
     hdr,
     setHdr,
+    hdrHeadroom,
+    setHdrHeadroom,
     dpi,
     setDpi,
     enableResize,

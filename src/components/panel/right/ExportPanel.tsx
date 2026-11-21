@@ -25,6 +25,7 @@ import {
   TiffBitDepth,
   WatermarkAnchor,
   COLOR_SPACE_FILE_FORMATS,
+  DEFAULT_HDR_HEADROOM,
   HDR_FILE_FORMATS,
   EXPORT_COLOR_SPACES,
   ExportColorSpace,
@@ -81,13 +82,20 @@ interface ValidatedNumberInputProps {
   disabled: boolean;
   field: ParsedTextField<number>;
   max?: number;
+  background?: string;
 }
 
-function ValidatedNumberInput({ ariaLabel, disabled, field, max }: ValidatedNumberInputProps) {
+function ValidatedNumberInput({
+  ariaLabel,
+  disabled,
+  field,
+  max,
+  background = 'bg-surface',
+}: ValidatedNumberInputProps) {
   return (
     <input
       aria-label={ariaLabel}
-      className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
+      className={`w-20 ${background} text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
         field.parsed === null ? 'border-red-500' : 'border-surface focus:border-accent'
       }`}
       disabled={disabled}
@@ -271,6 +279,8 @@ export default function ExportPanel({
     setColorSpace,
     hdr,
     setHdr,
+    hdrHeadroom,
+    setHdrHeadroom,
     dpi,
     setDpi,
     enableResize,
@@ -527,6 +537,7 @@ export default function ExportPanel({
       tiffBitDepth,
       colorSpace,
       hdr,
+      hdrHeadroom,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -583,6 +594,7 @@ export default function ExportPanel({
     tiffBitDepth,
     colorSpace,
     hdr,
+    hdrHeadroom,
     enableResize,
     resizeMode,
     resizeValue,
@@ -635,6 +647,7 @@ export default function ExportPanel({
       tiffBitDepth,
       colorSpace,
       hdr,
+      hdrHeadroom,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -1220,8 +1233,29 @@ export default function ExportPanel({
                             disabled={isExporting}
                           />
                         )}
-                        {HDR_FILE_FORMATS.includes(fileFormat) && hdr && hdrPreviewHint && (
-                          <Text variant={TextVariants.small}>{hdrPreviewHint}</Text>
+                        {HDR_FILE_FORMATS.includes(fileFormat) && hdr && (
+                          <div className="pl-2 border-l-2 border-card-active">
+                            <Slider
+                              label={
+                                <span
+                                  data-tooltip={[t('export.file.hdrHeadroomHint'), hdrPreviewHint]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                >
+                                  {t('export.file.hdrHeadroom')}
+                                </span>
+                              }
+                              min={1}
+                              max={4}
+                              step={0.1}
+                              value={hdrHeadroom}
+                              defaultValue={DEFAULT_HDR_HEADROOM}
+                              onChange={(e) => setHdrHeadroom(Number(e.target.value))}
+                              fillOrigin="min"
+                              suffix=" EV"
+                              disabled={isExporting}
+                            />
+                          </div>
                         )}
                         {COLOR_SPACE_FILE_FORMATS.includes(fileFormat) && !(hdr && fileFormat === FileFormats.Jxl) && (
                           <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
@@ -1244,6 +1278,7 @@ export default function ExportPanel({
                             </Text>
                             <ValidatedNumberInput
                               ariaLabel={t('export.file.resolution')}
+                              background="bg-bg-secondary"
                               disabled={isExporting}
                               field={dpiField}
                               max={MAX_EXPORT_DPI}

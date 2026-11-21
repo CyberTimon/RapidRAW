@@ -55,7 +55,7 @@ import { DEFAULT_SPEED_EDIT_ADJUSTMENTS, SPEED_EDIT_ADJUSTMENTS } from '../../ut
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
-import { DEFAULT_HDR_HEADROOM, useDisplayStatus } from '../../hooks/useDisplayStatus';
+import { useDisplayStatus } from '../../hooks/useDisplayStatus';
 import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
@@ -745,7 +745,6 @@ export default function SettingsPanel({
   const gainMapOptions = useMemo<OptionItem<string>[]>(
     () => [
       { value: 'auto', label: t('settings.processing.hdr.gainMapsAuto') },
-      { value: 'always', label: t('settings.processing.hdr.gainMapsAlways') },
       { value: 'never', label: t('settings.processing.hdr.gainMapsNever') },
     ],
     [t],
@@ -792,7 +791,6 @@ export default function SettingsPanel({
     mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
     baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
-    hdrHeadroom: appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -933,7 +931,6 @@ export default function SettingsPanel({
       mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
       baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
-      hdrHeadroom: appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -2399,33 +2396,15 @@ export default function SettingsPanel({
                         description={t('settings.processing.hdr.gainMapsDesc')}
                       >
                         <Dropdown
-                          onChange={async (value: string) => {
-                            await onSettingsChange({
+                          onChange={(value: string) =>
+                            onSettingsChange({
                               ...appSettings,
-                              gainMapMode: value as 'auto' | 'always' | 'never',
-                            });
-                            await invoke('clear_image_caches');
-                          }}
+                              gainMapMode: value as 'auto' | 'never',
+                            })
+                          }
                           options={gainMapOptions}
                           value={appSettings?.gainMapMode ?? 'auto'}
                           triggerClassName="bg-bg-primary"
-                        />
-                      </SettingItem>
-
-                      <SettingItem
-                        label={t('settings.processing.hdr.headroom')}
-                        description={t('settings.processing.hdr.headroomDesc')}
-                      >
-                        <Slider
-                          label={t('settings.tagging.amount')}
-                          min={1}
-                          max={4}
-                          step={0.1}
-                          value={processingSettings.hdrHeadroom}
-                          defaultValue={DEFAULT_HDR_HEADROOM}
-                          onChange={(e) => handleProcessingSettingChange('hdrHeadroom', Number(e.target.value))}
-                          fillOrigin="min"
-                          suffix=" EV"
                         />
                       </SettingItem>
                     </div>

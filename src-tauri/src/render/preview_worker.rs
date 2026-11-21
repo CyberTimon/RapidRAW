@@ -49,13 +49,11 @@ fn process_preview_job(
     drop(loaded_image_guard);
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
-    let loaded_image =
-        crate::decode::image_loader::refresh_gain_map_decode(&state, loaded_image, &settings);
     let is_raw = loaded_image.is_raw;
     let use_wgpu_renderer = settings.wgpu_renderer_enabled();
     let render = if use_wgpu_renderer {
         display::refresh_displays(app_handle, &context, &settings);
-        let (output_space, headroom) = display::frame_output(&context, &settings);
+        let (output_space, headroom) = display::frame_output(&context);
         RenderOptions {
             headroom,
             output_space,
@@ -64,6 +62,17 @@ fn process_preview_job(
     } else {
         resolve_render_options(&settings, is_raw)
     };
+    let gain = loaded_image
+        .has_gain_map
+        .then(|| {
+            crate::decode::image_loader::gain_layer_for(
+                &loaded_image.path,
+                &settings,
+                render.headroom,
+            )
+        })
+        .flatten();
+    let gain_weight = gain.as_ref().map_or(0.0, |(_, weight)| *weight).to_bits();
     let content = FrameContent {
         job_hash: calculate_full_job_hash(&loaded_image.path, &adjustments_json),
         patch_hash: calculate_patch_hash(&adjustments_json),
@@ -112,6 +121,7 @@ fn process_preview_job(
         c.transform_hash == new_transform_hash
             && c.preview_dim == preview_dim
             && c.source == Arc::as_ptr(&loaded_image.image) as usize
+            && c.gain_weight == gain_weight
     }) {
         Some(cached) => cached.preview.clone(),
         None => {
@@ -129,12 +139,14 @@ fn process_preview_job(
                 &loaded_image,
                 &adjustments_clone,
                 preview_dim,
+                gain.as_ref(),
             )?;
             *cached_preview_lock = Some(CachedPreview {
                 preview: preview.clone(),
                 transform_hash: new_transform_hash,
                 preview_dim,
                 source: Arc::as_ptr(&loaded_image.image) as usize,
+                gain_weight,
             });
             preview
         }

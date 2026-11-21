@@ -245,6 +245,7 @@ async fn render_tiff(
         tiff_bit_depth: TiffBitDepth::Sixteen,
         color_space: Default::default(),
         hdr: false,
+        hdr_headroom: crate::render::hdr::Headroom::DEFAULT_STOPS,
         resize: None,
         border: None,
         pad: None,

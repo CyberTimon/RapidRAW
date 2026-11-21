@@ -319,9 +319,17 @@ mod platform {
                         screen,
                         maximumPotentialExtendedDynamicRangeColorComponentValue
                     ];
+                    let current_headroom: f64 =
+                        msg_send![screen, maximumExtendedDynamicRangeColorComponentValue];
+                    let headroom = if current_headroom > 1.0 {
+                        current_headroom
+                    } else {
+                        potential_headroom
+                    };
+                    let headroom = ((headroom.log2() * 4.0).round() / 4.0).exp2();
                     (potential_headroom > 1.0).then_some(HdrDisplay {
                         white_scale: 1.0,
-                        headroom: potential_headroom as f32,
+                        headroom: headroom as f32,
                     })
                 })
                 .flatten();
