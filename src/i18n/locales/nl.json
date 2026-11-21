@@ -1249,7 +1249,7 @@
       "clickThumbnailsHint": "Klik op miniaturen in de rechterzijbalk om ze toe te voegen aan de vergelijkingsweergave.",
       "colorLabel": "Kleurlabel",
       "dimensions": "Afmetingen",
-      "editImage": "Afbeelding bewerken",
+      "doubleClickToEditHint": "Dubbelklik op een miniatuur om deze in de editor te openen.",
       "focalLength": "Brandpuntsafstand",
       "iso": "ISO",
       "metadata": "Metadata",

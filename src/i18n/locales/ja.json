@@ -1245,7 +1245,7 @@
       "clickThumbnailsHint": "右サイドバーのサムネイルをクリックして比較ビューに追加します。",
       "colorLabel": "カラーラベル",
       "dimensions": "寸法",
-      "editImage": "画像を編集",
+      "doubleClickToEditHint": "サムネイルをダブルクリックするとエディターで開きます。",
       "focalLength": "焦点距離",
       "iso": "ISO",
       "metadata": "メタデータ",

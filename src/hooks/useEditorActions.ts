@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { toast } from 'react-toastify';
@@ -95,6 +95,68 @@ export const getOriginalAdjustments = (adjustments: Adjustments): Adjustments =>
   });
   return original;
 };
+
+const FRAME_KEYS = [
+  ...new Set([
+    ...CROP_GEOMETRY_KEYS,
+    ...originalAdjustmentKeys.crop,
+    'lensCorrectionMode',
+    'lensMaker',
+    'lensModel',
+    'lensDistortionAmount',
+    'lensDistortionEnabled',
+  ]),
+] as Array<keyof Adjustments>;
+
+const HOVER_LEAVE_DELAY_MS = 150;
+
+const withFrameOf = (next: Adjustments, frame: Adjustments): Adjustments => ({
+  ...next,
+  ...Object.fromEntries(FRAME_KEYS.map((key) => [key, frame[key]])),
+});
+
+export const withLut = (
+  adjustments: Adjustments,
+  lut: { path: string; name: string; isBuiltIn: boolean; size?: number },
+): Adjustments => ({
+  ...adjustments,
+  lutPath: lut.path,
+  lutName: lut.name,
+  lutSize: lut.size ?? adjustments.lutSize,
+  lutIntensity: adjustments.lutPath ? (adjustments.lutIntensity ?? 100) : 100,
+  lutIsSceneReferred: lut.isBuiltIn,
+  activeTools: setToolActive(getActiveTools(adjustments), 'lut', true),
+});
+
+type HoverBuild = (adjustments: Adjustments) => Adjustments;
+
+export function useHoverPreview() {
+  const isPreviewingRef = useRef(false);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const show = useCallback((build: HoverBuild | null) => {
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
+    if (!build && !isPreviewingRef.current) return;
+    isPreviewingRef.current = !!build;
+    useEditorStore.getState().setEditor((state) => {
+      if (state.showOriginal || (build && (!state.selectedImage?.isReady || state.isSliderDragging))) return state;
+      const previewOverride = build ? withFrameOf(build(state.adjustments), state.adjustments) : null;
+      return previewOverride === state.previewOverride ? state : { previewOverride };
+    });
+  }, []);
+
+  const leave = useCallback(() => {
+    if (leaveTimerRef.current || !isPreviewingRef.current) return;
+    leaveTimerRef.current = setTimeout(() => show(null), HOVER_LEAVE_DELAY_MS);
+  }, [show]);
+
+  useEffect(() => () => show(null), [show]);
+
+  return useMemo(() => ({ show, leave }), [show, leave]);
+}
 
 const getCompareState = (mode: CompareMode, adjustments: Adjustments) =>
   mode === 'toggle'
@@ -266,39 +328,12 @@ export function useEditorActions() {
           isAndroid && path.startsWith('content://')
             ? await invoke<string>('resolve_android_content_uri_name', { uriStr: path })
             : path.split(/[\\/]/).pop() || 'LUT';
-        setAdjustments((prev: Adjustments) => ({
-          ...prev,
-          lutPath: path,
-          lutName: name,
-          lutSize: result.size,
-          lutIntensity: 100,
-          lutIsSceneReferred: isBuiltIn,
-          activeTools: setToolActive(getActiveTools(prev), 'lut', true),
-        }));
+        setAdjustments((prev: Adjustments) => withLut(prev, { path, name, isBuiltIn, size: result.size }));
       } catch (err) {
         toast.error(`Failed to load LUT: ${err}`);
       }
     },
     [setAdjustments],
-  );
-
-  const setLutPreviewOverride = useCallback(
-    (path: string | null, isBuiltIn: boolean = false) => {
-      setEditor((state) => {
-        if (!path) return { previewOverride: null };
-        const name = path.split(/[\\/]/).pop() || 'LUT';
-        return {
-          previewOverride: {
-            ...state.adjustments,
-            lutPath: path,
-            lutName: name,
-            lutIntensity: state.adjustments.lutIntensity,
-            lutIsSceneReferred: isBuiltIn,
-          },
-        };
-      });
-    },
-    [setEditor],
   );
 
   const handleResetAdjustments = useCallback(
@@ -530,7 +565,6 @@ export function useEditorActions() {
     handleAutoStraighten,
     handleAutoStraightenPaths,
     handleLutSelect,
-    setLutPreviewOverride,
     handleResetAdjustments,
     handleAutoLensCorrection,
     handleEnableAdjustments,

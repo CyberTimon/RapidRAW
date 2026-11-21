@@ -1245,7 +1245,7 @@
       "clickThumbnailsHint": "按一下右側邊欄中的縮圖，將其新增至比較檢視中。",
       "colorLabel": "顏色標籤",
       "dimensions": "尺寸",
-      "editImage": "編輯影像",
+      "doubleClickToEditHint": "按兩下縮圖即可在編輯器中開啟。",
       "focalLength": "焦距",
       "iso": "ISO",
       "metadata": "中繼資料",

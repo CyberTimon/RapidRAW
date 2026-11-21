@@ -1277,7 +1277,7 @@
       "clickThumbnailsHint": "Fai clic sulle miniature nella barra laterale destra per aggiungerle alla vista di confronto.",
       "colorLabel": "Etichetta colore",
       "dimensions": "Dimensioni",
-      "editImage": "Modifica immagine",
+      "doubleClickToEditHint": "Fai doppio clic su una miniatura per aprirla nell'editor.",
       "focalLength": "Lunghezza focale",
       "iso": "ISO",
       "metadata": "Metadati",

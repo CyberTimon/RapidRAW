@@ -43,7 +43,6 @@ interface EffectsPanelProps {
   isForMask?: boolean;
   setAdjustments(adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): void;
   handleLutSelect(path: string, isSceneReferred: boolean): void;
-  onLutHover?: (path: string | null) => void;
   appSettings: AppSettings | null;
   onDragStateChange?: (isDragging: boolean) => void;
 }
@@ -212,7 +211,6 @@ function EffectsPanel({
   setAdjustments,
   isForMask = false,
   handleLutSelect,
-  onLutHover,
   appSettings,
   onDragStateChange,
 }: EffectsPanelProps) {
@@ -1168,7 +1166,6 @@ function EffectsPanel({
                 lutName={adjustments.lutName || null}
                 lutIntensity={adjustments.lutIntensity ?? 100}
                 onLutSelect={handleLutSelect}
-                onLutHover={onLutHover}
                 onIntensityChange={handleLutIntensityChange}
                 onClear={handleLutClear}
                 onDragStateChange={onDragStateChange}

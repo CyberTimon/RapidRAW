@@ -1245,7 +1245,7 @@
       "clickThumbnailsHint": "비교 뷰에 추가하려면 오른쪽 사이드바에서 썸네일을 클릭하세요.",
       "colorLabel": "색상 라벨",
       "dimensions": "크기",
-      "editImage": "이미지 편집",
+      "doubleClickToEditHint": "썸네일을 더블클릭하면 편집기에서 열립니다.",
       "focalLength": "초점 거리",
       "iso": "ISO",
       "metadata": "메타데이터",

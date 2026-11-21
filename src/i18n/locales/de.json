@@ -1249,7 +1249,7 @@
       "clickThumbnailsHint": "Klicken Sie auf Miniaturansichten in der rechten Seitenleiste, um sie zur Vergleichsansicht hinzuzufügen.",
       "colorLabel": "Farbmarkierung",
       "dimensions": "Abmessungen",
-      "editImage": "Bild bearbeiten",
+      "doubleClickToEditHint": "Doppelklicken Sie auf eine Miniaturansicht, um sie im Editor zu öffnen.",
       "focalLength": "Brennweite",
       "iso": "ISO",
       "metadata": "Metadaten",

@@ -1249,7 +1249,7 @@
       "clickThumbnailsHint": "Click thumbnails in the right sidebar to add them to the comparison view.",
       "colorLabel": "Color Label",
       "dimensions": "Dimensions",
-      "editImage": "Edit Image",
+      "doubleClickToEditHint": "Double-click a thumbnail to open it in the editor.",
       "focalLength": "Focal Length",
       "iso": "ISO",
       "metadata": "Metadata",

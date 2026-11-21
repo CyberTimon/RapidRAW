@@ -1245,7 +1245,7 @@
       "clickThumbnailsHint": "在右侧边栏中单击缩略图以将它们添加到比较视图中。",
       "colorLabel": "颜色标签",
       "dimensions": "尺寸",
-      "editImage": "编辑图像",
+      "doubleClickToEditHint": "双击缩略图即可在编辑器中打开。",
       "focalLength": "焦距",
       "iso": "ISO",
       "metadata": "元数据",

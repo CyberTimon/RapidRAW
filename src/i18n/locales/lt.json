@@ -1344,7 +1344,7 @@
       "clickThumbnailsHint": "Spustelėkite miniatiūras dešinėje šoninėje juostoje, kad pridėtumėte jas į palyginimo rodinį.",
       "colorLabel": "Spalvinė žyma",
       "dimensions": "Matmenys",
-      "editImage": "Redaguoti nuotrauką",
+      "doubleClickToEditHint": "Dukart spustelėkite miniatiūrą, kad atidarytumėte ją redaktoriuje.",
       "focalLength": "Židinio nuotolis",
       "iso": "ISO",
       "metadata": "Metaduomenys",

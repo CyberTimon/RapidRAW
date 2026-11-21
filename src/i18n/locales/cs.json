@@ -1305,7 +1305,7 @@
       "clickThumbnailsHint": "Kliknutím na miniatury v pravém postranním panelu je přidáte do porovnávacího zobrazení.",
       "colorLabel": "Barevný štítek",
       "dimensions": "Rozměry",
-      "editImage": "Upravit snímek",
+      "doubleClickToEditHint": "Dvojitým kliknutím na miniaturu ji otevřete v editoru.",
       "focalLength": "Ohnisková vzdálenost",
       "iso": "ISO",
       "metadata": "Metadata",

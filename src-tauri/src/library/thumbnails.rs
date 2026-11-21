@@ -498,18 +498,8 @@ fn generate_thumbnail_data_with_metadata(
             resolve_render_options(settings, is_raw),
         );
         let lut_path = meta.adjustments["lutPath"].as_str();
-        let lut = lut_path.and_then(|p| {
-            let mut cache = state.lut_cache.lock().unwrap();
-            if let Some(cached_lut) = cache.get(p) {
-                return Some(cached_lut.clone());
-            }
-            if let Ok(loaded_lut) = crate::adjustments::lut_processing::parse_lut_file(p) {
-                let arc_lut = Arc::new(loaded_lut);
-                cache.insert(p.to_string(), arc_lut.clone());
-                return Some(arc_lut);
-            }
-            None
-        });
+        let lut = lut_path
+            .and_then(|p| crate::adjustments::lut_processing::get_or_load_lut(&state, p).ok());
 
         let processed_image = process_and_get_dynamic_image(
             context,

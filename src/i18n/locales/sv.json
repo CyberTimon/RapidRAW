@@ -1249,7 +1249,7 @@
       "clickThumbnailsHint": "Klicka på miniatyrbilder i höger sidofält för att lägga till dem i jämförelsevyn.",
       "colorLabel": "Färgetikett",
       "dimensions": "Mått",
-      "editImage": "Redigera bild",
+      "doubleClickToEditHint": "Dubbelklicka på en miniatyrbild för att öppna den i redigeraren.",
       "focalLength": "Brännvidd",
       "iso": "ISO",
       "metadata": "Metadata",

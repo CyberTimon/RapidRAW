@@ -505,8 +505,6 @@ export function useImageProcessing(
 
         applyAdjustments(renderAdjustments, false, targetRes);
 
-        if (previewOverride) return;
-
         const prev = prevAdjustmentsRef.current;
 
         if (!prev || prev.path !== selectedImage.path) {
