@@ -238,6 +238,7 @@ function DetailsPanel({
                       }
                       step={1}
                       value={adjustments.aiDenoiseDetail ?? 15}
+                      defaultValue={15}
                       onDragStateChange={onDragStateChange}
                     />
                   </>
