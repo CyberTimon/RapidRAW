@@ -80,6 +80,16 @@ pub struct PadOptions {
     pub color: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ConflictAction {
+    #[default]
+    CreateUnique,
+    Overwrite,
+    OverwriteIfChanged,
+    Skip,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportSettings {
@@ -113,6 +123,8 @@ pub struct ExportSettings {
     pub subfolder: Option<String>,
     #[serde(default)]
     pub dpi: Option<u16>,
+    #[serde(default)]
+    pub on_conflict: Option<ConflictAction>,
     #[serde(default)]
     pub export_original: Option<OriginalExportOptions>,
 }

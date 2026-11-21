@@ -1018,6 +1018,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Keep both (_1, _2)",
+      "label": "If file exists",
+      "overwrite": "Overwrite",
+      "overwriteIfChanged": "Overwrite if changed",
+      "skip": "Skip"
+    },
     "destination": {
       "customFolder": "Custom folder",
       "originalFolder": "Original image folder",
@@ -1086,6 +1093,7 @@
       "watermark": "Watermark"
     },
     "status": {
+      "allSkipped": "All images skipped",
       "cancelExport": "Cancel Export",
       "cancelled": "Export cancelled",
       "cancelling": "Cancelling export…",
@@ -1102,7 +1110,8 @@
       "failed": "Export failed",
       "noImageSelected": "No image selected for export.",
       "noImagesSelected": "No images selected.",
-      "success": "Export successful!"
+      "success": "Export successful!",
+      "successWithSkipped": "{{exported}} exported, {{skipped}} skipped"
     },
     "title": "Export",
     "watermark": {
@@ -1432,6 +1441,7 @@
       },
       "openInLibrary": "Open in library",
       "recent": "Recent",
+      "skipped": "{{count}} skipped",
       "title": "Jobs"
     },
     "reject": {

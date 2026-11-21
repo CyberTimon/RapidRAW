@@ -1043,6 +1043,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Mantieni entrambi (_1, _2)",
+      "label": "Se il file esiste",
+      "overwrite": "Sovrascrivi",
+      "overwriteIfChanged": "Sovrascrivi se modificata",
+      "skip": "Salta"
+    },
     "destination": {
       "customFolder": "Cartella personalizzata",
       "originalFolder": "Cartella dell'immagine originale",
@@ -1112,6 +1119,7 @@
       "watermark": "Filigrana"
     },
     "status": {
+      "allSkipped": "Tutte le immagini saltate",
       "cancelExport": "Annulla Esportazione",
       "cancelled": "Esportazione annullata",
       "cancelling": "Annullamento esportazione…",
@@ -1129,7 +1137,8 @@
       "failed": "Esportazione fallita",
       "noImageSelected": "Nessuna immagine selezionata per l'esportazione.",
       "noImagesSelected": "Nessuna immagine selezionata.",
-      "success": "Esportazione completata con successo!"
+      "success": "Esportazione completata con successo!",
+      "successWithSkipped": "{{exported}} esportate, {{skipped}} saltate"
     },
     "title": "Esporta",
     "watermark": {
@@ -1463,6 +1472,7 @@
       },
       "openInLibrary": "Apri nella libreria",
       "recent": "Recenti",
+      "skipped": "saltate: {{count}}",
       "title": "Attività"
     },
     "reject": {

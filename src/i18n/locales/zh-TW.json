@@ -1015,6 +1015,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "保留兩者 (_1, _2)",
+      "label": "檔案已存在時",
+      "overwrite": "覆蓋",
+      "overwriteIfChanged": "有變更時覆蓋",
+      "skip": "略過"
+    },
     "destination": {
       "customFolder": "自訂資料夾",
       "originalFolder": "原始影像資料夾",
@@ -1083,6 +1090,7 @@
       "watermark": "水印"
     },
     "status": {
+      "allSkipped": "已略過所有影像",
       "cancelExport": "取消匯出",
       "cancelled": "匯出已取消",
       "cancelling": "正在取消匯出…",
@@ -1099,7 +1107,8 @@
       "failed": "匯出失敗",
       "noImageSelected": "未選擇要匯出的影像。",
       "noImagesSelected": "未選擇影像。",
-      "success": "匯出成功！"
+      "success": "匯出成功！",
+      "successWithSkipped": "已匯出 {{exported}} 張，略過 {{skipped}} 張"
     },
     "title": "匯出",
     "watermark": {
@@ -1426,6 +1435,7 @@
       },
       "openInLibrary": "在圖庫中開啟",
       "recent": "最近",
+      "skipped": "已略過 {{count}} 張",
       "title": "工作"
     },
     "reject": {

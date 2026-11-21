@@ -1043,6 +1043,13 @@
       "mb": "Mo",
       "tb": "To"
     },
+    "conflict": {
+      "createUnique": "Conserver les deux (_1, _2)",
+      "label": "Si le fichier existe",
+      "overwrite": "Écraser",
+      "overwriteIfChanged": "Écraser si modifié",
+      "skip": "Ignorer"
+    },
     "destination": {
       "customFolder": "Dossier personnalisé",
       "originalFolder": "Dossier de l'image d'origine",
@@ -1112,6 +1119,7 @@
       "watermark": "Filigrane"
     },
     "status": {
+      "allSkipped": "Toutes les images ignorées",
       "cancelExport": "Annuler l'exportation",
       "cancelled": "Exportation annulée",
       "cancelling": "Annulation de l'exportation…",
@@ -1129,7 +1137,8 @@
       "failed": "Échec de l'exportation",
       "noImageSelected": "Aucune image sélectionnée pour l'exportation.",
       "noImagesSelected": "Aucune image sélectionnée.",
-      "success": "Exportation réussie !"
+      "success": "Exportation réussie !",
+      "successWithSkipped": "{{exported}} exportées, {{skipped}} ignorées"
     },
     "title": "Exporter",
     "watermark": {
@@ -1464,6 +1473,7 @@
       },
       "openInLibrary": "Ouvrir dans la bibliothèque",
       "recent": "Récent",
+      "skipped": "ignorées : {{count}}",
       "title": "Tâches"
     },
     "reject": {

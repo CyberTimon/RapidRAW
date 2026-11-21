@@ -1043,6 +1043,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Conservar tots dos (_1, _2)",
+      "label": "Si el fitxer existeix",
+      "overwrite": "Sobreescriure",
+      "overwriteIfChanged": "Sobreescriure si ha canviat",
+      "skip": "Ometre"
+    },
     "destination": {
       "customFolder": "Carpeta personalitzada",
       "originalFolder": "Carpeta de la imatge original",
@@ -1112,6 +1119,7 @@
       "watermark": "Marca d'aigua"
     },
     "status": {
+      "allSkipped": "S'han omès totes les imatges",
       "cancelExport": "Cancel·lar exportació",
       "cancelled": "Exportació cancel·lada",
       "cancelling": "S'està cancel·lant l'exportació…",
@@ -1129,7 +1137,8 @@
       "failed": "L'exportació ha fallat",
       "noImageSelected": "No s'ha seleccionat cap imatge per exportar.",
       "noImagesSelected": "No s'han seleccionat imatges.",
-      "success": "Exportació correcta!"
+      "success": "Exportació correcta!",
+      "successWithSkipped": "{{exported}} exportades, {{skipped}} omeses"
     },
     "title": "Exportar",
     "watermark": {
@@ -1463,6 +1472,7 @@
       },
       "openInLibrary": "Obre a la biblioteca",
       "recent": "Recents",
+      "skipped": "omeses: {{count}}",
       "title": "Tasques"
     },
     "reject": {

@@ -8,6 +8,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::app::state::AppState;
+use crate::export::settings::ConflictAction;
 use crate::render::color_space::OutputColorSpace;
 use crate::render::display_color::{DisplayColorMode, MonitorColor};
 
@@ -377,6 +378,8 @@ pub struct ExportPreset {
     pub hdr: Option<bool>,
     #[serde(default)]
     pub preserve_timestamps: Option<bool>,
+    #[serde(default)]
+    pub on_conflict: Option<ConflictAction>,
 }
 
 pub fn default_export_presets() -> Vec<ExportPreset> {
@@ -420,6 +423,7 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             color_space: Some(OutputColorSpace::Srgb),
             hdr: Some(false),
             preserve_timestamps: Some(false),
+            on_conflict: Some(ConflictAction::CreateUnique),
         },
         ExportPreset {
             id: "default-fast".to_string(),
@@ -460,6 +464,7 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             color_space: Some(OutputColorSpace::Srgb),
             hdr: Some(false),
             preserve_timestamps: Some(false),
+            on_conflict: Some(ConflictAction::CreateUnique),
         },
     ]
 }

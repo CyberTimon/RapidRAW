@@ -1107,6 +1107,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Palikti abu (_1, _2)",
+      "label": "Jei failas egzistuoja",
+      "overwrite": "Perrašyti",
+      "overwriteIfChanged": "Perrašyti, jei pakeista",
+      "skip": "Praleisti"
+    },
     "destination": {
       "customFolder": "Pasirinktas aplankas",
       "originalFolder": "Originalios nuotraukos aplankas",
@@ -1177,6 +1184,7 @@
       "watermark": "Vandens ženklas"
     },
     "status": {
+      "allSkipped": "Visos nuotraukos praleistos",
       "cancelExport": "Atšaukti eksportavimą",
       "cancelled": "Eksportavimas atšauktas",
       "cancelling": "Atšaukiamas eksportavimas…",
@@ -1195,7 +1203,8 @@
       "failed": "Eksportavimas nepavyko",
       "noImageSelected": "Nepasirinkta jokia nuotrauka eksportavimui.",
       "noImagesSelected": "Nepasirinkta jokių nuotraukų.",
-      "success": "Eksportavimas sėkmingas!"
+      "success": "Eksportavimas sėkmingas!",
+      "successWithSkipped": "Eksportuota: {{exported}}, praleista: {{skipped}}"
     },
     "title": "Eksportuoti",
     "watermark": {
@@ -1533,6 +1542,7 @@
       },
       "openInLibrary": "Atidaryti bibliotekoje",
       "recent": "Naujausi",
+      "skipped": "praleista: {{count}}",
       "title": "Užduotys"
     },
     "reject": {

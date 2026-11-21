@@ -1068,6 +1068,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Zachowaj oba (_1, _2)",
+      "label": "Jeśli plik istnieje",
+      "overwrite": "Nadpisz",
+      "overwriteIfChanged": "Nadpisz, jeśli zmieniono",
+      "skip": "Pomiń"
+    },
     "destination": {
       "customFolder": "Folder niestandardowy",
       "originalFolder": "Folder oryginalnego obrazu",
@@ -1138,6 +1145,7 @@
       "watermark": "Znak wodny"
     },
     "status": {
+      "allSkipped": "Pominięto wszystkie obrazy",
       "cancelExport": "Anuluj eksport",
       "cancelled": "Eksport anulowany",
       "cancelling": "Anulowanie eksportu…",
@@ -1156,7 +1164,8 @@
       "failed": "Eksport nie powiódł się",
       "noImageSelected": "Brak wybranego obrazu do eksportu.",
       "noImagesSelected": "Nie wybrano obrazów.",
-      "success": "Eksport zakończony sukcesem!"
+      "success": "Eksport zakończony sukcesem!",
+      "successWithSkipped": "Wyeksportowano: {{exported}}, pominięto: {{skipped}}"
     },
     "title": "Eksport",
     "watermark": {
@@ -1494,6 +1503,7 @@
       },
       "openInLibrary": "Otwórz w bibliotece",
       "recent": "Ostatnie",
+      "skipped": "pominięto: {{count}}",
       "title": "Zadania"
     },
     "reject": {

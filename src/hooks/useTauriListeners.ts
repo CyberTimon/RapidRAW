@@ -347,9 +347,13 @@ export function useTauriListeners({
       listen('batch-export-progress', (event: any) => {
         if (isEffectActive) useProcessStore.getState().setExportState({ progress: event.payload });
       }),
-      listen('export-complete', () => {
+      listen<{ exported: number; skipped: number }>('export-complete', (event) => {
         if (!isEffectActive) return;
-        useProcessStore.getState().setExportState({ status: Status.Success });
+        useProcessStore.getState().setExportState({
+          status: Status.Success,
+          exportedCount: event.payload.exported,
+          skippedCount: event.payload.skipped,
+        });
         refreshAfterExport();
       }),
       listen('export-error', (event: any) => {

@@ -1068,6 +1068,13 @@
       "mb": "МБ",
       "tb": "ТБ"
     },
+    "conflict": {
+      "createUnique": "Зберегти обидва (_1, _2)",
+      "label": "Якщо файл існує",
+      "overwrite": "Перезаписати",
+      "overwriteIfChanged": "Перезаписати, якщо змінено",
+      "skip": "Пропустити"
+    },
     "destination": {
       "customFolder": "Власна папка",
       "originalFolder": "Папка оригінального зображення",
@@ -1138,6 +1145,7 @@
       "watermark": "Водяний знак"
     },
     "status": {
+      "allSkipped": "Усі зображення пропущено",
       "cancelExport": "Скасувати експорт",
       "cancelled": "Експорт скасовано",
       "cancelling": "Скасування експорту…",
@@ -1156,7 +1164,8 @@
       "failed": "Не вдалося експортувати",
       "noImageSelected": "Не вибрано зображення для експорту.",
       "noImagesSelected": "Зображення не вибрано.",
-      "success": "Експорт успішно завершено!"
+      "success": "Експорт успішно завершено!",
+      "successWithSkipped": "Експортовано: {{exported}}, пропущено: {{skipped}}"
     },
     "title": "Експорт",
     "watermark": {
@@ -1494,6 +1503,7 @@
       },
       "openInLibrary": "Відкрити в бібліотеці",
       "recent": "Нещодавні",
+      "skipped": "пропущено: {{count}}",
       "title": "Завдання"
     },
     "reject": {

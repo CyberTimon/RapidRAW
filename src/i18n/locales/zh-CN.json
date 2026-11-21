@@ -1015,6 +1015,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "保留两者 (_1, _2)",
+      "label": "文件已存在时",
+      "overwrite": "覆盖",
+      "overwriteIfChanged": "有更改时覆盖",
+      "skip": "跳过"
+    },
     "destination": {
       "customFolder": "自定义文件夹",
       "originalFolder": "原始图像文件夹",
@@ -1083,6 +1090,7 @@
       "watermark": "水印"
     },
     "status": {
+      "allSkipped": "已跳过所有图像",
       "cancelExport": "取消导出",
       "cancelled": "导出已取消",
       "cancelling": "正在取消导出…",
@@ -1099,7 +1107,8 @@
       "failed": "导出失败",
       "noImageSelected": "未选择要导出的图像。",
       "noImagesSelected": "未选择图像。",
-      "success": "导出成功！"
+      "success": "导出成功！",
+      "successWithSkipped": "已导出 {{exported}} 张，跳过 {{skipped}} 张"
     },
     "title": "导出",
     "watermark": {
@@ -1426,6 +1435,7 @@
       },
       "openInLibrary": "在图库中打开",
       "recent": "最近",
+      "skipped": "已跳过 {{count}} 张",
       "title": "任务"
     },
     "reject": {

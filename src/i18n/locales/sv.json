@@ -1018,6 +1018,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Behåll båda (_1, _2)",
+      "label": "Om filen finns",
+      "overwrite": "Skriv över",
+      "overwriteIfChanged": "Skriv över om ändrad",
+      "skip": "Hoppa över"
+    },
     "destination": {
       "customFolder": "Valfri mapp",
       "originalFolder": "Originalbildens mapp",
@@ -1086,6 +1093,7 @@
       "watermark": "Vattenstämpel"
     },
     "status": {
+      "allSkipped": "Alla bilder hoppades över",
       "cancelExport": "Avbryt export",
       "cancelled": "Exporten avbröts",
       "cancelling": "Avbryter export…",
@@ -1102,7 +1110,8 @@
       "failed": "Exporten misslyckades",
       "noImageSelected": "Ingen bild har valts för export.",
       "noImagesSelected": "Inga bilder har valts.",
-      "success": "Exporten lyckades!"
+      "success": "Exporten lyckades!",
+      "successWithSkipped": "{{exported}} exporterade, {{skipped}} överhoppade"
     },
     "title": "Exportera",
     "watermark": {
@@ -1432,6 +1441,7 @@
       },
       "openInLibrary": "Öppna i biblioteket",
       "recent": "Senaste",
+      "skipped": "överhoppade: {{count}}",
       "title": "Jobb"
     },
     "reject": {

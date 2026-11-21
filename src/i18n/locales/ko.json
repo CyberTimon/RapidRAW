@@ -1015,6 +1015,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "둘 다 유지 (_1, _2)",
+      "label": "파일이 있는 경우",
+      "overwrite": "덮어쓰기",
+      "overwriteIfChanged": "변경된 경우 덮어쓰기",
+      "skip": "건너뛰기"
+    },
     "destination": {
       "customFolder": "사용자 지정 폴더",
       "originalFolder": "원본 이미지 폴더",
@@ -1083,6 +1090,7 @@
       "watermark": "워터마크"
     },
     "status": {
+      "allSkipped": "모든 이미지를 건너뜀",
       "cancelExport": "내보내기 취소",
       "cancelled": "내보내기가 취소되었습니다",
       "cancelling": "내보내기 취소 중…",
@@ -1099,7 +1107,8 @@
       "failed": "내보내기 실패",
       "noImageSelected": "내보낼 이미지가 선택되지 않았습니다.",
       "noImagesSelected": "선택된 이미지가 없습니다.",
-      "success": "내보내기 성공!"
+      "success": "내보내기 성공!",
+      "successWithSkipped": "{{exported}}개 내보냄, {{skipped}}개 건너뜀"
     },
     "title": "내보내기",
     "watermark": {
@@ -1426,6 +1435,7 @@
       },
       "openInLibrary": "라이브러리에서 열기",
       "recent": "최근",
+      "skipped": "{{count}}개 건너뜀",
       "title": "작업"
     },
     "reject": {
