@@ -954,6 +954,7 @@
         "filmstrip": "胶片条",
         "info": "信息",
         "inpaint": "修复",
+        "history": "历史记录",
         "masks": "蒙版",
         "presets": "预设",
         "tethering": "联机拍摄"
@@ -2503,6 +2504,13 @@
       "filterLabel": "图像文件",
       "select": "选择",
       "selectImageFile": "选择图像文件"
+    },
+    "history": {
+      "title": "历史记录",
+      "initial": "初始状态",
+      "undo": "撤销",
+      "redo": "重做",
+      "noImage": "选择一张图片以查看其编辑历史"
     },
     "lut": {
       "clearLut": "清除 LUT",

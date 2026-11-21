@@ -33,6 +33,7 @@ import AdjustmentSliderResetProvider from './components/adjustments/AdjustmentSl
 import MasksPanel from './components/panel/right/MasksPanel';
 import AIPanel from './components/panel/right/AIPanel';
 import PresetsPanel from './components/panel/right/PresetsPanel';
+import HistoryPanel from './components/panel/right/HistoryPanel';
 import TetheringPanel from './components/panel/right/TetheringPanel';
 
 import EditorView from './components/views/EditorView';
@@ -752,6 +753,8 @@ function App() {
               <Controls />
             </AdjustmentSliderResetProvider>
           );
+        case Panel.History:
+          return <HistoryPanel />;
         case Panel.Metadata:
           return <MetadataPanel />;
         case Panel.Crop:
