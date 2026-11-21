@@ -2237,6 +2237,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   useEffect(() => {
     if (!isCropping || !selectedImage?.width) {
       setCrop(null);
+      lastValidCropRef.current = null;
       return;
     }
 
@@ -2559,7 +2560,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   );
 
   const handleCropComplete = useCallback(
-    (_: any, pc: PercentCrop) => {
+    (_: any, completedCrop: PercentCrop) => {
+      // ReactCrop reports the crop from its last render, which can lag behind the last validated drag update.
+      const pc = lastValidCropRef.current ?? completedCrop;
       if (!pc.width || !pc.height || !selectedImage?.width) {
         return;
       }
