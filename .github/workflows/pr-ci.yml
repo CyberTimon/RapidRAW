@@ -2,6 +2,7 @@ name: CI Build
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, closed]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -9,6 +10,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event.action != 'closed'
     strategy:
       fail-fast: false
       matrix:
