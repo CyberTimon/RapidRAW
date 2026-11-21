@@ -1044,8 +1044,8 @@
       "tb": "TB"
     },
     "conflict": {
-      "createUnique": "Crea versione univoca (_1, _2)",
-      "label": "In caso di conflitto",
+      "createUnique": "Mantieni entrambi (_1, _2)",
+      "label": "Se il file esiste",
       "overwrite": "Sovrascrivi",
       "overwriteIfChanged": "Sovrascrivi se modificata",
       "skip": "Salta"
@@ -1119,13 +1119,10 @@
       "watermark": "Filigrana"
     },
     "status": {
-      "allSkipped": "Tutte saltate ({{count}})",
-      "allSkippedSingle": "Saltata (invariata)",
+      "allSkipped": "Tutte le immagini saltate",
       "cancelExport": "Annulla Esportazione",
       "cancelled": "Esportazione annullata",
       "cancelling": "Annullamento esportazione…",
-      "detailAllSkipped": "{{count}} su {{total}} immagini saltate (nessuna modifica)",
-      "detailWithSkipped": "{{exported}} esportate, {{skipped}} saltate (invariate)",
       "estimatedAverageSize": " ({{size}} media)",
       "estimatedSize": "Dimensione file stimata: ~{{size}}",
       "estimatedTotalSize": "Dimensione totale stimata: ~{{size}}",
@@ -1141,10 +1138,7 @@
       "noImageSelected": "Nessuna immagine selezionata per l'esportazione.",
       "noImagesSelected": "Nessuna immagine selezionata.",
       "success": "Esportazione completata con successo!",
-      "successWithSkipped": "{{exported}} esportate, {{skipped}} saltate",
-      "toastAllSkipped": "Tutte le {{count}} immagini sono state saltate (nessuna modifica).",
-      "toastAllSkippedSingle": "L'immagine è stata saltata (nessuna modifica).",
-      "toastWithSkipped": "Esportazione completata: {{exported}} esportate, {{skipped}} saltate."
+      "successWithSkipped": "{{exported}} esportate, {{skipped}} saltate"
     },
     "title": "Esporta",
     "watermark": {
@@ -1478,6 +1472,7 @@
       },
       "openInLibrary": "Apri nella libreria",
       "recent": "Recenti",
+      "skipped": "saltate: {{count}}",
       "title": "Attività"
     },
     "reject": {

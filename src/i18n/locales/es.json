@@ -1043,6 +1043,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Conservar ambos (_1, _2)",
+      "label": "Si el archivo existe",
+      "overwrite": "Sobrescribir",
+      "overwriteIfChanged": "Sobrescribir si cambió",
+      "skip": "Omitir"
+    },
     "destination": {
       "customFolder": "Carpeta personalizada",
       "originalFolder": "Carpeta de la imagen original",
@@ -1112,6 +1119,7 @@
       "watermark": "Marca de agua"
     },
     "status": {
+      "allSkipped": "Se omitieron todas las imágenes",
       "cancelExport": "Cancelar exportación",
       "cancelled": "Exportación cancelada",
       "cancelling": "Cancelando exportación…",
@@ -1129,7 +1137,8 @@
       "failed": "Exportación fallida",
       "noImageSelected": "No se seleccionó ninguna imagen para exportar.",
       "noImagesSelected": "No se seleccionaron imágenes.",
-      "success": "¡Exportación exitosa!"
+      "success": "¡Exportación exitosa!",
+      "successWithSkipped": "{{exported}} exportadas, {{skipped}} omitidas"
     },
     "title": "Exportar",
     "watermark": {
@@ -1463,6 +1472,7 @@
       },
       "openInLibrary": "Abrir en la biblioteca",
       "recent": "Recientes",
+      "skipped": "omitidas: {{count}}",
       "title": "Tareas"
     },
     "reject": {

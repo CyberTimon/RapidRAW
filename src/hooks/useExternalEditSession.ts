@@ -85,6 +85,8 @@ export function useExternalEditSession(
       status: Status.Exporting,
       progress: { current: 0, total: 1 },
       errorMessage: '',
+      exportedCount: undefined,
+      skippedCount: undefined,
     });
 
     try {

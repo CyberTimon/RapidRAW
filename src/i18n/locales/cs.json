@@ -1068,6 +1068,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Ponechat oba (_1, _2)",
+      "label": "Pokud soubor existuje",
+      "overwrite": "Přepsat",
+      "overwriteIfChanged": "Přepsat při změně",
+      "skip": "Přeskočit"
+    },
     "destination": {
       "customFolder": "Vlastní složka",
       "originalFolder": "Původní složka snímku",
@@ -1138,6 +1145,7 @@
       "watermark": "Vodoznak"
     },
     "status": {
+      "allSkipped": "Všechny snímky přeskočeny",
       "cancelExport": "Zrušit export",
       "cancelled": "Export zrušen",
       "cancelling": "Ruší se export…",
@@ -1156,7 +1164,8 @@
       "failed": "Export se nezdařil",
       "noImageSelected": "Pro export nebyl vybrán žádný snímek.",
       "noImagesSelected": "Nejsou vybrány žádné snímky.",
-      "success": "Export byl úspěšný!"
+      "success": "Export byl úspěšný!",
+      "successWithSkipped": "Exportováno: {{exported}}, přeskočeno: {{skipped}}"
     },
     "title": "Export",
     "watermark": {
@@ -1494,6 +1503,7 @@
       },
       "openInLibrary": "Otevřít v knihovně",
       "recent": "Nedávné",
+      "skipped": "přeskočeno: {{count}}",
       "title": "Úlohy"
     },
     "reject": {

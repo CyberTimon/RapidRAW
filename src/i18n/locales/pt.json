@@ -1043,6 +1043,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Manter ambos (_1, _2)",
+      "label": "Se o arquivo existir",
+      "overwrite": "Substituir",
+      "overwriteIfChanged": "Substituir se alterado",
+      "skip": "Ignorar"
+    },
     "destination": {
       "customFolder": "Pasta personalizada",
       "originalFolder": "Pasta da imagem original",
@@ -1112,6 +1119,7 @@
       "watermark": "Marca D'água"
     },
     "status": {
+      "allSkipped": "Todas as imagens foram ignoradas",
       "cancelExport": "Cancelar Exportação",
       "cancelled": "Exportação cancelada",
       "cancelling": "Cancelando exportação…",
@@ -1129,7 +1137,8 @@
       "failed": "A exportação falhou",
       "noImageSelected": "Nenhuma imagem selecionada para exportação.",
       "noImagesSelected": "Nenhuma imagem selecionada.",
-      "success": "Exportação concluída com sucesso!"
+      "success": "Exportação concluída com sucesso!",
+      "successWithSkipped": "{{exported}} exportadas, {{skipped}} ignoradas"
     },
     "title": "Exportar",
     "watermark": {
@@ -1463,6 +1472,7 @@
       },
       "openInLibrary": "Abrir na biblioteca",
       "recent": "Recentes",
+      "skipped": "ignoradas: {{count}}",
       "title": "Tarefas"
     },
     "reject": {

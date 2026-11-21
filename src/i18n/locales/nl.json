@@ -1018,6 +1018,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Beide behouden (_1, _2)",
+      "label": "Als bestand bestaat",
+      "overwrite": "Overschrijven",
+      "overwriteIfChanged": "Overschrijven indien gewijzigd",
+      "skip": "Overslaan"
+    },
     "destination": {
       "customFolder": "Aangepaste map",
       "originalFolder": "Originele afbeeldingsmap",
@@ -1086,6 +1093,7 @@
       "watermark": "Watermerk"
     },
     "status": {
+      "allSkipped": "Alle afbeeldingen overgeslagen",
       "cancelExport": "Export annuleren",
       "cancelled": "Export geannuleerd",
       "cancelling": "Export annuleren…",
@@ -1102,7 +1110,8 @@
       "failed": "Export mislukt",
       "noImageSelected": "Geen afbeelding geselecteerd voor export.",
       "noImagesSelected": "Geen afbeeldingen geselecteerd.",
-      "success": "Export geslaagd!"
+      "success": "Export geslaagd!",
+      "successWithSkipped": "{{exported}} geëxporteerd, {{skipped}} overgeslagen"
     },
     "title": "Exporteren",
     "watermark": {
@@ -1432,6 +1441,7 @@
       },
       "openInLibrary": "Openen in bibliotheek",
       "recent": "Recent",
+      "skipped": "{{count}} overgeslagen",
       "title": "Taken"
     },
     "reject": {

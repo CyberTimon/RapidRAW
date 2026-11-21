@@ -993,6 +993,9 @@ rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path
 
 # Export before/after pairs (writes <name>_original next to each edited file)
 rapidraw export /path/to/photos --output /path/to/output_dir --export-original
+
+# Re-run a batch export and only re-render images whose edits or settings changed
+rapidraw export /path/to/photos --output /path/to/output_dir --on-conflict overwrite-if-changed
 ```
 
 > **Note:** By default, headless export automatically detects and applies edits stored in `.rrdata` sidecar files located alongside your source images. You can override sidecars for all exported images by passing a custom JSON file using the `--adjustments` flag. AI masks and AI effects in that file are generated for each image during the export.
@@ -1012,8 +1015,11 @@ rapidraw export /path/to/photos --output /path/to/output_dir --export-original
 | `--export-original`        | Also export the unedited original as `<name>_original`                 | `false`           |
 | `--original-no-crop`       | Export the original uncropped instead of with the edit's crop          | `false`           |
 | `--original-keep-exposure` | Keep the edit's exposure on the original                               | `false`           |
+| `--on-conflict <action>`   | What to do when an output file already exists                          | _(See below)_     |
 
 `--color-space` accepts `srgb`, `display-p3`, `adobe-rgb`, `prophoto-rgb` and `rec2020`.
+
+`--on-conflict` accepts `keep-both` (adds `_1`, `_2`, …), `overwrite`, `overwrite-if-changed` (only re-renders when the edit, source file, export settings or RapidRAW version changed since the last export to that file) and `skip`. It defaults to `keep-both` when exporting to a directory and `overwrite` when `--output` is a file path.
 
 ## Companion Apps & Ecosystem
 

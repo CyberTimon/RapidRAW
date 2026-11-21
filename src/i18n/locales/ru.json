@@ -1068,6 +1068,13 @@
       "mb": "МБ",
       "tb": "ТБ"
     },
+    "conflict": {
+      "createUnique": "Сохранить оба (_1, _2)",
+      "label": "Если файл существует",
+      "overwrite": "Перезаписать",
+      "overwriteIfChanged": "Перезаписать при изменении",
+      "skip": "Пропустить"
+    },
     "destination": {
       "customFolder": "Пользовательская папка",
       "originalFolder": "Папка исходного изображения",
@@ -1138,6 +1145,7 @@
       "watermark": "Водяной знак"
     },
     "status": {
+      "allSkipped": "Все изображения пропущены",
       "cancelExport": "Отменить экспорт",
       "cancelled": "Экспорт отменен",
       "cancelling": "Отмена экспорта…",
@@ -1156,7 +1164,8 @@
       "failed": "Экспорт не удался",
       "noImageSelected": "Не выбрано изображение для экспорта.",
       "noImagesSelected": "Изображения не выбраны.",
-      "success": "Экспорт успешно завершен!"
+      "success": "Экспорт успешно завершен!",
+      "successWithSkipped": "Экспортировано: {{exported}}, пропущено: {{skipped}}"
     },
     "title": "Экспорт",
     "watermark": {
@@ -1494,6 +1503,7 @@
       },
       "openInLibrary": "Открыть в библиотеке",
       "recent": "Недавние",
+      "skipped": "пропущено: {{count}}",
       "title": "Задачи"
     },
     "reject": {

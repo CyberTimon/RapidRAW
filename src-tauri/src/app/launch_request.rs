@@ -1,4 +1,4 @@
-use crate::export::settings::{OriginalExportOptions, TiffBitDepth};
+use crate::export::settings::{ConflictAction, OriginalExportOptions, TiffBitDepth};
 use crate::render::color_space::OutputColorSpace;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -27,6 +27,7 @@ pub struct HeadlessExportSession {
     pub keep_metadata: bool,
     pub adjustments_override: Option<String>,
     pub export_original: Option<OriginalExportOptions>,
+    pub on_conflict: Option<ConflictAction>,
 }
 
 #[derive(Clone, Debug)]
@@ -79,6 +80,7 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
         let mut export_original = false;
         let mut original_crop = true;
         let mut original_keep_exposure = false;
+        let mut on_conflict = None;
 
         if let Some(src) = iter.next()
             && !src.starts_with('-')
@@ -175,6 +177,29 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
                         adjustments_override = Some(adj.clone());
                     }
                 }
+                "--on-conflict" => {
+                    const EXPECTED: &str = "keep-both, overwrite, overwrite-if-changed or skip";
+                    let Some(value) = iter.next() else {
+                        return LaunchRequest::InvalidHeadless(format!(
+                            "Missing value for --on-conflict; expected {}.",
+                            EXPECTED
+                        ));
+                    };
+                    on_conflict = Some(
+                        match value.to_ascii_lowercase().replace(['-', '_'], "").as_str() {
+                            "keepboth" => ConflictAction::CreateUnique,
+                            "overwrite" => ConflictAction::Overwrite,
+                            "overwriteifchanged" => ConflictAction::OverwriteIfChanged,
+                            "skip" => ConflictAction::Skip,
+                            _ => {
+                                return LaunchRequest::InvalidHeadless(format!(
+                                    "Invalid conflict action '{}'; expected {}.",
+                                    value, EXPECTED
+                                ));
+                            }
+                        },
+                    );
+                }
                 _ => {}
             }
         }
@@ -194,6 +219,7 @@ pub fn parse_launch_args(args: &[String]) -> LaunchRequest {
                 crop: original_crop,
                 keep_exposure: original_keep_exposure,
             }),
+            on_conflict,
         });
     }
 

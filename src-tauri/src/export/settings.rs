@@ -124,7 +124,7 @@ pub struct ExportSettings {
     #[serde(default)]
     pub dpi: Option<u16>,
     #[serde(default)]
-    pub on_conflict: ConflictAction,
+    pub on_conflict: Option<ConflictAction>,
     #[serde(default)]
     pub export_original: Option<OriginalExportOptions>,
 }

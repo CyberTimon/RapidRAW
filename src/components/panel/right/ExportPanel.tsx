@@ -445,7 +445,7 @@ export default function ExportPanel({
   const activePanels = useUIStore((state) => state.activePanels);
   const isPanelReallyActive = Object.values(activePanels).includes(Panel.Export);
 
-  const { status, progress, errorMessage, exportedCount, skippedCount, totalCount } = exportState;
+  const { status, progress, errorMessage, exportedCount, skippedCount } = exportState;
   const isExporting = [Status.Exporting, Status.Cancelling].includes(status);
   const isCancelling = status === Status.Cancelling;
   const isLibraryContext = !!onClose;
@@ -556,7 +556,6 @@ export default function ExportPanel({
       preserveFolders,
       destinationType: destination,
       subfolder,
-      onConflict,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       border: borderSettings,
       pad: padSettings,
@@ -667,7 +666,7 @@ export default function ExportPanel({
       preserveFolders,
       destinationType: destination,
       subfolder,
-      onConflict,
+      onConflict: isAndroid ? ConflictAction.CreateUnique : onConflict,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       border: borderSettings,
       pad: padSettings,
@@ -700,10 +699,13 @@ export default function ExportPanel({
       if (isImmich) {
         exportSettings.preserveFolders = false;
         exportSettings.exportOriginal = null;
+        exportSettings.exportMasks = false;
+        exportSettings.onConflict = ConflictAction.CreateUnique;
         outputFolderOrFile = await prepareImmichExport(immichExport.album, immichExport.withOriginal);
       } else if (isOriginalFolder) {
         outputFolderOrFile = 'originalFolderDummy';
       } else if (shouldChooseOutputFile) {
+        exportSettings.onConflict = ConflictAction.Overwrite;
         const suggestedName = await invoke<string>(Invokes.ResolveExportFileStem, {
           path: pathsToExport[0],
           filenameTemplate,
@@ -756,7 +758,6 @@ export default function ExportPanel({
           status: Status.Exporting,
           exportedCount: undefined,
           skippedCount: undefined,
-          totalCount: undefined,
         });
         await invoke(Invokes.ExportImages, {
           paths: pathsToExport,
@@ -894,19 +895,6 @@ export default function ExportPanel({
                     />
                   </div>
                 )}
-
-                <div className="pt-1">
-                  <Text variant={TextVariants.label} className="mb-2 block">
-                    {t('export.conflict.label')}
-                  </Text>
-                  <Dropdown
-                    options={onConflictOptions}
-                    value={onConflict}
-                    onChange={(val) => setOnConflict(val as ConflictAction)}
-                    disabled={isExporting}
-                    className="w-full"
-                  />
-                </div>
               </div>
             </Section>
 
@@ -1205,54 +1193,6 @@ export default function ExportPanel({
                       className="overflow-hidden"
                     >
                       <div className="px-4 pb-4 pt-2 border-t border-surface/50 flex flex-col gap-4">
-                        <Switch
-                          label={t('export.advanced.preserveFolders')}
-                          checked={preserveFolders}
-                          onChange={setPreserveFolders}
-                          disabled={isExporting}
-                        />
-                        {fileFormat !== FileFormats.Cube && (
-                          <>
-                            <Switch
-                              checked={preserveTimestamps}
-                              disabled={isExporting}
-                              label={t('export.advanced.preserveTimestamps')}
-                              onChange={setPreserveTimestamps}
-                            />
-                            <Switch
-                              label={t('export.advanced.exportMasks')}
-                              checked={exportMasks}
-                              onChange={setExportMasks}
-                              disabled={isExporting}
-                            />
-                            {destination !== 'immich' && (
-                              <>
-                                <Switch
-                                  label={t('export.advanced.exportOriginal')}
-                                  checked={exportOriginal}
-                                  onChange={setExportOriginal}
-                                  disabled={isExporting}
-                                />
-                                {exportOriginal && (
-                                  <div className="pl-2 border-l-2 border-card-active flex flex-col gap-4">
-                                    <Switch
-                                      label={t('export.advanced.originalCrop')}
-                                      checked={originalCrop}
-                                      onChange={setOriginalCrop}
-                                      disabled={isExporting}
-                                    />
-                                    <Switch
-                                      label={t('export.advanced.originalKeepExposure')}
-                                      checked={originalKeepExposure}
-                                      onChange={setOriginalKeepExposure}
-                                      disabled={isExporting}
-                                    />
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </>
-                        )}
                         {HDR_FILE_FORMATS.includes(fileFormat) && (
                           <Switch
                             label={t('export.file.hdr')}
@@ -1302,6 +1242,70 @@ export default function ExportPanel({
                             />
                           </div>
                         )}
+                        {!isAndroid && destination !== 'immich' && (
+                          <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
+                            <Text variant={TextVariants.label} className="mb-1">
+                              {t('export.conflict.label')}
+                            </Text>
+                            <Dropdown
+                              options={onConflictOptions}
+                              value={onConflict}
+                              onChange={(value) => setOnConflict(value as ConflictAction)}
+                              disabled={isExporting}
+                              className="w-full"
+                            />
+                          </div>
+                        )}
+                        {destination !== 'immich' && destination !== 'originalFolder' && (
+                          <Switch
+                            label={t('export.advanced.preserveFolders')}
+                            checked={preserveFolders}
+                            onChange={setPreserveFolders}
+                            disabled={isExporting}
+                          />
+                        )}
+                        {fileFormat !== FileFormats.Cube && (
+                          <Switch
+                            checked={preserveTimestamps}
+                            disabled={isExporting}
+                            label={t('export.advanced.preserveTimestamps')}
+                            onChange={setPreserveTimestamps}
+                          />
+                        )}
+                        {fileFormat !== FileFormats.Cube && destination !== 'immich' && (
+                          <>
+                            <Switch
+                              label={t('export.advanced.exportOriginal')}
+                              checked={exportOriginal}
+                              onChange={setExportOriginal}
+                              disabled={isExporting}
+                            />
+                            {exportOriginal && (
+                              <div className="pl-2 border-l-2 border-card-active flex flex-col gap-4">
+                                <Switch
+                                  label={t('export.advanced.originalCrop')}
+                                  checked={originalCrop}
+                                  onChange={setOriginalCrop}
+                                  disabled={isExporting}
+                                />
+                                <Switch
+                                  label={t('export.advanced.originalKeepExposure')}
+                                  checked={originalKeepExposure}
+                                  onChange={setOriginalKeepExposure}
+                                  disabled={isExporting}
+                                />
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {fileFormat !== FileFormats.Cube && destination !== 'immich' && (
+                          <Switch
+                            label={t('export.advanced.exportMasks')}
+                            checked={exportMasks}
+                            onChange={setExportMasks}
+                            disabled={isExporting}
+                          />
+                        )}
                         {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff].includes(fileFormat as FileFormats) && (
                           <div className="flex items-center gap-2">
                             <Text variant={TextVariants.label} className="flex-1">
@@ -1340,17 +1344,7 @@ export default function ExportPanel({
 
       <div className="p-3 border-t border-surface shrink-0 space-y-2">
         <Text as="div" variant={TextVariants.small} color={TextColors.primary} className="text-center">
-          {status === Status.Success && skippedCount && skippedCount > 0 ? (
-            <span className={exportedCount === 0 ? 'text-amber-400 font-medium' : 'text-emerald-400 font-medium'}>
-              {exportedCount === 0
-                ? t('export.status.detailAllSkipped', { count: skippedCount, total: totalCount || skippedCount })
-                : t('export.status.detailWithSkipped', {
-                    exported: exportedCount,
-                    skipped: skippedCount,
-                    total: totalCount || ((exportedCount || 0) + skippedCount),
-                  })}
-            </span>
-          ) : isEstimating ? (
+          {isEstimating ? (
             <span className="italic">{t('export.status.estimatingSize')}</span>
           ) : estimatedSize !== null ? (
             <span>
@@ -1374,8 +1368,8 @@ export default function ExportPanel({
                 : status === Status.Cancelling
                   ? 'bg-yellow-500/20 text-yellow-400 shadow-none'
                   : status === Status.Success
-                    ? skippedCount && skippedCount > 0 && exportedCount === 0
-                      ? 'bg-amber-500/80 hover:bg-amber-500/90 text-white shadow-none'
+                    ? skippedCount && !exportedCount
+                      ? 'bg-amber-500/80 text-white shadow-none'
                       : 'bg-green-500/70 text-white shadow-none'
                     : status === Status.Error
                       ? 'bg-red-500/20 text-red-400 shadow-none'
@@ -1407,13 +1401,11 @@ export default function ExportPanel({
             ) : status === Status.Success ? (
               <>
                 <CheckCircle size={18} className="mr-2" />
-                {skippedCount && skippedCount > 0
-                  ? exportedCount === 0
-                    ? skippedCount === 1
-                      ? t('export.status.allSkippedSingle')
-                      : t('export.status.allSkipped', { count: skippedCount })
-                    : t('export.status.successWithSkipped', { exported: exportedCount, skipped: skippedCount })
-                  : t('export.status.success')}
+                {!skippedCount
+                  ? t('export.status.success')
+                  : exportedCount
+                    ? t('export.status.successWithSkipped', { exported: exportedCount, skipped: skippedCount })
+                    : t('export.status.allSkipped')}
               </>
             ) : status === Status.Error ? (
               <>

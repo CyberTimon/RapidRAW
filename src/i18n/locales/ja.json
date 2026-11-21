@@ -1015,6 +1015,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "両方を保持 (_1, _2)",
+      "label": "ファイルが存在する場合",
+      "overwrite": "上書き",
+      "overwriteIfChanged": "変更時のみ上書き",
+      "skip": "スキップ"
+    },
     "destination": {
       "customFolder": "カスタムフォルダー",
       "originalFolder": "元の画像フォルダー",
@@ -1083,6 +1090,7 @@
       "watermark": "ウォーターマーク"
     },
     "status": {
+      "allSkipped": "すべての画像をスキップしました",
       "cancelExport": "書き出しをキャンセル",
       "cancelled": "書き出しがキャンセルされました",
       "cancelling": "書き出しをキャンセル中…",
@@ -1099,7 +1107,8 @@
       "failed": "書き出しに失敗しました",
       "noImageSelected": "書き出す画像が選択されていません。",
       "noImagesSelected": "画像が選択されていません。",
-      "success": "書き出しが成功しました！"
+      "success": "書き出しが成功しました！",
+      "successWithSkipped": "{{exported}}件エクスポート、{{skipped}}件スキップ"
     },
     "title": "エクスポート",
     "watermark": {
@@ -1426,6 +1435,7 @@
       },
       "openInLibrary": "ライブラリで開く",
       "recent": "最近",
+      "skipped": "{{count}}件スキップ",
       "title": "ジョブ"
     },
     "reject": {

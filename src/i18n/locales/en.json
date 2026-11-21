@@ -1019,8 +1019,8 @@
       "tb": "TB"
     },
     "conflict": {
-      "createUnique": "Create unique (_1, _2)",
-      "label": "On conflict",
+      "createUnique": "Keep both (_1, _2)",
+      "label": "If file exists",
       "overwrite": "Overwrite",
       "overwriteIfChanged": "Overwrite if changed",
       "skip": "Skip"
@@ -1093,13 +1093,10 @@
       "watermark": "Watermark"
     },
     "status": {
-      "allSkipped": "All skipped ({{count}})",
-      "allSkippedSingle": "Skipped (unchanged)",
+      "allSkipped": "All images skipped",
       "cancelExport": "Cancel Export",
       "cancelled": "Export cancelled",
       "cancelling": "Cancelling export…",
-      "detailAllSkipped": "{{count}} of {{total}} images skipped (unchanged)",
-      "detailWithSkipped": "{{exported}} exported, {{skipped}} skipped (unchanged)",
       "estimatedAverageSize": " ({{size}} avg)",
       "estimatedSize": "Estimated file size: ~{{size}}",
       "estimatedTotalSize": "Estimated total size: ~{{size}}",
@@ -1114,10 +1111,7 @@
       "noImageSelected": "No image selected for export.",
       "noImagesSelected": "No images selected.",
       "success": "Export successful!",
-      "successWithSkipped": "{{exported}} exported, {{skipped}} skipped",
-      "toastAllSkipped": "All {{count}} images were skipped (unchanged).",
-      "toastAllSkippedSingle": "Image was skipped (unchanged).",
-      "toastWithSkipped": "Export completed: {{exported}} exported, {{skipped}} skipped."
+      "successWithSkipped": "{{exported}} exported, {{skipped}} skipped"
     },
     "title": "Export",
     "watermark": {
@@ -1447,6 +1441,7 @@
       },
       "openInLibrary": "Open in library",
       "recent": "Recent",
+      "skipped": "{{count}} skipped",
       "title": "Jobs"
     },
     "reject": {

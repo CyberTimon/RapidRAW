@@ -1018,6 +1018,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "Beide behalten (_1, _2)",
+      "label": "Wenn Datei existiert",
+      "overwrite": "Überschreiben",
+      "overwriteIfChanged": "Überschreiben, wenn geändert",
+      "skip": "Überspringen"
+    },
     "destination": {
       "customFolder": "Benutzerdefinierter Ordner",
       "originalFolder": "Ursprungsordner des Bildes",
@@ -1086,6 +1093,7 @@
       "watermark": "Wasserzeichen"
     },
     "status": {
+      "allSkipped": "Alle Bilder übersprungen",
       "cancelExport": "Export abbrechen",
       "cancelled": "Export abgebrochen",
       "cancelling": "Export wird abgebrochen…",
@@ -1102,7 +1110,8 @@
       "failed": "Export fehlgeschlagen",
       "noImageSelected": "Kein Bild zum Exportieren ausgewählt.",
       "noImagesSelected": "Keine Bilder ausgewählt.",
-      "success": "Export erfolgreich!"
+      "success": "Export erfolgreich!",
+      "successWithSkipped": "{{exported}} exportiert, {{skipped}} übersprungen"
     },
     "title": "Export",
     "watermark": {
@@ -1432,6 +1441,7 @@
       },
       "openInLibrary": "In der Bibliothek öffnen",
       "recent": "Zuletzt",
+      "skipped": "{{count}} übersprungen",
       "title": "Aufgaben"
     },
     "reject": {

@@ -149,7 +149,6 @@ export interface ExportState {
   status: Status;
   exportedCount?: number;
   skippedCount?: number;
-  totalCount?: number;
 }
 
 export interface FileFormat {
