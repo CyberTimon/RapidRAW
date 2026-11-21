@@ -2371,8 +2371,8 @@ export default function SettingsPanel({
                       )}
 
                       <SettingItem
-                        label={t('settings.processing.hdr.display')}
-                        description={t('settings.processing.hdr.displayDesc')}
+                        label={t('settings.processing.hdr.gainMaps')}
+                        description={t('settings.processing.hdr.gainMapsDesc')}
                         status={
                           displayStatus &&
                           (!displayStatus.hdrSupported
@@ -2381,19 +2381,6 @@ export default function SettingsPanel({
                               ? t('settings.processing.hdr.statusActive')
                               : t('settings.processing.hdr.statusInactive'))
                         }
-                      >
-                        <Switch
-                          checked={appSettings?.hdrDisplay ?? false}
-                          disabled={displayStatus?.hdrSupported === false && !appSettings?.hdrDisplay}
-                          id="hdr-display-toggle"
-                          label={t('settings.processing.hdr.enableDisplay')}
-                          onChange={(checked) => onSettingsChange({ ...appSettings, hdrDisplay: checked })}
-                        />
-                      </SettingItem>
-
-                      <SettingItem
-                        label={t('settings.processing.hdr.gainMaps')}
-                        description={t('settings.processing.hdr.gainMapsDesc')}
                       >
                         <Dropdown
                           onChange={(value: string) =>
