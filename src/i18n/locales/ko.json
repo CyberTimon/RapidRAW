@@ -2245,7 +2245,7 @@
       "imageCacheDesc": "RAM에 유지되는 최대 전체 해상도 이미지 수입니다. 값이 높을수록 최근 편집한 이미지 간 전환이 즉각적이지만 메모리를 훨씬 많이 사용합니다.",
       "images": "이미지",
       "linuxCompat": "Linux 호환성 모드",
-      "linuxCompatDesc": "일반적인 GPU 드라이버 및 디스플레이 서버 문제에 대한 해결책을 활성화합니다. 전체 GPU 가속을 사용하려면 이 옵션을 비활성화하세요.",
+      "linuxCompatDesc": "GPU 버퍼 공유 대신 공유 메모리를 통해 웹뷰를 표시하여 빈 창과 같은 GPU 드라이버 문제를 해결합니다. X11의 Nvidia GPU에는 이미 자동으로 적용되므로, 창이 여전히 비어 있거나 깨져 보일 때만 활성화하세요.",
       "linuxCompatLabel": "호환성 모드 활성화",
       "livePreviewQuality": "실시간 미리보기 품질",
       "livePreviewQualityDesc": "슬라이더를 드래그하는 동안 이미지의 해상도와 압축을 제어합니다. 품질이 낮을수록 응답성이 크게 향상됩니다.",

@@ -2339,7 +2339,7 @@
       "imageCacheDesc": "Maksymalna liczba pełnych obrazów przechowywanych w RAM. Wyższe wartości sprawiają, że przełączanie pomiędzy edytowanymi zdjęciami jest błyskawiczne, ale zużywa to więcej pamięci.",
       "images": "Obrazy",
       "linuxCompat": "Tryb kompatybilności dla Linuksa",
-      "linuxCompatDesc": "Włącz obejścia typowych problemów ze sterownikami GPU i serwerem wyświetlania. Wyłącz to, aby uaktywnić pełną akcelerację sprzętową GPU.",
+      "linuxCompatDesc": "Przesyła widok webowy przez pamięć współdzieloną zamiast współdzielenia buforów GPU, aby obejść problemy ze sterownikami GPU, takie jak puste okno. Karty Nvidia w X11 otrzymują to już automatycznie, więc włącz tę opcję tylko wtedy, gdy nadal widzisz puste lub uszkodzone okno.",
       "linuxCompatLabel": "Włącz tryb kompatybilności",
       "livePreviewQuality": "Jakość podglądu na żywo",
       "livePreviewQualityDesc": "Zarządza rozdzielczością i kompresją obrazu podczas przesuwania suwaków. Niższa jakość znacząco poprawia czas reakcji.",

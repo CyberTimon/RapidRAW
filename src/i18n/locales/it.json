@@ -2295,7 +2295,7 @@
       "imageCacheDesc": "Numero massimo di immagini a piena risoluzione conservate nella RAM. Valori più alti rendono immediato il passaggio da un'immagine modificata di recente all'altra, ma utilizzano significativamente più memoria.",
       "images": "Immagini",
       "linuxCompat": "Modalità Compatibilità Linux",
-      "linuxCompatDesc": "Abilita soluzioni alternative per problemi comuni di driver della GPU e server di visualizzazione. Disabilita questo per abilitare la piena accelerazione GPU.",
+      "linuxCompatDesc": "Instrada la vista web attraverso la memoria condivisa invece della condivisione dei buffer GPU per aggirare problemi dei driver della GPU, come una finestra vuota. Le GPU Nvidia su X11 lo ricevono già automaticamente, quindi abilita questa opzione solo se vedi ancora una finestra vuota o danneggiata.",
       "linuxCompatLabel": "Abilita Modalità Compatibilità",
       "livePreviewQuality": "Qualità Anteprima dal Vivo",
       "livePreviewQualityDesc": "Controlla la risoluzione e la compressione dell'immagine mentre trascini i cursori. Una qualità inferiore migliora significativamente la reattività.",

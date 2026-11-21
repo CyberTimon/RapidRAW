@@ -2245,7 +2245,7 @@
       "imageCacheDesc": "儲存在記憶體中的全解析度影像最大數量。較高的值可使最近編輯的影像之間切換即時完成，但會顯著增加記憶體使用。",
       "images": "張影像",
       "linuxCompat": "Linux 相容模式",
-      "linuxCompatDesc": "啟用針對常見 GPU 驅動和顯示伺服器問題的相容方案。停用此選項以啟用完整的 GPU 加速。",
+      "linuxCompatDesc": "透過共享記憶體而非 GPU 緩衝區共享來傳輸網頁視圖，以規避視窗空白等 GPU 驅動問題。X11 上的 Nvidia GPU 已自動套用此方案，因此僅在視窗仍然空白或顯示異常時才啟用此選項。",
       "linuxCompatLabel": "啟用相容模式",
       "livePreviewQuality": "即時預覽品質",
       "livePreviewQualityDesc": "控制拖動滑桿時影像的解析度和壓縮。較低的品質可顯著提高反應速度。",

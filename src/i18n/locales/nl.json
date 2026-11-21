@@ -2251,7 +2251,7 @@
       "imageCacheDesc": "Maximum aantal volledige-resolutie-afbeeldingen in RAM. Hogere waarden maken het wisselen tussen recent bewerkte afbeeldingen instant, maar gebruiken aanzienlijk meer geheugen.",
       "images": "Afbeeldingen",
       "linuxCompat": "Linux-compatibiliteitsmodus",
-      "linuxCompatDesc": "Forceer software-compositing om GPU-stuurprogrammacrashes te omzeilen. Nvidia GPU's krijgen al een lichtere, automatische omzeiling, dus schakel dit alleen in als u nog steeds crashes ervaart bij opstarten of het openen van afbeeldingen.",
+      "linuxCompatDesc": "Stuurt de webweergave via gedeeld geheugen in plaats van het delen van GPU-buffers om GPU-stuurprogrammaproblemen zoals een leeg venster te omzeilen. Nvidia GPU's op X11 krijgen dit al automatisch, dus schakel dit alleen in als u nog steeds een leeg of kapot venster ziet.",
       "linuxCompatLabel": "Compatibiliteitsmodus inschakelen",
       "livePreviewQuality": "Live-voorbeeldkwaliteit",
       "livePreviewQualityDesc": "Bepaalt de resolutie en compressie van de afbeelding tijdens het slepen van schuifregelaars. Lagere kwaliteit verbetert de responsiviteit aanzienlijk.",

@@ -2296,7 +2296,7 @@
       "imageCacheDesc": "Nombre maximal d'images pleine résolution conservées en RAM. Des valeurs plus élevées rendent le passage d'une image récemment retouchée à l'autre instantané, mais utilisent beaucoup plus de mémoire.",
       "images": "Images",
       "linuxCompat": "Mode de compatibilité Linux",
-      "linuxCompatDesc": "Active des solutions de contournement pour les problèmes courants des pilotes GPU et des serveurs d'affichage. Désactivez ceci pour activer l'accélération GPU complète.",
+      "linuxCompatDesc": "Fait passer la vue web par la mémoire partagée au lieu du partage de tampons GPU pour contourner les problèmes de pilotes GPU, comme une fenêtre vide. Les GPU Nvidia sous X11 en bénéficient déjà automatiquement, n'activez donc ceci que si la fenêtre reste vide ou défectueuse.",
       "linuxCompatLabel": "Activer le mode de compatibilité",
       "livePreviewQuality": "Qualité de l'aperçu en direct",
       "livePreviewQualityDesc": "Contrôle la résolution et la compression de l'image lorsque vous glissez les curseurs. Une qualité inférieure améliore considérablement la réactivité.",
