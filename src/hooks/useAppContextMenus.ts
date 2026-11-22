@@ -74,8 +74,8 @@ import {
   getAiDenoiseEnablePatch,
   INITIAL_ADJUSTMENTS,
   isLensCorrectionActive,
-  LENS_CORRECTION_AUTO,
   LENS_CORRECTION_OFF,
+  getAutoLensCorrectionAdjustments,
 } from '../utils/adjustments';
 import TaggingSubMenu from '../components/panel/library/TaggingSubMenu';
 import {
@@ -401,11 +401,22 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 ? t('contextMenus.editor.removeLensCorrection')
                 : t('contextMenus.editor.lensCorrection'),
               icon: Aperture,
-              onClick: () =>
+              onClick: () => {
+                const correctionSettings = useSettingsStore.getState().appSettings?.developDefaults;
                 handleEnableAdjustments(
                   [selectedImage.path],
-                  isLensCorrectionActive(adjustments) ? LENS_CORRECTION_OFF : LENS_CORRECTION_AUTO,
-                ),
+                  isLensCorrectionActive(adjustments)
+                    ? LENS_CORRECTION_OFF
+                    : getAutoLensCorrectionAdjustments({
+                        distortion: correctionSettings?.lensCorrectionDistortion,
+                        chromaticAberration: correctionSettings?.lensCorrectionChromaticAberration,
+                        vignetting: correctionSettings?.lensCorrectionVignetting,
+                        distortionAmount: correctionSettings?.lensCorrectionDistortionAmount,
+                        chromaticAberrationAmount: correctionSettings?.lensCorrectionChromaticAberrationAmount,
+                        vignettingAmount: correctionSettings?.lensCorrectionVignettingAmount,
+                      }),
+                );
+              },
               disabled: !selectedImage?.isReady,
             },
             {

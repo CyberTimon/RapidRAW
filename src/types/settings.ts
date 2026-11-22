@@ -87,6 +87,12 @@ export type DefaultsSource = 'factory' | 'allCameras' | 'camera';
 export interface DevelopDefaultsSettings {
   presetId?: string | null;
   autoLensCorrection?: boolean;
+  lensCorrectionDistortion?: boolean;
+  lensCorrectionChromaticAberration?: boolean;
+  lensCorrectionVignetting?: boolean;
+  lensCorrectionDistortionAmount?: number;
+  lensCorrectionChromaticAberrationAmount?: number;
+  lensCorrectionVignettingAmount?: number;
   applyToNonRaw?: boolean;
   cameras?: CameraDefaults[];
 }
