@@ -314,3 +314,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     });
   },
 }));
+
+export const cancelCanvasTool = (): boolean => {
+  const state = useEditorStore.getState();
+  const isActive =
+    state.isWbPickerActive ||
+    state.isRelightPickerActive ||
+    state.activeCenterMarker !== null ||
+    state.mixerPickerProperty !== null ||
+    state.isStraightenActive;
+  if (isActive) state.setEditor({ ...canvasToolState(), isStraightenActive: false });
+  return isActive;
+};

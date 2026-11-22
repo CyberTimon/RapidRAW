@@ -17,6 +17,12 @@ fn tint_in_srgb(color: vec3<f32>, tint: vec3<f32>) -> vec3<f32> {
     return SRGB_TO_WORKING * ((WORKING_TO_SRGB * color) * tint);
 }
 
+fn rejoin_srgb_excess(processed: vec3<f32>, srgb: vec3<f32>) -> vec3<f32> {
+    let source_l = dot(max(srgb, vec3<f32>(0.0)), SRGB_LUMA_COEFF);
+    let ratio = dot(processed, SRGB_LUMA_COEFF) / max(source_l, 1.0e-6);
+    return SRGB_TO_WORKING * (processed + min(srgb, vec3<f32>(0.0)) * ratio);
+}
+
 fn compress_gamut_distance(distance: f32, threshold: f32, scale: f32) -> f32 {
     if (scale <= 0.0 || distance <= threshold) {
         return distance;

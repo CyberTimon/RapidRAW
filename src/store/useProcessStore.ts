@@ -58,11 +58,12 @@ export interface Job {
   progress: Progress;
   detail: string | null;
   error: string | null;
+  skipped?: number;
   startedAt: number;
   finishedAt: number | null;
 }
 
-export type JobUpdate = Partial<Pick<Job, 'status' | 'progress' | 'detail' | 'error'>>;
+export type JobUpdate = Partial<Pick<Job, 'status' | 'progress' | 'detail' | 'error' | 'skipped'>>;
 
 export const isJobActive = (status: JobStatus) => status === JobStatus.Running || status === JobStatus.Cancelling;
 
@@ -147,8 +148,9 @@ const syncStatusJob = (
   kind: JobKind,
   jobId: string | null,
   previousStatus: Status,
-  { status, progress, errorMessage, destination }: ExportState | ImportState,
+  state: ExportState | ImportState,
 ) => {
+  const { status, progress, errorMessage, destination } = state;
   const jobStatus = JOB_STATUSES[status];
   if (!jobStatus) return jobId;
 
@@ -158,6 +160,7 @@ const syncStatusJob = (
     progress: progress ?? { current: 0, total: 0 },
     error: errorMessage || null,
     detail: destination ?? null,
+    skipped: 'skippedCount' in state ? state.skippedCount : undefined,
   };
   const job = jobId ? jobs[jobId] : undefined;
   if (jobId && job && isJobActive(job.status)) {
@@ -221,6 +224,8 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
             status: Status.Idle,
             errorMessage: '',
             progress: { current: 0, total: 0 },
+            exportedCount: undefined,
+            skippedCount: undefined,
           },
         }));
       }, 5000);

@@ -11,6 +11,7 @@ pub fn estimate_export_memory(
     source_path: &str,
     is_raw: bool,
     loaded_dimensions: Option<(u32, u32)>,
+    upscale_factor: u32,
     mask_count: usize,
     output_format: &str,
     jpeg_quality: u8,
@@ -22,6 +23,7 @@ pub fn estimate_export_memory(
     let Some(pixels) = pixels else {
         return FALLBACK_EXPORT_MEMORY;
     };
+    let pixels = pixels * u64::from(upscale_factor).pow(2);
 
     let bytes_per_pixel = if is_raw { 48 } else { 40 }
         + 6 * mask_count.min(MAX_MASKS) as u64

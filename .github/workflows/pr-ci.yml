@@ -2,19 +2,25 @@ name: CI Build
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   build:
+    if: github.event.action != 'closed'
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: 'windows-latest'
-            builds-args: '--bundles nsis'
+            args: '--bundles nsis'
             target: ''
             asset-prefix: '01'
           - platform: 'windows-11-arm'
-            builds-args: '--bundles nsis'
+            args: '--bundles nsis'
             target: 'aarch64-pc-windows-msvc'
             asset-prefix: '01'
           - platform: 'macos-15'

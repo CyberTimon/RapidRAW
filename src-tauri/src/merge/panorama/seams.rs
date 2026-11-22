@@ -1,5 +1,5 @@
 use super::maxflow::MaxFlow;
-use super::raster::{Raster, Rect};
+use crate::merge::raster::{Raster, Rect};
 use rayon::prelude::*;
 
 pub const NO_LABEL: u16 = u16::MAX;

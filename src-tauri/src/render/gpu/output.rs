@@ -118,26 +118,10 @@ fn process_and_get_dynamic_image_inner(
             && e.is_raw == is_raw
             && e.source_identity == identity
     };
-    let has_input = |cache: &Option<GpuImageCache>| {
-        cache.as_ref().is_some_and(|c| {
-            c.entries.iter().any(matches) || c.sources.iter().any(|s| s.identity == identity)
-        })
-    };
-
     let cache_target = display_output.map_or(PreviewTarget::Editor, |output| output.target);
     let image_cache = state.gpu_image_cache_for(cache_target);
-    let mut source_halves: Option<Vec<f16>> = None;
-    let (mut processor_lock, mut cache_lock) = loop {
-        if !has_input(&lock_or_reset(image_cache, "GPU image cache")) && source_halves.is_none() {
-            source_halves = Some(crate::render::gpu::compute::rgba_halves(source.image));
-        }
-
-        let processor_lock = lock_or_reset(&state.gpu_processor, "GPU processor");
-        let cache_lock = lock_or_reset(image_cache, "GPU image cache");
-        if has_input(&cache_lock) || source_halves.is_some() {
-            break (processor_lock, cache_lock);
-        }
-    };
+    let mut processor_lock = lock_or_reset(&state.gpu_processor, "GPU processor");
+    let mut cache_lock = lock_or_reset(image_cache, "GPU image cache");
 
     let needs_new_processor = processor_lock
         .as_ref()
@@ -185,13 +169,7 @@ fn process_and_get_dynamic_image_inner(
             Some(index) => cache.sources.remove(index),
             None => UploadedSource {
                 identity,
-                slot: crate::render::gpu::compute::upload_image(
-                    context,
-                    source_size,
-                    &source_halves
-                        .take()
-                        .ok_or("Source image was not prepared for upload")?,
-                ),
+                slot: crate::render::gpu::compute::upload_image(context, source.image),
             },
         };
         let input = source.render(context, &uploaded.slot)?;
@@ -489,16 +467,7 @@ fn process_and_get_dynamic_image_inner(
                 .ok_or("Failed to create float image buffer from GPU data")?;
             Ok(DynamicImage::ImageRgba32F(img_buf))
         }
-        RenderedPixels::U16(mut pixels) => {
-            use rayon::prelude::*;
-            pixels.par_iter_mut().for_each(|sample| {
-                let value = f16::from_bits(*sample).to_f32();
-                *sample = if value.is_finite() {
-                    (value.clamp(0.0, 1.0) * u16::MAX as f32).round() as u16
-                } else {
-                    0
-                };
-            });
+        RenderedPixels::U16(pixels) => {
             let img_buf = ImageBuffer::<Rgba<u16>, Vec<u16>>::from_raw(out_w, out_h, pixels)
                 .ok_or("Failed to create 16-bit image buffer from GPU data")?;
             Ok(DynamicImage::ImageRgba16(img_buf))

@@ -773,6 +773,19 @@ fn display_bind_group(
     })
 }
 
+#[cfg(test)]
+pub(crate) fn warm_display_pipelines(device: &wgpu::Device) {
+    let (_, create_pipeline) = display_pipelines(device);
+    for format in [
+        wgpu::TextureFormat::Bgra8Unorm,
+        wgpu::TextureFormat::Rgba8Unorm,
+        wgpu::TextureFormat::Rgb10a2Unorm,
+        HDR_FORMAT,
+    ] {
+        create_pipeline(format);
+    }
+}
+
 fn display_pipelines(
     device: &wgpu::Device,
 ) -> (
@@ -1000,21 +1013,38 @@ static DISPLAYS_CHECKED_AT: AtomicU64 = AtomicU64::new(0);
 static DISPLAYS_TRACKED: AtomicBool = AtomicBool::new(false);
 static HDR_AVAILABLE: AtomicBool = AtomicBool::new(false);
 static DISPLAY_REFRESH_PENDING: AtomicBool = AtomicBool::new(false);
+static DISPLAY_REFRESH_REQUESTED_AT: AtomicU64 = AtomicU64::new(0);
+
+fn uptime_ms() -> u64 {
+    static STARTED: OnceLock<Instant> = OnceLock::new();
+    STARTED.get_or_init(Instant::now).elapsed().as_millis() as u64 + 1
+}
 
 pub fn invalidate_displays() {
     DISPLAYS_CHECKED_AT.store(0, Ordering::Release);
 }
 
 pub fn request_display_refresh(app_handle: &tauri::AppHandle) {
-    const DEBOUNCE: Duration = Duration::from_millis(300);
-    if !DISPLAYS_TRACKED.load(Ordering::Acquire)
-        || DISPLAY_REFRESH_PENDING.swap(true, Ordering::AcqRel)
-    {
+    const QUIET_MS: u64 = 300;
+    const MAX_WAIT_MS: u64 = 2000;
+    if !DISPLAYS_TRACKED.load(Ordering::Acquire) {
+        return;
+    }
+    DISPLAY_REFRESH_REQUESTED_AT.store(uptime_ms(), Ordering::Release);
+    if DISPLAY_REFRESH_PENDING.swap(true, Ordering::AcqRel) {
         return;
     }
     let app_handle = app_handle.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(DEBOUNCE);
+        let started = uptime_ms();
+        loop {
+            let now = uptime_ms();
+            let quiet = now.saturating_sub(DISPLAY_REFRESH_REQUESTED_AT.load(Ordering::Acquire));
+            if quiet >= QUIET_MS || now.saturating_sub(started) >= MAX_WAIT_MS {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(QUIET_MS - quiet));
+        }
         DISPLAY_REFRESH_PENDING.store(false, Ordering::Release);
         invalidate_displays();
         if let Some(context) = current_gpu_context(&app_handle.state::<AppState>()) {
@@ -1058,8 +1088,7 @@ pub fn refresh_displays(
     settings: &AppSettings,
 ) {
     const INTERVAL_MS: u64 = 3000;
-    static STARTED: OnceLock<Instant> = OnceLock::new();
-    let now = STARTED.get_or_init(Instant::now).elapsed().as_millis() as u64 + 1;
+    let now = uptime_ms();
     let checked_at = DISPLAYS_CHECKED_AT.load(Ordering::Acquire);
     if checked_at != 0 && now.saturating_sub(checked_at) < INTERVAL_MS {
         return;
@@ -1121,7 +1150,7 @@ pub fn refresh_displays(
         };
         outputs.push((display, state.hdr.filter(|_| settings.hdr_display), color));
     }
-    let space = if !settings.wide_gamut_preview || outputs.iter().any(|(_, hdr, _)| hdr.is_some()) {
+    let space = if !settings.wide_gamut_preview {
         OutputColorSpace::Srgb
     } else {
         shared_space(outputs.iter().map(|(_, _, color)| color.preferred_space()))
@@ -1138,7 +1167,7 @@ pub fn refresh_displays(
         }
     }
     if changed {
-        let (space, headroom) = frame_output(context, settings);
+        let (space, headroom) = frame_output(context);
         crate::platform::viewer_window::handle_display_changed(app_handle, space, headroom);
         let _ = app_handle.emit(DISPLAY_CHANGED_EVENT, ());
     }
@@ -1178,7 +1207,7 @@ fn shared_headroom(context: &GpuContext) -> Option<f32> {
     }
 }
 
-pub fn frame_output(context: &GpuContext, settings: &AppSettings) -> (OutputColorSpace, Headroom) {
+pub fn frame_output(context: &GpuContext) -> (OutputColorSpace, Headroom) {
     let space = context
         .display
         .lock()
@@ -1186,7 +1215,7 @@ pub fn frame_output(context: &GpuContext, settings: &AppSettings) -> (OutputColo
         .as_ref()
         .map_or(OutputColorSpace::Srgb, WgpuDisplay::space);
     let headroom = shared_headroom(context).map_or(Headroom::SDR, |limit| {
-        Headroom::from_settings(settings).limited_to(limit)
+        Headroom::from_stops(Headroom::MAX_STOPS).limited_to(limit)
     });
     (space, headroom)
 }

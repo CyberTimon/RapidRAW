@@ -80,6 +80,23 @@ export const getAiDenoiseEnablePatch = (aiProvider?: string): Partial<Adjustment
   aiDenoiseMethod: aiProvider === 'ai-free' ? DenoiseMethod.Bm3d : DenoiseMethod.Ai,
 });
 
+export const LENS_CORRECTION_AUTO: Partial<Adjustments> = {
+  lensCorrectionMode: 'auto',
+  lensDistortionEnabled: true,
+  lensTcaEnabled: true,
+  lensVignetteEnabled: true,
+};
+
+export const LENS_CORRECTION_OFF: Partial<Adjustments> = {
+  lensDistortionEnabled: false,
+  lensTcaEnabled: false,
+  lensVignetteEnabled: false,
+};
+
+export const isLensCorrectionActive = (adjustments: Adjustments): boolean =>
+  (adjustments.lensCorrectionMode === 'auto' || (!!adjustments.lensMaker && !!adjustments.lensModel)) &&
+  (adjustments.lensDistortionEnabled || adjustments.lensTcaEnabled || adjustments.lensVignetteEnabled);
+
 export enum DetailsAdjustment {
   AiDenoiseAmount = 'aiDenoiseAmount',
   AiDenoiseDetail = 'aiDenoiseDetail',
@@ -730,6 +747,9 @@ export type CropGeometry = Pick<Adjustments, (typeof CROP_GEOMETRY_KEYS)[number]
 
 export const pickCropGeometry = (adjustments: Adjustments): CropGeometry =>
   Object.fromEntries(CROP_GEOMETRY_KEYS.map((key) => [key, structuredClone(adjustments[key])])) as CropGeometry;
+
+export const isSameCropGeometry = (a: CropGeometry, b: CropGeometry) =>
+  CROP_GEOMETRY_KEYS.every((key) => JSON.stringify(a[key]) === JSON.stringify(b[key]));
 
 export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any => {
   if (!loadedAdjustments) {

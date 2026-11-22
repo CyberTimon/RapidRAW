@@ -1,9 +1,11 @@
 use super::camera::{Camera, Lens};
 use super::projection::Canvas;
+use crate::merge::raster::largest_rectangle;
 use nalgebra::Vector3;
 use rayon::prelude::*;
 
 const ENVELOPE_FRACTION: f64 = 1.0 / 24.0;
+const FULL_LINE_FRACTION: f64 = 0.9;
 
 #[derive(Debug, Clone)]
 pub struct EdgeCurves {
@@ -205,8 +207,38 @@ fn edge_curves(
 }
 
 fn build_curves(starts: &[Option<f64>], ends: &[Option<f64>], scale: f64) -> Option<EdgeCurves> {
-    let start = smooth_envelope(starts, true)?;
-    let end = smooth_envelope(ends, false)?;
+    let mut spans: Vec<f64> = starts
+        .iter()
+        .zip(ends)
+        .filter_map(|(s, e)| Some(e.as_ref()? - s.as_ref()?))
+        .collect();
+    if spans.is_empty() {
+        return None;
+    }
+    let middle = spans.len() / 2;
+    let typical = *spans
+        .select_nth_unstable_by(middle, |a, b| a.total_cmp(b))
+        .1;
+    let full = |i: usize| matches!((starts[i], ends[i]), (Some(s), Some(e)) if e - s >= FULL_LINE_FRACTION * typical);
+    let first = (0..starts.len()).find(|&i| full(i))?;
+    let last = (0..starts.len()).rev().find(|&i| full(i))?;
+    let inner = |values: &[Option<f64>]| -> Vec<Option<f64>> {
+        values
+            .iter()
+            .enumerate()
+            .map(|(i, v)| {
+                if (first..=last).contains(&i) {
+                    *v
+                } else {
+                    None
+                }
+            })
+            .collect()
+    };
+    let starts = inner(starts);
+    let ends = inner(ends);
+    let start = smooth_envelope(&starts, true)?;
+    let end = smooth_envelope(&ends, false)?;
     let target_start = starts.iter().flatten().fold(f64::MAX, |a, &b| a.min(b));
     let target_end = ends.iter().flatten().fold(f64::MIN, |a, &b| a.max(b));
     Some(EdgeCurves {
@@ -216,38 +248,6 @@ fn build_curves(starts: &[Option<f64>], ends: &[Option<f64>], scale: f64) -> Opt
         target_start: target_start / scale,
         target_end: target_end / scale,
     })
-}
-
-fn largest_rectangle(mask: &Mask) -> Option<(usize, usize, usize, usize)> {
-    let (w, h) = (mask.width, mask.height);
-    let mut heights = vec![0usize; w];
-    let mut best: Option<(usize, usize, usize, usize)> = None;
-    let mut best_area = 0;
-    let mut stack: Vec<usize> = Vec::with_capacity(w + 1);
-    for y in 0..h {
-        for (height, &valid) in heights.iter_mut().zip(&mask.data[y * w..(y + 1) * w]) {
-            *height = if valid { *height + 1 } else { 0 };
-        }
-        stack.clear();
-        for x in 0..=w {
-            let current = if x < w { heights[x] } else { 0 };
-            while let Some(&top) = stack.last() {
-                if heights[top] < current {
-                    break;
-                }
-                stack.pop();
-                let height = heights[top];
-                let left = stack.last().map_or(0, |&s| s + 1);
-                let area = height * (x - left);
-                if area > best_area {
-                    best_area = area;
-                    best = Some((left, y + 1 - height, x - left, height));
-                }
-            }
-            stack.push(x);
-        }
-    }
-    best
 }
 
 fn full_width_rows(mask: &Mask) -> Option<(usize, usize, usize, usize)> {
@@ -340,11 +340,13 @@ pub fn plan_layout(
 
     let rect = match (auto_crop, layout.canvas.wraps) {
         (true, true) => full_width_rows(&output),
-        (true, false) => largest_rectangle(&output).map(|(x, y, w, h)| {
-            let inset = |v: usize| if v > 4 { 1 } else { 0 };
-            let (ix, iy) = (inset(w), inset(h));
-            (x + ix, y + iy, w - 2 * ix, h - 2 * iy)
-        }),
+        (true, false) => {
+            largest_rectangle(&output.data, output.width, output.height).map(|(x, y, w, h)| {
+                let inset = |v: usize| if v > 4 { 1 } else { 0 };
+                let (ix, iy) = (inset(w), inset(h));
+                (x + ix, y + iy, w - 2 * ix, h - 2 * iy)
+            })
+        }
         (false, _) => bounding_box(&output),
     };
     let (x, y, w, h) = rect.ok_or_else(|| "The panorama has no visible area.".to_string())?;

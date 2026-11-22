@@ -546,7 +546,7 @@ function CullingPreview({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute bottom-[4.5rem] left-1/2 -translate-x-1/2 flex flex-col gap-4 bg-bg-primary/70 backdrop-blur-md p-4 rounded-xl border border-white/10 shadow-xl z-30 pointer-events-auto w-64 max-h-[70%] overflow-y-auto custom-scrollbar"
+            className="absolute bottom-[5.75rem] left-1/2 -translate-x-1/2 flex flex-col gap-4 bg-bg-primary/70 backdrop-blur-md p-4 rounded-xl border border-white/10 shadow-xl z-30 pointer-events-auto w-64 max-h-[70%] overflow-y-auto custom-scrollbar"
             onMouseDown={(e) => e.stopPropagation()}
             onWheel={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
@@ -645,7 +645,7 @@ function CullingPreview({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.15 }}
-            className="absolute bottom-[4.5rem] left-1/2 -translate-x-1/2 flex flex-col gap-4 bg-bg-primary/70 backdrop-blur-md p-4 rounded-xl border border-white/10 shadow-xl z-30 pointer-events-auto w-64 max-h-[70%] overflow-y-auto custom-scrollbar"
+            className="absolute bottom-[5.75rem] left-1/2 -translate-x-1/2 flex flex-col gap-4 bg-bg-primary/70 backdrop-blur-md p-4 rounded-xl border border-white/10 shadow-xl z-30 pointer-events-auto w-64 max-h-[70%] overflow-y-auto custom-scrollbar"
             onMouseDown={(e) => e.stopPropagation()}
             onWheel={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
@@ -791,151 +791,155 @@ function CullingPreview({
 
       <div
         className={clsx(
-          'absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-bg-primary/70 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 shadow-xl z-20 pointer-events-auto transition-opacity duration-200 max-w-[calc(100%-1.5rem)]',
+          'absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col bg-bg-primary/70 backdrop-blur-md rounded-xl border border-white/10 shadow-xl overflow-hidden z-20 pointer-events-auto transition-opacity duration-200 max-w-[calc(100%-1.5rem)]',
           isRateMenuVisible || isInfoMenuVisible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
         )}
         onMouseDown={(e) => e.stopPropagation()}
         onWheel={(e) => e.stopPropagation()}
       >
-        <AnimatePresence>
-          {isLoading && (
-            <motion.div
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: 'auto' }}
-              exit={{ opacity: 0, width: 0 }}
-              className="flex items-center justify-center overflow-hidden"
-            >
-              <Loader2 className="w-4 h-4 animate-spin text-white mr-1" />
-            </motion.div>
+        <div className="flex items-center gap-2 px-3 py-1.5 min-w-0">
+          <AnimatePresence>
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: 'auto' }}
+                exit={{ opacity: 0, width: 0 }}
+                className="flex items-center justify-center overflow-hidden"
+              >
+                <Loader2 className="w-4 h-4 animate-spin text-white mr-1" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <Text
+            variant={TextVariants.small}
+            className="text-white truncate shrink min-w-0 max-w-20 sm:max-w-28 md:max-w-37.5"
+            data-tooltip={baseName}
+          >
+            {baseName}
+          </Text>
+
+          {isVirtualCopy && (
+            <div className="bg-white/20 text-white px-1.5 py-0.5 rounded-sm shrink-0 ml-1">
+              <Text variant={TextVariants.small} weight={TextWeights.bold} className="text-[9px] leading-none">
+                {t('library.culling.vc')}
+              </Text>
+            </div>
           )}
-        </AnimatePresence>
 
-        <Text
-          variant={TextVariants.small}
-          className="text-white truncate shrink min-w-0 max-w-20 sm:max-w-28 md:max-w-37.5"
-          data-tooltip={baseName}
-        >
-          {baseName}
-        </Text>
+          {hasAnyOverlay && (
+            <div className="rounded-full h-5 px-1.5 flex items-center justify-center gap-0 shadow-md bg-surface/30 pointer-events-auto shrink-0 ml-1">
+              {showEditIcon && (
+                <div className="text-white flex items-center shrink-0">
+                  <SlidersHorizontal size={12} />
+                </div>
+              )}
 
-        {isVirtualCopy && (
-          <div className="bg-white/20 text-white px-1.5 py-0.5 rounded-sm shrink-0 ml-1">
-            <Text variant={TextVariants.small} weight={TextWeights.bold} className="text-[9px] leading-none">
-              {t('library.culling.vc')}
-            </Text>
-          </div>
-        )}
+              {colorLabel && (
+                <div className={clsx('flex items-center justify-center shrink-0', showEditIcon && 'ml-1.5')}>
+                  <div
+                    className="w-3 h-3 rounded-full transition-colors duration-200"
+                    style={{ backgroundColor: colorLabel.color }}
+                  />
+                </div>
+              )}
 
-        {hasAnyOverlay && (
-          <div className="rounded-full h-5 px-1.5 flex items-center justify-center gap-0 shadow-md bg-surface/30 pointer-events-auto shrink-0 ml-1">
-            {showEditIcon && (
-              <div className="text-white flex items-center shrink-0">
-                <SlidersHorizontal size={12} />
-              </div>
+              {hasRating && (
+                <div className={clsx('flex items-center gap-0.5 shrink-0', (showEditIcon || colorLabel) && 'ml-1.5')}>
+                  <Text variant={TextVariants.small} color={TextColors.white}>
+                    {rating}
+                  </Text>
+                  <StarIcon size={12} className="text-white fill-white" />
+                </div>
+              )}
+
+              <FlagBadges flag={image.flag} hasPrecedingBadge={!!showEditIcon || !!colorLabel || hasRating} />
+            </div>
+          )}
+
+          <div className="w-px h-5 bg-white/20 mx-1 shrink-0"></div>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowInfoBar((prev) => {
+                if (!prev) setShowRateBar(false);
+                return !prev;
+              });
+            }}
+            className={clsx(
+              'p-1.5 rounded-full transition-colors shrink-0',
+              showInfoBar ? 'bg-accent text-button-text' : 'text-white/60 hover:bg-white/10 hover:text-white',
             )}
+            data-tooltip={t('library.culling.metadata')}
+          >
+            <Info size={14} />
+          </button>
 
-            {colorLabel && (
-              <div className={clsx('flex items-center justify-center shrink-0', showEditIcon && 'ml-1.5')}>
-                <div
-                  className="w-3 h-3 rounded-full transition-colors duration-200"
-                  style={{ backgroundColor: colorLabel.color }}
-                />
-              </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowRateBar((prev) => {
+                if (!prev) setShowInfoBar(false);
+                return !prev;
+              });
+            }}
+            className={clsx(
+              'p-1.5 rounded-full transition-colors shrink-0',
+              showRateBar ? 'bg-accent text-button-text' : 'text-white/60 hover:bg-white/10 hover:text-white',
             )}
+            data-tooltip={t('library.culling.rateAndLabel')}
+          >
+            <Tag size={14} />
+          </button>
 
-            {hasRating && (
-              <div className={clsx('flex items-center gap-0.5 shrink-0', (showEditIcon || colorLabel) && 'ml-1.5')}>
-                <Text variant={TextVariants.small} color={TextColors.white}>
-                  {rating}
-                </Text>
-                <StarIcon size={12} className="text-white fill-white" />
-              </div>
+          <div className="w-px h-5 bg-white/20 mx-1 shrink-0"></div>
+
+          <button
+            onClick={toggleSync}
+            className={clsx(
+              'p-1.5 rounded-full transition-colors shrink-0',
+              syncViewport.isActive ? 'bg-accent text-button-text' : 'text-white/60 hover:bg-white/10 hover:text-white',
             )}
+            data-tooltip={t('library.culling.syncZoomAndPan')}
+          >
+            <Link size={14} />
+          </button>
 
-            <FlagBadges flag={image.flag} hasPrecedingBadge={!!showEditIcon || !!colorLabel || hasRating} />
-          </div>
-        )}
+          <button
+            onClick={handleZoomOut}
+            className="p-1.5 text-white/60 hover:bg-white/10 hover:text-white rounded-full transition-colors shrink-0"
+          >
+            <ZoomOut size={16} />
+          </button>
 
-        <div className="w-px h-5 bg-white/20 mx-1 shrink-0"></div>
+          <button
+            onClick={handleToggle1to1}
+            className="text-xs font-mono text-white/90 w-8 text-center select-none shrink-0 hover:bg-white/10 hover:text-white rounded-md py-1 transition-colors cursor-pointer"
+            data-tooltip={t('library.culling.toggleFit')}
+          >
+            {fitScale ? Math.round(zoom * fitScale * 100) : Math.round(zoom * 100)}%
+          </button>
+
+          <button
+            onClick={handleZoomIn}
+            className="p-1.5 text-white/60 hover:bg-white/10 hover:text-white rounded-full transition-colors shrink-0"
+          >
+            <ZoomIn size={16} />
+          </button>
+        </div>
+
+        <div className="h-px mx-3 bg-white/10 shrink-0" />
 
         <button
           onClick={(e) => {
             e.stopPropagation();
             onImageDoubleClick(image.path);
           }}
-          className="p-1.5 text-white/60 hover:bg-white/10 hover:text-white rounded-full transition-colors shrink-0"
-          data-tooltip={t('library.culling.editImage')}
+          className="flex items-center justify-center gap-1.5 w-full px-3 py-1.5 text-white/60 hover:bg-white/10 hover:text-white transition-colors"
         >
-          <SquarePen size={14} />
-        </button>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowInfoBar((prev) => {
-              if (!prev) setShowRateBar(false);
-              return !prev;
-            });
-          }}
-          className={clsx(
-            'p-1.5 rounded-full transition-colors shrink-0',
-            showInfoBar ? 'bg-accent text-button-text' : 'text-white/60 hover:bg-white/10 hover:text-white',
-          )}
-          data-tooltip={t('library.culling.metadata')}
-        >
-          <Info size={14} />
-        </button>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowRateBar((prev) => {
-              if (!prev) setShowInfoBar(false);
-              return !prev;
-            });
-          }}
-          className={clsx(
-            'p-1.5 rounded-full transition-colors shrink-0',
-            showRateBar ? 'bg-accent text-button-text' : 'text-white/60 hover:bg-white/10 hover:text-white',
-          )}
-          data-tooltip={t('library.culling.rateAndLabel')}
-        >
-          <Tag size={14} />
-        </button>
-
-        <div className="w-px h-5 bg-white/20 mx-1 shrink-0"></div>
-
-        <button
-          onClick={toggleSync}
-          className={clsx(
-            'p-1.5 rounded-full transition-colors shrink-0',
-            syncViewport.isActive ? 'bg-accent text-button-text' : 'text-white/60 hover:bg-white/10 hover:text-white',
-          )}
-          data-tooltip={t('library.culling.syncZoomAndPan')}
-        >
-          <Link size={14} />
-        </button>
-
-        <button
-          onClick={handleZoomOut}
-          className="p-1.5 text-white/60 hover:bg-white/10 hover:text-white rounded-full transition-colors shrink-0"
-        >
-          <ZoomOut size={16} />
-        </button>
-
-        <button
-          onClick={handleToggle1to1}
-          className="text-xs font-mono text-white/90 w-8 text-center select-none shrink-0 hover:bg-white/10 hover:text-white rounded-md py-1 transition-colors cursor-pointer"
-          data-tooltip={t('library.culling.toggleFit')}
-        >
-          {fitScale ? Math.round(zoom * fitScale * 100) : Math.round(zoom * 100)}%
-        </button>
-
-        <button
-          onClick={handleZoomIn}
-          className="p-1.5 text-white/60 hover:bg-white/10 hover:text-white rounded-full transition-colors shrink-0"
-        >
-          <ZoomIn size={16} />
+          <span className="text-xs truncate">{t('contextMenus.editor.editImage')}</span>
+          <SquarePen size={12} className="shrink-0" />
         </button>
       </div>
 
@@ -1217,6 +1221,7 @@ export default function CullingView(props: any) {
               {t('library.culling.selectImagesToCompare')}
             </Text>
             <Text className="mt-2 text-text-secondary">{t('library.culling.clickThumbnailsHint')}</Text>
+            <Text className="mt-1 text-text-secondary">{t('library.culling.doubleClickToEditHint')}</Text>
           </div>
         ) : (
           <div

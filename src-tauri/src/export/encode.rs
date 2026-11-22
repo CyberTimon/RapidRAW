@@ -8,11 +8,11 @@ use image::codecs::jpeg::{JpegEncoder, PixelDensity};
 use image::codecs::png::PngEncoder;
 use image::{DynamicImage, GenericImageView, ImageEncoder};
 use jxl_encoder::{
-    ColorEncoding, ImageMetadata, LosslessConfig, LossyConfig, PixelLayout,
+    CIExy, ColorEncoding, CustomPrimaries, ImageMetadata, LosslessConfig, LossyConfig, PixelLayout,
+    Primaries, TransferFunction,
     api::{calibrated_jxl_quality, quality_to_distance},
 };
 use rayon::prelude::*;
-use std::borrow::Cow;
 #[cfg(not(target_os = "android"))]
 use std::fs;
 use std::io::Cursor;
@@ -130,6 +130,36 @@ pub fn mime_type_for_extension(extension: &str) -> &'static str {
     }
 }
 
+fn jxl_color_encoding(space: OutputColorSpace) -> ColorEncoding {
+    let rgb = space.rgb();
+    let xy = |point: glam::DVec2| CIExy {
+        x: point.x,
+        y: point.y,
+    };
+    let custom = |gamma: f32| ColorEncoding {
+        gamma: Some(1.0 / gamma),
+        ..ColorEncoding::with_custom_white_point_and_primaries(
+            xy(rgb.white),
+            CustomPrimaries {
+                red: xy(rgb.primaries[0]),
+                green: xy(rgb.primaries[1]),
+                blue: xy(rgb.primaries[2]),
+            },
+        )
+    };
+    match space {
+        OutputColorSpace::Srgb => ColorEncoding::srgb(),
+        OutputColorSpace::DisplayP3 => ColorEncoding::display_p3(),
+        OutputColorSpace::Rec2020 => ColorEncoding {
+            primaries: Primaries::Bt2100,
+            transfer_function: TransferFunction::Bt709,
+            ..ColorEncoding::srgb()
+        },
+        OutputColorSpace::AdobeRgb => custom(563.0 / 256.0),
+        OutputColorSpace::ProPhotoRgb => custom(1.8),
+    }
+}
+
 fn encode_hdr_jxl(image: &DynamicImage, quality: u8) -> Result<Vec<u8>, String> {
     const ENCODER_WHITE_NITS: f32 = 255.0;
     const MIN_DISTANCE: f32 = 0.1;
@@ -222,7 +252,7 @@ pub fn encode_image_to_bytes(
                         });
                     config
                         .encode_request(width, height, linear_layout)
-                        .with_metadata(&metadata)
+                        .with_color_encoding(jxl_color_encoding(color_space))
                         .encode(bytemuck::cast_slice(&linear))
                 }
                 .map_err(|e| format!("Failed to encode lossy JXL: {}", e))?
@@ -240,9 +270,6 @@ pub fn encode_image_to_bytes(
             return Ok(webp_data);
         }
         "jpg" | "jpeg" => {
-            let rgb_image = image
-                .as_rgb8()
-                .map_or_else(|| Cow::Owned(image.to_rgb8()), Cow::Borrowed);
             let mut encoder = JpegEncoder::new_with_quality(&mut cursor, jpeg_quality);
             encoder
                 .set_icc_profile(color_space.icc_profile().to_vec())
@@ -250,9 +277,12 @@ pub fn encode_image_to_bytes(
             if let Some(dpi) = export_settings.dpi {
                 encoder.set_pixel_density(PixelDensity::dpi(dpi));
             }
-            rgb_image
-                .write_with_encoder(encoder)
-                .map_err(|e| e.to_string())?;
+            match image {
+                DynamicImage::ImageRgba8(rgba) => encoder.encode_image(rgba),
+                DynamicImage::ImageRgb8(rgb) => encoder.encode_image(rgb),
+                other => encoder.encode_image(&other.to_rgb8()),
+            }
+            .map_err(|e| e.to_string())?;
         }
         "png" => {
             let converted;

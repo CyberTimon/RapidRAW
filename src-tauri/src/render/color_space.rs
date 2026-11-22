@@ -289,7 +289,7 @@ impl OutputColorSpace {
         Self::Rec2020,
     ];
 
-    fn rgb(self) -> RgbSpace {
+    pub fn rgb(self) -> RgbSpace {
         match self {
             Self::Srgb => SRGB,
             Self::DisplayP3 => DISPLAY_P3,

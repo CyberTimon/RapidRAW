@@ -11,8 +11,8 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 
-const MODEL_TAG: &str = "nind-v4";
-const BM3D_TAG: &str = "bm3d-v2";
+const MODEL_TAG: &str = "nind-v7";
+const BM3D_TAG: &str = "bm3d-v4";
 const BM3D_INTENSITY: f32 = 0.15;
 
 static CACHE: BaseCache = BaseCache::new(
@@ -75,7 +75,7 @@ pub fn blend_strength(adjustments: &serde_json::Value) -> (f32, f32) {
     let amount =
         (adjustments["aiDenoiseAmount"].as_f64().unwrap_or(100.0) as f32 / 100.0).clamp(0.0, 1.0);
     let detail =
-        (adjustments["aiDenoiseDetail"].as_f64().unwrap_or(0.0) as f32 / 100.0).clamp(0.0, 1.0);
+        (adjustments["aiDenoiseDetail"].as_f64().unwrap_or(15.0) as f32 / 100.0).clamp(0.0, 1.0);
     (amount, detail)
 }
 
@@ -140,8 +140,206 @@ pub fn apply_ai_denoise<'a>(
     Cow::Owned(DynamicImage::ImageRgb32F(out))
 }
 
+const GRID_PERIOD: usize = 16;
+const GRID_LATTICE: usize = 4;
+const GRID_PHASES: usize = GRID_LATTICE * GRID_LATTICE;
+const GRID_TAPS: usize = 7;
+const GRID_CLIP: f32 = 1e-3;
+const NYQUIST_STEP: usize = 4;
+const NYQUIST_FULL: f32 = 1e-3;
+const NYQUIST_NONE: f32 = 2e-3;
+
+fn median_across_blocks(src: &[f32], dst: &mut [f32], count: usize, stride: usize) {
+    const NETWORK: [(usize, usize); 16] = [
+        (0, 6),
+        (2, 3),
+        (4, 5),
+        (0, 2),
+        (1, 4),
+        (3, 6),
+        (0, 1),
+        (2, 5),
+        (3, 4),
+        (1, 2),
+        (4, 6),
+        (2, 3),
+        (4, 5),
+        (1, 2),
+        (3, 4),
+        (5, 6),
+    ];
+    let reach = (GRID_TAPS / 2) as isize;
+    dst.par_chunks_exact_mut(GRID_PHASES)
+        .enumerate()
+        .for_each(|(block, out)| {
+            let line = block / stride % count;
+            let first = block - line * stride;
+            let mut taps: [[f32; GRID_PHASES]; GRID_TAPS] = std::array::from_fn(|t| {
+                let at = (line as isize + t as isize - reach).clamp(0, count as isize - 1) as usize;
+                let b = first + at * stride;
+                src[b * GRID_PHASES..(b + 1) * GRID_PHASES]
+                    .try_into()
+                    .expect("block holds every phase")
+            });
+            for (a, b) in NETWORK {
+                let (lo, hi) = (taps[a], taps[b]);
+                for p in 0..GRID_PHASES {
+                    taps[a][p] = lo[p].min(hi[p]);
+                    taps[b][p] = lo[p].max(hi[p]);
+                }
+            }
+            out.copy_from_slice(&taps[GRID_TAPS / 2]);
+        });
+}
+
+fn nyquist_signs(x: usize, y: usize) -> [f32; 3] {
+    let sign = |n: usize| if n.is_multiple_of(2) { 1.0 } else { -1.0 };
+    [sign(x + y), sign(y), sign(x)]
+}
+
+fn remove_nyquist_patterns(image: &mut Rgb32FImage, c: usize, detail: &mut [f32]) {
+    const SPLINE: [f32; 10] = [1.0, 3.0, 6.0, 10.0, 12.0, 12.0, 10.0, 6.0, 3.0, 1.0];
+    let w = image.width() as usize;
+    let h = image.height() as usize;
+    let (sw, sh) = (w.div_ceil(NYQUIST_STEP), h.div_ceil(NYQUIST_STEP));
+    let reach = SPLINE.len() / 2 - NYQUIST_STEP / 2;
+    let taps = |center: usize, len: usize| {
+        let start = center * NYQUIST_STEP;
+        SPLINE
+            .iter()
+            .enumerate()
+            .map(move |(t, &k)| ((start + t).saturating_sub(reach).min(len - 1), k / 64.0))
+    };
+
+    let mut rows = vec![[0.0f32; 3]; h * sw];
+    rows.par_chunks_exact_mut(sw)
+        .enumerate()
+        .for_each(|(y, out)| {
+            let line = &detail[y * w..(y + 1) * w];
+            for (sx, acc) in out.iter_mut().enumerate() {
+                for (x, k) in taps(sx, w) {
+                    let v = line[x] * k;
+                    for (a, s) in acc.iter_mut().zip(nyquist_signs(x, y)) {
+                        *a += v * s;
+                    }
+                }
+            }
+        });
+
+    let mut amplitude = [
+        vec![0.0f32; sw * sh],
+        vec![0.0f32; sw * sh],
+        vec![0.0f32; sw * sh],
+    ];
+    let [checker, across, along] = &mut amplitude;
+    checker
+        .par_chunks_exact_mut(sw)
+        .zip(across.par_chunks_exact_mut(sw))
+        .zip(along.par_chunks_exact_mut(sw))
+        .enumerate()
+        .for_each(|(sy, ((p0, p1), p2))| {
+            for (y, k) in taps(sy, h) {
+                for (sx, acc) in rows[y * sw..(y + 1) * sw].iter().enumerate() {
+                    p0[sx] += acc[0] * k;
+                    p1[sx] += acc[1] * k;
+                    p2[sx] += acc[2] * k;
+                }
+            }
+        });
+    drop(rows);
+    for plane in &mut amplitude {
+        box_filter(plane, sw, sh, 1, 1, 1);
+    }
+
+    let (fw, fh) = ((sw * NYQUIST_STEP) as f32, (sh * NYQUIST_STEP) as f32);
+    image
+        .par_chunks_exact_mut(w * 3)
+        .zip(detail.par_chunks_exact_mut(w))
+        .enumerate()
+        .for_each(|(y, (row, det))| {
+            let v = (y as f32 + 0.5) / fh;
+            for (x, px) in row.as_chunks_mut::<3>().0.iter_mut().enumerate() {
+                let tap = BilinearTap::new((x as f32 + 0.5) / fw, v, sw, sh);
+                let mut pattern = 0.0;
+                for (plane, s) in amplitude.iter().zip(nyquist_signs(x, y)) {
+                    let a = tap.sample(plane);
+                    let keep =
+                        ((NYQUIST_NONE - a.abs()) / (NYQUIST_NONE - NYQUIST_FULL)).clamp(0.0, 1.0);
+                    pattern += a * keep * s;
+                }
+                px[c] -= pattern;
+                det[x] -= pattern;
+            }
+        });
+}
+
+fn remove_tile_grid(image: &mut Rgb32FImage) {
+    let (w, h) = (image.width() as usize, image.height() as usize);
+    let (bw, bh) = (w.div_ceil(GRID_PERIOD), h.div_ceil(GRID_PERIOD));
+    if bw < 2 || bh < 2 {
+        return;
+    }
+
+    for c in 0..3 {
+        let mut detail: Vec<f32> = image.as_raw().par_chunks_exact(3).map(|px| px[c]).collect();
+        let mut low = detail.clone();
+        box_filter(&mut low, w, h, 1, GRID_PERIOD / 2, GRID_PERIOD / 2 - 1);
+        detail
+            .par_iter_mut()
+            .zip(low.par_iter())
+            .for_each(|(d, &l)| *d -= l);
+        drop(low);
+
+        remove_nyquist_patterns(image, c, &mut detail);
+
+        let mut blocks = vec![0.0f32; bw * bh * GRID_PHASES];
+        let share = (GRID_PHASES as f32) / (GRID_PERIOD * GRID_PERIOD) as f32;
+        blocks
+            .par_chunks_exact_mut(bw * GRID_PHASES)
+            .enumerate()
+            .for_each(|(by, row)| {
+                for py in 0..GRID_PERIOD {
+                    let y = (by * GRID_PERIOD + py).min(h - 1);
+                    let lane_y = py % GRID_LATTICE * GRID_LATTICE;
+                    for bx in 0..bw {
+                        for px in 0..GRID_PERIOD {
+                            let i = y * w + (bx * GRID_PERIOD + px).min(w - 1);
+                            row[bx * GRID_PHASES + lane_y + px % GRID_LATTICE] +=
+                                detail[i].clamp(-GRID_CLIP, GRID_CLIP) * share;
+                        }
+                    }
+                }
+            });
+        drop(detail);
+
+        let mut across = vec![0.0f32; blocks.len()];
+        median_across_blocks(&blocks, &mut across, bw, 1);
+        median_across_blocks(&across, &mut blocks, bh, bw);
+        drop(across);
+
+        blocks
+            .par_chunks_exact_mut(GRID_PHASES)
+            .for_each(|pattern| {
+                let mean = pattern.iter().sum::<f32>() / GRID_PHASES as f32;
+                pattern.iter_mut().for_each(|v| *v -= mean);
+            });
+
+        image
+            .par_chunks_exact_mut(w * 3)
+            .enumerate()
+            .for_each(|(y, row)| {
+                let (by, lane_y) = (y / GRID_PERIOD, y % GRID_LATTICE * GRID_LATTICE);
+                for (x, px) in row.as_chunks_mut::<3>().0.iter_mut().enumerate() {
+                    let block = by * bw + x / GRID_PERIOD;
+                    let v = blocks[block * GRID_PHASES + lane_y + x % GRID_LATTICE];
+                    px[c] = (px[c] - v).clamp(0.0, 1.0);
+                }
+            });
+    }
+}
+
 fn restore_low_frequencies(denoised: &mut Rgb32FImage, source: &Rgb32FImage) {
-    const FACTOR: usize = 64;
+    const FACTOR: usize = 16;
     let (w, h) = (source.width() as usize, source.height() as usize);
     let (sw, sh) = (w.div_ceil(FACTOR), h.div_ceil(FACTOR));
     if sw < 2 || sh < 2 {
@@ -171,7 +369,7 @@ fn restore_low_frequencies(denoised: &mut Rgb32FImage, source: &Rgb32FImage) {
                     }
                 });
             for _ in 0..3 {
-                box_filter(&mut plane, sw, sh, 1, 3);
+                box_filter(&mut plane, sw, sh, 1, 1, 1);
             }
             plane
         })
@@ -198,9 +396,13 @@ fn run_denoiser(
 ) -> Result<Rgb32FImage, String> {
     let source = base.to_rgb32f();
     let mut output = match session {
-        Some(session) => crate::ai::tiling::run_ai_denoise(&source, session, on_progress)
-            .map_err(|e| e.to_string())?
-            .into_rgb32f(),
+        Some(session) => {
+            let mut output = crate::ai::tiling::run_ai_denoise(&source, session, on_progress)
+                .map_err(|e| e.to_string())?
+                .into_rgb32f();
+            remove_tile_grid(&mut output);
+            output
+        }
         None => crate::ai::bm3d::denoise(&source, BM3D_INTENSITY, on_progress),
     };
 
@@ -324,12 +526,12 @@ impl BilinearTap {
     }
 }
 
-fn box_filter(buf: &mut [f32], w: usize, h: usize, ch: usize, radius: usize) {
-    if radius == 0 || w < 2 || h < 2 {
+fn box_filter(buf: &mut [f32], w: usize, h: usize, ch: usize, before: usize, after: usize) {
+    if before + after == 0 || w < 2 || h < 2 {
         return;
     }
-    let r = radius as isize;
-    let inv = 1.0 / (2 * radius + 1) as f32;
+    let (rb, ra) = (before as isize, after as isize);
+    let inv = 1.0 / (before + after + 1) as f32;
     let wi = w as isize;
     let hi = h as isize;
     let stride = w * ch;
@@ -337,7 +539,7 @@ fn box_filter(buf: &mut [f32], w: usize, h: usize, ch: usize, radius: usize) {
     buf.par_chunks_exact_mut(stride).for_each(|row| {
         let src = row.to_vec();
         let mut sums = vec![0.0f32; ch];
-        for i in -r..=r {
+        for i in -rb..=ra {
             let ix = i.clamp(0, wi - 1) as usize;
             for (c, s) in sums.iter_mut().enumerate() {
                 *s += src[ix * ch + c];
@@ -347,8 +549,8 @@ fn box_filter(buf: &mut [f32], w: usize, h: usize, ch: usize, radius: usize) {
             for (c, s) in sums.iter().enumerate() {
                 row[x * ch + c] = *s * inv;
             }
-            let add = ((x as isize + r + 1).clamp(0, wi - 1)) as usize;
-            let sub = ((x as isize - r).clamp(0, wi - 1)) as usize;
+            let add = ((x as isize + ra + 1).clamp(0, wi - 1)) as usize;
+            let sub = ((x as isize - rb).clamp(0, wi - 1)) as usize;
             for (c, s) in sums.iter_mut().enumerate() {
                 *s += src[add * ch + c] - src[sub * ch + c];
             }
@@ -366,7 +568,7 @@ fn box_filter(buf: &mut [f32], w: usize, h: usize, ch: usize, radius: usize) {
             let rows_here = block.len() / stride;
             let mut sums = vec![0.0f32; stride];
 
-            for i in -r..=r {
+            for i in -rb..=ra {
                 let iy = (y_start as isize + i).clamp(0, hi - 1) as usize * stride;
                 for (j, s) in sums.iter_mut().enumerate() {
                     *s += src[iy + j];
@@ -379,8 +581,8 @@ fn box_filter(buf: &mut [f32], w: usize, h: usize, ch: usize, radius: usize) {
                 for (j, s) in sums.iter().enumerate() {
                     block[base + j] = *s * inv;
                 }
-                let add = ((y as isize + r + 1).clamp(0, hi - 1)) as usize * stride;
-                let sub = ((y as isize - r).clamp(0, hi - 1)) as usize * stride;
+                let add = ((y as isize + ra + 1).clamp(0, hi - 1)) as usize * stride;
+                let sub = ((y as isize - rb).clamp(0, hi - 1)) as usize * stride;
                 for (j, s) in sums.iter_mut().enumerate() {
                     *s += src[add + j] - src[sub + j];
                 }

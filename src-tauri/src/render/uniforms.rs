@@ -3,10 +3,8 @@ use crate::decode::white_balance::{self, WhiteBalance};
 use crate::masks::generation::MaskDefinition;
 use crate::render::adjustment_utils::{effective_baseline_exposure, is_tool_active};
 use crate::render::color_space::{
-    OutputColorSpace, OutputTransform, TransferCurve, compression_uniform, srgb_decode,
-    working_to_srgb,
+    OutputTransform, TransferCurve, compression_uniform, srgb_decode, working_to_srgb,
 };
-use crate::render::hdr::Headroom;
 use crate::render::options::RenderOptions;
 use bytemuck::{Pod, Zeroable};
 use glam::{Mat3, Vec2, Vec3};
@@ -145,7 +143,7 @@ pub struct GlobalAdjustments {
     pub wb_rgb_to_lms_matrix: GpuMat3,
     pub wb_lms_to_rgb_matrix: GpuMat3,
 
-    _pad_cg1: f32,
+    pub source_peak: f32,
     _pad_cg2: f32,
     _pad_cg3: f32,
     _pad_cg4: f32,
@@ -534,10 +532,15 @@ fn get_global_adjustments_from_json(
     is_raw: bool,
     white_balance_gains: [f32; 3],
     baseline_exposure: f32,
-    tonemapper_override: Option<u32>,
-    output_space: OutputColorSpace,
-    headroom: Headroom,
+    render: RenderOptions,
+    source_peak: f32,
 ) -> GlobalAdjustments {
+    let RenderOptions {
+        tonemapper_override,
+        output_space,
+        headroom,
+        ..
+    } = render;
     let is_visible = |tool: &str| is_tool_active(js_adjustments, tool);
 
     let get_val = |tool: &str, key: &str, scale: f32, default: Option<f64>| -> f32 {
@@ -789,7 +792,7 @@ fn get_global_adjustments_from_json(
         wb_rgb_to_lms_matrix: mat3_to_gpu_mat3(rgb_to_lms),
         wb_lms_to_rgb_matrix: mat3_to_gpu_mat3(rgb_to_lms.inverse()),
 
-        _pad_cg1: 0.0,
+        source_peak,
         _pad_cg2: 0.0,
         _pad_cg3: 0.0,
         _pad_cg4: 0.0,
@@ -1052,9 +1055,8 @@ pub fn get_all_adjustments_from_json(
         is_raw,
         white_balance::adaptation_log_gains(as_shot.white_balance, target_white_balance),
         effective_baseline_exposure(js_adjustments, as_shot, render.baseline),
-        render.tonemapper_override,
-        render.output_space,
-        render.headroom,
+        render,
+        as_shot.source_peak,
     );
     let mut mask_adjustments = [MaskAdjustments::default(); MAX_MASKS];
     let mut mask_count = 0;
