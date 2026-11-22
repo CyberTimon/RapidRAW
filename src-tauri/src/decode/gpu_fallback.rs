@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard, Once};
 
 use anyhow::{Result, anyhow};
@@ -6,8 +6,11 @@ use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
 use crate::app::settings::load_settings;
-use crate::library::file_ops::write_file_atomic;
-use crate::render::gpu::context::{DecodeGpu, app_handle, decode_gpu_context};
+use crate::app::state::AppState;
+use crate::render::gpu::context::{
+    DecodeGpu, adapter_label, app_handle, current_gpu_context, decode_gpu_context,
+};
+use crate::render::gpu::fallback::{gpu_identity, load_record, store_record};
 
 const RECORD_FILE: &str = "gpu_decode_failure.json";
 
@@ -59,10 +62,6 @@ fn memory() -> MutexGuard<'static, Memory> {
     MEMORY.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-fn record_path() -> Option<PathBuf> {
-    Some(app_handle()?.path().app_data_dir().ok()?.join(RECORD_FILE))
-}
-
 fn raw_decoding() -> String {
     app_handle()
         .and_then(|handle| load_settings(handle.clone()).ok())
@@ -71,10 +70,34 @@ fn raw_decoding() -> String {
 }
 
 fn identity(context: &DecodeGpu) -> String {
-    let version = app_handle()
-        .map(|handle| handle.package_info().version.to_string())
-        .unwrap_or_default();
-    format!("{}, RapidRAW {}", context.adapter, version)
+    gpu_identity(&context.adapter)
+}
+
+fn current_identity() -> Option<String> {
+    let handle = app_handle()?;
+    let context = current_gpu_context(&handle.state::<AppState>())?;
+    Some(gpu_identity(&adapter_label(&context.adapter)))
+}
+
+pub fn cpu_limit() -> Option<usize> {
+    if matches!(raw_decoding().as_str(), "gpu" | "cpu") {
+        return None;
+    }
+    let mut memory = memory();
+    if !memory.recalled
+        && let Some(gpu) = current_identity()
+    {
+        memory.recall(&gpu);
+    }
+    lowest(memory.confirmed, memory.session).map(|limit| limit.pixels)
+}
+
+pub fn reset() {
+    let mut memory = memory();
+    memory.confirmed = None;
+    memory.suspected = None;
+    memory.session = None;
+    store_record::<Record>(RECORD_FILE, None);
 }
 
 impl Memory {
@@ -86,10 +109,7 @@ impl Memory {
         if std::mem::replace(&mut self.recalled, true) {
             return;
         }
-        let record = record_path()
-            .and_then(|path| std::fs::read(path).ok())
-            .and_then(|bytes| serde_json::from_slice::<Record>(&bytes).ok())
-            .filter(|record| record.gpu == gpu);
+        let record = load_record::<Record>(RECORD_FILE).filter(|record| record.gpu == gpu);
         match record {
             Some(record) => {
                 self.confirmed = record.confirmed;
@@ -134,31 +154,51 @@ impl Memory {
     }
 
     fn persist(&self, gpu: String) {
-        let Some(path) = record_path() else {
-            return;
-        };
         let record = Record {
             gpu,
             confirmed: self.confirmed,
             suspected: lowest(self.suspected, self.session),
         };
-        if record.confirmed.is_none() && record.suspected.is_none() {
-            let _ = std::fs::remove_file(path);
-        } else if let Ok(json) = serde_json::to_vec(&record) {
-            let _ = write_file_atomic(&path, &json);
-        }
+        let empty = record.confirmed.is_none() && record.suspected.is_none();
+        store_record(RECORD_FILE, (!empty).then_some(&record));
     }
 }
 
-fn scoped<T>(device: &wgpu::Device, run: impl FnOnce() -> Result<T>) -> Result<T> {
+pub(crate) fn scoped<T>(device: &wgpu::Device, run: impl FnOnce() -> Result<T>) -> Result<T> {
     let out_of_memory = device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
     let invalid = device.push_error_scope(wgpu::ErrorFilter::Validation);
+    let internal = device.push_error_scope(wgpu::ErrorFilter::Internal);
     let result = run();
+    let internal = pollster::block_on(internal.pop());
     let invalid = pollster::block_on(invalid.pop());
-    if let Some(error) = pollster::block_on(out_of_memory.pop()).or(invalid) {
+    if let Some(error) = pollster::block_on(out_of_memory.pop())
+        .or(invalid)
+        .or(internal)
+    {
         return Err(anyhow!("{}", error));
     }
     result
+}
+
+static KERNELS_FAILED: AtomicBool = AtomicBool::new(false);
+
+pub fn prepare(context: &DecodeGpu) -> bool {
+    let built = crate::decode::demosaic::warm(&context.device)
+        .and_then(|()| crate::decode::develop::warm(&context.device));
+    let failed = built.is_err();
+    if !KERNELS_FAILED.swap(failed, Ordering::AcqRel)
+        && let Err(e) = built
+    {
+        log::warn!(
+            "Developing on the CPU, the GPU could not build the decoding shaders: {}",
+            e
+        );
+    }
+    !failed
+}
+
+pub fn kernels_failed() -> bool {
+    KERNELS_FAILED.load(Ordering::Acquire)
 }
 
 pub(crate) fn on_gpu<T>(load: Load, run: impl FnOnce(&DecodeGpu) -> Result<T>) -> Option<T> {
@@ -176,6 +216,9 @@ pub(crate) fn on_gpu<T>(load: Load, run: impl FnOnce(&DecodeGpu) -> Result<T>) -
             return None;
         }
     };
+    if !prepare(&context) {
+        return None;
+    }
     let gpu = identity(&context);
     {
         let mut memory = memory();

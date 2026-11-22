@@ -1,10 +1,10 @@
-use super::blending::{MultiBandBlender, band_count};
 use super::camera::{Camera, Lens, Orientation};
 use super::layout::{OutputLayout, plan_layout};
 use super::photometric::Photometric;
 use super::projection::{Projection, ProjectionMode, plan_canvas};
-use super::raster::{Raster, Rect, push_pull_fill};
 use super::seams::{NO_LABEL, SeamLayer, find_seams};
+use crate::merge::blending::{MultiBandBlender, band_count};
+use crate::merge::raster::{Raster, Rect, push_pull_fill};
 use crate::render::color_space::srgb_transfer;
 use nalgebra::Vector3;
 use rayon::prelude::*;
@@ -479,7 +479,7 @@ pub fn build_levels(full: Raster, min_dimension: usize, max_dimension: usize) ->
     let mut level = full;
     loop {
         let next = (level.width.min(level.height) / 2 >= min_dimension)
-            .then(|| super::raster::downsample_box(&level));
+            .then(|| crate::merge::raster::downsample_box(&level));
         if level.width.max(level.height) <= max_dimension || next.is_none() {
             levels.push(level);
         }
@@ -500,7 +500,7 @@ pub fn level_for_magnification(
     while level.width.min(level.height) / 2 >= min_dimension
         && (level.width / 2) as f64 / camera.width >= magnification
     {
-        level = super::raster::downsample_box(&level);
+        level = crate::merge::raster::downsample_box(&level);
     }
     level
 }

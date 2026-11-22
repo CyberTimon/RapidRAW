@@ -3,6 +3,7 @@ pub mod gain_map;
 pub mod geometry;
 pub mod masks;
 pub mod original;
+pub mod records;
 pub mod settings;
 pub mod size_estimate;
 pub mod tasks;
@@ -15,7 +16,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 
 use image::{DynamicImage, ImageBuffer, Luma};
 use serde_json::Value;
@@ -35,7 +36,10 @@ use crate::export::masks::export_masks_for_image;
 use crate::export::original::{
     load_export_source_image, original_export_adjustments, original_output_path,
 };
-use crate::export::settings::{ExportAdjustmentsMode, ExportSettings, render_output_precision};
+use crate::export::records::ExportRecords;
+use crate::export::settings::{
+    ConflictAction, ExportAdjustmentsMode, ExportSettings, render_output_precision,
+};
 use crate::export::tasks::{
     ExportTaskGuard, ensure_export_not_cancelled, estimate_export_memory, finish_export_task,
     register_export_task,
@@ -173,19 +177,45 @@ fn process_image_for_export(
             .map(|options| (options, RenderOutputPrecision::Float)),
     );
 
-    let mut images = process_image_for_export_pipeline(
-        path,
-        base_image,
-        base_scale,
-        js_adjustments,
-        context,
-        state,
-        is_raw,
-        "process_image_for_export",
-        &renders,
-    )?
-    .into_iter()
-    .map(|image| {
+    let gains: Vec<_> = renders
+        .iter()
+        .map(|(options, _)| {
+            crate::decode::image_loader::gain_layer_for(path, &settings, options.headroom)
+        })
+        .collect();
+    let rendered = if gains.iter().all(Option::is_none) {
+        process_image_for_export_pipeline(
+            path,
+            base_image,
+            base_scale,
+            js_adjustments,
+            context,
+            state,
+            is_raw,
+            "process_image_for_export",
+            &renders,
+        )?
+    } else {
+        let mut rendered = Vec::with_capacity(renders.len());
+        for (render, gain) in renders.iter().zip(&gains) {
+            let gained = gain
+                .as_ref()
+                .and_then(|(layer, weight)| layer.apply(base_image, *weight));
+            rendered.extend(process_image_for_export_pipeline(
+                path,
+                gained.as_ref().unwrap_or(base_image),
+                base_scale,
+                js_adjustments,
+                context,
+                state,
+                is_raw,
+                "process_image_for_export",
+                std::slice::from_ref(render),
+            )?);
+        }
+        rendered
+    };
+    let mut images = rendered.into_iter().map(|image| {
         apply_export_geometry_and_watermark(image, export_settings, color_space)
             .map(|(image, _)| image)
     });
@@ -194,6 +224,33 @@ fn process_image_for_export(
         image: images.next().ok_or("Export produced no image")??,
         hdr: images.next().transpose()?,
     })
+}
+
+struct PathTurn {
+    turn: Arc<(Mutex<usize>, Condvar)>,
+    index: usize,
+}
+
+impl PathTurn {
+    fn lock_turn(&self) -> MutexGuard<'_, usize> {
+        let (lock, cvar) = &*self.turn;
+        cvar.wait_while(
+            lock.lock().unwrap_or_else(PoisonError::into_inner),
+            |current| *current != self.index,
+        )
+        .unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn wait(&self) {
+        drop(self.lock_turn());
+    }
+}
+
+impl Drop for PathTurn {
+    fn drop(&mut self) {
+        *self.lock_turn() += 1;
+        self.turn.1.notify_all();
+    }
 }
 
 fn wait_for_ai_bases(
@@ -237,7 +294,7 @@ pub(crate) async fn export_images_impl(
     adjustments_mode: ExportAdjustmentsMode,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-    completion_tx: Option<tokio::sync::oneshot::Sender<Result<(), usize>>>,
+    completion_tx: Option<tokio::sync::oneshot::Sender<Result<usize, usize>>>,
 ) -> Result<(), String> {
     let cancellation_token = register_export_task(&state.export_task_token)?;
     clear_watermark_cache();
@@ -264,6 +321,7 @@ pub(crate) async fn export_images_impl(
 
     let context = Arc::new(context);
     let progress_counter = Arc::new(AtomicUsize::new(0));
+    let skipped_counter = Arc::new(AtomicUsize::new(0));
 
     let available_cores = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -321,6 +379,8 @@ pub(crate) async fn export_images_impl(
             .collect();
 
         let used_paths = Arc::new(Mutex::new(std::collections::HashSet::new()));
+        let path_turn = Arc::new((Mutex::new(0), Condvar::new()));
+        let export_records = Arc::new(ExportRecords::load(&app_handle));
         let semaphore = Arc::new(tokio::sync::Semaphore::new(num_threads));
         let mut join_handles = Vec::new();
 
@@ -337,6 +397,7 @@ pub(crate) async fn export_images_impl(
             let app_handle_clone = app_handle.clone();
             let context_clone = Arc::clone(&context);
             let progress_counter_clone = Arc::clone(&progress_counter);
+            let skipped_counter_clone = Arc::clone(&skipped_counter);
             let output_folder_path = output_folder_path.to_path_buf();
             let base_origin_folders = base_origin_folders.clone();
             let export_settings = export_settings.clone();
@@ -345,6 +406,11 @@ pub(crate) async fn export_images_impl(
             let cancellation_token_clone = Arc::clone(&cancellation_token);
             let adjustments_mode = adjustments_mode.clone();
             let used_paths_clone = Arc::clone(&used_paths);
+            let export_records = Arc::clone(&export_records);
+            let path_turn = PathTurn {
+                turn: Arc::clone(&path_turn),
+                index: global_index,
+            };
             let memory_budget = Arc::clone(&memory_budget);
 
             let handle = tokio::task::spawn_blocking(move || {
@@ -365,47 +431,6 @@ pub(crate) async fn export_images_impl(
                     ExportAdjustmentsMode::GlobalOverride(_) => false,
                 };
 
-                if !is_current_edit
-                    && matches!(adjustments_mode, ExportAdjustmentsMode::UseSidecars { .. })
-                {
-                    crate::ai::jobs::ensure_ready(&app_handle_clone, &image_path_str)
-                        .map_err(|e| format!("Failed to generate AI results for export: {}", e))?;
-                }
-
-                let sidecar = crate::metadata::sidecar::load_sidecar(&sidecar_path);
-                let export_xmp =
-                    crate::metadata::export_metadata::ExportXmp::from_metadata(&sidecar);
-
-                let mut js_adjustments = match &adjustments_mode {
-                    ExportAdjustmentsMode::UseSidecars {
-                        active_adjustments, ..
-                    } => {
-                        if is_current_edit {
-                            if let Some(adj) = active_adjustments {
-                                adj.clone()
-                            } else {
-                                develop_defaults::resolve(&sidecar.adjustments, &source_path)
-                                    .into_owned()
-                            }
-                        } else {
-                            develop_defaults::resolve(&sidecar.adjustments, &source_path)
-                                .into_owned()
-                        }
-                    }
-                    ExportAdjustmentsMode::GlobalOverride(adj) => {
-                        let mut adj = adj.clone();
-                        crate::ai::jobs::resolve_detached(
-                            &app_handle_clone,
-                            &image_path_str,
-                            &mut adj,
-                        )
-                        .map_err(|e| format!("Failed to generate AI results for export: {}", e))?;
-                        adj
-                    }
-                };
-
-                hydrate_adjustments(&state, &mut js_adjustments);
-                let is_raw = is_raw_file(&source_path_str);
                 let new_stem = export_file_stem(
                     export_settings.filename_template.as_deref(),
                     &source_path,
@@ -468,22 +493,39 @@ pub(crate) async fn export_images_impl(
 
                 let extension = output_format.to_lowercase();
 
-                if !(is_explicit_file_path && total_paths == 1) {
+                let on_conflict = export_settings.on_conflict.unwrap_or(
+                    if is_explicit_file_path && total_paths == 1 {
+                        ConflictAction::Overwrite
+                    } else {
+                        ConflictAction::CreateUnique
+                    },
+                );
+                let export_original = export_settings.export_original.is_some();
+                path_turn.wait();
+                {
                     let mut used = used_paths_clone.lock().unwrap();
                     let parent_dir = output_path
                         .parent()
                         .unwrap_or(std::path::Path::new(""))
                         .to_path_buf();
+                    let stem = output_path
+                        .file_stem()
+                        .map(|stem| stem.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| new_stem.clone());
+                    let output_extension = output_path
+                        .extension()
+                        .map(|ext| ext.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| extension.clone());
                     let mut counter = 1;
-                    let export_original = export_settings.export_original.is_some();
-                    let is_taken = |path: &PathBuf| path.exists() || used.contains(path);
+                    let avoid_existing = on_conflict == ConflictAction::CreateUnique;
+                    let is_taken =
+                        |path: &PathBuf| used.contains(path) || (avoid_existing && path.exists());
 
                     while is_taken(&output_path)
                         || (export_original && is_taken(&original_output_path(&output_path)))
                     {
-                        let incremented_filename =
-                            format!("{}_{}.{}", new_stem, counter, extension);
-                        output_path = parent_dir.join(&incremented_filename);
+                        output_path =
+                            parent_dir.join(format!("{}_{}.{}", stem, counter, output_extension));
                         counter += 1;
                     }
                     if export_original {
@@ -491,6 +533,106 @@ pub(crate) async fn export_images_impl(
                     }
                     used.insert(output_path.clone());
                 }
+                drop(path_turn);
+                let outputs_exist = output_path.exists()
+                    && (!export_original || original_output_path(&output_path).exists());
+
+                let report_progress = || {
+                    if !cancellation_token_clone.load(Ordering::SeqCst) {
+                        let current_progress =
+                            progress_counter_clone.fetch_add(1, Ordering::SeqCst) + 1;
+                        let _ = app_handle_clone.emit(
+                            "batch-export-progress",
+                            serde_json::json!({
+                                "current": current_progress,
+                                "total": total_paths,
+                                "path": &image_path_str
+                            }),
+                        );
+                    }
+                };
+                let skip = || {
+                    skipped_counter_clone.fetch_add(1, Ordering::SeqCst);
+                    report_progress();
+                    ensure_export_not_cancelled(&cancellation_token_clone)
+                };
+                if on_conflict == ConflictAction::Skip && outputs_exist {
+                    return skip();
+                }
+
+                let is_raw = is_raw_file(&source_path_str);
+                let load_adjustments = || -> Result<_, String> {
+                    let sidecar = crate::metadata::sidecar::load_sidecar(&sidecar_path);
+                    let mut js_adjustments = match &adjustments_mode {
+                        ExportAdjustmentsMode::UseSidecars {
+                            active_adjustments, ..
+                        } => match active_adjustments.as_ref().filter(|_| is_current_edit) {
+                            Some(adj) => adj.clone(),
+                            None => develop_defaults::resolve(&sidecar.adjustments, &source_path)
+                                .into_owned(),
+                        },
+                        ExportAdjustmentsMode::GlobalOverride(adj) => {
+                            let mut adj = adj.clone();
+                            crate::ai::jobs::resolve_detached(
+                                &app_handle_clone,
+                                &image_path_str,
+                                &mut adj,
+                            )
+                            .map_err(|e| {
+                                format!("Failed to generate AI results for export: {}", e)
+                            })?;
+                            adj
+                        }
+                    };
+                    hydrate_adjustments(&state, &mut js_adjustments);
+                    let fingerprint =
+                        (on_conflict == ConflictAction::OverwriteIfChanged).then(|| {
+                            export_records.fingerprint(
+                                &source_path,
+                                &js_adjustments,
+                                &output_format,
+                                &export_settings,
+                                &settings,
+                                is_raw,
+                            )
+                        });
+                    Ok((sidecar, js_adjustments, fingerprint))
+                };
+
+                let is_unchanged = |fingerprint: &Option<String>| {
+                    outputs_exist
+                        && fingerprint.as_ref().is_some_and(|fingerprint| {
+                            export_records.is_current(&output_path, fingerprint)
+                        })
+                };
+
+                let mut loaded = None;
+                if outputs_exist && on_conflict == ConflictAction::OverwriteIfChanged {
+                    let prepared = load_adjustments()?;
+                    if is_unchanged(&prepared.2) {
+                        return skip();
+                    }
+                    loaded = Some(prepared);
+                }
+
+                if !is_current_edit
+                    && matches!(adjustments_mode, ExportAdjustmentsMode::UseSidecars { .. })
+                {
+                    crate::ai::jobs::ensure_ready(&app_handle_clone, &image_path_str)
+                        .map_err(|e| format!("Failed to generate AI results for export: {}", e))?;
+                    loaded = None;
+                }
+
+                let (sidecar, js_adjustments, fingerprint) = match loaded {
+                    Some(prepared) => prepared,
+                    None => load_adjustments()?,
+                };
+                if is_unchanged(&fingerprint) {
+                    return skip();
+                }
+
+                let export_xmp =
+                    crate::metadata::export_metadata::ExportXmp::from_metadata(&sidecar);
 
                 let result: Result<(), String> = (|| {
                     if extension == "cube" {
@@ -541,6 +683,7 @@ pub(crate) async fn export_images_impl(
                         loaded_image
                             .as_ref()
                             .map(|loaded| (loaded.image.width(), loaded.image.height())),
+                        crate::export::geometry::upscale_factor(&js_adjustments),
                         js_adjustments["masks"].as_array().map_or(0, |m| m.len()),
                         &output_format,
                         export_settings.jpeg_quality,
@@ -709,18 +852,13 @@ pub(crate) async fn export_images_impl(
                     )
                 })();
 
-                if !cancellation_token_clone.load(Ordering::SeqCst) {
-                    let current_progress =
-                        progress_counter_clone.fetch_add(1, Ordering::SeqCst) + 1;
-                    let _ = app_handle_clone.emit(
-                        "batch-export-progress",
-                        serde_json::json!({
-                            "current": current_progress,
-                            "total": total_paths,
-                            "path": &image_path_str
-                        }),
-                    );
+                if result.is_ok() {
+                    match fingerprint {
+                        Some(fingerprint) => export_records.record(&output_path, fingerprint),
+                        None => export_records.forget(&output_path),
+                    }
                 }
+                report_progress();
 
                 drop(permit);
                 if cancellation_token_clone.load(Ordering::SeqCst) {
@@ -741,8 +879,12 @@ pub(crate) async fn export_images_impl(
             }
         }
 
+        let records = Arc::clone(&export_records);
+        let _ = tokio::task::spawn_blocking(move || records.save()).await;
+
         let errors: Vec<String> = results.into_iter().filter_map(Result::err).collect();
         let error_count = errors.len();
+        let skipped_count = skipped_counter.load(Ordering::SeqCst);
         let export_state = app_handle.state::<AppState>();
         let finalized = finish_export_task(
             &export_state.export_task_token,
@@ -771,7 +913,13 @@ pub(crate) async fn export_images_impl(
                         "batch-export-progress",
                         serde_json::json!({ "current": total_paths, "total": total_paths, "path": "" }),
                     );
-                    let _ = app_handle.emit("export-complete", ());
+                    let _ = app_handle.emit(
+                        "export-complete",
+                        serde_json::json!({
+                            "exported": total_paths.saturating_sub(skipped_count),
+                            "skipped": skipped_count,
+                        }),
+                    );
                 }
             },
         );
@@ -784,7 +932,7 @@ pub(crate) async fn export_images_impl(
             if error_count > 0 {
                 let _ = tx.send(Err(error_count));
             } else {
-                let _ = tx.send(Ok(()));
+                let _ = tx.send(Ok(skipped_count));
             }
         }
     });
@@ -803,7 +951,7 @@ pub(crate) async fn export_images_and_wait(
     adjustments_mode: ExportAdjustmentsMode,
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<(), String> {
+) -> Result<usize, String> {
     let (tx, rx) = tokio::sync::oneshot::channel();
     export_images_impl(
         paths,
@@ -820,7 +968,7 @@ pub(crate) async fn export_images_and_wait(
     .await?;
 
     match rx.await {
-        Ok(Ok(())) => Ok(()),
+        Ok(Ok(skipped)) => Ok(skipped),
         Ok(Err(errors)) => Err(format!("Export completed with {} errors.", errors)),
         Err(_) => Err("Export task panicked or was cancelled.".to_string()),
     }
@@ -940,6 +1088,7 @@ pub async fn run_headless_export(
         tiff_bit_depth: session.tiff_bit_depth,
         color_space: session.color_space,
         hdr: session.hdr,
+        hdr_headroom: session.hdr_headroom,
         resize: None,
         border: None,
         pad: None,
@@ -953,6 +1102,7 @@ pub async fn run_headless_export(
         destination_type: None,
         subfolder: None,
         dpi: None,
+        on_conflict: session.on_conflict,
         export_original: session.export_original,
     };
 
@@ -978,7 +1128,8 @@ pub async fn run_headless_export(
         }
     };
 
-    export_images_and_wait(
+    let total = paths.len();
+    let skipped = export_images_and_wait(
         paths,
         session.output,
         is_explicit_file_path,
@@ -989,7 +1140,15 @@ pub async fn run_headless_export(
         state.clone(),
         app_handle.clone(),
     )
-    .await
+    .await?;
+    if skipped > 0 {
+        cli_println!(
+            "Skipped {} of {} images because their output files already exist.",
+            skipped,
+            total
+        );
+    }
+    Ok(())
 }
 
 fn relative_dir_is_safe(rel_dir: &Path) -> bool {

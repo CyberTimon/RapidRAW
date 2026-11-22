@@ -3,11 +3,11 @@ use super::camera::{
     estimate_focal_from_homographies, focal_from_35mm, initialize_rotations, pair_errors,
     pair_residual, straighten,
 };
-use super::features::FeatureSet;
-use super::homography::{Correspondence, estimate_homography, fit_homography};
-use super::matching::{candidate_pairs, match_features};
 use super::photometric::{Photometric, estimate_photometric};
-use super::raster::Raster;
+use crate::merge::features::FeatureSet;
+use crate::merge::homography::{Correspondence, estimate_homography, fit_homography};
+use crate::merge::matching::{candidate_pairs, match_features};
+use crate::merge::raster::Raster;
 use nalgebra::Vector2;
 use rayon::prelude::*;
 

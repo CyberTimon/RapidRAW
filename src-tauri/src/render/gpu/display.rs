@@ -773,6 +773,19 @@ fn display_bind_group(
     })
 }
 
+#[cfg(test)]
+pub(crate) fn warm_display_pipelines(device: &wgpu::Device) {
+    let (_, create_pipeline) = display_pipelines(device);
+    for format in [
+        wgpu::TextureFormat::Bgra8Unorm,
+        wgpu::TextureFormat::Rgba8Unorm,
+        wgpu::TextureFormat::Rgb10a2Unorm,
+        HDR_FORMAT,
+    ] {
+        create_pipeline(format);
+    }
+}
+
 fn display_pipelines(
     device: &wgpu::Device,
 ) -> (
@@ -1121,7 +1134,7 @@ pub fn refresh_displays(
         };
         outputs.push((display, state.hdr.filter(|_| settings.hdr_display), color));
     }
-    let space = if !settings.wide_gamut_preview || outputs.iter().any(|(_, hdr, _)| hdr.is_some()) {
+    let space = if !settings.wide_gamut_preview {
         OutputColorSpace::Srgb
     } else {
         shared_space(outputs.iter().map(|(_, _, color)| color.preferred_space()))
@@ -1138,7 +1151,7 @@ pub fn refresh_displays(
         }
     }
     if changed {
-        let (space, headroom) = frame_output(context, settings);
+        let (space, headroom) = frame_output(context);
         crate::platform::viewer_window::handle_display_changed(app_handle, space, headroom);
         let _ = app_handle.emit(DISPLAY_CHANGED_EVENT, ());
     }
@@ -1178,7 +1191,7 @@ fn shared_headroom(context: &GpuContext) -> Option<f32> {
     }
 }
 
-pub fn frame_output(context: &GpuContext, settings: &AppSettings) -> (OutputColorSpace, Headroom) {
+pub fn frame_output(context: &GpuContext) -> (OutputColorSpace, Headroom) {
     let space = context
         .display
         .lock()
@@ -1186,7 +1199,7 @@ pub fn frame_output(context: &GpuContext, settings: &AppSettings) -> (OutputColo
         .as_ref()
         .map_or(OutputColorSpace::Srgb, WgpuDisplay::space);
     let headroom = shared_headroom(context).map_or(Headroom::SDR, |limit| {
-        Headroom::from_settings(settings).limited_to(limit)
+        Headroom::from_stops(Headroom::MAX_STOPS).limited_to(limit)
     });
     (space, headroom)
 }

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { closePanoramaModal, useUIStore } from '../store/useUIStore';
+import { closeMergeModal, useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 
 export function useAndroidBackHandler() {
@@ -46,21 +46,8 @@ export function useAndroidBackHandler() {
         ui.setUI({ isRenameAlbumModalOpen: false });
         return;
       }
-      if (ui.panoramaModalState.isOpen) {
-        closePanoramaModal();
-        return;
-      }
-      if (ui.hdrModalState.isOpen) {
-        ui.setUI({
-          hdrModalState: {
-            isOpen: false,
-            isProcessing: false,
-            progressMessage: '',
-            finalImageBase64: null,
-            error: null,
-            stitchingSourcePaths: [],
-          },
-        });
+      if (ui.mergeModalState.isOpen) {
+        closeMergeModal();
         return;
       }
       if (ui.cullingModalState.isOpen) {

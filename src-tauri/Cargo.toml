@@ -52,7 +52,6 @@ futures = "0.3.34"
 sha2 = "0.11"
 nalgebra = "0.35.0"
 hex = "0.4"
-rand = "0.10"
 tauri-plugin-shell = "2.3.5"
 tempfile = "3.27.0"
 # no_thp: MADV_HUGEPAGE causes multi-second compaction stalls on fragmented Linux systems.
@@ -60,15 +59,18 @@ mimalloc = { version = "0.1.52", features = ["no_thp"] }
 image_hasher = "3.1.1"
 regex = "1.13.1"
 memmap2 = "0.9.11"
+flate2 = "1.1.9"
 half = { version = "2.7.1", features = ["bytemuck"] }
 glam = "0.33.5"
 quick-xml = { version = "0.41", features = ["serialize"] }
 fuzzy-matcher = "0.3.7"
-image-hdr = { version = "0.6.0", default-features = false }
 mozjpeg-rs = "0.9.2"
 webp = "0.3"
-jxl-oxide = { version = "0.12.6", features = ["image"] }
-jxl-encoder = "0.3.1"
+jxl = "0.8.0"
+zenavif = { version = "0.1.6", default-features = false }
+zenpixels = "0.2.16"
+jxl-image-rs-integration = "0.8.0"
+jxl-encoder = "0.3.4"
 filetime = "0.2"
 libc = "0.2.189"
 rgb = "0.8.53"
@@ -92,6 +94,8 @@ windows = { version = "0.62", features = [
     "Win32_Graphics_Dxgi",
     "Win32_Graphics_Dxgi_Common",
     "Win32_Graphics_Gdi",
+    "Win32_Graphics_Imaging",
+    "Win32_System_Com",
     "Win32_System_Threading",
     "Win32_UI_ColorSystem",
 ] }
@@ -111,6 +115,7 @@ objc2-foundation = { version = "0.3.2", features = [
     "NSURL",
     "NSValue",
     "NSArray",
+    "NSNull",
 ] }
 objc2-core-foundation = { version = "0.3.2", features = ["CFCGTypes"] }
 objc2-core-graphics = { version = "0.3.2", features = ["CGColorSpace"] }
@@ -144,7 +149,7 @@ webkit2gtk = "=2.0.2"
 tauri-plugin-wayland-nvidia-quirk = "0.1.0"
 wayland-client = "0.31"
 wayland-backend = { version = "0.3", features = ["client_system"] }
-wayland-protocols = { version = "0.32", features = ["client"] }
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 zbus = { version = "5", default-features = false, features = ["blocking-api", "tokio"] }
 
 [build-dependencies]

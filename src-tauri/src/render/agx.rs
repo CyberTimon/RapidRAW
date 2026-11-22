@@ -7,7 +7,8 @@ use glam::{DMat3, DVec2, DVec3, Mat3, Vec3};
 use std::sync::LazyLock;
 
 const BLACK_EV: f64 = -10.0;
-const WHITE_EV: f64 = 6.5;
+const WHITE_EV: f64 = 3.4;
+const HDR_WHITE_EV: f64 = 6.5;
 const MIDDLE_GREY: f64 = 0.18;
 const EXPOSURE_BIAS_EV: f64 = 0.3;
 const CONTRAST: f64 = 3.0;
@@ -38,6 +39,8 @@ pub struct Agx {
     shoulder_scale: f32,
     gamut_luma: Vec3,
     linear_curve: Vec<f32>,
+    white_level: f32,
+    hdr_max_x: f32,
     hdr_knee_x: f32,
     hdr_knee_linear: f32,
 }
@@ -113,7 +116,8 @@ impl Agx {
         let range_ev = WHITE_EV - BLACK_EV;
         let pivot_x = -BLACK_EV / range_ev;
         let pivot_y = MIDDLE_GREY.powf(1.0 / GAMMA);
-        let slope = CONTRAST;
+        let slope = CONTRAST * range_ev / (HDR_WHITE_EV - BLACK_EV);
+        let scene_grey = MIDDLE_GREY * (-EXPOSURE_BIAS_EV).exp2();
 
         let to_profile = chromatic_adaptation(chromaticity_to_xyz(REC2020.white), PROFILE_WHITE);
         let base_to_xyz = to_profile * REC2020.to_xyz();
@@ -128,7 +132,7 @@ impl Agx {
         let mut agx = Self {
             working_to_rendering: (base_to_rendering * working_to_base).as_mat3(),
             rendering_to_working: (working_to_base.inverse() * rendering_to_base).as_mat3(),
-            scene_grey: (MIDDLE_GREY * (-EXPOSURE_BIAS_EV).exp2()) as f32,
+            scene_grey: scene_grey as f32,
             black_ev: BLACK_EV as f32,
             range_ev: range_ev as f32,
             pivot_x: pivot_x as f32,
@@ -139,6 +143,8 @@ impl Agx {
                 as f32,
             gamut_luma: GAMUT_LUMA.as_vec3(),
             linear_curve: Vec::new(),
+            white_level: (scene_grey.log2() + WHITE_EV) as f32,
+            hdr_max_x: ((HDR_WHITE_EV - BLACK_EV) / range_ev) as f32,
             hdr_knee_x: 1.0,
             hdr_knee_linear: 1.0,
         };
@@ -214,6 +220,8 @@ impl Agx {
             ("AGX_SHOULDER_SCALE", self.shoulder_scale),
             ("AGX_GAMMA", GAMMA as f32),
             ("AGX_HUE_PRESERVATION", HUE_PRESERVATION),
+            ("AGX_WHITE_LEVEL", self.white_level),
+            ("AGX_HDR_MAX_X", self.hdr_max_x),
             ("AGX_HDR_KNEE_X", self.hdr_knee_x),
             ("AGX_HDR_KNEE_LINEAR", self.hdr_knee_linear),
         ];

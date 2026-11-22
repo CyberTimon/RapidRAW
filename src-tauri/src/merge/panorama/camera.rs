@@ -1,5 +1,5 @@
-use super::homography::Correspondence;
-use super::raster::Raster;
+use crate::merge::homography::Correspondence;
+use crate::merge::raster::Raster;
 use nalgebra::{DMatrix, DVector, Matrix3, Rotation3, SymmetricEigen, Vector2, Vector3};
 use rayon::prelude::*;
 use std::collections::VecDeque;

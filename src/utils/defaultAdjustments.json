@@ -1,7 +1,7 @@
 {
   "activeTools": {},
   "aiDenoiseAmount": 100,
-  "aiDenoiseDetail": 0,
+  "aiDenoiseDetail": 15,
   "aiDenoiseEnabled": false,
   "aiDenoiseMethod": "ai",
   "aiPatches": [],

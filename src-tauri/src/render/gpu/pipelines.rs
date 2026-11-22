@@ -1,5 +1,6 @@
 use crate::render::agx::agx;
 use crate::render::color_space::with_shader_prelude;
+use crate::render::gpu::processor::RenderOutputPrecision;
 use crate::render::uniforms::{AllAdjustments, HslColor, MAX_MASKS, MaskAdjustments};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -12,9 +13,24 @@ pub struct HighPrecisionPipeline {
 }
 
 type SpecializedPipelines =
-    Arc<std::sync::Mutex<HashMap<(bool, u32), Option<wgpu::ComputePipeline>>>>;
+    Arc<std::sync::Mutex<HashMap<(RenderOutputPrecision, u32), Option<wgpu::ComputePipeline>>>>;
 
 pub const ALL_SHADER_FEATURES: u32 = u32::MAX;
+#[cfg(test)]
+pub const SHADER_FEATURES: [u32; 12] = [
+    F_NOISE_REDUCTION,
+    F_HSL,
+    F_MASKS,
+    F_SHARPEN,
+    F_DEHAZE,
+    F_GLOW_HALATION_FLARE,
+    F_GRAIN,
+    F_VIGNETTE,
+    F_LUT,
+    F_CA,
+    F_AGX,
+    F_MONOCHROME,
+];
 
 const F_NOISE_REDUCTION: u32 = 1;
 
@@ -89,17 +105,23 @@ pub fn shader_features(adjustments: &AllAdjustments) -> u32 {
     features
 }
 
-fn shader_source() -> String {
-    with_shader_prelude(&format!(
+pub fn output_shader_source(precision: RenderOutputPrecision) -> String {
+    let source = with_shader_prelude(&format!(
         "{}{}{}",
         agx().shader_constants(),
         crate::render::hdr::shader_constants(),
         include_str!("../../shaders/shader.wgsl")
-    ))
-}
-
-pub fn high_precision_shader_source() -> String {
-    shader_source().replace("rgba8unorm, write>", "rgba16float, write>")
+    ));
+    match precision {
+        RenderOutputPrecision::EightBit => source,
+        RenderOutputPrecision::SixteenBit => source
+            .replace("rgba8unorm, write>", "rgba16uint, write>")
+            .replace(
+                "textureStore(output_texture, coords, color);",
+                "textureStore(output_texture, coords, vec4<u32>(round(saturate(color) * 65535.0)));",
+            ),
+        RenderOutputPrecision::Float => source.replace("rgba8unorm, write>", "rgba16float, write>"),
+    }
 }
 
 pub struct GpuPipelines {
@@ -143,8 +165,9 @@ pub struct GpuPipelines {
     pub main_shader_module: wgpu::ShaderModule,
     pub main_pipeline_layout: wgpu::PipelineLayout,
     pub specialized_pipelines: SpecializedPipelines,
-    pub high_precision_entries: Vec<wgpu::BindGroupLayoutEntry>,
-    pub high_precision_pipeline: std::sync::OnceLock<HighPrecisionPipeline>,
+    pub main_bgl_entries: Vec<wgpu::BindGroupLayoutEntry>,
+    pub sixteen_bit_pipeline: std::sync::OnceLock<HighPrecisionPipeline>,
+    pub float_pipeline: std::sync::OnceLock<HighPrecisionPipeline>,
     pub hsl_probe_pipeline: std::sync::OnceLock<wgpu::ComputePipeline>,
     pub dummy_blur_view: wgpu::TextureView,
     pub dummy_lut_view: wgpu::TextureView,
@@ -340,7 +363,9 @@ impl GpuPipelines {
 
         let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Image Processing Shader"),
-            source: wgpu::ShaderSource::Wgsl(shader_source().into()),
+            source: wgpu::ShaderSource::Wgsl(
+                output_shader_source(RenderOutputPrecision::EightBit).into(),
+            ),
         });
 
         let mut bind_group_layout_entries = vec![
@@ -488,11 +513,6 @@ impl GpuPipelines {
             cache: None,
         });
 
-        bind_group_layout_entries[1].ty = wgpu::BindingType::StorageTexture {
-            access: wgpu::StorageTextureAccess::WriteOnly,
-            format: wgpu::TextureFormat::Rgba16Float,
-            view_dimension: wgpu::TextureViewDimension::D2,
-        };
         let dummy_texture_desc = wgpu::TextureDescriptor {
             label: Some("Dummy Texture"),
             size: wgpu::Extent3d {
@@ -570,8 +590,9 @@ impl GpuPipelines {
             main_shader_module,
             main_pipeline_layout,
             specialized_pipelines: Arc::new(std::sync::Mutex::new(HashMap::new())),
-            high_precision_entries: bind_group_layout_entries,
-            high_precision_pipeline: std::sync::OnceLock::new(),
+            main_bgl_entries: bind_group_layout_entries,
+            sixteen_bit_pipeline: std::sync::OnceLock::new(),
+            float_pipeline: std::sync::OnceLock::new(),
             hsl_probe_pipeline: std::sync::OnceLock::new(),
             dummy_blur_view,
             dummy_lut_view,

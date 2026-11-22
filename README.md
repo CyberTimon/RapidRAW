@@ -993,6 +993,9 @@ rapidraw export /path/to/photos --output /path/to/output_dir --adjustments /path
 
 # Export before/after pairs (writes <name>_original next to each edited file)
 rapidraw export /path/to/photos --output /path/to/output_dir --export-original
+
+# Re-run a batch export and only re-render images whose edits or settings changed
+rapidraw export /path/to/photos --output /path/to/output_dir --on-conflict overwrite-if-changed
 ```
 
 > **Note:** By default, headless export automatically detects and applies edits stored in `.rrdata` sidecar files located alongside your source images. You can override sidecars for all exported images by passing a custom JSON file using the `--adjustments` flag. AI masks and AI effects in that file are generated for each image during the export.
@@ -1006,13 +1009,17 @@ rapidraw export /path/to/photos --output /path/to/output_dir --export-original
 | `--tiff-bit-depth <n>`     | TIFF channel depth (`8` or `16`)                                       | `16`              |
 | `--color-space <space>`    | Color space for JPEG, PNG, TIFF, WebP and JXL output                   | `srgb`            |
 | `--hdr`                    | Export HDR: JPEG with a gain map, or JXL as PQ / Rec. 2020             | `false`           |
+| `--hdr-headroom <stops>`   | HDR headroom of the exported file in stops above SDR white (1 to 4)    | `2`               |
 | `--keep-metadata`          | Retain EXIF/capture metadata in exported files                         | `false`           |
 | `--adjustments <path>`     | Path to a custom JSON file containing adjustments to override sidecars | _(Auto-detected)_ |
 | `--export-original`        | Also export the unedited original as `<name>_original`                 | `false`           |
 | `--original-no-crop`       | Export the original uncropped instead of with the edit's crop          | `false`           |
 | `--original-keep-exposure` | Keep the edit's exposure on the original                               | `false`           |
+| `--on-conflict <action>`   | What to do when an output file already exists                          | _(See below)_     |
 
 `--color-space` accepts `srgb`, `display-p3`, `adobe-rgb`, `prophoto-rgb` and `rec2020`.
+
+`--on-conflict` accepts `keep-both` (adds `_1`, `_2`, …), `overwrite`, `overwrite-if-changed` (only re-renders when the edit, source file, export settings or RapidRAW version changed since the last export to that file) and `skip`. It defaults to `keep-both` when exporting to a directory and `overwrite` when `--output` is a file path.
 
 ## Companion Apps & Ecosystem
 
@@ -1057,17 +1064,17 @@ If the application crashes immediately when you try to start editing a picture, 
 <details>
 <summary>Linux Wayland/WebKit Crash</summary>
 
-If RapidRAW crashes on Wayland (e.g. GNOME + NVIDIA), try launching it with:
+RapidRAW works around the known NVIDIA problems on its own: on X11 with the proprietary NVIDIA driver it routes the webview through shared memory, and on Wayland it prepares the window for NVIDIA's explicit sync before the first frame.
+
+If you still get a blank window or a crash on launch, turn on **Linux Compatibility Mode** in Settings → Processing, or launch it with:
 
 ```bash
-WEBKIT_DISABLE_DMABUF_RENDERER=1 RapidRAW
+WEBKIT_DMABUF_RENDERER_FORCE_SHM=1 RapidRAW
 ```
 
-or
+If that does not help, try `__NV_DISABLE_EXPLICIT_SYNC=1` on Wayland, or `WEBKIT_DISABLE_DMABUF_RENDERER=1` as a last resort. The last one switches the webview to full software rendering, and on WebKitGTK 2.54.0 to 2.54.2 parts of the window may only repaint when you hover over them.
 
-```bash
-WEBKIT_DISABLE_COMPOSITING_MODE=1 RapidRAW
-```
+If you set `WEBKIT_DMABUF_RENDERER_FORCE_SHM` or `WEBKIT_DISABLE_DMABUF_RENDERER` yourself, RapidRAW leaves the webview transport alone, including in Compatibility Mode.
 
 This issue is related to **WebKit** and **NVIDIA drivers**, not RapidRAW directly. Switching to **X11** or using **AMD / Intel GPUs** may also help.
 
@@ -1115,7 +1122,7 @@ Please read the full **[sample guidelines](https://github.com/dnglab/dnglab/blob
 
 A huge thank you to the following projects and tools that were very important in the development of RapidRAW:
 
-- **[Google AI Studio](https://aistudio.google.com):** For providing amazing assistance in researching, implementing image processing algorithms and giving an overall speed boost.
+- **[Google AI Studio](https://aistudio.google.com) & [Claude Code](https://claude.com/claude-code):** For providing amazing assistance in researching, implementing image processing algorithms and giving an overall speed boost.
 - **[rawler](https://github.com/dnglab/dnglab/tree/main/rawler):** For the excellent Rust crate that provides the foundation for RAW file processing in this project.
 - **[lensfun](https://lensfun.github.io/):** For its invaluable open-source library and comprehensive database for automatic lens correction.
 - **[LaMa](https://github.com/advimman/lama):** For the powerful & simple image inpainting model, which enables content-aware fill and object removal.

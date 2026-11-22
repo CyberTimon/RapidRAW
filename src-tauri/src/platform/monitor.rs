@@ -284,8 +284,8 @@ mod platform {
 mod platform {
     use super::{HdrDisplay, MonitorState, SurfaceTag, SystemColor, WideGamut};
     use crate::render::color_space::OutputColorSpace;
-    use objc2::msg_send;
     use objc2::runtime::AnyObject;
+    use objc2::{class, msg_send};
     use objc2_core_graphics::{
         CGColorSpace, kCGColorSpaceAdobeRGB1998, kCGColorSpaceDisplayP3,
         kCGColorSpaceExtendedLinearSRGB, kCGColorSpaceITUR_2020, kCGColorSpaceROMMRGB,
@@ -319,9 +319,17 @@ mod platform {
                         screen,
                         maximumPotentialExtendedDynamicRangeColorComponentValue
                     ];
+                    let current_headroom: f64 =
+                        msg_send![screen, maximumExtendedDynamicRangeColorComponentValue];
+                    let headroom = if current_headroom > 1.0 {
+                        current_headroom
+                    } else {
+                        potential_headroom
+                    };
+                    let headroom = ((headroom.log2() * 4.0).round() / 4.0).exp2();
                     (potential_headroom > 1.0).then_some(HdrDisplay {
                         white_scale: 1.0,
-                        headroom: potential_headroom as f32,
+                        headroom: headroom as f32,
                     })
                 })
                 .flatten();
@@ -358,13 +366,16 @@ mod platform {
                 .render_layer()
                 .lock()
                 .setColorspace(color_space.as_deref());
+            unsafe {
+                let () = msg_send![class!(CATransaction), flush];
+            }
         }
     }
 }
 
 #[cfg(target_os = "linux")]
 mod platform {
-    use super::{MonitorState, SurfaceTag, SystemColor, WideGamut};
+    use super::{HdrDisplay, MonitorState, SurfaceTag, SystemColor, WideGamut};
     use std::collections::HashMap;
     use std::path::PathBuf;
     use std::sync::{LazyLock, Mutex};
@@ -444,9 +455,17 @@ mod platform {
 
     pub fn query(
         window: &tauri::WebviewWindow,
-        _want_hdr: bool,
+        want_hdr: bool,
         want_color: bool,
     ) -> Option<MonitorState> {
+        let hdr = want_hdr
+            .then(|| crate::platform::wayland_subsurface::hdr_headroom(window.label()))
+            .flatten()
+            .filter(|&headroom| headroom > 1.0)
+            .map(|headroom| HdrDisplay {
+                white_scale: 1.0,
+                headroom,
+            });
         let color = if !want_color {
             SystemColor::Unmanaged
         } else if crate::platform::wayland_subsurface::compositor_manages_color() {
@@ -454,7 +473,7 @@ mod platform {
         } else {
             assigned_profile(window).map_or(SystemColor::Unmanaged, SystemColor::Profile)
         };
-        Some(MonitorState { hdr: None, color })
+        Some(MonitorState { hdr, color })
     }
 
     pub fn tag_surface(_surface: &wgpu::Surface, _tag: SurfaceTag) {}

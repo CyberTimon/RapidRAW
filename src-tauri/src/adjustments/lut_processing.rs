@@ -6,16 +6,17 @@ use crate::platform::android::{
 use anyhow::anyhow;
 use image::{DynamicImage, GenericImageView, Rgb, Rgb32FImage};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs::{File, copy, create_dir_all, read_dir};
 use std::io::{BufRead, BufReader, Cursor};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 use base64::{Engine as _, engine::general_purpose};
 use mozjpeg_rs::{Encoder, Preset};
 use serde_json::Value;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, ipc::Channel};
 
 use crate::app::state::AppState;
 use crate::decode::as_shot::as_shot;
@@ -34,6 +35,214 @@ use crate::render::uniforms::{AllAdjustments, get_all_adjustments_from_json};
 pub struct Lut {
     pub size: u32,
     pub data: Vec<f32>,
+}
+
+impl Lut {
+    fn byte_size(&self) -> usize {
+        self.data.len() * std::mem::size_of::<f32>()
+    }
+
+    fn texel(&self, r: usize, g: usize, b: usize) -> [f32; 3] {
+        let size = self.size as usize;
+        let i = ((b * size + g) * size + r) * 3;
+        [self.data[i], self.data[i + 1], self.data[i + 2]]
+    }
+
+    fn sample_tetrahedral(&self, rgb: [f32; 3]) -> [f32; 3] {
+        let max = (self.size - 1) as f32;
+        let mut base = [0usize; 3];
+        let mut next = [0usize; 3];
+        let mut f = [0f32; 3];
+        for c in 0..3 {
+            let scaled = rgb[c].clamp(0.0, 1.0) * max;
+            let floor = scaled.floor();
+            base[c] = floor as usize;
+            next[c] = (base[c] + 1).min(self.size as usize - 1);
+            f[c] = scaled - floor;
+        }
+        let at = |r: bool, g: bool, b: bool| {
+            self.texel(
+                if r { next[0] } else { base[0] },
+                if g { next[1] } else { base[1] },
+                if b { next[2] } else { base[2] },
+            )
+        };
+        let (fr, fg, fb) = (f[0], f[1], f[2]);
+        let c000 = at(false, false, false);
+        let c111 = at(true, true, true);
+        let (w, c1, c2) = if fr > fg {
+            if fg > fb {
+                (
+                    [1.0 - fr, fr - fg, fg - fb, fb],
+                    at(true, false, false),
+                    at(true, true, false),
+                )
+            } else if fr > fb {
+                (
+                    [1.0 - fr, fr - fb, fb - fg, fg],
+                    at(true, false, false),
+                    at(true, false, true),
+                )
+            } else {
+                (
+                    [1.0 - fb, fb - fr, fr - fg, fg],
+                    at(false, false, true),
+                    at(true, false, true),
+                )
+            }
+        } else if fb > fg {
+            (
+                [1.0 - fb, fb - fg, fg - fr, fr],
+                at(false, false, true),
+                at(false, true, true),
+            )
+        } else if fb > fr {
+            (
+                [1.0 - fg, fg - fb, fb - fr, fr],
+                at(false, true, false),
+                at(false, true, true),
+            )
+        } else {
+            (
+                [1.0 - fg, fg - fr, fr - fb, fb],
+                at(false, true, false),
+                at(true, true, false),
+            )
+        };
+        std::array::from_fn(|c| c000[c] * w[0] + c1[c] * w[1] + c2[c] * w[2] + c111[c] * w[3])
+    }
+
+    fn resampled(&self, size: u32) -> Lut {
+        if self.size <= size {
+            return self.clone();
+        }
+        let step = 1.0 / (size - 1) as f32;
+        let mut data = Vec::with_capacity((size * size * size * 3) as usize);
+        for b in 0..size {
+            for g in 0..size {
+                for r in 0..size {
+                    data.extend(self.sample_tetrahedral([
+                        r as f32 * step,
+                        g as f32 * step,
+                        b as f32 * step,
+                    ]));
+                }
+            }
+        }
+        Lut { size, data }
+    }
+}
+
+pub const LUT_CACHE_BUDGET_BYTES: usize = 256 * 1024 * 1024;
+pub const SWATCH_LUT_CACHE_BUDGET_BYTES: usize = 64 * 1024 * 1024;
+const SWATCH_LUT_SIZE: u32 = 33;
+
+pub struct LutCache {
+    entries: HashMap<String, (Arc<Lut>, u64)>,
+    loading: HashMap<String, Arc<Mutex<()>>>,
+    clock: u64,
+    bytes: usize,
+    budget: usize,
+}
+
+impl LutCache {
+    pub fn new(budget: usize) -> Self {
+        Self {
+            entries: HashMap::new(),
+            loading: HashMap::new(),
+            clock: 0,
+            bytes: 0,
+            budget,
+        }
+    }
+
+    fn get(&mut self, path: &str) -> Option<Arc<Lut>> {
+        self.clock += 1;
+        let clock = self.clock;
+        self.entries.get_mut(path).map(|(lut, last_used)| {
+            *last_used = clock;
+            lut.clone()
+        })
+    }
+
+    fn peek(&self, path: &str) -> Option<Arc<Lut>> {
+        self.entries.get(path).map(|(lut, _)| lut.clone())
+    }
+
+    fn insert(&mut self, path: String, lut: Arc<Lut>) {
+        self.clock += 1;
+        self.bytes += lut.byte_size();
+        if let Some((old, _)) = self.entries.insert(path, (lut, self.clock)) {
+            self.bytes -= old.byte_size();
+        }
+        while self.bytes > self.budget && self.entries.len() > 1 {
+            let Some(oldest) = self
+                .entries
+                .iter()
+                .min_by_key(|(_, (_, last_used))| *last_used)
+                .map(|(path, _)| path.clone())
+            else {
+                break;
+            };
+            if let Some((evicted, _)) = self.entries.remove(&oldest) {
+                self.bytes -= evicted.byte_size();
+            }
+        }
+    }
+
+    fn insert_if_room(&mut self, path: &str, lut: Arc<Lut>) {
+        if !self.entries.contains_key(path) && self.bytes + lut.byte_size() <= self.budget {
+            self.insert(path.to_string(), lut);
+        }
+    }
+}
+
+fn get_or_load(
+    cache: &Mutex<LutCache>,
+    path: &str,
+    load: impl FnOnce() -> Result<Lut, String>,
+) -> Result<Arc<Lut>, String> {
+    let gate = {
+        let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(lut) = cache.get(path) {
+            return Ok(lut);
+        }
+        cache.loading.entry(path.to_string()).or_default().clone()
+    };
+    let _loading = gate.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(lut) = cache.lock().unwrap_or_else(|e| e.into_inner()).get(path) {
+        return Ok(lut);
+    }
+    let result = load().map(Arc::new);
+    let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
+    cache.loading.remove(path);
+    if let Ok(lut) = &result {
+        cache.insert(path.to_string(), lut.clone());
+    }
+    result
+}
+
+fn get_swatch_lut(state: &State<AppState>, path: &str) -> Result<Arc<Lut>, String> {
+    get_or_load(&state.swatch_lut_cache, path, || {
+        let cached = state
+            .lut_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .peek(path);
+        let full = match cached {
+            Some(lut) => lut,
+            None => {
+                let lut = Arc::new(parse_lut_file(path).map_err(|e| e.to_string())?);
+                state
+                    .lut_cache
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .insert_if_room(path, lut.clone());
+                lut
+            }
+        };
+        Ok(full.resampled(SWATCH_LUT_SIZE))
+    })
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -484,15 +693,9 @@ pub fn convert_image_to_cube_lut(image: &DynamicImage, size: u32) -> Result<Vec<
 }
 
 pub fn get_or_load_lut(state: &State<AppState>, path: &str) -> Result<Arc<Lut>, String> {
-    let mut cache = state.lut_cache.lock().unwrap();
-    if let Some(lut) = cache.get(path) {
-        return Ok(lut.clone());
-    }
-
-    let lut = parse_lut_file(path).map_err(|e| e.to_string())?;
-    let arc_lut = Arc::new(lut);
-    cache.insert(path.to_string(), arc_lut.clone());
-    Ok(arc_lut)
+    get_or_load(&state.lut_cache, path, || {
+        parse_lut_file(path).map_err(|e| e.to_string())
+    })
 }
 
 #[tauri::command]
@@ -640,7 +843,7 @@ fn render_lut_swatch(
     adjustments: AllAdjustments,
     lut_path: &str,
 ) -> Option<String> {
-    let lut = get_or_load_lut(state, lut_path).ok()?;
+    let lut = get_swatch_lut(state, lut_path).ok()?;
     let processed = process_and_get_dynamic_image(
         context,
         state,
@@ -670,12 +873,16 @@ fn render_lut_swatch(
     ))
 }
 
+static LUT_PREVIEW_RUN: AtomicU64 = AtomicU64::new(0);
+
 #[tauri::command]
 pub async fn generate_lut_previews(
     luts: Vec<LutPreviewRequest>,
     size: u32,
+    on_preview: Channel<LutPreview>,
     app_handle: AppHandle,
-) -> Result<Vec<LutPreview>, String> {
+) -> Result<(), String> {
+    let run = LUT_PREVIEW_RUN.fetch_add(1, Ordering::SeqCst) + 1;
     tauri::async_runtime::spawn_blocking(move || {
         let state = app_handle.state::<AppState>();
         let context = crate::render::gpu::context::get_or_init_gpu_context(&state, &app_handle)?;
@@ -686,54 +893,62 @@ pub async fn generate_lut_previews(
             .clone()
             .ok_or("No original image loaded for LUT previews")?;
         let is_raw = loaded_image.is_raw;
+        let generation = state.load_image_generation.load(Ordering::SeqCst);
 
         let base_json = serde_json::json!({});
-        let preview = prepare_preview_source(&state, &context, &loaded_image, &base_json, size)?;
+        let preview =
+            prepare_preview_source(&state, &context, &loaded_image, &base_json, size, None)?;
         let source = preview.render_source(&base_json);
 
         let render = resolve_render_options_from_handle(&app_handle, is_raw);
 
-        let previews = luts
-            .into_iter()
-            .map(|request| {
-                let mut swatch_lut_json = serde_json::json!({
-                    "lutPath": "preview",
-                    "lutIntensity": 100,
-                    "lutIsSceneReferred": request.is_built_in,
-                    "sectionVisibility": { "effects": true }
-                });
-                mark_baseline_exposure(&mut swatch_lut_json);
-                let swatch_adjustments = get_all_adjustments_from_json(
-                    &swatch_lut_json,
-                    is_raw,
-                    loaded_image.as_shot,
-                    render,
-                );
+        for request in luts {
+            if LUT_PREVIEW_RUN.load(Ordering::SeqCst) != run
+                || state.load_image_generation.load(Ordering::SeqCst) != generation
+            {
+                return Err("LUT previews cancelled".to_string());
+            }
+            let mut swatch_lut_json = serde_json::json!({
+                "lutPath": "preview",
+                "lutIntensity": 100,
+                "lutIsSceneReferred": request.is_built_in,
+                "sectionVisibility": { "effects": true }
+            });
+            mark_baseline_exposure(&mut swatch_lut_json);
+            let swatch_adjustments = get_all_adjustments_from_json(
+                &swatch_lut_json,
+                is_raw,
+                loaded_image.as_shot,
+                render,
+            );
 
-                let thumb =
-                    render_lut_swatch(&context, &state, &source, swatch_adjustments, &request.path);
-                LutPreview {
+            let thumb =
+                render_lut_swatch(&context, &state, &source, swatch_adjustments, &request.path);
+            on_preview
+                .send(LutPreview {
                     path: request.path,
                     thumb,
-                }
-            })
-            .collect();
-
-        Ok(previews)
+                })
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-pub fn load_and_parse_lut(path: String, state: State<AppState>) -> Result<LutParseResult, String> {
-    let lut = parse_lut_file(&path).map_err(|e| e.to_string())?;
-    let lut_size = lut.size;
-
-    let mut cache = state.lut_cache.lock().unwrap();
-    cache.insert(path, Arc::new(lut));
-
-    Ok(LutParseResult { size: lut_size })
+pub async fn load_and_parse_lut(
+    path: String,
+    app_handle: AppHandle,
+) -> Result<LutParseResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app_handle.state::<AppState>();
+        let lut = get_or_load_lut(&state, &path)?;
+        Ok(LutParseResult { size: lut.size })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 pub fn export_adjustments_as_lut(

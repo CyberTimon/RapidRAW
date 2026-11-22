@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { toast } from 'react-toastify';
@@ -16,7 +16,9 @@ import {
   AutoAdjustMode,
   CROP_GEOMETRY_KEYS,
   INITIAL_ADJUSTMENTS,
+  LENS_CORRECTION_AUTO,
   COPYABLE_ADJUSTMENT_KEYS,
+  isSameCropGeometry,
   PasteMode,
   getActiveTools,
   mergeActiveTools,
@@ -97,6 +99,68 @@ export const getOriginalAdjustments = (adjustments: Adjustments): Adjustments =>
   return original;
 };
 
+const FRAME_KEYS = [
+  ...new Set([
+    ...CROP_GEOMETRY_KEYS,
+    ...originalAdjustmentKeys.crop,
+    'lensCorrectionMode',
+    'lensMaker',
+    'lensModel',
+    'lensDistortionAmount',
+    'lensDistortionEnabled',
+  ]),
+] as Array<keyof Adjustments>;
+
+const HOVER_LEAVE_DELAY_MS = 150;
+
+const withFrameOf = (next: Adjustments, frame: Adjustments): Adjustments => ({
+  ...next,
+  ...Object.fromEntries(FRAME_KEYS.map((key) => [key, frame[key]])),
+});
+
+export const withLut = (
+  adjustments: Adjustments,
+  lut: { path: string; name: string; isBuiltIn: boolean; size?: number },
+): Adjustments => ({
+  ...adjustments,
+  lutPath: lut.path,
+  lutName: lut.name,
+  lutSize: lut.size ?? adjustments.lutSize,
+  lutIntensity: adjustments.lutPath ? (adjustments.lutIntensity ?? 100) : 100,
+  lutIsSceneReferred: lut.isBuiltIn,
+  activeTools: setToolActive(getActiveTools(adjustments), 'lut', true),
+});
+
+type HoverBuild = (adjustments: Adjustments) => Adjustments;
+
+export function useHoverPreview() {
+  const isPreviewingRef = useRef(false);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const show = useCallback((build: HoverBuild | null) => {
+    if (leaveTimerRef.current) {
+      clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = null;
+    }
+    if (!build && !isPreviewingRef.current) return;
+    isPreviewingRef.current = !!build;
+    useEditorStore.getState().setEditor((state) => {
+      if (state.showOriginal || (build && (!state.selectedImage?.isReady || state.isSliderDragging))) return state;
+      const previewOverride = build ? withFrameOf(build(state.adjustments), state.adjustments) : null;
+      return previewOverride === state.previewOverride ? state : { previewOverride };
+    });
+  }, []);
+
+  const leave = useCallback(() => {
+    if (leaveTimerRef.current || !isPreviewingRef.current) return;
+    leaveTimerRef.current = setTimeout(() => show(null), HOVER_LEAVE_DELAY_MS);
+  }, [show]);
+
+  useEffect(() => () => show(null), [show]);
+
+  return useMemo(() => ({ show, leave }), [show, leave]);
+}
+
 const getCompareState = (mode: CompareMode, adjustments: Adjustments) =>
   mode === 'toggle'
     ? { showOriginal: true, previewOverride: getOriginalAdjustments(adjustments), compareView: 'off' as const }
@@ -131,10 +195,7 @@ export const cancelCrop = () => {
   applyCrop();
   if (cropSessionSnapshot && cropSessionSnapshot.path === (selectedImage?.path ?? null)) {
     const { geometry } = cropSessionSnapshot;
-    const hasChanged = CROP_GEOMETRY_KEYS.some(
-      (key) => JSON.stringify(adjustments[key]) !== JSON.stringify(geometry[key]),
-    );
-    if (hasChanged) {
+    if (!isSameCropGeometry(adjustments, geometry)) {
       setEditor((state) => {
         const newAdjustments = { ...state.adjustments, ...geometry };
         debouncedSetHistory(newAdjustments);
@@ -267,39 +328,12 @@ export function useEditorActions() {
           isAndroid && path.startsWith('content://')
             ? await invoke<string>('resolve_android_content_uri_name', { uriStr: path })
             : path.split(/[\\/]/).pop() || 'LUT';
-        setAdjustments((prev: Adjustments) => ({
-          ...prev,
-          lutPath: path,
-          lutName: name,
-          lutSize: result.size,
-          lutIntensity: 100,
-          lutIsSceneReferred: isBuiltIn,
-          activeTools: setToolActive(getActiveTools(prev), 'lut', true),
-        }));
+        setAdjustments((prev: Adjustments) => withLut(prev, { path, name, isBuiltIn, size: result.size }));
       } catch (err) {
         toast.error(`Failed to load LUT: ${err}`);
       }
     },
     [setAdjustments],
-  );
-
-  const setLutPreviewOverride = useCallback(
-    (path: string | null, isBuiltIn: boolean = false) => {
-      setEditor((state) => {
-        if (!path) return { previewOverride: null };
-        const name = path.split(/[\\/]/).pop() || 'LUT';
-        return {
-          previewOverride: {
-            ...state.adjustments,
-            lutPath: path,
-            lutName: name,
-            lutIntensity: state.adjustments.lutIntensity,
-            lutIsSceneReferred: isBuiltIn,
-          },
-        };
-      });
-    },
-    [setEditor],
   );
 
   const handleResetAdjustments = useCallback(
@@ -433,27 +467,35 @@ export function useEditorActions() {
     [setEditor],
   );
 
-  const handleAutoLensCorrection = useCallback((paths?: string[]) => {
-    const { multiSelectedPaths } = useLibraryStore.getState();
-    const { selectedImage } = useEditorStore.getState();
+  const handleAutoLensCorrection = useCallback(
+    (paths?: string[]) => {
+      const { multiSelectedPaths } = useLibraryStore.getState();
+      const { selectedImage } = useEditorStore.getState();
 
-    const pathsToUpdate =
-      paths && paths.length > 0
-        ? paths
-        : multiSelectedPaths.length > 0
-          ? multiSelectedPaths
-          : selectedImage
-            ? [selectedImage.path]
-            : [];
+      const pathsToUpdate =
+        paths && paths.length > 0
+          ? paths
+          : multiSelectedPaths.length > 0
+            ? multiSelectedPaths
+            : selectedImage
+              ? [selectedImage.path]
+              : [];
 
-    if (pathsToUpdate.length === 0) return;
+      const editingPath = useUIStore.getState().activeView === 'editor' ? selectedImage?.path : undefined;
+      const batchPaths = pathsToUpdate.filter((path) => path !== editingPath);
+      if (batchPaths.length < pathsToUpdate.length) {
+        setAdjustments((prev: Adjustments) => ({ ...prev, ...LENS_CORRECTION_AUTO }));
+      }
+      if (batchPaths.length === 0) return;
 
-    pathsToUpdate.forEach((p) => globalImageCache.delete(p));
+      batchPaths.forEach((p) => globalImageCache.delete(p));
 
-    invoke('apply_auto_lens_correction_to_paths', { paths: pathsToUpdate })
-      .then(() => reloadAdjustmentsForPaths(pathsToUpdate))
-      .catch((err) => toast.error(`Failed to apply auto lens correction: ${err}`));
-  }, []);
+      invoke('apply_auto_lens_correction_to_paths', { paths: batchPaths })
+        .then(() => reloadAdjustmentsForPaths(batchPaths))
+        .catch((err) => toast.error(`Failed to apply auto lens correction: ${err}`));
+    },
+    [setAdjustments],
+  );
 
   const handleAutoStraightenPaths = useCallback(
     (paths: string[]) => {
@@ -630,7 +672,6 @@ export function useEditorActions() {
     handleAutoStraighten,
     handleAutoStraightenPaths,
     handleLutSelect,
-    setLutPreviewOverride,
     handleResetAdjustments,
     handleAutoLensCorrection,
     handleEnableAdjustments,

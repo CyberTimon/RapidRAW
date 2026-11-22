@@ -50,7 +50,6 @@ export default function Controls() {
     setAdjustments,
     handleAutoAdjustments,
     handleLutSelect,
-    setLutPreviewOverride,
     handleResetAdjustments: handleResetAdjustmentsAction,
   } = useEditorActions();
 
@@ -325,7 +324,6 @@ export default function Controls() {
                     setAdjustments={setAdjustments}
                     theme={theme}
                     handleLutSelect={handleLutSelect}
-                    onLutHover={setLutPreviewOverride}
                     appSettings={appSettings}
                     asShotWhiteBalance={selectedImage.asShotWhiteBalance}
                     isWbPickerActive={isWbPickerActive}

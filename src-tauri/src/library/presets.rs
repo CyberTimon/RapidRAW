@@ -92,6 +92,7 @@ pub async fn generate_preset_preview(
             &loaded_image,
             &js_adjustments,
             PRESET_PREVIEW_DIM,
+            None,
         )?;
         let source = preview.render_source(&js_adjustments);
         let (scale_for_gpu, unscaled_crop_offset) = (preview.scale, preview.unscaled_crop_offset);

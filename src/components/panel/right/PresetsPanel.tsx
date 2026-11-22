@@ -22,6 +22,7 @@ import {
   Folder as FolderIcon,
   FolderOpen,
   FolderPlus,
+  ImageOff,
   Loader2,
   Plus,
   SortAsc,
@@ -53,7 +54,7 @@ import { Invokes } from '../../../types/invokes';
 import { OPTION_SEPARATOR, type Option } from '../../../types/ui';
 import { Preset } from '../../../types/editor';
 import { useEditorStore } from '../../../store/useEditorStore';
-import { debouncedSave, useEditorActions } from '../../../hooks/useEditorActions';
+import { debouncedSave, useEditorActions, useHoverPreview } from '../../../hooks/useEditorActions';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -65,9 +66,11 @@ interface DroppableFolderItemProps {
 
 interface DraggablePresetItemProps {
   onApply(preset: any): void;
+  onHover(preset: Preset): void;
+  onLeave(): void;
   onContextMenu(event: any, preset: any): void;
   preset: any;
-  previewUrl: string;
+  previewUrl?: string | null;
   isActive?: boolean;
   intensity?: number;
   onIntensityChange?: (val: number) => void;
@@ -90,7 +93,7 @@ interface ModalState {
 
 interface PresetItemDisplayProps {
   preset: Preset;
-  previewUrl: string;
+  previewUrl?: string | null;
   isActive?: boolean;
   intensity?: number;
   onIntensityChange?: (val: number) => void;
@@ -188,6 +191,15 @@ const evaluateCurveY = (curve: Array<{ x: number; y: number }>, targetX: number)
     }
   }
   return targetX;
+};
+
+const applyPresetAdjustments = (adjustments: Adjustments, preset: Preset): Adjustments => {
+  const presetMasks = preset.adjustments.masks || [];
+  return {
+    ...adjustments,
+    ...preset.adjustments,
+    ...(hasAiSubMasks(presetMasks) ? { masks: stripAiMaskResults(presetMasks) } : {}),
+  };
 };
 
 const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INITIAL_ADJUSTMENTS): any => {
@@ -308,6 +320,8 @@ function PresetItemDisplay({
         >
           {previewUrl ? (
             <PreviewImage src={previewUrl} alt={`${preset.name} preview`} />
+          ) : previewUrl === null ? (
+            <ImageOff size={20} className="text-text-secondary" />
           ) : (
             <Loader2 size={20} className="animate-spin text-text-secondary" />
           )}
@@ -401,6 +415,8 @@ function FolderItemDisplay({ folder }: FolderProps) {
 function DraggablePresetItem({
   preset,
   onApply,
+  onHover,
+  onLeave,
   onContextMenu,
   previewUrl,
   isActive,
@@ -442,6 +458,8 @@ function DraggablePresetItem({
   return (
     <div
       onClick={() => onApply(preset)}
+      onMouseEnter={() => onHover(preset)}
+      onMouseLeave={onLeave}
       onContextMenu={(e: any) => onContextMenu(e, { preset })}
       ref={setCombinedRef}
       style={style}
@@ -574,6 +592,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const adjustments = useEditorStore((s) => s.adjustments);
   const setEditor = useEditorStore((s) => s.setEditor);
   const { setAdjustments } = useEditorActions();
+  const hoverPreview = useHoverPreview();
 
   const {
     addFolder,
@@ -718,7 +737,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         continue;
       }
 
-      if (previewsRef.current[preset.id]) {
+      if (previewsRef.current[preset.id] !== undefined) {
         continue;
       }
 
@@ -764,7 +783,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const enqueuePreviews = useCallback(
     (presetsToGenerate: Array<UserPreset>, folderId: string | null = null) => {
       const newItems = presetsToGenerate
-        .filter((p: any) => !previewsRef.current[p?.id])
+        .filter((p: any) => previewsRef.current[p?.id] === undefined)
         .map((p: UserPreset) => ({ preset: p, folderId }));
       if (newItems.length > 0) {
         previewQueue.current.push(...newItems);
@@ -839,7 +858,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         return;
       }
 
-      const presetsToGenerate = folder.folder.children.filter((p: any) => !previewsRef.current[p.id]);
+      const presetsToGenerate = folder.folder.children.filter((p: any) => previewsRef.current[p.id] === undefined);
       if (presetsToGenerate.length > 0) {
         enqueuePreviews(presetsToGenerate, folderId);
       }
@@ -854,7 +873,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     }
 
     const rootPresets = presets.filter((item: UserPreset) => item.preset).map((item) => item.preset);
-    const presetsToGenerate: any = rootPresets.filter((p: any) => !previewsRef.current[p.id]);
+    const presetsToGenerate: any = rootPresets.filter((p: any) => previewsRef.current[p.id] === undefined);
 
     if (presetsToGenerate.length > 0) {
       enqueuePreviews(presetsToGenerate);
@@ -922,7 +941,16 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     [setEditor],
   );
 
+  const handlePresetHover = (preset: Preset) => {
+    if (activeItem || preset.id === activePresetId) {
+      hoverPreview.show(null);
+      return;
+    }
+    hoverPreview.show((current) => applyPresetAdjustments(current, preset));
+  };
+
   const handleApplyPreset = (preset: Preset) => {
+    hoverPreview.show(null);
     hiddenPresetMasks.current = null;
 
     if (activePresetId === preset.id) {
@@ -939,17 +967,12 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     setPresetIntensity(100);
 
     const presetMasks = preset.adjustments.masks || [];
-    const hasAiMasks = hasAiSubMasks(presetMasks);
-    if (hasAiMasks) {
+    if (hasAiSubMasks(presetMasks)) {
       resolvePresetAiMasks(presetMasks);
     }
 
     setAdjustments(
-      (prevAdjustments: Adjustments) => ({
-        ...prevAdjustments,
-        ...preset.adjustments,
-        ...(hasAiMasks ? { masks: stripAiMaskResults(presetMasks) } : {}),
-      }),
+      (prevAdjustments: Adjustments) => applyPresetAdjustments(prevAdjustments, preset),
       `${t('editor.presets.types.preset')}: ${preset.name}`,
     );
   };
@@ -1045,6 +1068,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   };
 
   const handleDragStart = (event: any) => {
+    hoverPreview.show(null);
     setActiveItem(allItemsMap.get(event.active.id) ?? null);
   };
 
@@ -1430,9 +1454,11 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
                               >
                                 <DraggablePresetItem
                                   onApply={handleApplyPreset}
+                                  onHover={handlePresetHover}
+                                  onLeave={hoverPreview.leave}
                                   onContextMenu={(e: any) => handleContextMenu(e, { preset })}
                                   preset={preset}
-                                  previewUrl={previews[preset.id] || ''}
+                                  previewUrl={previews[preset.id]}
                                   isActive={preset.id === activePresetId}
                                   intensity={preset.id === activePresetId ? presetIntensity : 100}
                                   onIntensityChange={(val) => handleIntensityChange(preset, val)}
@@ -1460,9 +1486,11 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
                     >
                       <DraggablePresetItem
                         onApply={handleApplyPreset}
+                        onHover={handlePresetHover}
+                        onLeave={hoverPreview.leave}
                         onContextMenu={(e: any) => handleContextMenu(e, item)}
                         preset={item.preset}
-                        previewUrl={(item.preset?.id ? previews[item.preset.id] : '') || ''}
+                        previewUrl={item.preset?.id ? previews[item.preset.id] : undefined}
                         isActive={item.preset?.id === activePresetId}
                         intensity={item.preset?.id === activePresetId ? presetIntensity : 100}
                         onIntensityChange={(val) => handleIntensityChange(item.preset as Preset, val)}
@@ -1495,7 +1523,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       <DragOverlay>
         {activeItem ? (
           activeItem.type === 'preset' ? (
-            <PresetItemDisplay preset={activeItem.data} previewUrl={previews[activeItem.data.id] || ''} />
+            <PresetItemDisplay preset={activeItem.data} previewUrl={previews[activeItem.data.id]} />
           ) : (
             <FolderItemDisplay folder={activeItem.data} />
           )

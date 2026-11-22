@@ -385,7 +385,6 @@ const FilmstripList = ({
   height: number;
   width: number;
   data: Omit<ItemData, 'itemHeight' | 'setRatio'> & {
-    clickTriggeredScroll: React.RefObject<boolean>;
     multiSelectedSet: Set<string>;
   };
 }) => {
@@ -590,12 +589,7 @@ const FilmstripList = ({
 
       if (index !== -1) {
         if (currentPath !== prevSelectedPath.current) {
-          const isVisible = isItemVisible(index);
-
-          if (data.clickTriggeredScroll.current) {
-            data.clickTriggeredScroll.current = false;
-            performSafeScroll(index, true);
-          } else if (!isVisible) {
+          if (!isItemVisible(index)) {
             performSafeScroll(index);
           }
           prevSelectedPath.current = currentPath;
@@ -607,7 +601,7 @@ const FilmstripList = ({
         }
       }
     }
-  }, [data.selectedPath, data.imageList, isItemVisible, data.clickTriggeredScroll, performSafeScroll, gridHandle]);
+  }, [data.selectedPath, data.imageList, isItemVisible, performSafeScroll, gridHandle]);
 
   const setRatio = useCallback((path: string, ratio: number) => {
     if (Math.abs((ratioMapRef.current[path] || 0) - ratio) > 0.01) {
@@ -706,7 +700,6 @@ export default function Filmstrip({
   selectedImage,
   thumbnailAspectRatio,
 }: FilmStripProps) {
-  const clickTriggeredScroll = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ height: 0, width: 0 });
 
@@ -726,17 +719,10 @@ export default function Filmstrip({
 
   const filmstripActivePath = useFilmstripActivePath(selectedImage?.path, imageList);
 
-  const selectedPathRef = useRef(selectedImage?.path);
-  selectedPathRef.current = selectedImage?.path;
   const onImageSelectRef = useRef(onImageSelect);
   onImageSelectRef.current = onImageSelect;
 
-  const handleImageSelect = useCallback((path: string, event: any) => {
-    if (path !== selectedPathRef.current) {
-      clickTriggeredScroll.current = true;
-    }
-    onImageSelectRef.current?.(path, event);
-  }, []);
+  const handleImageSelect = useCallback((path: string, event: any) => onImageSelectRef.current?.(path, event), []);
 
   const multiSelectedSet = useMemo(() => new Set(multiSelectedPaths), [multiSelectedPaths]);
 
@@ -751,7 +737,6 @@ export default function Filmstrip({
       onContextMenu,
       onRequestThumbnails,
       onImageSelect: handleImageSelect,
-      clickTriggeredScroll,
     }),
     [
       imageList,
