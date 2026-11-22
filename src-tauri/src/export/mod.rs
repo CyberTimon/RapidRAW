@@ -599,12 +599,17 @@ pub(crate) async fn export_images_impl(
                     Ok((sidecar, js_adjustments, fingerprint))
                 };
 
+                let is_unchanged = |fingerprint: &Option<String>| {
+                    outputs_exist
+                        && fingerprint.as_ref().is_some_and(|fingerprint| {
+                            export_records.is_current(&output_path, fingerprint)
+                        })
+                };
+
                 let mut loaded = None;
                 if outputs_exist && on_conflict == ConflictAction::OverwriteIfChanged {
                     let prepared = load_adjustments()?;
-                    if let (_, _, Some(fingerprint)) = &prepared
-                        && export_records.is_current(&output_path, fingerprint)
-                    {
+                    if is_unchanged(&prepared.2) {
                         return skip();
                     }
                     loaded = Some(prepared);
@@ -622,6 +627,9 @@ pub(crate) async fn export_images_impl(
                     Some(prepared) => prepared,
                     None => load_adjustments()?,
                 };
+                if is_unchanged(&fingerprint) {
+                    return skip();
+                }
 
                 let export_xmp =
                     crate::metadata::export_metadata::ExportXmp::from_metadata(&sidecar);
