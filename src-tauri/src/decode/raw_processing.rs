@@ -1,6 +1,7 @@
 use crate::decode::as_shot::AsShot;
-use crate::decode::demosaic::Mosaic;
+use crate::decode::demosaic::{Mosaic, white_level};
 use crate::decode::develop::{self, Camera, Finish};
+use crate::decode::hot_pixels::repair_hot_pixels;
 use crate::decode::white_balance::WhiteBalance;
 use crate::render::color_space::{GamutCompression, fit_gamut, gamut_limits, srgb_to_working};
 use crate::render::geometry::apply_orientation;
@@ -247,6 +248,7 @@ impl CameraToWorking {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn develop_raw_image(
     file_bytes: &[u8],
     fast_demosaic: bool,
@@ -254,6 +256,7 @@ pub fn develop_raw_image(
     linear_mode: String,
     denoise: f32,
     sharpen: f32,
+    remove_hot_pixels: bool,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
     let check_cancel = || -> Result<()> {
@@ -272,6 +275,10 @@ pub fn develop_raw_image(
 
     check_cancel()?;
     let mut raw_image: RawImage = decoder.raw_image(&source, &RawDecodeParams::default(), false)?;
+    if remove_hot_pixels {
+        check_cancel()?;
+        repair_hot_pixels(&mut raw_image);
+    }
 
     let orientation = metadata_orientation(decoder.as_ref(), &source)?;
 
@@ -285,12 +292,7 @@ pub fn develop_raw_image(
         _ => (false, true),
     };
 
-    let original_white_level = raw_image
-        .whitelevel
-        .0
-        .first()
-        .cloned()
-        .unwrap_or(u16::MAX as u32) as f32;
+    let original_white_level = white_level(&raw_image);
     let original_black_level = raw_image
         .blacklevel
         .levels

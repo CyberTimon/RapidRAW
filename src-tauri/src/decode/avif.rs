@@ -10,7 +10,7 @@ use zenpixels::{ChannelLayout, ChannelType};
 
 const AVIF_BRANDS: [&[u8; 4]; 2] = [b"avif", b"avis"];
 
-pub enum AvifColor {
+pub enum ContainerColor {
     Icc {
         icc: Vec<u8>,
         transfer: Option<HdrTransfer>,
@@ -23,11 +23,14 @@ pub enum AvifColor {
 
 pub struct AvifImage {
     pub rgb: Rgb32FImage,
-    pub color: AvifColor,
-    pub gain_map: Option<GainMap>,
+    pub color: ContainerColor,
 }
 
 pub fn is_avif(bytes: &[u8]) -> bool {
+    has_ftyp_brand(bytes, &AVIF_BRANDS)
+}
+
+pub fn has_ftyp_brand(bytes: &[u8], brands: &[&[u8; 4]]) -> bool {
     let Some(size) = bytes
         .get(..4)
         .map(|size| u32::from_be_bytes([size[0], size[1], size[2], size[3]]) as usize)
@@ -45,7 +48,7 @@ pub fn is_avif(bytes: &[u8]) -> bool {
         .iter()
         .enumerate()
         .filter(|(index, _)| *index != 1)
-        .any(|(_, brand)| AVIF_BRANDS.contains(&brand))
+        .any(|(_, brand)| brands.contains(&brand))
 }
 
 fn transfer(info: &ImageInfo) -> Option<HdrTransfer> {
@@ -60,7 +63,7 @@ fn fraction(numerator: i64, denominator: u32) -> f32 {
     numerator as f32 / denominator.max(1) as f32
 }
 
-fn gain_map_params(metadata: &GainMapMetadata) -> Option<GainMapParams> {
+pub fn gain_map_params(metadata: &GainMapMetadata) -> Option<GainMapParams> {
     if metadata.backward_direction {
         return None;
     }
@@ -77,20 +80,17 @@ fn gain_map_params(metadata: &GainMapMetadata) -> Option<GainMapParams> {
             ),
         ]
     };
-    GainMapParams::from_channels([channel(0), channel(1), channel(2)])
-}
-
-fn gain_map_peak(metadata: &GainMapMetadata) -> Option<f32> {
-    let params = gain_map_params(metadata)?;
-    let headroom = fraction(
-        metadata.alternate_hdr_headroom_n.into(),
-        metadata.alternate_hdr_headroom_d,
-    );
-    Some(if headroom > 0.0 {
-        headroom.exp2()
-    } else {
-        params.peak()
-    })
+    let capacity = [
+        fraction(
+            metadata.base_hdr_headroom_n.into(),
+            metadata.base_hdr_headroom_d,
+        ),
+        fraction(
+            metadata.alternate_hdr_headroom_n.into(),
+            metadata.alternate_hdr_headroom_d,
+        ),
+    ];
+    GainMapParams::from_channels([channel(0), channel(1), channel(2)], Some(capacity))
 }
 
 fn probe(bytes: &[u8]) -> Option<ImageInfo> {
@@ -106,10 +106,10 @@ pub fn has_gain_map(bytes: &[u8]) -> bool {
         .is_some_and(|gain_map| gain_map_params(&gain_map.metadata).is_some())
 }
 
-pub fn hdr_peak(bytes: &[u8], gain_maps: bool) -> Option<f32> {
+pub fn hdr_peak(bytes: &[u8]) -> Option<f32> {
     let info = probe(bytes)?;
-    match transfer(&info) {
-        Some(HdrTransfer::Pq) => Some(
+    match transfer(&info)? {
+        HdrTransfer::Pq => Some(
             info.content_light_level
                 .map(|level| f32::from(level.max_content_light_level))
                 .filter(|nits| *nits > 0.0)
@@ -118,12 +118,7 @@ pub fn hdr_peak(bytes: &[u8], gain_maps: bool) -> Option<f32> {
                     |nits| nits / REFERENCE_WHITE_NITS,
                 ),
         ),
-        Some(transfer) => Some(transfer.default_peak()),
-        None if gain_maps => info
-            .gain_map
-            .as_ref()
-            .and_then(|gain_map| gain_map_peak(&gain_map.metadata)),
-        None => None,
+        transfer => Some(transfer.default_peak()),
     }
 }
 
@@ -228,29 +223,39 @@ fn orient(image: DynamicImage, info: &ImageInfo) -> DynamicImage {
     }
 }
 
-pub fn decode(bytes: &[u8], with_gain_map: bool) -> Result<AvifImage> {
+fn color(info: &ImageInfo) -> ContainerColor {
+    let transfer = transfer(info);
+    match &info.icc_profile {
+        Some(icc) if !icc.is_empty() => ContainerColor::Icc {
+            icc: icc.clone(),
+            transfer,
+        },
+        _ => ContainerColor::Cicp {
+            primaries: info.color_primaries,
+            transfer,
+        },
+    }
+}
+
+pub fn gain_map(bytes: &[u8]) -> Option<(GainMap, ContainerColor)> {
+    let info = probe(bytes)?;
+    if transfer(&info).is_some() {
+        return None;
+    }
+    let gain_map = decode_gain_map(&info, (info.width, info.height))?
+        .transformed(|image| orient(image, &info));
+    Some((gain_map, color(&info)))
+}
+
+pub fn decode(bytes: &[u8]) -> Result<AvifImage> {
     let mut decoder = ManagedAvifDecoder::new(bytes, &DecoderConfig::default())
         .map_err(|e| anyhow!("Failed to read AVIF: {}", e))?;
     let (pixels, info) = decoder
         .decode_full(&Unstoppable)
         .map_err(|e| anyhow!("Failed to decode AVIF: {}", e))?;
-    let rgb = to_rgb32f(&pixels)?;
-    let transfer = transfer(&info);
-    let gain_map = (with_gain_map && transfer.is_none())
-        .then(|| decode_gain_map(&info, rgb.dimensions()))
-        .flatten()
-        .map(|gain_map| gain_map.transformed(|image| orient(image, &info)));
-    let rgb = orient(DynamicImage::ImageRgb32F(rgb), &info).to_rgb32f();
-    let color = match info.icc_profile {
-        Some(icc) if !icc.is_empty() => AvifColor::Icc { icc, transfer },
-        _ => AvifColor::Cicp {
-            primaries: info.color_primaries,
-            transfer,
-        },
-    };
+    let rgb = orient(DynamicImage::ImageRgb32F(to_rgb32f(&pixels)?), &info).to_rgb32f();
     Ok(AvifImage {
         rgb,
-        color,
-        gain_map,
+        color: color(&info),
     })
 }

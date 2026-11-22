@@ -8,7 +8,7 @@ use serde_json::Value;
 use crate::ai::{connector, lama, models};
 use crate::app::settings::load_settings;
 use crate::app::state::AppState;
-use crate::decode::image_loader::prepare_base_image_cow;
+use crate::decode::image_loader::prepare_base_image;
 use crate::masks::generation::{
     AiPatchDefinition, MaskDefinition, SubMask, generate_mask_bitmap,
     resolve_warped_image_for_masks,
@@ -56,7 +56,7 @@ fn prepare_source_image(
         &source_image_adjustments,
     );
 
-    let composited = prepare_base_image_cow(
+    let composited = prepare_base_image(
         &loaded_image.image,
         &loaded_image.path,
         &source_image_adjustments,

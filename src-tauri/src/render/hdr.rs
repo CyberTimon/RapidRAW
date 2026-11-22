@@ -1,4 +1,3 @@
-use crate::app::settings::AppSettings;
 use crate::render::color_space::TransferCurve;
 
 pub const MIDDLE_GREY: f32 = 0.18;
@@ -26,10 +25,6 @@ impl Headroom {
 
     pub fn from_stops(stops: f32) -> Self {
         Self(stops.clamp(Self::MIN_STOPS, Self::MAX_STOPS).exp2())
-    }
-
-    pub fn from_settings(settings: &AppSettings) -> Self {
-        Self::from_stops(settings.hdr_headroom)
     }
 
     pub fn limited_to(self, ratio: f32) -> Self {

@@ -8,7 +8,7 @@ use std::sync::{Mutex, OnceLock};
 
 use half::f16;
 use half::slice::HalfFloatSliceExt;
-use image::DynamicImage;
+use image::{DynamicImage, GenericImageView};
 use rayon::prelude::*;
 use wgpu::util::DeviceExt;
 
@@ -23,6 +23,7 @@ const POOL_KEEP_BYTES: u64 = 768 << 20;
 const POOL_KEEP_ENCODES: u64 = 4;
 const MAP_CACHE_ENTRIES: usize = 6;
 const MAP_CACHE_BYTES: u64 = 256 << 20;
+const UPLOAD_STRIP_BYTES: usize = 16 << 20;
 const COMMON_SOURCE: &str = include_str!("../../shaders/compute_common.wgsl");
 const COMMON_PARAMS: &str =
     "struct Params { grid: Grid }\n@group(0) @binding(7) var<uniform> params: Params;\n";
@@ -422,55 +423,87 @@ pub fn encode<T>(
     Ok(output)
 }
 
-pub fn rgba_halves(image: &DynamicImage) -> Vec<f16> {
-    let convert = |src: &[f32], channels: usize, width: usize| {
-        let mut halves = vec![f16::ZERO; src.len() / channels * 4];
-        halves
-            .par_chunks_exact_mut(width * 4)
-            .zip(src.par_chunks_exact(width * channels))
-            .for_each(|(out, row)| {
-                let mut rgba = vec![1.0f32; width * 4];
-                for (dst, px) in rgba
-                    .as_chunks_mut::<4>()
-                    .0
-                    .iter_mut()
-                    .zip(row.chunks_exact(channels))
-                {
-                    dst[..channels].copy_from_slice(px);
-                }
-                out.convert_from_f32_slice(&rgba);
-            });
-        halves
-    };
-    let width = image.width() as usize;
-    match image {
-        DynamicImage::ImageRgba32F(buffer) => convert(buffer.as_raw(), 4, width),
-        DynamicImage::ImageRgb32F(buffer) => convert(buffer.as_raw(), 3, width),
-        other if other.color().has_alpha() => convert(other.to_rgba32f().as_raw(), 4, width),
-        other => convert(other.to_rgb32f().as_raw(), 3, width),
-    }
+fn convert_rows_to_halves(src: &[f32], channels: usize, width: usize, halves: &mut [f16]) {
+    halves
+        .par_chunks_exact_mut(width * 4)
+        .zip(src.par_chunks_exact(width * channels))
+        .for_each(|(out, row)| {
+            let mut rgba = vec![1.0f32; width * 4];
+            for (dst, px) in rgba
+                .as_chunks_mut::<4>()
+                .0
+                .iter_mut()
+                .zip(row.chunks_exact(channels))
+            {
+                dst[..channels].copy_from_slice(px);
+            }
+            out.convert_from_f32_slice(&rgba);
+        });
 }
 
-pub fn upload_image(context: &GpuContext, size: (u32, u32), halves: &[f16]) -> Slot {
-    let texture = context.device.create_texture_with_data(
-        &context.queue,
-        &wgpu::TextureDescriptor {
-            label: Some("Source Image"),
-            size: wgpu::Extent3d {
+pub fn upload_image(context: &GpuContext, image: &DynamicImage) -> Slot {
+    let size = image.dimensions();
+    let texture = context.device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("Source Image"),
+        size: wgpu::Extent3d {
+            width: size.0,
+            height: size.1,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: IMAGE_FORMAT,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+
+    let width = size.0 as usize;
+    let strip_rows = (UPLOAD_STRIP_BYTES / (width * 8).max(1)).clamp(1, size.1.max(1) as usize);
+    let mut halves = vec![f16::ZERO; width * 4 * strip_rows];
+    for y in (0..size.1).step_by(strip_rows) {
+        let rows = strip_rows.min((size.1 - y) as usize);
+        let strip = &mut halves[..width * 4 * rows];
+        let start = y as usize * width;
+        let end = start + rows * width;
+        match image {
+            DynamicImage::ImageRgba32F(buffer) => {
+                convert_rows_to_halves(&buffer.as_raw()[start * 4..end * 4], 4, width, strip)
+            }
+            DynamicImage::ImageRgb32F(buffer) => {
+                convert_rows_to_halves(&buffer.as_raw()[start * 3..end * 3], 3, width, strip)
+            }
+            other => {
+                let part = other.crop_imm(0, y, size.0, rows as u32);
+                if part.color().has_alpha() {
+                    convert_rows_to_halves(part.to_rgba32f().as_raw(), 4, width, strip)
+                } else {
+                    convert_rows_to_halves(part.to_rgb32f().as_raw(), 3, width, strip)
+                }
+            }
+        }
+        context.queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d { x: 0, y, z: 0 },
+                aspect: wgpu::TextureAspect::All,
+            },
+            bytemuck::cast_slice(strip),
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(size.0 * 8),
+                rows_per_image: Some(rows as u32),
+            },
+            wgpu::Extent3d {
                 width: size.0,
-                height: size.1,
+                height: rows as u32,
                 depth_or_array_layers: 1,
             },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: IMAGE_FORMAT,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        },
-        wgpu::util::TextureDataOrder::MipMajor,
-        bytemuck::cast_slice(halves),
-    );
+        );
+        context.queue.submit([]);
+    }
+
     let view = texture.create_view(&Default::default());
     Slot {
         texture,

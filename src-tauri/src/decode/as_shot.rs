@@ -9,7 +9,7 @@ use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use std::time::SystemTime;
 
-type Fingerprint = Option<(u64, Option<SystemTime>, bool)>;
+type Fingerprint = Option<(u64, Option<SystemTime>)>;
 
 #[derive(Clone, Copy, Debug)]
 pub struct AsShot {
@@ -54,26 +54,13 @@ fn read_from_bytes(source_path: &str, file_bytes: &[u8]) -> Option<AsShot> {
     })
 }
 
-fn may_have_gain_map(source_path: &str) -> bool {
-    Path::new(source_path)
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .is_some_and(|extension| {
-            ["jpg", "jpeg", "avif"].contains(&extension.to_ascii_lowercase().as_str())
-        })
-}
-
 fn fingerprint(source_path: &str) -> Fingerprint {
     if is_raw_file(source_path) {
         return None;
     }
-    std::fs::metadata(source_path).ok().map(|metadata| {
-        (
-            metadata.len(),
-            metadata.modified().ok(),
-            may_have_gain_map(source_path) && crate::decode::hdr_source::gain_maps_enabled(),
-        )
-    })
+    std::fs::metadata(source_path)
+        .ok()
+        .map(|metadata| (metadata.len(), metadata.modified().ok()))
 }
 
 pub fn record_source_peak(path: &str, peak: f32) {

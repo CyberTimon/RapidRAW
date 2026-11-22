@@ -12,7 +12,7 @@ use tokio::sync::Notify;
 use tokio::task::JoinHandle;
 use wgpu::{Texture, TextureView};
 
-use crate::adjustments::lut_processing::Lut;
+use crate::adjustments::lut_processing::LutCache;
 use crate::ai::models::AiState;
 use crate::app::launch_request::ExternalEditSession;
 use crate::decode::as_shot::AsShot;
@@ -167,7 +167,6 @@ pub struct LoadedImage {
     pub is_raw: bool,
     pub as_shot: AsShot,
     pub has_gain_map: bool,
-    pub gain_maps: bool,
 }
 
 #[derive(Clone)]
@@ -203,6 +202,7 @@ pub struct CachedPreview {
     pub transform_hash: u64,
     pub preview_dim: u32,
     pub source: usize,
+    pub gain_weight: u32,
 }
 
 #[derive(Default)]
@@ -341,7 +341,8 @@ pub struct AppState {
     pub merge_session: Arc<Mutex<Option<Box<dyn MergeSession>>>>,
     pub merge_generation: Arc<AtomicU64>,
     pub indexing_task_handle: Mutex<Option<JoinHandle<()>>>,
-    pub lut_cache: Mutex<HashMap<String, Arc<Lut>>>,
+    pub lut_cache: Mutex<LutCache>,
+    pub swatch_lut_cache: Mutex<LutCache>,
     pub initial_file_path: Mutex<Option<String>>,
     pub pending_edit_session: Mutex<Option<ExternalEditSession>>,
     pub thumbnail_cancellation_token: Arc<AtomicBool>,

@@ -46,7 +46,7 @@ export default function Controls() {
   const { showContextMenu } = useContextMenu();
   const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
     useWaveformControls();
-  const { setAdjustments, handleAutoAdjustments, handleLutSelect, setLutPreviewOverride } = useEditorActions();
+  const { setAdjustments, handleAutoAdjustments, handleLutSelect } = useEditorActions();
 
   const { appSettings, theme } = useSettingsStore(
     useShallow((state) => ({
@@ -315,7 +315,6 @@ export default function Controls() {
                     setAdjustments={setAdjustments}
                     theme={theme}
                     handleLutSelect={handleLutSelect}
-                    onLutHover={setLutPreviewOverride}
                     appSettings={appSettings}
                     asShotWhiteBalance={selectedImage.asShotWhiteBalance}
                     isWbPickerActive={isWbPickerActive}

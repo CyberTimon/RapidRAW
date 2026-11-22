@@ -57,6 +57,7 @@ impl<'a> SourceLoader<'a> {
                         path,
                         is_raw_file(path),
                         None,
+                        1,
                         0,
                         "tiff",
                         0,

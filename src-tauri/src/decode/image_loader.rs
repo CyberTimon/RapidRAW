@@ -1,5 +1,6 @@
 use crate::app::settings::{AppSettings, load_settings};
 use crate::app::state::{AppState, LoadedImage, PreviewTarget};
+use crate::decode::avif::ContainerColor;
 use crate::decode::baseline_exposure::BaselineOptions;
 use crate::decode::formats::is_raw_file;
 use crate::decode::hdr_source::{self, GainMap, HdrTransfer};
@@ -17,6 +18,7 @@ use crate::render::color_space::{
     working_profile,
 };
 use crate::render::geometry::{apply_orientation, inverse_transform_mask};
+use crate::render::hdr::Headroom;
 use crate::render::image_processing::apply_working_display_to_srgb;
 use anyhow::{Context, Result, anyhow};
 use base64::{Engine as _, engine::general_purpose};
@@ -36,7 +38,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::Cursor;
 use std::panic;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{
     Arc, Mutex, OnceLock,
     atomic::{AtomicUsize, Ordering},
@@ -73,7 +75,7 @@ fn srgb_to_linear_lut() -> &'static [f32; 256] {
 }
 
 pub fn load_and_composite(
-    base_image: &[u8],
+    bytes: &[u8],
     path: &str,
     adjustments: &Value,
     use_fast_raw_dev: bool,
@@ -81,37 +83,49 @@ pub fn load_and_composite(
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<(DynamicImage, f32)> {
     let base_image =
-        load_base_image_from_bytes(base_image, path, use_fast_raw_dev, settings, cancel_token)?;
-    let prepared = match prepare_base_image_cow(&base_image, path, adjustments)? {
+        load_base_image_from_bytes(bytes, path, use_fast_raw_dev, settings, cancel_token)?;
+    let (base_w, base_h) = base_image.dimensions();
+    let decode_scale = if use_fast_raw_dev && is_raw_file(path) {
+        crate::decode::raw_processing::get_fast_demosaic_scale_factor(bytes, base_w, base_h)
+    } else {
+        1.0
+    };
+    let full_dims = (
+        (base_w as f32 / decode_scale).round() as u32,
+        (base_h as f32 / decode_scale).round() as u32,
+    );
+    let prepared = match prepare_reduced_base_image(&base_image, full_dims, path, adjustments)? {
         Cow::Owned(img) => Some(img),
         Cow::Borrowed(_) => None,
     };
     let scale = prepared.as_ref().map_or(1.0, |img| {
         crate::ai::upscale::scale_between(&base_image, img)
     });
-    Ok((prepared.unwrap_or(base_image), scale))
+    Ok((prepared.unwrap_or(base_image), scale * decode_scale))
 }
 
-pub fn prepare_base_image_cow<'a>(
+pub fn prepare_base_image<'a>(
     base_image: &'a DynamicImage,
     path: &str,
     adjustments: &Value,
 ) -> Result<Cow<'a, DynamicImage>> {
-    let has_patches = adjustments
-        .get("aiPatches")
-        .and_then(|v| v.as_array())
-        .is_some_and(|a| !a.is_empty());
+    prepare_reduced_base_image(base_image, base_image.dimensions(), path, adjustments)
+}
 
+fn prepare_reduced_base_image<'a>(
+    base_image: &'a DynamicImage,
+    full_dims: (u32, u32),
+    path: &str,
+    adjustments: &Value,
+) -> Result<Cow<'a, DynamicImage>> {
     let denoised = crate::ai::denoise::apply_ai_denoise(base_image, path, adjustments);
     let upscaled = crate::ai::upscale::apply_ai_upscale(base_image, denoised, path, adjustments);
-    match crate::adjustments::negative_conversion::apply_negative_conversion(
+    let prepared = crate::adjustments::negative_conversion::apply_negative_conversion(
         upscaled,
         is_raw_file(path),
         adjustments,
-    ) {
-        Cow::Owned(prepared) if !has_patches => Ok(Cow::Owned(prepared)),
-        prepared => composite_patches_cow(prepared, base_image.dimensions(), path, adjustments),
-    }
+    );
+    composite_patches_cow(prepared, full_dims, path, adjustments)
 }
 
 pub fn load_base_image_from_bytes(
@@ -129,6 +143,7 @@ pub fn load_base_image_from_bytes(
         .clamp(0.0, 1.0);
     let sharpening_amount = settings.raw_preprocessing_sharpening.unwrap_or(0.35);
     let apply_to_non_raws = settings.apply_preprocessing_to_non_raws.unwrap_or(false);
+    let remove_hot_pixels = settings.remove_hot_pixels.unwrap_or(true);
 
     crate::metadata::sidecar::persist_exif_if_missing(
         Path::new(path_for_ext_check),
@@ -174,6 +189,7 @@ pub fn load_base_image_from_bytes(
                 linear_mode,
                 color_nr_amount,
                 sharpening_amount,
+                remove_hot_pixels,
                 cancel_token,
             )
         }) {
@@ -205,8 +221,7 @@ pub fn load_base_image_from_bytes(
             }
         }
     } else {
-        let (image, linear_peak) =
-            load_image_with_orientation(bytes, cancel_token, settings.decode_gain_maps())?;
+        let (image, linear_peak) = load_image_with_orientation(bytes, cancel_token)?;
         if let Some(peak) = linear_peak {
             crate::decode::as_shot::record_source_peak(path_for_ext_check, peak);
         }
@@ -403,7 +418,6 @@ fn linearize_embedded_preview(preview: DynamicImage) -> DynamicImage {
 }
 
 enum HdrSource {
-    GainMap(GainMap),
     Transfer {
         transfer: HdrTransfer,
         to_working: Mat3,
@@ -449,10 +463,9 @@ fn primaries_to_working(primaries: zenavif::ColorPrimaries) -> Mat3 {
     }
 }
 
-fn decode_avif(bytes: &[u8], with_gain_map: bool) -> Result<Decoded> {
-    let avif = crate::decode::avif::decode(bytes, with_gain_map)?;
-    let (profile, transfer) = match avif.color {
-        crate::decode::avif::AvifColor::Icc {
+fn decode_container(rgb: Rgb32FImage, color: ContainerColor) -> Decoded {
+    let (profile, transfer) = match color {
+        ContainerColor::Icc {
             icc,
             transfer: container_transfer,
         } => {
@@ -467,7 +480,7 @@ fn decode_avif(bytes: &[u8], with_gain_map: bool) -> Result<Decoded> {
                 transfer.zip(to_working),
             )
         }
-        crate::decode::avif::AvifColor::Cicp {
+        ContainerColor::Cicp {
             primaries,
             transfer,
         } => (
@@ -477,29 +490,44 @@ fn decode_avif(bytes: &[u8], with_gain_map: bool) -> Result<Decoded> {
             transfer.map(|transfer| (transfer, primaries_to_working(primaries))),
         ),
     };
-    let hdr = match (transfer, avif.gain_map) {
-        (Some((transfer, to_working)), _) => Some(HdrSource::Transfer {
-            transfer,
-            to_working,
-        }),
-        (None, Some(gain_map)) => Some(HdrSource::GainMap(gain_map)),
-        (None, None) => None,
-    };
-    let profile = match hdr {
-        Some(HdrSource::Transfer { .. }) => None,
-        _ => profile,
-    };
-    Ok(Decoded {
-        rgb: avif.rgb,
-        profile,
-        hdr,
+    match transfer {
+        Some((transfer, to_working)) => Decoded {
+            rgb,
+            profile: None,
+            hdr: Some(HdrSource::Transfer {
+                transfer,
+                to_working,
+            }),
+        },
+        None => Decoded {
+            rgb,
+            profile,
+            hdr: None,
+        },
+    }
+}
+
+fn exif_orientation(exif: Option<&exif::Exif>) -> Option<Orientation> {
+    exif.and_then(|exif| {
+        exif.get_field(Tag::Orientation, exif::In::PRIMARY)?
+            .value
+            .get_uint(0)
     })
+    .map(|orientation| Orientation::from_u16(orientation as u16))
+}
+
+fn source_profile(icc: Option<Vec<u8>>, exif: Option<&exif::Exif>) -> Option<ColorProfile> {
+    match icc {
+        Some(icc) => ColorProfile::new_from_slice(&icc).ok(),
+        None => exif
+            .is_some_and(is_exif_adobe_rgb)
+            .then(ColorProfile::new_adobe_rgb),
+    }
 }
 
 fn decode_with_orientation(
     bytes: &[u8],
     cancel_token: &Option<(Arc<AtomicUsize>, usize)>,
-    with_gain_map: bool,
 ) -> Result<Decoded> {
     let check_cancel = || -> Result<()> {
         if let Some((tracker, generation)) = cancel_token
@@ -512,9 +540,16 @@ fn decode_with_orientation(
 
     if crate::decode::avif::is_avif(bytes) {
         check_cancel()?;
-        let decoded = decode_avif(bytes, with_gain_map)?;
+        let avif = crate::decode::avif::decode(bytes)?;
         check_cancel()?;
-        return Ok(decoded);
+        return Ok(decode_container(avif.rgb, avif.color));
+    }
+
+    if crate::decode::heic::is_heif(bytes) {
+        check_cancel()?;
+        let heif = crate::decode::heic::decode(bytes)?;
+        check_cancel()?;
+        return Ok(decode_container(heif.rgb, heif.color));
     }
 
     let cursor = Cursor::new(bytes);
@@ -530,31 +565,18 @@ fn decode_with_orientation(
     let icc_profile = decoder.icc_profile().ok().flatten();
     let source_color = decoder.color_type();
     let image = DynamicImage::from_decoder(decoder).context("Failed to decode image")?;
-    let base_size = image.dimensions();
     check_cancel()?;
 
     let exif = ExifReader::new()
         .read_from_container(&mut cursor.clone())
         .ok();
-    let orientation = exif.as_ref().and_then(|exif| {
-        exif.get_field(Tag::Orientation, exif::In::PRIMARY)?
-            .value
-            .get_uint(0)
-    });
-    let orientation = orientation.map(|orientation| Orientation::from_u16(orientation as u16));
-    let oriented_image = match orientation {
+    let oriented_image = match exif_orientation(exif.as_ref()) {
         Some(orientation) => apply_orientation(image, orientation),
         None => image,
     };
 
     let rgb = oriented_image.to_rgb32f();
-    let source_profile = match icc_profile {
-        Some(icc) => ColorProfile::new_from_slice(&icc).ok(),
-        None => exif
-            .as_ref()
-            .is_some_and(is_exif_adobe_rgb)
-            .then(ColorProfile::new_adobe_rgb),
-    };
+    let source_profile = source_profile(icc_profile, exif.as_ref());
     check_cancel()?;
 
     let transfer = source_profile.as_ref().and_then(hdr_source::hdr_transfer);
@@ -569,45 +591,28 @@ fn decode_with_orientation(
                 .as_ref()
                 .map_or_else(srgb_to_working, hdr_to_working),
         })
-    } else if with_gain_map && bytes.starts_with(&[0xFF, 0xD8]) {
-        hdr_source::read_gain_map(bytes, base_size)
-            .map(|gain_map| HdrSource::GainMap(gain_map.oriented(orientation)))
     } else {
         None
     };
     let profile = match hdr {
-        Some(HdrSource::Transfer { .. } | HdrSource::Linear { .. }) => None,
-        _ => source_profile.as_ref().and_then(ProfileToWorking::new),
+        Some(_) => None,
+        None => source_profile.as_ref().and_then(ProfileToWorking::new),
     };
 
     Ok(Decoded { rgb, profile, hdr })
 }
 
-fn convert_hdr_to_working(
-    image: &mut Rgb32FImage,
-    from_profile: Option<&ProfileToWorking>,
-    hdr: &HdrSource,
-) {
-    let (width, height) = image.dimensions();
-    let row_len = width as usize * 3;
+fn convert_hdr_to_working(image: &mut Rgb32FImage, hdr: &HdrSource) {
+    let row_len = image.width() as usize * 3;
     if row_len == 0 {
         return;
     }
     let transfer = srgb_transfer();
-    let (matrix, gain) = match hdr {
-        HdrSource::Transfer { to_working, .. } | HdrSource::Linear { to_working } => {
-            (*to_working, None)
-        }
-        HdrSource::GainMap(gain_map) => (
-            from_profile.map_or_else(srgb_to_working, |profile| profile.matrix),
-            Some(gain_map.row_applier(width, height)),
-        ),
-    };
+    let (HdrSource::Transfer { to_working, .. } | HdrSource::Linear { to_working }) = hdr;
 
-    image.par_chunks_mut(row_len).enumerate().for_each_init(
+    image.par_chunks_mut(row_len).for_each_init(
         || vec![0.0f32; row_len],
-        |linear, (y, row)| {
-            let mut row_matrix = matrix;
+        |linear, row| {
             match hdr {
                 HdrSource::Transfer { transfer, .. } => {
                     for (linear, encoded) in linear
@@ -628,19 +633,6 @@ fn convert_hdr_to_working(
                         };
                     }
                 }
-                HdrSource::GainMap(_) => {
-                    let linearized = from_profile
-                        .is_some_and(|profile| profile.linearize.transform(row, linear).is_ok());
-                    if !linearized {
-                        for (linear, encoded) in linear.iter_mut().zip(row.iter()) {
-                            *linear = transfer.decode(encoded.max(0.0));
-                        }
-                        row_matrix = srgb_to_working();
-                    }
-                }
-            }
-            if let Some(apply_gain) = &gain {
-                apply_gain(y as u32, linear);
             }
             for (out, rgb) in row
                 .as_chunks_mut::<3>()
@@ -648,7 +640,7 @@ fn convert_hdr_to_working(
                 .iter_mut()
                 .zip(linear.as_chunks::<3>().0)
             {
-                let working = (row_matrix * Vec3::from_array(*rgb)).to_array();
+                let working = (*to_working * Vec3::from_array(*rgb)).to_array();
                 *out = fit_gamut(working, &[None; 3]).map(|c| transfer.encode(c.max(0.0)));
             }
         },
@@ -658,20 +650,175 @@ fn convert_hdr_to_working(
 pub fn load_image_with_orientation(
     bytes: &[u8],
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
-    gain_maps: bool,
 ) -> Result<(DynamicImage, Option<f32>)> {
     let Decoded {
         mut rgb,
         profile,
         hdr,
-    } = decode_with_orientation(bytes, &cancel_token, gain_maps)?;
+    } = decode_with_orientation(bytes, &cancel_token)?;
     let linear_peak = matches!(hdr, Some(HdrSource::Linear { .. }))
         .then(|| hdr_source::linear_peak(rgb.as_raw()));
     match &hdr {
-        Some(hdr) => convert_hdr_to_working(&mut rgb, profile.as_ref(), hdr),
+        Some(hdr) => convert_hdr_to_working(&mut rgb, hdr),
         None => convert_to_working(&mut rgb, profile.as_ref()),
     }
     Ok((DynamicImage::ImageRgb32F(rgb), linear_peak))
+}
+
+pub struct GainLayer {
+    gain_map: GainMap,
+    to_working: Mat3,
+}
+
+impl GainLayer {
+    pub fn weight(&self, headroom: Headroom) -> f32 {
+        self.gain_map.weight(headroom.ratio())
+    }
+
+    pub fn apply(&self, image: &DynamicImage, weight: f32) -> Option<DynamicImage> {
+        if weight <= 0.0 {
+            return None;
+        }
+        if !self.gain_map.fits(image.dimensions()) {
+            log::warn!("Ignoring a gain map whose shape does not match the image");
+            return None;
+        }
+        let mut rgb = image.to_rgb32f();
+        let (width, height) = rgb.dimensions();
+        let row_len = width as usize * 3;
+        let transfer = srgb_transfer();
+        let from_working = self.to_working.inverse();
+        let apply_gain = self.gain_map.row_applier(width, height, weight);
+        rgb.par_chunks_mut(row_len.max(1))
+            .enumerate()
+            .for_each_init(
+                || vec![0.0f32; row_len],
+                |linear, (y, row)| {
+                    for (linear, encoded) in linear
+                        .as_chunks_mut::<3>()
+                        .0
+                        .iter_mut()
+                        .zip(row.as_chunks::<3>().0)
+                    {
+                        let decoded = encoded.map(|c| transfer.decode(c.max(0.0)));
+                        *linear = (from_working * Vec3::from_array(decoded)).to_array();
+                    }
+                    apply_gain(y as u32, linear);
+                    for (out, linear) in row
+                        .as_chunks_mut::<3>()
+                        .0
+                        .iter_mut()
+                        .zip(linear.as_chunks::<3>().0)
+                    {
+                        let working = (self.to_working * Vec3::from_array(*linear)).to_array();
+                        *out = fit_gamut(working, &[None; 3]).map(|c| transfer.encode(c.max(0.0)));
+                    }
+                },
+            );
+        Some(DynamicImage::ImageRgb32F(rgb))
+    }
+}
+
+fn profile_to_working(profile: Option<&ColorProfile>) -> Mat3 {
+    profile
+        .and_then(ProfileToWorking::new)
+        .map_or_else(srgb_to_working, |profile| profile.matrix)
+}
+
+fn container_to_working(color: &ContainerColor) -> Mat3 {
+    match color {
+        ContainerColor::Icc { icc, .. } => {
+            profile_to_working(ColorProfile::new_from_slice(icc).ok().as_ref())
+        }
+        ContainerColor::Cicp { primaries, .. } => {
+            profile_to_working(primaries_profile(*primaries).as_ref())
+        }
+    }
+}
+
+fn read_gain_layer(bytes: &[u8]) -> Option<GainLayer> {
+    let (gain_map, to_working) = if crate::decode::avif::is_avif(bytes) {
+        let (gain_map, color) = crate::decode::avif::gain_map(bytes)?;
+        (gain_map, container_to_working(&color))
+    } else if crate::decode::heic::is_heif(bytes) {
+        let (gain_map, color) = crate::decode::heic::gain_map(bytes)?;
+        (gain_map, container_to_working(&color))
+    } else if bytes.starts_with(&[0xFF, 0xD8]) {
+        let mut decoder = ImageReader::with_format(Cursor::new(bytes), image::ImageFormat::Jpeg)
+            .into_decoder()
+            .ok()?;
+        let base_size = decoder.dimensions();
+        let icc = decoder.icc_profile().ok().flatten();
+        let exif = ExifReader::new()
+            .read_from_container(&mut Cursor::new(bytes))
+            .ok();
+        let profile = source_profile(icc, exif.as_ref());
+        if profile
+            .as_ref()
+            .and_then(hdr_source::hdr_transfer)
+            .is_some()
+        {
+            return None;
+        }
+        let gain_map =
+            hdr_source::read_gain_map(bytes, base_size)?.oriented(exif_orientation(exif.as_ref()));
+        (gain_map, profile_to_working(profile.as_ref()))
+    } else {
+        return None;
+    };
+    Some(GainLayer {
+        gain_map,
+        to_working,
+    })
+}
+
+fn gain_layer(source_path: &Path) -> Option<Arc<GainLayer>> {
+    type Key = (PathBuf, u64, Option<std::time::SystemTime>);
+    type Entries = Vec<(Key, Option<Arc<GainLayer>>)>;
+    const CAPACITY: usize = 4;
+    static CACHE: OnceLock<Mutex<Entries>> = OnceLock::new();
+    if is_raw_file(source_path) {
+        return None;
+    }
+    let metadata = fs::metadata(source_path).ok()?;
+    let key = (
+        source_path.to_path_buf(),
+        metadata.len(),
+        metadata.modified().ok(),
+    );
+    let cache = CACHE.get_or_init(|| Mutex::new(Vec::new()));
+    if let Some((_, layer)) = cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .iter()
+        .find(|(cached, _)| *cached == key)
+    {
+        return layer.clone();
+    }
+    let layer = read_file_mapped(source_path)
+        .ok()
+        .and_then(|bytes| read_gain_layer(&bytes))
+        .map(Arc::new);
+    let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
+    cache.retain(|(cached, _)| cached.0 != key.0);
+    cache.push((key, layer.clone()));
+    if cache.len() > CAPACITY {
+        cache.remove(0);
+    }
+    layer
+}
+
+pub fn gain_layer_for(
+    path: &str,
+    settings: &AppSettings,
+    headroom: Headroom,
+) -> Option<(Arc<GainLayer>, f32)> {
+    if !settings.use_gain_maps() || !headroom.is_hdr() {
+        return None;
+    }
+    let layer = gain_layer(&parse_virtual_path(path).0)?;
+    let weight = layer.weight(headroom);
+    (weight > 0.0).then_some((layer, weight))
 }
 
 pub fn load_display_image(bytes: &[u8], path: &str) -> Result<DynamicImage> {
@@ -680,7 +827,7 @@ pub fn load_display_image(bytes: &[u8], path: &str) -> Result<DynamicImage> {
         mut rgb,
         profile,
         hdr,
-    } = decode_with_orientation(bytes, &None, false)?;
+    } = decode_with_orientation(bytes, &None)?;
     let mut image = match &hdr {
         Some(hdr) => {
             let peak = match hdr {
@@ -691,7 +838,7 @@ pub fn load_display_image(bytes: &[u8], path: &str) -> Result<DynamicImage> {
                 }
                 _ => hdr_source::source_peak(bytes),
             };
-            convert_hdr_to_working(&mut rgb, profile.as_ref(), hdr);
+            convert_hdr_to_working(&mut rgb, hdr);
             let mut image = DynamicImage::ImageRgb32F(rgb);
             hdr_source::roll_off_encoded(&mut image, peak);
             image
@@ -874,7 +1021,8 @@ fn composite_patches_cow<'a>(
     }
 
     let (base_w, base_h) = base_image.dimensions();
-    let scale = (base_w / canon_w.max(1)).max(1);
+    let scale = base_w as f64 / canon_w.max(1) as f64;
+    let scaled = |v: u32| (v as f64 * scale).round() as u32;
 
     struct DecodedPatch {
         offset_x: Option<u32>,
@@ -985,11 +1133,11 @@ fn composite_patches_cow<'a>(
                 color_image_u8
             };
 
-            let (mask_bitmap, final_color) = if scale == 1 {
+            let (mask_bitmap, final_color) = if scale == 1.0 {
                 (mask_bitmap, final_color)
             } else {
                 let (w, h) = mask_bitmap.dimensions();
-                let (sw, sh) = (w * scale, h * scale);
+                let (sw, sh) = (scaled(w).max(1), scaled(h).max(1));
                 (
                     imageops::resize(&mask_bitmap, sw, sh, imageops::FilterType::Triangle),
                     imageops::resize(&final_color, sw, sh, imageops::FilterType::CatmullRom),
@@ -997,8 +1145,8 @@ fn composite_patches_cow<'a>(
             };
 
             Ok(DecodedPatch {
-                offset_x: offset_x.map(|v| v * scale),
-                offset_y: offset_y.map(|v| v * scale),
+                offset_x: offset_x.map(scaled),
+                offset_y: offset_y.map(scaled),
                 mask: mask_bitmap,
                 color: final_color,
                 is_srgb_encoded,
@@ -1401,60 +1549,6 @@ fn file_has_gain_map(source_path: &Path) -> bool {
     read_file_mapped(source_path).is_ok_and(|bytes| hdr_source::has_gain_map(&bytes))
 }
 
-pub fn refresh_gain_map_decode(
-    state: &AppState,
-    loaded: LoadedImage,
-    settings: &AppSettings,
-) -> LoadedImage {
-    let wanted = settings.decode_gain_maps();
-    if loaded.is_raw || !loaded.has_gain_map || loaded.gain_maps == wanted {
-        return loaded;
-    }
-    let (source_path, _) = parse_virtual_path(&loaded.path);
-    let image = match get_or_decode_pristine(state, &source_path, settings, None) {
-        Ok((image, _)) => image,
-        Err(e) => {
-            log::warn!(
-                "Could not reload '{}' for the gain map setting: {}",
-                loaded.path,
-                e
-            );
-            return loaded;
-        }
-    };
-    let refreshed = LoadedImage {
-        image,
-        as_shot: crate::decode::as_shot::as_shot(&source_path.to_string_lossy()),
-        gain_maps: wanted,
-        ..loaded
-    };
-    let mut current = state
-        .original_image
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    if current
-        .as_ref()
-        .is_some_and(|current| current.path == refreshed.path)
-    {
-        *current = Some(refreshed.clone());
-        drop(current);
-        for target in PreviewTarget::ALL {
-            clear_preview_slot(state, target);
-        }
-        *state
-            .full_warped_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        state
-            .uncropped_source_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clear();
-        crate::render::cache_utils::clear_preview_stage_caches(state);
-    }
-    refreshed
-}
-
 #[tauri::command]
 pub async fn load_image(
     path: String,
@@ -1505,7 +1599,6 @@ pub async fn load_image(
 
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let baseline_options = BaselineOptions::from_settings(&settings);
-    let gain_maps = settings.decode_gain_maps();
 
     state
         .decoded_image_cache
@@ -1552,7 +1645,6 @@ pub async fn load_image(
         is_raw,
         as_shot,
         has_gain_map: !is_raw && file_has_gain_map(&source_path),
-        gain_maps,
     });
 
     crate::ai::jobs::prioritize(&app_handle, &path);

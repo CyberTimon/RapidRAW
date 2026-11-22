@@ -212,6 +212,7 @@ pub fn generate_thumbnail_data(
         app_handle,
         metadata.as_ref(),
         &settings,
+        None,
     )
 }
 
@@ -261,6 +262,7 @@ fn generate_thumbnail_data_with_metadata(
     app_handle: &AppHandle,
     metadata: Option<&ImageMetadata>,
     settings: &AppSettings,
+    before_decode: Option<&dyn Fn()>,
 ) -> anyhow::Result<DynamicImage> {
     let (source_path, _) = parse_virtual_path(path_str);
     let source_path_str = source_path.to_string_lossy().to_string();
@@ -349,10 +351,13 @@ fn generate_thumbnail_data_with_metadata(
                 Cow::Borrowed(patched)
             } else if let Some(img) = preloaded_image {
                 let prepared =
-                    image_loader::prepare_base_image_cow(img, &source_path_str, adjustments)?;
+                    image_loader::prepare_base_image(img, &source_path_str, adjustments)?;
                 raw_scale_factor = crate::ai::upscale::scale_between(img, &prepared);
                 prepared
             } else {
+                if let Some(before_decode) = before_decode {
+                    before_decode();
+                }
                 let mmap_guard;
                 let vec_guard;
 
@@ -390,14 +395,6 @@ fn generate_thumbnail_data_with_metadata(
                 )?;
 
                 raw_scale_factor = upscale;
-                if is_raw {
-                    raw_scale_factor *=
-                        crate::decode::raw_processing::get_fast_demosaic_scale_factor(
-                            file_slice,
-                            (img.width() as f32 / upscale).round() as u32,
-                            (img.height() as f32 / upscale).round() as u32,
-                        );
-                }
                 Cow::Owned(img)
             };
 
@@ -498,18 +495,8 @@ fn generate_thumbnail_data_with_metadata(
             resolve_render_options(settings, is_raw),
         );
         let lut_path = meta.adjustments["lutPath"].as_str();
-        let lut = lut_path.and_then(|p| {
-            let mut cache = state.lut_cache.lock().unwrap();
-            if let Some(cached_lut) = cache.get(p) {
-                return Some(cached_lut.clone());
-            }
-            if let Ok(loaded_lut) = crate::adjustments::lut_processing::parse_lut_file(p) {
-                let arc_lut = Arc::new(loaded_lut);
-                cache.insert(p.to_string(), arc_lut.clone());
-                return Some(arc_lut);
-            }
-            None
-        });
+        let lut = lut_path
+            .and_then(|p| crate::adjustments::lut_processing::get_or_load_lut(&state, p).ok());
 
         let processed_image = process_and_get_dynamic_image(
             context,
@@ -545,8 +532,11 @@ fn generate_thumbnail_data_with_metadata(
     let final_image: Cow<DynamicImage> = if let Some(patched) = &cached_patched {
         Cow::Borrowed(patched)
     } else if let Some(img) = preloaded_image {
-        image_loader::prepare_base_image_cow(img, &source_path_str, adjustments)?
+        image_loader::prepare_base_image(img, &source_path_str, adjustments)?
     } else {
+        if let Some(before_decode) = before_decode {
+            before_decode();
+        }
         let mmap_guard;
         let vec_guard;
         let file_slice: &[u8] = match read_file_mapped(&source_path) {
@@ -642,7 +632,7 @@ pub fn generate_single_thumbnail_and_cache(
     force_regenerate: bool,
     app_handle: &AppHandle,
     settings: &AppSettings,
-    before_generate: Option<&dyn Fn()>,
+    before_decode: Option<&dyn Fn()>,
 ) -> Option<(String, String, u8, bool)> {
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
     let sidecar_is_placeholder = is_cloud_placeholder(&sidecar_path);
@@ -699,10 +689,6 @@ pub fn generate_single_thumbnail_and_cache(
         ));
     }
 
-    if let Some(before_generate) = before_generate {
-        before_generate();
-    }
-
     if is_cloud_placeholder(&source_path) {
         return None;
     }
@@ -710,19 +696,16 @@ pub fn generate_single_thumbnail_and_cache(
     let target_width_small = settings.small_thumbnail_resolution.unwrap_or(480);
     let target_width_medium = settings.medium_thumbnail_resolution.unwrap_or(1280);
 
-    let thumb_result = if sidecar_is_placeholder {
-        generate_thumbnail_data(path_str, gpu_context, preloaded_image, app_handle)
-    } else {
-        let current_settings = load_settings(app_handle.clone()).unwrap_or_default();
-        generate_thumbnail_data_with_metadata(
-            path_str,
-            gpu_context,
-            preloaded_image,
-            app_handle,
-            metadata.as_ref(),
-            &current_settings,
-        )
-    };
+    let current_settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let thumb_result = generate_thumbnail_data_with_metadata(
+        path_str,
+        gpu_context,
+        preloaded_image,
+        app_handle,
+        metadata.as_ref(),
+        &current_settings,
+        before_decode,
+    );
 
     if let Ok(thumb_image) = thumb_result
         && let (Ok(small_data), Ok(medium_data)) = (

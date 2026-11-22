@@ -64,9 +64,17 @@ export const COLOR_SPACE_FILE_FORMATS: Array<string> = [
 ];
 
 export const HDR_FILE_FORMATS: Array<string> = [FileFormats.Jpeg, FileFormats.Jxl];
+export const DEFAULT_HDR_HEADROOM = 2;
 
 export const DEFAULT_EXPORT_DPI = 96;
 export const MAX_EXPORT_DPI = 65535;
+
+export enum ConflictAction {
+  CreateUnique = 'createUnique',
+  Overwrite = 'overwrite',
+  OverwriteIfChanged = 'overwriteIfChanged',
+  Skip = 'skip',
+}
 
 export interface ExportSettings {
   filenameTemplate: string | null;
@@ -74,6 +82,7 @@ export interface ExportSettings {
   tiffBitDepth: TiffBitDepth;
   colorSpace: ExportColorSpace;
   hdr: boolean;
+  hdrHeadroom: number;
   keepMetadata: boolean;
   preserveTimestamps: boolean;
   resize: {
@@ -103,6 +112,7 @@ export interface ExportSettings {
   destinationType?: string;
   subfolder?: string;
   dpi?: number;
+  onConflict?: ConflictAction;
 }
 
 export enum BorderBasis {
@@ -137,6 +147,8 @@ export interface ExportState {
   errorMessage: string;
   progress: Progress;
   status: Status;
+  exportedCount?: number;
+  skippedCount?: number;
 }
 
 export interface FileFormat {
@@ -171,6 +183,7 @@ export interface ExportPreset {
   tiffBitDepth?: TiffBitDepth;
   colorSpace?: ExportColorSpace;
   hdr?: boolean;
+  hdrHeadroom?: number;
   dpi?: number;
   enableResize: boolean;
   resizeMode: string;
@@ -203,4 +216,5 @@ export interface ExportPreset {
   lastExportPath?: string;
   destinationType?: string;
   subfolder?: string;
+  onConflict?: ConflictAction;
 }

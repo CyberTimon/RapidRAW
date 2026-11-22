@@ -1,8 +1,9 @@
 use crate::app::state::AppState;
 use crate::render::adjustment_utils::effective_baseline_exposure;
-use crate::render::color_space::working_luma;
+use crate::render::color_space::{working_luma, working_to_srgb};
 use crate::render::image_processing::{apply_exposure, downscale_f32_image};
 use crate::render::options::resolve_render_options_from_handle;
+use glam::Vec3;
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -76,6 +77,7 @@ pub fn perform_auto_analysis(image: &DynamicImage, exposure: f32) -> AutoAdjustm
         exposure,
     );
     let rgb_image = analysis_preview.to_rgb8();
+    let linear_image = analysis_preview.to_rgb32f();
     let total_pixels = (rgb_image.width() * rgb_image.height()) as f64;
 
     let (width, height) = rgb_image.dimensions();
@@ -84,6 +86,7 @@ pub fn perform_auto_analysis(image: &DynamicImage, exposure: f32) -> AutoAdjustm
     let cy0 = (height as f32 * VIGNETTE_CENTER_LOW) as u32;
     let cy1 = (height as f32 * VIGNETTE_CENTER_HIGH) as u32;
 
+    let to_srgb = working_to_srgb();
     let mut luma_hist = vec![0u32; 256];
     let mut mean_saturation = 0.0f32;
     let mut center_sum = 0.0f32;
@@ -99,11 +102,10 @@ pub fn perform_auto_analysis(image: &DynamicImage, exposure: f32) -> AutoAdjustm
         let luma_f = luma_r * r + luma_g * g + luma_b * b;
         luma_hist[(luma_f.round() as usize).min(255)] += 1;
 
-        let r_n = r / 255.0;
-        let g_n = g / 255.0;
-        let b_n = b / 255.0;
-        let max_c = r_n.max(g_n).max(b_n);
-        let min_c = r_n.min(g_n).min(b_n);
+        let linear = Vec3::from_array(linear_image.get_pixel(x, y).0);
+        let srgb = (to_srgb * linear).clamp(Vec3::ZERO, Vec3::ONE);
+        let max_c = srgb.max_element();
+        let min_c = srgb.min_element();
         if max_c > 0.0 {
             let s = (max_c - min_c) / max_c;
             mean_saturation += s;

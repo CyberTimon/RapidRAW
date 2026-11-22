@@ -55,7 +55,7 @@ import { DEFAULT_SPEED_EDIT_ADJUSTMENTS, SPEED_EDIT_ADJUSTMENTS } from '../../ut
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useOsPlatform } from '../../hooks/useOsPlatform';
-import { DEFAULT_HDR_HEADROOM, useDisplayStatus } from '../../hooks/useDisplayStatus';
+import { useDisplayStatus } from '../../hooks/useDisplayStatus';
 import { useCloudUsage } from '../../hooks/useCloudUsage';
 import { open } from '@tauri-apps/plugin-shell';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
@@ -96,6 +96,7 @@ interface SettingItemProps {
 interface GpuFallbacks {
   backend: { failed: string; using: string; retryPending: boolean } | null;
   rawDecodingMegapixels: number | null;
+  rawDecodingUnavailable: boolean;
 }
 
 interface SettingsPanelProps {
@@ -730,7 +731,8 @@ export default function SettingsPanel({
   const backendName = (backend: string) =>
     t(BACKEND_NAME_KEYS[backend as keyof typeof BACKEND_NAME_KEYS] ?? BACKEND_NAME_KEYS.auto);
   const backendFallback = gpuFallbacks?.backend;
-  const rawDecodingMegapixels = gpuFallbacks?.rawDecodingMegapixels;
+  const rawDecodingUnavailable = gpuFallbacks?.rawDecodingUnavailable ?? false;
+  const rawDecodingMegapixels = rawDecodingUnavailable ? null : gpuFallbacks?.rawDecodingMegapixels;
   const displayColorMode = appSettings?.displayColorMode ?? 'auto';
   const displayColorOptions = useMemo<OptionItem<string>[]>(
     () => [
@@ -743,7 +745,6 @@ export default function SettingsPanel({
   const gainMapOptions = useMemo<OptionItem<string>[]>(
     () => [
       { value: 'auto', label: t('settings.processing.hdr.gainMapsAuto') },
-      { value: 'always', label: t('settings.processing.hdr.gainMapsAlways') },
       { value: 'never', label: t('settings.processing.hdr.gainMapsNever') },
     ],
     [t],
@@ -790,7 +791,6 @@ export default function SettingsPanel({
     mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
     rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
     baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
-    hdrHeadroom: appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM,
     processingBackend: appSettings?.processingBackend || 'auto',
     linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
     highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -803,6 +803,7 @@ export default function SettingsPanel({
     rawPreprocessingSharpening: appSettings?.rawPreprocessingSharpening ?? 0.35,
     applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
     useAppleRaw9: appSettings?.useAppleRaw9 ?? false,
+    removeHotPixels: appSettings?.removeHotPixels ?? true,
   });
   const [restartRequired, setRestartRequired] = useState(false);
   const [activeCategory, setActiveCategory] = useState('general');
@@ -930,7 +931,6 @@ export default function SettingsPanel({
       mediumThumbnailResolution: appSettings?.mediumThumbnailResolution || 1280,
       rawHighlightCompression: appSettings?.rawHighlightCompression ?? 2.5,
       baselineExposure: appSettings?.baselineExposure ?? DEFAULT_BASELINE_EXPOSURE,
-      hdrHeadroom: appSettings?.hdrHeadroom ?? DEFAULT_HDR_HEADROOM,
       processingBackend: appSettings?.processingBackend || 'auto',
       linuxGpuOptimization: appSettings?.linuxGpuOptimization ?? false,
       highResZoomMultiplier: appSettings?.highResZoomMultiplier || 1.0,
@@ -943,6 +943,7 @@ export default function SettingsPanel({
       rawPreprocessingSharpening: appSettings?.rawPreprocessingSharpening ?? 0.35,
       applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
       useAppleRaw9: appSettings?.useAppleRaw9 ?? false,
+      removeHotPixels: appSettings?.removeHotPixels ?? true,
     });
     setRestartRequired(false);
   }, [appSettings]);
@@ -968,7 +969,8 @@ export default function SettingsPanel({
         key === 'rawPreprocessingColorNr' ||
         key === 'rawPreprocessingSharpening' ||
         key === 'applyPreprocessingToNonRaws' ||
-        key === 'useAppleRaw9'
+        key === 'useAppleRaw9' ||
+        key === 'removeHotPixels'
       ) {
         await invoke('clear_image_caches');
       }
@@ -2162,11 +2164,13 @@ export default function SettingsPanel({
                         label={t('settings.processing.rawDecoding')}
                         description={t('settings.processing.rawDecodingDesc')}
                         status={
-                          rawDecodingMegapixels
-                            ? t('settings.processing.rawDecodingFallback', {
-                                megapixels: Math.round(rawDecodingMegapixels),
-                              })
-                            : null
+                          rawDecodingUnavailable
+                            ? t('settings.processing.rawDecodingUnavailable')
+                            : rawDecodingMegapixels
+                              ? t('settings.processing.rawDecodingFallback', {
+                                  megapixels: Math.round(rawDecodingMegapixels),
+                                })
+                              : null
                         }
                         statusAction={
                           rawDecodingMegapixels
@@ -2367,8 +2371,8 @@ export default function SettingsPanel({
                       )}
 
                       <SettingItem
-                        label={t('settings.processing.hdr.display')}
-                        description={t('settings.processing.hdr.displayDesc')}
+                        label={t('settings.processing.hdr.gainMaps')}
+                        description={t('settings.processing.hdr.gainMapsDesc')}
                         status={
                           displayStatus &&
                           (!displayStatus.hdrSupported
@@ -2378,47 +2382,16 @@ export default function SettingsPanel({
                               : t('settings.processing.hdr.statusInactive'))
                         }
                       >
-                        <Switch
-                          checked={appSettings?.hdrDisplay ?? false}
-                          disabled={displayStatus?.hdrSupported === false && !appSettings?.hdrDisplay}
-                          id="hdr-display-toggle"
-                          label={t('settings.processing.hdr.enableDisplay')}
-                          onChange={(checked) => onSettingsChange({ ...appSettings, hdrDisplay: checked })}
-                        />
-                      </SettingItem>
-
-                      <SettingItem
-                        label={t('settings.processing.hdr.gainMaps')}
-                        description={t('settings.processing.hdr.gainMapsDesc')}
-                      >
                         <Dropdown
-                          onChange={async (value: string) => {
-                            await onSettingsChange({
+                          onChange={(value: string) =>
+                            onSettingsChange({
                               ...appSettings,
-                              gainMapMode: value as 'auto' | 'always' | 'never',
-                            });
-                            await invoke('clear_image_caches');
-                          }}
+                              gainMapMode: value as 'auto' | 'never',
+                            })
+                          }
                           options={gainMapOptions}
                           value={appSettings?.gainMapMode ?? 'auto'}
                           triggerClassName="bg-bg-primary"
-                        />
-                      </SettingItem>
-
-                      <SettingItem
-                        label={t('settings.processing.hdr.headroom')}
-                        description={t('settings.processing.hdr.headroomDesc')}
-                      >
-                        <Slider
-                          label={t('settings.tagging.amount')}
-                          min={1}
-                          max={4}
-                          step={0.1}
-                          value={processingSettings.hdrHeadroom}
-                          defaultValue={DEFAULT_HDR_HEADROOM}
-                          onChange={(e) => handleProcessingSettingChange('hdrHeadroom', Number(e.target.value))}
-                          fillOrigin="min"
-                          suffix=" EV"
                         />
                       </SettingItem>
                     </div>
@@ -2448,6 +2421,18 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
                       */}
+
+                      <SettingItem
+                        label={t('settings.processing.preprocessing.hotPixels')}
+                        description={t('settings.processing.preprocessing.hotPixelsDesc')}
+                      >
+                        <Switch
+                          checked={processingSettings.removeHotPixels}
+                          id="hot-pixels-toggle"
+                          label={t('settings.processing.preprocessing.enableHotPixels')}
+                          onChange={(checked) => handleProcessingSettingChange('removeHotPixels', checked)}
+                        />
+                      </SettingItem>
 
                       <SettingItem
                         label={t('settings.processing.preprocessing.colorNr')}

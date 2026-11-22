@@ -5,7 +5,7 @@ import { exit } from '@tauri-apps/plugin-process';
 import { useProcessStore } from '../store/useProcessStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { Invokes } from '../types/invokes';
-import { ExportColorSpace, ExportSettings, Status } from '../types/export';
+import { DEFAULT_HDR_HEADROOM, ExportColorSpace, ExportSettings, Status } from '../types/export';
 import { debouncedSave } from './useEditorActions';
 
 /**
@@ -65,6 +65,7 @@ export function useExternalEditSession(
       tiffBitDepth: 16,
       colorSpace: ExportColorSpace.Srgb,
       hdr: false,
+      hdrHeadroom: DEFAULT_HDR_HEADROOM,
       keepMetadata: true,
       preserveTimestamps: false,
       preserveFolders: false,
@@ -84,6 +85,8 @@ export function useExternalEditSession(
       status: Status.Exporting,
       progress: { current: 0, total: 1 },
       errorMessage: '',
+      exportedCount: undefined,
+      skippedCount: undefined,
     });
 
     try {

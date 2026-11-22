@@ -94,6 +94,8 @@ windows = { version = "0.62", features = [
     "Win32_Graphics_Dxgi",
     "Win32_Graphics_Dxgi_Common",
     "Win32_Graphics_Gdi",
+    "Win32_Graphics_Imaging",
+    "Win32_System_Com",
     "Win32_System_Threading",
     "Win32_UI_ColorSystem",
 ] }
@@ -106,13 +108,22 @@ gphoto2 = { git = "https://github.com/CyberTimon/libgphoto2-rs", optional = true
 apple-native-keyring-store = { version = "1", features = ["keychain"] }
 objc = "0.2"
 objc2 = "0.6"
+block2 = "0.6"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSApplication",
+] }
 objc2-foundation = { version = "0.3.2", features = [
+    "block2",
+    "NSNotification",
+    "NSOperation",
     "NSData",
     "NSDictionary",
     "NSString",
     "NSURL",
     "NSValue",
     "NSArray",
+    "NSNull",
 ] }
 objc2-core-foundation = { version = "0.3.2", features = ["CFCGTypes"] }
 objc2-core-graphics = { version = "0.3.2", features = ["CGColorSpace"] }

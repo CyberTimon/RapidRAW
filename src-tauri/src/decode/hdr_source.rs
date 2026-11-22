@@ -5,7 +5,6 @@ use moxcms::{ColorProfile, ToneReprCurve, TransferCharacteristics};
 use rawler::Orientation;
 use std::io::Cursor;
 use std::ops::Range;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 const XMP_NAMESPACE: &[u8] = b"http://ns.adobe.com/xap/1.0/\0";
 const ISO_NAMESPACE: &[u8] = b"urn:iso:std:iso:ts:21496:-1\0";
@@ -24,16 +23,6 @@ const MAX_GAIN_LOG2: f32 = 16.0;
 const JXL_CODESTREAM: &[u8] = &[0xFF, 0x0A];
 const JXL_CONTAINER: &[u8] = b"\0\0\0\x0cJXL \r\n\x87\n";
 
-static GAIN_MAPS_ENABLED: AtomicBool = AtomicBool::new(false);
-
-pub fn set_gain_maps_enabled(enabled: bool) {
-    GAIN_MAPS_ENABLED.store(enabled, Ordering::Release);
-}
-
-pub fn gain_maps_enabled() -> bool {
-    GAIN_MAPS_ENABLED.load(Ordering::Acquire)
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GainMapParams {
     min_log2: [f32; 3],
@@ -41,10 +30,11 @@ pub struct GainMapParams {
     gamma: [f32; 3],
     offset_sdr: [f32; 3],
     offset_hdr: [f32; 3],
+    capacity_log2: Option<[f32; 2]>,
 }
 
 impl GainMapParams {
-    pub fn from_channels(channels: [[f32; 5]; 3]) -> Option<Self> {
+    pub fn from_channels(channels: [[f32; 5]; 3], capacity_log2: Option<[f32; 2]>) -> Option<Self> {
         let field = |index: usize| channels.map(|channel| channel[index]);
         Self {
             min_log2: field(0),
@@ -52,8 +42,20 @@ impl GainMapParams {
             gamma: field(2),
             offset_sdr: field(3),
             offset_hdr: field(4),
+            capacity_log2,
         }
         .validated()
+    }
+
+    pub fn weight(&self, headroom: f32) -> f32 {
+        let [low, high] = self
+            .capacity_log2
+            .filter(|[low, high]| high > low)
+            .unwrap_or([0.0, self.peak().log2()]);
+        if high <= low {
+            return 0.0;
+        }
+        ((headroom.max(1.0).log2() - low) / (high - low)).clamp(0.0, 1.0)
     }
 
     fn validated(self) -> Option<Self> {
@@ -82,11 +84,11 @@ impl GainMapParams {
             .max(1.0)
     }
 
-    fn boost(&self, channel: usize, encoded: f32) -> f32 {
+    fn boost(&self, channel: usize, encoded: f32, weight: f32) -> f32 {
         let recovery = encoded.clamp(0.0, 1.0).powf(1.0 / self.gamma[channel]);
         let log2 =
             self.min_log2[channel] + (self.max_log2[channel] - self.min_log2[channel]) * recovery;
-        log2.exp2()
+        (log2 * weight).exp2()
     }
 }
 
@@ -99,6 +101,16 @@ impl GainMap {
     pub fn new(params: GainMapParams, image: Rgb32FImage) -> Option<Self> {
         let (width, height) = image.dimensions();
         (width > 0 && height > 0).then_some(Self { params, image })
+    }
+
+    pub fn weight(&self, headroom: f32) -> f32 {
+        self.params.weight(headroom)
+    }
+
+    pub fn fits(&self, (width, height): (u32, u32)) -> bool {
+        let (map_width, map_height) = self.image.dimensions();
+        let aspect = |w: u32, h: u32| w as f32 / h.max(1) as f32;
+        (aspect(map_width, map_height) / aspect(width, height) - 1.0).abs() < 0.05
     }
 
     pub fn transformed(self, transform: impl Fn(DynamicImage) -> DynamicImage) -> Self {
@@ -115,7 +127,12 @@ impl GainMap {
         Self { image, ..self }
     }
 
-    pub fn row_applier(&self, width: u32, height: u32) -> impl Fn(u32, &mut [f32]) + Sync + '_ {
+    pub fn row_applier(
+        &self,
+        width: u32,
+        height: u32,
+        weight: f32,
+    ) -> impl Fn(u32, &mut [f32]) + Sync + '_ {
         let (map_width, map_height) = self.image.dimensions();
         let scale_x = map_width as f32 / width.max(1) as f32;
         let scale_y = map_height as f32 / height.max(1) as f32;
@@ -136,7 +153,7 @@ impl GainMap {
                     let bottom = c[channel] + (d[channel] - c[channel]) * fx;
                     let encoded = top + (bottom - top) * fy;
                     rgb[channel] = (rgb[channel] + self.params.offset_sdr[channel])
-                        * self.params.boost(channel, encoded)
+                        * self.params.boost(channel, encoded, weight)
                         - self.params.offset_hdr[channel];
                 }
             }
@@ -258,12 +275,16 @@ fn params_from_xmp(xmp: &str) -> Option<GainMapParams> {
     let base_is_hdr = xmp.contains("hdrgm:BaseRenditionIsHDR=\"True\"")
         || xmp.contains("hdrgm:BaseRenditionIsHDR='True'");
     let read = |name: &str, default: f32| per_channel(xml_number_list(xmp, name), default);
+    let capacity =
+        |name: &str| xml_number_list(xmp, name).and_then(|values| values.first().copied());
     let params = GainMapParams {
         min_log2: read("GainMapMin", 0.0)?,
         max_log2: read("GainMapMax", 1.0)?,
         gamma: read("Gamma", 1.0)?,
         offset_sdr: read("OffsetSDR", 1.0 / 64.0)?,
         offset_hdr: read("OffsetHDR", 1.0 / 64.0)?,
+        capacity_log2: capacity("HDRCapacityMax")
+            .map(|high| [capacity("HDRCapacityMin").unwrap_or(0.0), high]),
     };
     (!base_is_hdr).then_some(params)?.validated()
 }
@@ -282,17 +303,20 @@ fn params_from_iso(metadata: &[u8]) -> Option<GainMapParams> {
         Some(u32::from_be_bytes(bytes))
     };
     let mut values = Vec::with_capacity(channels * 5);
+    let capacity_log2;
     if flags & 0x08 != 0 {
         let denominator = next_u32()?.max(1) as f32;
-        next_u32()?;
-        next_u32()?;
+        let base = next_u32()? as f32 / denominator;
+        let alternate = next_u32()? as f32 / denominator;
+        capacity_log2 = [base, alternate];
         for _ in 0..channels * 5 {
             values.push(next_u32()? as i32 as f32 / denominator);
         }
     } else {
-        for _ in 0..4 {
-            next_u32()?;
-        }
+        let mut fraction = || Some(next_u32()? as f32 / next_u32()?.max(1) as f32);
+        let base = fraction()?;
+        let alternate = fraction()?;
+        capacity_log2 = [base, alternate];
         for _ in 0..channels * 5 {
             let numerator = next_u32()? as i32 as f32;
             values.push(numerator / next_u32()?.max(1) as f32);
@@ -308,6 +332,7 @@ fn params_from_iso(metadata: &[u8]) -> Option<GainMapParams> {
         gamma: channel(2),
         offset_sdr: channel(3),
         offset_hdr: channel(4),
+        capacity_log2: Some(capacity_log2),
     }
     .validated()
 }
@@ -325,6 +350,9 @@ fn gain_map_jpeg(jpeg: &[u8]) -> Option<&[u8]> {
 pub fn has_gain_map(bytes: &[u8]) -> bool {
     if crate::decode::avif::is_avif(bytes) {
         return crate::decode::avif::has_gain_map(bytes);
+    }
+    if crate::decode::heic::is_heif(bytes) {
+        return crate::decode::heic::has_gain_map(bytes);
     }
     bytes.starts_with(&[0xFF, 0xD8]) && gain_map_peak(bytes).is_some()
 }
@@ -428,15 +456,22 @@ fn hlg_to_relative(rgb: [f32; 3]) -> [f32; 3] {
     scene.map(|c| c * gain / REFERENCE_WHITE_NITS)
 }
 
+const PQ_M1: f32 = 2610.0 / 16384.0;
+const PQ_M2: f32 = 2523.0 / 4096.0 * 128.0;
+const PQ_C1: f32 = 3424.0 / 4096.0;
+const PQ_C2: f32 = 2413.0 / 4096.0 * 32.0;
+const PQ_C3: f32 = 2392.0 / 4096.0 * 32.0;
+
 pub fn pq_to_relative(encoded: f32) -> f32 {
-    const M1: f32 = 2610.0 / 16384.0;
-    const M2: f32 = 2523.0 / 4096.0 * 128.0;
-    const C1: f32 = 3424.0 / 4096.0;
-    const C2: f32 = 2413.0 / 4096.0 * 32.0;
-    const C3: f32 = 2392.0 / 4096.0 * 32.0;
-    let power = encoded.clamp(0.0, 1.0).powf(1.0 / M2);
-    let linear = ((power - C1).max(0.0) / (C2 - C3 * power)).powf(1.0 / M1);
+    let power = encoded.clamp(0.0, 1.0).powf(1.0 / PQ_M2);
+    let linear = ((power - PQ_C1).max(0.0) / (PQ_C2 - PQ_C3 * power)).powf(1.0 / PQ_M1);
     linear * PQ_PEAK_NITS / REFERENCE_WHITE_NITS
+}
+
+#[cfg(target_os = "windows")]
+pub fn pq_from_nits(nits: f32) -> f32 {
+    let power = (nits / PQ_PEAK_NITS).clamp(0.0, 1.0).powf(PQ_M1);
+    ((PQ_C1 + PQ_C2 * power) / (1.0 + PQ_C3 * power)).powf(PQ_M2)
 }
 
 pub fn hdr_transfer(profile: &ColorProfile) -> Option<HdrTransfer> {
@@ -490,11 +525,13 @@ fn embedded_hdr_peak(bytes: &[u8]) -> Option<f32> {
 
 pub fn source_peak(bytes: &[u8]) -> f32 {
     let peak = if bytes.starts_with(&[0xFF, 0xD8]) {
-        gain_maps_enabled().then(|| gain_map_peak(bytes)).flatten()
+        None
     } else if bytes.starts_with(JXL_CODESTREAM) || bytes.starts_with(JXL_CONTAINER) {
         jxl_hdr_peak(bytes)
     } else if crate::decode::avif::is_avif(bytes) {
-        crate::decode::avif::hdr_peak(bytes, gain_maps_enabled())
+        crate::decode::avif::hdr_peak(bytes)
+    } else if crate::decode::heic::is_heif(bytes) {
+        crate::decode::heic::hdr_peak(bytes)
     } else {
         embedded_hdr_peak(bytes)
     };

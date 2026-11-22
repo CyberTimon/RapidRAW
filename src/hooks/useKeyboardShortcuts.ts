@@ -4,7 +4,7 @@ import { ImageFile, ImageFlag } from '../types/library';
 import { Panel } from '../types/ui';
 import { ExifOverlay, LibraryViewMode } from '../types/settings';
 import { KEYBIND_DEFINITIONS, getEffectiveCombo, normalizeCombo } from '../utils/keyboardUtils';
-import { getZoomContentSize, getZoomPercent, useEditorStore } from '../store/useEditorStore';
+import { cancelCanvasTool, getZoomContentSize, getZoomPercent, useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { getReopenedPanelWidth, isPanelVisible, useUIStore } from '../store/useUIStore';
@@ -643,8 +643,8 @@ export const useKeyboardShortcuts = ({
         match: (e: KeyboardEvent) => e.code === 'Escape',
         execute: (e: KeyboardEvent, s: any) => {
           e.preventDefault();
-          if (s.editor.isStraightenActive) s.editor.setEditor({ isStraightenActive: false });
-          else if (s.ui.customEscapeHandler) s.ui.customEscapeHandler();
+          if (cancelCanvasTool()) return;
+          if (s.ui.customEscapeHandler) s.ui.customEscapeHandler();
           else if (s.editor.activeAiSubMaskId) s.editor.setEditor({ activeAiSubMaskId: null });
           else if (s.editor.activeAiPatchContainerId) s.editor.setEditor({ activeAiPatchContainerId: null });
           else if (s.editor.activeMaskId) s.editor.setEditor({ activeMaskId: null });

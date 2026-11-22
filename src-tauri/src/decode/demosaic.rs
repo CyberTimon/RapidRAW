@@ -12,7 +12,7 @@ use rayon::prelude::*;
 use wgpu::util::DeviceExt;
 
 use crate::decode::develop::{Finish, finish_rgb, release, storage, upload, whole};
-use crate::decode::gpu_fallback::{Load, on_gpu};
+use crate::decode::gpu_fallback::{Load, on_gpu, scoped};
 use crate::render::gpu::context::DecodeGpu;
 
 mod cpu;
@@ -178,17 +178,16 @@ fn markesteijn_hexagons(colors: &[[u8; 6]; 6]) -> Option<(Hexagons, [usize; 2])>
 }
 
 struct Kernels {
-    device: Arc<wgpu::Device>,
     bind_layout: wgpu::BindGroupLayout,
-    pipeline_layout: wgpu::PipelineLayout,
-    module: wgpu::ShaderModule,
     pipelines: HashMap<&'static str, wgpu::ComputePipeline>,
 }
 
-static KERNELS: Mutex<Option<Kernels>> = Mutex::new(None);
+type Built = (Arc<wgpu::Device>, Result<Kernels, String>);
+
+static KERNELS: Mutex<Option<Built>> = Mutex::new(None);
 
 impl Kernels {
-    fn new(device: &Arc<wgpu::Device>) -> Self {
+    fn new(device: &wgpu::Device) -> Self {
         let buffer = |binding, ty| wgpu::BindGroupLayoutEntry {
             binding,
             visibility: wgpu::ShaderStages::COMPUTE,
@@ -222,48 +221,65 @@ impl Kernels {
             label: Some("Demosaic Shader"),
             source: wgpu::ShaderSource::Wgsl(SHADER.into()),
         });
-        Self {
-            device: Arc::clone(device),
-            bind_layout,
-            pipeline_layout,
-            module,
-            pipelines: HashMap::new(),
-        }
-    }
-
-    fn prepare(&mut self, pattern: Pattern) {
-        for entry in pattern.stages().iter().copied().chain([pattern.output()]) {
-            self.pipelines.entry(entry).or_insert_with(|| {
-                self.device
-                    .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        let mut pipelines = HashMap::new();
+        for pattern in [Pattern::Bayer, Pattern::XTrans] {
+            for entry in pattern.stages().iter().copied().chain([pattern.output()]) {
+                pipelines.entry(entry).or_insert_with(|| {
+                    device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                         label: Some(entry),
-                        layout: Some(&self.pipeline_layout),
-                        module: &self.module,
+                        layout: Some(&pipeline_layout),
+                        module: &module,
                         entry_point: Some(entry),
                         compilation_options: Default::default(),
                         cache: None,
                     })
-            });
+                });
+            }
+        }
+        Self {
+            bind_layout,
+            pipelines,
         }
     }
 }
 
-fn with_kernels<T>(device: &Arc<wgpu::Device>, f: impl FnOnce(&mut Kernels) -> T) -> T {
+fn with_kernels<T>(device: &Arc<wgpu::Device>, f: impl FnOnce(&Kernels) -> Result<T>) -> Result<T> {
     let mut guard = KERNELS.lock().unwrap_or_else(|e| e.into_inner());
     if guard
         .as_ref()
-        .is_some_and(|kernels| !Arc::ptr_eq(&kernels.device, device))
+        .is_some_and(|(owner, _)| !Arc::ptr_eq(owner, device))
     {
         *guard = None;
     }
-    f(guard.get_or_insert_with(|| Kernels::new(device)))
+    let (_, kernels) = guard.get_or_insert_with(|| {
+        let kernels = scoped(device, || Ok(Kernels::new(device)));
+        (Arc::clone(device), kernels.map_err(|e| e.to_string()))
+    });
+    f(kernels.as_ref().map_err(|e| anyhow!("{}", e))?)
 }
 
-pub fn warm(device: &Arc<wgpu::Device>) {
-    with_kernels(device, |kernels| {
-        kernels.prepare(Pattern::Bayer);
-        kernels.prepare(Pattern::XTrans);
-    });
+pub(crate) fn active_domain(raw_image: &RawImage, min_size: usize) -> Option<Rect> {
+    let domain = raw_image
+        .active_area
+        .unwrap_or(Rect::new(Point::zero(), raw_image.dim()));
+    (domain.p.x + domain.d.w <= raw_image.width
+        && domain.p.y + domain.d.h <= raw_image.height
+        && domain.d.w >= min_size
+        && domain.d.h >= min_size)
+        .then_some(domain)
+}
+
+pub(crate) fn white_level(raw_image: &RawImage) -> f32 {
+    raw_image
+        .whitelevel
+        .0
+        .first()
+        .copied()
+        .unwrap_or(u16::MAX as u32) as f32
+}
+
+pub fn warm(device: &Arc<wgpu::Device>) -> Result<()> {
+    with_kernels(device, |_| Ok(()))
 }
 
 impl<'a> Mosaic<'a> {
@@ -298,23 +314,9 @@ impl<'a> Mosaic<'a> {
             Pattern::XTrans => return None,
         };
 
-        let full = Rect::new(Point::zero(), raw_image.dim());
-        let domain = raw_image.active_area.unwrap_or(full);
-        if domain.p.x + domain.d.w > raw_image.width
-            || domain.p.y + domain.d.h > raw_image.height
-            || domain.d.w < 64
-            || domain.d.h < 64
-        {
-            return None;
-        }
-
+        let domain = active_domain(raw_image, 64)?;
         let black = raw_image.blacklevel.as_bayer_array();
-        let white = raw_image
-            .whitelevel
-            .0
-            .first()
-            .copied()
-            .unwrap_or(u16::MAX as u32) as f32;
+        let white = white_level(raw_image);
 
         Some(Self {
             data,
@@ -398,7 +400,6 @@ impl<'a> Mosaic<'a> {
         };
         let gpu = on_gpu(load, |context| {
             with_kernels(&context.device, |kernels| {
-                kernels.prepare(self.pattern);
                 self.run(kernels, context, crop, finish)
             })
         });

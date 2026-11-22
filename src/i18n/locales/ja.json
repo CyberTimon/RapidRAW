@@ -67,8 +67,8 @@
           "extendedRed": "赤に強い感度を持つフィルム。肌が明るく、空が暗くなります",
           "infrared": "輝く草木とほぼ黒い空",
           "neutral": "各色の知覚的な明るさに合わせます",
-          "orthoPanchromatic": "赤がやや暗く、緑がくっきりします",
           "orthochromatic": "赤に感光しないため、赤は暗く、空は明るくなります",
+          "orthoPanchromatic": "赤がやや暗く、緑がくっきりします",
           "panchromatic": "青空が明るめになるクラシックなフィルム特性"
         },
         "films": {
@@ -76,8 +76,8 @@
           "extendedRed": "拡張赤感",
           "infrared": "赤外線",
           "neutral": "ニュートラル",
-          "orthoPanchromatic": "オルソパン",
           "orthochromatic": "オルソクロマチック",
+          "orthoPanchromatic": "オルソパン",
           "panchromatic": "パンクロマチック"
         },
         "filter": "フィルター",
@@ -118,13 +118,13 @@
       "whiteBalance": "ホワイトバランス"
     },
     "curves": {
-      "channelTitle": "{{channel}} チャンネル",
       "channels": {
         "blue": "ブルー",
         "green": "グリーン",
         "luma": "ルミナンス",
         "red": "レッド"
       },
+      "channelTitle": "{{channel}} チャンネル",
       "copyParametric": "{{channel}} パラメトリックカーブをコピー",
       "copyPoint": "{{channel}} ポイントカーブをコピー",
       "curveDataUnavailable": "カーブデータがありません。",
@@ -148,7 +148,6 @@
     },
     "details": {
       "aiDenoise": "AIノイズ除去",
-      "classicDenoise": "クラシックノイズ除去",
       "aiDenoiseDetail": "ディテール",
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "ディテール",
@@ -156,6 +155,7 @@
       "centre": "中央",
       "chromaticAberration": "色収差",
       "clarity": "明瞭度",
+      "classicDenoise": "クラシックノイズ除去",
       "color": "カラー",
       "convertNegative": "ネガを反転",
       "dehaze": "かすみの除去",
@@ -167,12 +167,12 @@
       "negativeGreen": "グリーン",
       "negativeRed": "レッド",
       "noiseReduction": "ノイズ低減",
-      "superResolution": "RapidRes",
       "presence": "外観",
       "redCyan": "レッド/シアン",
       "sharpening": "シャープ",
       "sharpness": "シャープネス",
       "structure": "構造",
+      "superResolution": "RapidRes",
       "threshold": "しきい値"
     },
     "effects": {
@@ -197,6 +197,24 @@
       "lightFlares": "ライトフレア",
       "lut": "LUT",
       "midpoint": "中間点",
+      "motionBlur": "モーションブラー",
+      "motionBlurAngle": "角度",
+      "motionBlurDepth": "奥行き",
+      "motionBlurHighlights": "ハイライト",
+      "motionBlurLayer": "動き",
+      "motionBlurLayers": {
+        "auto": "自動",
+        "panning": "流し撮り",
+        "subject": "被写体の動き",
+        "uniform": "均一"
+      },
+      "motionBlurType": "種類",
+      "motionBlurTypes": {
+        "linear": "直線",
+        "smooth": "なめらか",
+        "spin": "回転",
+        "zoom": "ズーム"
+      },
       "relight": "リライト",
       "relightAddLight": "ライトを追加",
       "relightAmbient": "環境光",
@@ -225,25 +243,7 @@
       "roundness": "丸み",
       "size": "サイズ",
       "spatial": "空間",
-      "vignette": "周辺光量補正",
-      "motionBlur": "モーションブラー",
-      "motionBlurAngle": "角度",
-      "motionBlurDepth": "奥行き",
-      "motionBlurHighlights": "ハイライト",
-      "motionBlurLayer": "動き",
-      "motionBlurLayers": {
-        "auto": "自動",
-        "panning": "流し撮り",
-        "subject": "被写体の動き",
-        "uniform": "均一"
-      },
-      "motionBlurType": "種類",
-      "motionBlurTypes": {
-        "linear": "直線",
-        "zoom": "ズーム",
-        "spin": "回転",
-        "smooth": "なめらか"
-      }
+      "vignette": "周辺光量補正"
     }
   },
   "contextMenus": {
@@ -296,7 +296,6 @@
     },
     "editor": {
       "autoAdjust": "自動補正",
-      "autoLensCorrection": "自動レンズ補正",
       "autoStraighten": "自動角度補正",
       "cancel": "キャンセル",
       "closeViewer": "セカンドウィンドウを閉じる",
@@ -305,7 +304,6 @@
       "convertBlackWhite": "白黒に変換",
       "convertNegative": "ネガ反転",
       "copyAdjustments": "補正設定をコピー",
-      "cullImage": "自動選別",
       "denoise": "ノイズ低減",
       "editImage": "画像を編集",
       "editIn": "外部アプリで編集",
@@ -314,6 +312,7 @@
       "flagPick": "採用",
       "flagReject": "除外",
       "frameImage": "フレームエディター",
+      "lensCorrection": "レンズ補正",
       "mergeHdr": "HDRに統合",
       "noLabel": "ラベルなし",
       "noRating": "評価なし",
@@ -326,6 +325,7 @@
       "redo": "やり直し",
       "removeBlackWhite": "白黒を解除",
       "removeDenoise": "ノイズ低減を解除",
+      "removeLensCorrection": "レンズ補正を解除",
       "removeNegativeConversion": "ネガ反転を解除",
       "removeSuperResolution": "RapidResを解除",
       "resetAdjustments": "補正設定をリセット",
@@ -376,8 +376,6 @@
       "addToAlbum": "アルバムに追加",
       "autoAdjust_one": "自動補正",
       "autoAdjust_other": "自動補正",
-      "autoLensCorrection_one": "自動レンズ補正",
-      "autoLensCorrection_other": "自動レンズ補正",
       "autoStraighten_one": "自動角度補正",
       "autoStraighten_other": "自動角度補正",
       "collage_one": "フレームエディター",
@@ -394,12 +392,12 @@
       "deleteSelected": "選択したもののみ削除",
       "denoise_one": "ノイズ低減",
       "denoise_other": "ノイズ低減",
-      "superResolution_one": "RapidRes (2x)",
-      "superResolution_other": "RapidRes (2x)",
       "duplicateImage": "画像を複製",
       "enable": "有効にする",
       "exportImage_one": "画像を書き出し",
       "exportImage_other": "{{count}} 枚の画像を書き出し",
+      "lensCorrection_one": "レンズ補正",
+      "lensCorrection_other": "レンズ補正",
       "noAlbums": "利用可能なアルバムがありません",
       "pasteAdjustments_one": "補正設定を貼り付け",
       "pasteAdjustments_other": "{{count}} 枚の画像に補正設定を貼り付け",
@@ -412,6 +410,8 @@
       "resetAdjustments_one": "補正設定をリセット",
       "resetAdjustments_other": "{{count}} 枚の画像の補正設定をリセット",
       "showExplorer": "エクスプローラーで表示",
+      "superResolution_one": "RapidRes (2x)",
+      "superResolution_other": "RapidRes (2x)",
       "virtualCopy": "仮想コピー"
     },
     "toasts": {
@@ -519,7 +519,6 @@
       "createNewTitle": "新しい生成編集を作成",
       "createNewTooltip": "新しい {{name}} 編集を作成",
       "denoising": "AIノイズ除去を実行中...",
-      "upscaling": "RapidResを実行中...",
       "dropzoneText": "ここにドロップして新しい編集を作成",
       "editSettingsTitle": "編集設定",
       "editsTitle": "編集一覧",
@@ -583,7 +582,8 @@
         "selectionPropertiesTitle": "選択範囲のプロパティ",
         "useBasicInpaint": "簡易インペインティングを使用"
       },
-      "touchUpTitle": "タッチアップ"
+      "touchUpTitle": "タッチアップ",
+      "upscaling": "RapidResを実行中..."
     },
     "compare": {
       "horizontal": "上下に分割",
@@ -600,8 +600,8 @@
         "hPlaceholder": "H",
         "hTooltip": "高さ",
         "removeTooltip": "保存したアスペクト比を削除",
-        "saveTooltip": "アスペクト比をプリセットとして保存",
         "savedTooltip": "保存したアスペクト比 {{ratio}}",
+        "saveTooltip": "アスペクト比をプリセットとして保存",
         "wPlaceholder": "W",
         "wTooltip": "幅"
       },
@@ -803,8 +803,8 @@
         "copySectionSettings": "{{section}}設定をコピー",
         "faceParts": {
           "bodySkin": "体の肌",
-          "eyeWhites": "白目",
           "eyebrows": "眉",
+          "eyeWhites": "白目",
           "faceSkin": "顔の肌",
           "hair": "髪",
           "iris": "虹彩と瞳孔",
@@ -876,8 +876,8 @@
       "organization": {
         "addTagPlaceholder": "タグを追加...",
         "colorLabel": "カラーラベル",
-        "noTags": "タグなし",
         "none": "なし",
+        "noTags": "タグなし",
         "rating": "評価",
         "ratingLabels": "評価とラベル",
         "tags": "タグ",
@@ -971,7 +971,7 @@
         "compare": "補正前 / 補正後 (B) またはモード (右クリック)",
         "focalLength": "焦点距離",
         "fullscreen": "全画面表示切り替え (F)",
-        "hdr": "HDR プレビュー",
+        "hdr": "この画面で HDR を表示、HDR 出力がオフなら書き出しには影響しません",
         "iso": "ISO感度",
         "redo": "やり直し (Ctrl+Y) または履歴 (右クリック)",
         "shutterSpeed": "シャッタースピード",
@@ -1015,6 +1015,13 @@
       "mb": "MB",
       "tb": "TB"
     },
+    "conflict": {
+      "createUnique": "両方を保持 (_1, _2)",
+      "label": "ファイルが存在する場合",
+      "overwrite": "上書き",
+      "overwriteIfChanged": "変更時のみ上書き",
+      "skip": "スキップ"
+    },
     "destination": {
       "customFolder": "カスタムフォルダー",
       "originalFolder": "元の画像フォルダー",
@@ -1031,10 +1038,12 @@
       "colorSpace": "カラースペース",
       "dpi": "DPI",
       "hdr": "HDR出力",
-      "hdrJpegHint": "ゲインマップを追加します。HDR画面ではハイライトがより明るく表示され、それ以外では通常の写真が表示されます。",
-      "hdrJxlHint": "本来のHDRファイル（PQ、Rec. 2020）として保存します。HDR対応のビューアが必要です。",
-      "hdrNoPreview": "このディスプレイでは HDR のハイライトを表示できません。書き出したファイルには含まれます。",
-      "hdrPreviewOff": "ハイライトをプレビューするには、エディターのツールバーで HDR をオンにしてください。",
+      "hdrHeadroom": "HDR ヘッドルーム",
+      "hdrHeadroomHint": "書き出しでハイライトをどこまで明るくできるか。2 EV はほとんどの画面に適しています。",
+      "hdrJpegHint": "HDR 画面用のゲインマップを追加します。その他の画面では通常の写真が表示されます。",
+      "hdrJxlHint": "本物の HDR ファイル（PQ、Rec. 2020）。HDR 対応ビューアーが必要です。",
+      "hdrNoPreview": "この画面では HDR を表示できません。",
+      "hdrPreviewOff": "プレビューするにはツールバーで HDR をオンにしてください。",
       "quality": "画質",
       "qualityLossless": "画質 (ロスレス)",
       "resolution": "解像度",
@@ -1081,6 +1090,7 @@
       "watermark": "ウォーターマーク"
     },
     "status": {
+      "allSkipped": "すべての画像をスキップしました",
       "cancelExport": "書き出しをキャンセル",
       "cancelled": "書き出しがキャンセルされました",
       "cancelling": "書き出しをキャンセル中…",
@@ -1088,16 +1098,17 @@
       "estimatedSize": "推定ファイルサイズ: ~{{size}}",
       "estimatedTotalSize": "推定合計サイズ: ~{{size}}",
       "estimatingSize": "サイズを推定中...",
+      "exporting": "書き出し中…",
+      "exportingProgress": "書き出し中… ({{current}}/{{total}})",
       "exportMultiple": "{{count}} 件の {{label}} を書き出し",
       "exportMultiple_one": "{{count}} 件 of {{label}} を書き出し",
       "exportMultiple_other": "{{count}} 件の {{label}} を書き出し",
       "exportSingle": "{{label}} を書き出し",
-      "exporting": "書き出し中…",
-      "exportingProgress": "書き出し中… ({{current}}/{{total}})",
       "failed": "書き出しに失敗しました",
       "noImageSelected": "書き出す画像が選択されていません。",
       "noImagesSelected": "画像が選択されていません。",
-      "success": "書き出しが成功しました！"
+      "success": "書き出しが成功しました！",
+      "successWithSkipped": "{{exported}}件エクスポート、{{skipped}}件スキップ"
     },
     "title": "エクスポート",
     "watermark": {
@@ -1129,12 +1140,12 @@
       "title": "Immich に未送信の編集"
     },
     "export": {
-      "newAlbum": "新しいアルバム…",
-      "newAlbumName": "アルバム名",
-      "createAlbum": "作成",
-      "newAlbumFailed": "アルバムを作成できませんでした: {{error}}",
       "album": "アルバム",
+      "createAlbum": "作成",
       "destination": "Immich",
+      "newAlbum": "新しいアルバム…",
+      "newAlbumFailed": "アルバムを作成できませんでした: {{error}}",
+      "newAlbumName": "アルバム名",
       "noAlbum": "アルバムなし",
       "sourceAlbum": "画像を開いたアルバム",
       "withOriginal": "オリジナルもアップロード",
@@ -1171,10 +1182,10 @@
       "pending": "Immich への送信待ちの編集: {{number}}"
     },
     "toasts": {
-      "editsStayLocal": "{{fileName}} は他のユーザーのものなので、Immich は編集を受け付けません。編集内容はこのコンピューターに残ります。",
       "backOnline": "Immich に再び接続でき、すべての編集内容が保存されました。",
       "downloadFailed": "Immich からダウンロードできませんでした: {{error}}",
       "editsConflict": "{{fileName}} は別のコンピューターでも編集されています。あなたの編集内容はそのまま残り、もう一方のバージョンは仮想コピーとして保存されます。",
+      "editsStayLocal": "{{fileName}} は他のユーザーのものなので、Immich は編集を受け付けません。編集内容はこのコンピューターに残ります。",
       "offline": "Immich に接続できません。編集内容はここに保持され、接続が戻りしだい送信されます。",
       "transferFailed": "Immich に追加できませんでした: {{number}} ({{error}})",
       "transferred": "Immich に追加しました: {{number}}",
@@ -1190,7 +1201,6 @@
       "failed": "失敗（{{failedCount}}）",
       "kinds": {
         "denoise": "AIノイズ除去中",
-        "upscale": "RapidResで拡大中",
         "depthMap": "深度を解析中",
         "depthMask": "深度マスクを生成中",
         "faceMask": "顔マスクを生成中",
@@ -1198,7 +1208,8 @@
         "normalMap": "表面を解析中",
         "skyMask": "空マスクを生成中",
         "subjectMask": "被写体マスクを生成中",
-        "textMask": "テキストマスクを生成中"
+        "textMask": "テキストマスクを生成中",
+        "upscale": "RapidResで拡大中"
       },
       "more": "他{{moreCount}}件",
       "pause": "AI処理を一時停止",
@@ -1243,13 +1254,13 @@
       "clickThumbnailsHint": "右サイドバーのサムネイルをクリックして比較ビューに追加します。",
       "colorLabel": "カラーラベル",
       "dimensions": "寸法",
-      "editImage": "画像を編集",
+      "doubleClickToEditHint": "サムネイルをダブルクリックするとエディターで開きます。",
       "focalLength": "焦点距離",
       "iso": "ISO",
       "metadata": "メタデータ",
       "noMetadataAvailable": "メタデータがありません",
-      "noTagsAdded": "タグが追加されていません",
       "none": "なし",
+      "noTagsAdded": "タグが追加されていません",
       "rateAndLabel": "評価とラベル",
       "rating": "評価",
       "selectImagesToCompare": "比較する画像を選択",
@@ -1260,8 +1271,8 @@
       "vc": "VC"
     },
     "filterExit": {
-      "hiddenSingle": "{{name}} はフィルターに一致しなくなりました",
       "hiddenMultiple_other": "{{count}} 枚の画像がフィルターに一致しなくなりました",
+      "hiddenSingle": "{{name}} はフィルターに一致しなくなりました",
       "undo": "元に戻す"
     },
     "filters": {
@@ -1364,11 +1375,6 @@
         "filterByFileType": "ファイル形式でフィルター",
         "filterByFlag": "フラグでフィルター",
         "filterByRating": "評価でフィルター",
-        "ratingOperator": {
-          "eq": "この評価のみ",
-          "gte": "この評価以上",
-          "lte": "この評価以下"
-        },
         "groupEditedFiles": "編集済みファイルもグループに含める",
         "groupIgnoreMetadata": "一致しない EXIF 日付を無視",
         "groupOff": "オフ",
@@ -1379,6 +1385,11 @@
         "metadataHover": "ホバー時に表示",
         "metadataOff": "オフ",
         "noLabel": "ラベルなし",
+        "ratingOperator": {
+          "eq": "この評価のみ",
+          "gte": "この評価以上",
+          "lte": "この評価以下"
+        },
         "recursive": "再帰的",
         "showMetadata": "メタデータを表示",
         "sortAscending": "昇順で並べ替え",
@@ -1391,12 +1402,12 @@
     },
     "items": {
       "cloudPlaceholder": "iCloudに保存されています — 未ダウンロード",
-      "immichPlaceholder": "Immichに保存されています — 未ダウンロード",
       "collapseFolder": "フォルダを折りたたむ",
       "currentFolder": "現在のフォルダ",
       "expandFolder": "フォルダを展開",
       "imagesCount_one": "1 枚の画像",
       "imagesCount_other": "{{count}} 枚の画像",
+      "immichPlaceholder": "Immichに保存されています — 未ダウンロード",
       "rejected": "除外",
       "tooltipAperture": "絞り値",
       "tooltipFocalLength": "焦点距離",
@@ -1424,6 +1435,7 @@
       },
       "openInLibrary": "ライブラリで開く",
       "recent": "最近",
+      "skipped_other": "{{count}}件スキップ",
       "title": "ジョブ"
     },
     "reject": {
@@ -1592,10 +1604,10 @@
         "halationGlow": "ハレーションとグロー",
         "hueShift": "グローバル色相シフト",
         "lensBlur": "レンズぼかし",
-        "motionBlur": "モーションブラー",
         "lensCorrection": "レンズ補正",
         "lut": "LUT",
         "masks": "マスク",
+        "motionBlur": "モーションブラー",
         "negativeConversion": "ネガ変換",
         "noiseReduction": "ノイズ低減",
         "presence": "外観",
@@ -1633,9 +1645,9 @@
       "applyButton_one": "1 枚の画像に適用",
       "applyButton_other": "{{count}} 枚の画像に適用",
       "bestImage": "ベスト画像",
+      "blurryImagesTab": "ぼやけた画像",
       "blurThreshold": "ブレのしきい値",
       "blurThresholdDesc": "この値以下のシャープネススコアを持つ画像にフラグを立てます。高いほど厳密になります。",
-      "blurryImagesTab": "ぼやけた画像",
       "cancel": "キャンセル",
       "close": "閉じる",
       "cullingFailed": "選別失敗",
@@ -1740,7 +1752,6 @@
       "openInEditor": "エディタで開く",
       "outputInfo": "{{images}} 枚 · {{width}} × {{height}} px",
       "result": "結果",
-      "retry": "再試行",
       "save": "保存",
       "saving": "保存中…",
       "speedNotice": "画像枚数や画像サイズによって、数分かかる場合があります。",
@@ -1847,14 +1858,14 @@
           "fine": "Shift で微調整"
         },
         "keys": {
-          "hold": "タップ / 長押し",
-          "previousImage": "前の画像",
-          "nextImage": "次の画像",
-          "reset": "リセット",
-          "previousAdjustment": "前のスライダー",
-          "nextAdjustment": "次のスライダー",
           "copy": "コピー",
+          "hold": "タップ / 長押し",
+          "nextAdjustment": "次のスライダー",
+          "nextImage": "次の画像",
           "paste": "ペースト",
+          "previousAdjustment": "前のスライダー",
+          "previousImage": "前の画像",
+          "reset": "リセット",
           "stepDown": "−1 ステップ",
           "stepUp": "+1 ステップ"
         },
@@ -1880,9 +1891,9 @@
       "limit": "上限",
       "modals": {
         "aiDenoiseMessage": "AIノイズ除去キャッシュを消去してもよろしいですか？\n\nAIノイズ除去が有効な画像は再度処理する必要があり、1枚あたり数分かかる場合があります。",
-        "aiUpscaleMessage": "RapidResキャッシュを消去してもよろしいですか？\n\nRapidResが有効な画像は再度拡大処理する必要があります。",
         "aiMapsMessage": "深度・法線マップをクリアしてもよろしいですか？\n\nレンズブラー、フォグ、リライトを使用している画像は、次に開いたときにマップを再生成します。",
         "aiMessage": "本当にすべてのアクティブなルートフォルダ内の画像から、AI生成されたタグをすべて削除しますか？\n\n手動で追加したタグには影響しません。この操作は取り消せません。",
+        "aiUpscaleMessage": "RapidResキャッシュを消去してもよろしいですか？\n\nRapidResが有効な画像は再度拡大処理する必要があります。",
         "allMessage": "本当にすべてのアクティブなルートフォルダ内の画像から、AI生成および手動追加されたタグをすべて削除しますか？\n\nこの操作は取り消せません。",
         "cacheMessage": "本当にサムネイルキャッシュを削除しますか？\n\nすべてのサムネイルが再生成されるため、大きなフォルダでは時間がかかる場合があります。",
         "confirmAiTitle": "AIタグ削除の確認",
@@ -1908,10 +1919,10 @@
       "show": "表示",
       "statuses": {
         "aiDenoiseSuccess": "AIノイズ除去キャッシュを消去しました。",
-        "aiUpscaleSuccess": "RapidResキャッシュを消去しました。",
         "aiSuccess": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
         "aiSuccess_one": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
         "aiSuccess_other": "{{count}} 件のファイルを更新しました。AIタグを削除しました。",
+        "aiUpscaleSuccess": "RapidResキャッシュを消去しました。",
         "allSuccess": "{{count}} 件のファイルを更新しました。カラーラベル以外のタグをすべて削除しました。",
         "allSuccess_one": "{{count}} 件のファイルを更新しました。カラーラベル以外のタグをすべて削除しました。",
         "allSuccess_other": "{{count}} 件のファイルを更新しました。カラーラベル以外のタグをすべて削除しました。",
@@ -1925,10 +1936,10 @@
       "storage": {
         "aiDenoise": "AI ノイズ除去",
         "aiDenoiseDesc": "キャッシュされたノイズ除去結果。",
-        "aiUpscale": "RapidRes",
-        "aiUpscaleDesc": "キャッシュされたRapidResの2倍拡大結果。",
         "aiMaps": "深度・法線マップ",
         "aiMapsDesc": "レンズブラー、フォグ、リライトで使用されます。",
+        "aiUpscale": "RapidRes",
+        "aiUpscaleDesc": "キャッシュされたRapidResの2倍拡大結果。",
         "immich": "Immich",
         "immichDesc": "ダウンロード済みのオリジナル。上限に達すると最も長く使われていないものから削除されます。編集内容は保持されます。",
         "logs": "ログ",
@@ -2069,16 +2080,23 @@
     },
     "processing": {
       "advanced": {
-        "heading": "詳細",
-        "headingDesc": "サムネイル、キャッシュ、書き出しのパフォーマンス調整です。ほとんどの場合は既定値のままで問題ありません。",
-        "title": "詳細設定",
         "auto": "自動",
+        "exportMemoryLimit": "書き出しメモリ上限",
+        "exportMemoryLimitDesc": "一括書き出しが使用できる空きメモリの割合です。大きな書き出し中も他のアプリを快適に使いたい場合は下げてください。",
         "exportThreads": "並列書き出し",
         "exportThreadsDesc": "同時に書き出す画像の数です。自動では CPU に合わせて値を選びます。大きな書き出しが失敗する場合や GPU のメモリが少ない場合は下げてください。",
-        "exportMemoryLimit": "書き出しメモリ上限",
-        "exportMemoryLimitDesc": "一括書き出しが使用できる空きメモリの割合です。大きな書き出し中も他のアプリを快適に使いたい場合は下げてください。"
+        "heading": "詳細",
+        "headingDesc": "サムネイル、キャッシュ、書き出しのパフォーマンス調整です。ほとんどの場合は既定値のままで問題ありません。",
+        "title": "詳細設定"
       },
       "ai": {
+        "aiFree": {
+          "description": "すべてのAI機能をオフにします。AI関連のコントロールはすべてインターフェースから非表示になり、RapidRAWは純粋な従来型のRAWエディターとして動作します。",
+          "feature1": "AIマスク、レンズぼかし、生成編集をUIに表示しません",
+          "feature2": "既存のAI編集は引き続き通常どおり反映されます",
+          "feature3": "よりすっきりとした集中しやすいインターフェース",
+          "title": "AIなし"
+        },
         "cloud": {
           "description": "手軽さを求める方には、セルフホストの手間をかけずに高品質な結果を得られる、オプションのサブスクリプションをおすすめします。最も便利かつプロジェクト開発への貢献につながる方法です。",
           "feature1": "セットアップ不要で究極の快適性",
@@ -2127,13 +2145,6 @@
           "gpuAccelerationDesc": "ノイズ除去、マスク、深度マップや法線マップ、タグ付けなどの内蔵AI機能をグラフィックカードで実行し、大幅に高速化します。クラッシュやAIの結果がおかしい場合は無効にしてください。",
           "gpuAccelerationLabel": "AIモデルにGPUを使用",
           "title": "内蔵AI"
-        },
-        "aiFree": {
-          "description": "すべてのAI機能をオフにします。AI関連のコントロールはすべてインターフェースから非表示になり、RapidRAWは純粋な従来型のRAWエディターとして動作します。",
-          "feature1": "AIマスク、レンズぼかし、生成編集をUIに表示しません",
-          "feature2": "既存のAI編集は引き続き通常どおり反映されます",
-          "feature3": "よりすっきりとした集中しやすいインターフェース",
-          "title": "AIなし"
         },
         "description": "RapidRAWのAIは、優れた柔軟性を備えています。高速なローカル処理から本格的なセルフホストまで、最適なワークフローを選択してください。",
         "providers": {
@@ -2224,17 +2235,11 @@
       },
       "enableLivePreviews": "リアルタイムプレビューを有効化",
       "hdr": {
-        "display": "HDR表示",
-        "displayDesc": "HDRディスプレイでハイライトを通常の白より明るく表示します。シャドウと中間調は変わらず、通常の書き出しには影響しません。",
-        "enableDisplay": "エディターでHDRを使用",
         "gainMaps": "HDR 写真",
-        "gainMapsAlways": "常に HDR で開く",
         "gainMapsAuto": "自動",
-        "gainMapsDesc": "最近のスマートフォンなどで撮影された HDR ゲインマップ付きの写真は、明るい HDR ハイライトのまま開くことも、通常の SDR 版として開くこともできます。「自動」では、エディターで HDR を使用している間は HDR として開きます。この設定は、これらの写真の書き出しにも適用されます。",
+        "gainMapsDesc": "最近のスマートフォンで撮影した写真など、HDR ゲインマップを含む写真は、画面が表示できる範囲で HDR のハイライトを表示します。HDR 書き出しでは書き出し設定のヘッドルームを使い、それ以外の書き出しでは通常の写真になります。「常に SDR」は HDR データを無視します。",
         "gainMapsNever": "常に SDR で開く",
-        "headroom": "ハイライトの範囲",
-        "headroomDesc": "ハイライトが通常の白をどこまで超えられるかを設定します。HDR書き出しにも使用されます。",
-        "statusActive": "このディスプレイはHDRモードです。",
+        "statusActive": "このディスプレイは HDR モードです。プレビューするにはエディターのツールバーで HDR をオンにしてください。",
         "statusInactive": "このディスプレイはHDRモードではありません。効果を確認するには、システムのディスプレイ設定でHDRをオンにしてください。",
         "statusUnsupported": "HDRには WGPUダイレクトレンダリング が必要です。LinuxではHDR対応のWaylandセッションも必要です。"
       },
@@ -2245,7 +2250,7 @@
       "imageCacheDesc": "RAMに保持するフル解像度画像の最大数。値を大きくすると、最近編集した画像間の切り替えが瞬時に行えますが、メモリ消費量が増加します。",
       "images": "画像",
       "linuxCompat": "Linux互換モード",
-      "linuxCompatDesc": "一般的なGPUドライバーやディスプレイサーバーの不具合の回避策を有効にします。フルGPUアクセラレーションを使用するには無効にしてください。",
+      "linuxCompatDesc": "GPUバッファ共有の代わりに共有メモリ経由でWebビューを表示し、ウィンドウが真っ白になるなどのGPUドライバーの問題を回避します。X11上のNvidia GPUには自動的に適用されるため、ウィンドウが真っ白または崩れて表示される場合にのみ有効にしてください。",
       "linuxCompatLabel": "互換モードを有効にする",
       "livePreviewQuality": "ライブプレビュー画質",
       "livePreviewQualityDesc": "スライダーをドラッグしている間の画像の解像度と圧縮を制御します。低画質にすると、操作のレスポンスが大幅に向上します。",
@@ -2276,12 +2281,15 @@
         "enableAppleRaw9": "RAWファイルにApple RAW 9を使用する",
         "enableBaselineExposure": "RAWファイルにベース露出を適用",
         "enableHighlightPreservation": "カメラのハイライト保護モードを補正",
+        "enableHotPixels": "ホットピクセルとデッドピクセルを除去",
         "enablePreprocessingNonRaws": "RAW以外の画像にも適用",
         "enableTonemapperOverride": "トーンマッパーの上書きを有効化",
         "highlightPreservation": "ハイライト保護の補正",
         "highlightPreservationDesc": "カメラのハイライト保護モード（富士フイルム DR200/DR400、ニコン アクティブD-ライティングなど）で抑えられた露出を戻します。",
         "highlightRecovery": "RAWハイライト再現",
         "highlightRecoveryDesc": "RAWファイルで白とびしたハイライトから再現する情報のレベルを設定します。値を高くするとディテールが戻りますが、紫色のアーティファクトが発生する場合があります。",
+        "hotPixels": "ホットピクセル除去",
+        "hotPixelsDesc": "RAWファイルのデコード時に、センサーのホットピクセル・輝点・黒点を自動的に修復します。孤立した単一ピクセルのみを置き換えるため、星や細かいハイライトは保持されます。",
         "linearOptions": {
           "auto": "自動",
           "gamma": "ガンマを適用",
@@ -2316,6 +2324,7 @@
         "cpu": "CPU",
         "gpu": "GPU"
       },
+      "rawDecodingUnavailable": "この GPU では RAW デコードを実行できないため、RAW ファイルは CPU でデコードされます。",
       "renderScale": "レンダリングスケール",
       "renderScaleDesc": "画面解像度に対する表示解像度の比率を調整します。高解像度ディスプレイで値を下げると、シャープネスがわずかに低下する代わりに動作が軽くなります。",
       "restartRequired": "処理エンジンの変更を有効にするには、アプリを再起動する必要があります。",
@@ -2339,8 +2348,8 @@
     "tagging": {
       "addCustomPlaceholder": "カスタムAIタグを入力（カンマ区切り）...",
       "addCustomTooltip": "AIタグを追加",
-      "addShortcutTooltip": "ショートカットを追加",
       "addShortcutsPlaceholder": "ショートカットを入力（カンマ区切り）...",
+      "addShortcutTooltip": "ショートカットを追加",
       "aiTagging": "AIタグ付け",
       "aiTaggingDesc": "AI（CLIP）モデルを使用した自動画像タグ付けを有効にします。追加のモデルがダウンロードされ、フォルダ閲覧時のパフォーマンスに影響します。タグはフォルダ内検索に使用されます。",
       "amount": "適用度",
@@ -2372,9 +2381,9 @@
         "mediapipe": "AI顔マスクを支える高速な顔ランドマークおよびセグメンテーションモデルに。",
         "negpy": "ネガ反転アルゴリズムのヒントとなりました。",
         "nind": "AIノイズ低減機能を支えるAIモデルを提供しています。",
-        "span": "RapidRAWのAI 2倍拡大機能RapidResのベースとなるAIモデルです。RapidRAWが独自のRAW処理に合わせてファインチューニングしています（Philip Hofmann作、CC BY 4.0）。",
         "rawler": "RAWファイル処理の基盤となる優れたRustライブラリを提供しています。",
         "sam2": "AI被写体検出機能の基盤となるモデルを提供しています。",
+        "span": "RapidRAWのAI 2倍拡大機能RapidResのベースとなるAIモデルです。RapidRAWが独自のRAW処理に合わせてファインチューニングしています（Philip Hofmann作、CC BY 4.0）。",
         "spektrafilm": "RapidRAW の内蔵フィルムエミュレーションを支える、Andrea Volpato 氏によるスペクトルベースのフィルムエミュレーション LUT を提供してくださったことに。ライセンスは CC BY-SA 4.0 です。",
         "you": "RapidRAWをご利用、ご支援いただきありがとうございます。皆様のご関心こそが、プロジェクトの存続と発展の支えです。",
         "youLabel": "皆様"

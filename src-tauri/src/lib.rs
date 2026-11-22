@@ -45,6 +45,9 @@ use std::time::Duration;
 use tauri::Manager;
 use tokio::sync::Mutex as TokioMutex;
 
+use crate::adjustments::lut_processing::{
+    LUT_CACHE_BUDGET_BYTES, LutCache, SWATCH_LUT_CACHE_BUDGET_BYTES,
+};
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::app::launch_request::emit_launch_request;
 use crate::app::launch_request::{
@@ -211,6 +214,8 @@ pub fn run() {
             _ => {}
         })
         .setup(move |app| {
+            platform::monitor::watch_screen_changes(app.handle());
+
             #[cfg(feature = "tethering")]
             {
                 std::thread::spawn(|| {
@@ -290,6 +295,11 @@ pub fn run() {
 
             adjustments::lens_correction::init_lensfun_db(&app_handle);
 
+            #[cfg(target_os = "linux")]
+            let webkit_transport = platform::linux_graphics::configure_webkit_transport(
+                settings.linux_gpu_optimization.unwrap_or(false),
+            );
+
             unsafe {
                 if let Some(backend) = &backend {
                     std::env::set_var("WGPU_BACKEND", backend);
@@ -298,8 +308,6 @@ pub fn run() {
                 #[cfg(target_os = "linux")]
                 {
                     if settings.linux_gpu_optimization.unwrap_or(false) {
-                        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-                        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
                         std::env::set_var("NODEVICE_SELECT", "1");
                     }
                 }
@@ -334,9 +342,12 @@ pub fn run() {
             }
 
             #[cfg(target_os = "linux")]
-            if settings.linux_gpu_optimization.unwrap_or(false) {
-                log::info!("Applied Linux Compatibility Mode (forced software compositing).");
-            } else {
+            {
+                log::info!(
+                    "WebKitGTK {}, buffer transport: {:?}",
+                    platform::linux_graphics::webkit_version(),
+                    webkit_transport
+                );
                 log::info!(
                     "Wayland Nvidia quirk status: {:?}",
                     tauri_plugin_wayland_nvidia_quirk::status()
@@ -582,7 +593,8 @@ pub fn run() {
             merge_session: Arc::new(Mutex::new(None)),
             merge_generation: Arc::new(AtomicU64::new(0)),
             indexing_task_handle: Mutex::new(None),
-            lut_cache: Mutex::new(HashMap::new()),
+            lut_cache: Mutex::new(LutCache::new(LUT_CACHE_BUDGET_BYTES)),
+            swatch_lut_cache: Mutex::new(LutCache::new(SWATCH_LUT_CACHE_BUDGET_BYTES)),
             initial_file_path: Mutex::new(None),
             pending_edit_session: Mutex::new(None),
             thumbnail_cancellation_token: Arc::new(AtomicBool::new(false)),

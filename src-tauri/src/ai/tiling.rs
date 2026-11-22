@@ -16,8 +16,8 @@ struct TileParams {
 
 const DENOISE_TILE: TileParams = TileParams {
     cs: 504,
-    margin: 12,
-    overlap: 64,
+    margin: 40,
+    overlap: 56,
 };
 
 pub const UPSCALE_TILE_SIZE: usize = 544;

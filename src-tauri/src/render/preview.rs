@@ -1,5 +1,5 @@
 use crate::app::state::{AppState, LoadedImage, PreviewSource};
-use crate::decode::image_loader::prepare_base_image_cow;
+use crate::decode::image_loader::{GainLayer, prepare_base_image};
 use crate::library::sidecars::parse_virtual_path;
 use crate::masks::generation::{
     MaskDefinition, build_full_warped_image_rgb8, get_cached_or_generate_masks,
@@ -57,8 +57,10 @@ pub fn prepare_preview_source(
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
     preview_dim: u32,
+    gain: Option<&(Arc<GainLayer>, f32)>,
 ) -> Result<PreviewSource, String> {
     let patched_key = patched_cache_key(&loaded_image.path, adjustments);
+    let gain_weight = gain.map_or(0.0, |(_, weight)| *weight).to_bits();
 
     let patched = get_or_compute_stage(&state.patched_cache, patched_key, || {
         compute_patched(loaded_image, adjustments)
@@ -107,18 +109,32 @@ pub fn prepare_preview_source(
         .min(budget_scale.max(working_scale_step(target_scale)))
         .min(texture_scale);
 
-    let working = if working_target_scale < 1.0 {
-        let working_w = ((full_w_px as f64 * working_target_scale).round() as u32).max(1);
-        let working_h = ((full_h_px as f64 * working_target_scale).round() as u32).max(1);
+    let working = if working_target_scale < 1.0 || gain.is_some() {
+        let (working_w, working_h) = if working_target_scale < 1.0 {
+            (
+                ((full_w_px as f64 * working_target_scale).round() as u32).max(1),
+                ((full_h_px as f64 * working_target_scale).round() as u32).max(1),
+            )
+        } else {
+            (full_w_px, full_h_px)
+        };
 
         let mut hasher = DefaultHasher::new();
         patched_key.hash(&mut hasher);
-        (working_w, working_h).hash(&mut hasher);
+        (working_w, working_h, gain_weight).hash(&mut hasher);
 
         get_or_compute_stage(&state.working_cache, hasher.finish(), || {
-            Ok(Arc::new(downscale_f32_image(
-                &patched, working_w, working_h,
-            )))
+            let scaled = if working_target_scale < 1.0 {
+                Cow::Owned(downscale_f32_image(&patched, working_w, working_h))
+            } else {
+                Cow::Borrowed(&*patched)
+            };
+            Ok(Arc::new(
+                match gain.and_then(|(layer, weight)| layer.apply(&scaled, *weight)) {
+                    Some(gained) => gained,
+                    None => scaled.into_owned(),
+                },
+            ))
         })?
     } else {
         *state
@@ -155,7 +171,7 @@ pub fn prepare_preview_source(
     };
 
     let mut hasher = DefaultHasher::new();
-    (patched_key, working_size).hash(&mut hasher);
+    (patched_key, working_size, gain_weight).hash(&mut hasher);
 
     Ok(PreviewSource {
         image: working,
@@ -202,7 +218,7 @@ pub fn compute_patched(
     loaded_image: &LoadedImage,
     adjustments: &serde_json::Value,
 ) -> Result<Arc<DynamicImage>, String> {
-    match prepare_base_image_cow(&loaded_image.image, &loaded_image.path, adjustments)
+    match prepare_base_image(&loaded_image.image, &loaded_image.path, adjustments)
         .map_err(|e| format!("Failed to composite AI patches: {}", e))?
     {
         Cow::Owned(img) => Ok(Arc::new(img)),
