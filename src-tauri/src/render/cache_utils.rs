@@ -211,65 +211,18 @@ pub fn calculate_geometry_hash(adjustments: &serde_json::Value) -> u64 {
 pub fn calculate_effects_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
-    let blur_enabled = is_effect_enabled(adjustments, "lensBlur", "lensBlurEnabled");
-    blur_enabled.hash(&mut hasher);
-
-    if blur_enabled {
-        hash_effect_keys(
-            adjustments,
-            &[
-                "lensBlurAmount",
-                "lensBlurDiffusion",
-                "lensBlurShape",
-                "lensBlurMinDepth",
-                "lensBlurMaxDepth",
-                "lensBlurMinFade",
-                "lensBlurMaxFade",
-                "lensBlurDepthMap",
-            ],
-            &mut hasher,
-        );
-    }
-
-    let relight_enabled = is_effect_enabled(adjustments, "relight", "relightEnabled");
-    relight_enabled.hash(&mut hasher);
-
-    if relight_enabled {
-        hash_effect_keys(
-            adjustments,
-            &[
-                "relightLights",
-                "relightAmbient",
-                "relightSoftness",
-                "relightShine",
-                "relightShadows",
-                "relightShadowSoftness",
-                "relightNormalMap",
-            ],
-            &mut hasher,
-        );
-    }
-
-    let fog_enabled = is_effect_enabled(adjustments, "fog", "fogEnabled");
-    fog_enabled.hash(&mut hasher);
-
-    if fog_enabled {
-        hash_effect_keys(
-            adjustments,
-            &[
-                "fogAmount",
-                "fogStart",
-                "fogDensity",
-                "fogHeight",
-                "fogVariation",
-                "fogGlow",
-                "fogTemperature",
-                "fogTint",
-                "fogDepthMap",
-            ],
-            &mut hasher,
-        );
-        hash_orientation(adjustments, &mut hasher);
+    // Iterate the registry so every dispatched effect is guaranteed to be
+    // hashed — the per-effect key list lives next to its prepare/encode in the
+    // effect's own module (see effects::registry).
+    for effect in crate::effects::registry::all() {
+        let enabled = is_effect_enabled(adjustments, effect.tool_id, effect.enabled_key);
+        enabled.hash(&mut hasher);
+        if enabled {
+            hash_effect_keys(adjustments, effect.hash_keys, &mut hasher);
+            if effect.hashes_orientation {
+                hash_orientation(adjustments, &mut hasher);
+            }
+        }
     }
 
     hasher.finish()

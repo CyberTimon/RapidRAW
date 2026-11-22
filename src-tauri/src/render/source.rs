@@ -266,29 +266,17 @@ impl<'a> RenderSource<'a> {
             stage(enc, &mut current, working_size, &downscale);
         }
         if transform.effects {
-            let adjustments = self.adjustments;
-            if let Some(job) =
-                crate::effects::relight::prepare(adjustments, transform.warp.as_ref(), working_size)
-            {
-                stage(enc, &mut current, working_size, &|enc, src, dst| {
-                    crate::effects::relight::encode(enc, &job, src, dst)
-                });
-            }
-            if let Some(job) =
-                crate::effects::fog::prepare(adjustments, transform.warp.as_ref(), working_size)
-            {
-                stage(enc, &mut current, working_size, &|enc, src, dst| {
-                    crate::effects::fog::encode(enc, &job, src, dst)
-                });
-            }
-            if let Some(job) = crate::effects::lens_blur::prepare(
-                adjustments,
-                transform.warp.as_ref(),
+            let ctx = crate::effects::registry::EffectCtx {
+                adjustments: self.adjustments,
+                geometry: transform.warp.as_ref(),
                 working_size,
-            ) {
-                stage(enc, &mut current, working_size, &|enc, src, dst| {
-                    crate::effects::lens_blur::encode(enc, &job, src, dst)
-                });
+            };
+            for effect in crate::effects::registry::all() {
+                if let Some(job) = (effect.prepare)(&ctx) {
+                    stage(enc, &mut current, working_size, &|enc, src, dst| {
+                        job.encode(enc, src, dst)
+                    });
+                }
             }
         }
         if !transform.frame.is_identity(working_size) {
