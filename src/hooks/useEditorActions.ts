@@ -16,6 +16,7 @@ import {
   AutoAdjustMode,
   CROP_GEOMETRY_KEYS,
   INITIAL_ADJUSTMENTS,
+  LENS_CORRECTION_AUTO,
   COPYABLE_ADJUSTMENT_KEYS,
   isSameCropGeometry,
   PasteMode,
@@ -366,27 +367,35 @@ export function useEditorActions() {
     [setEditor],
   );
 
-  const handleAutoLensCorrection = useCallback((paths?: string[]) => {
-    const { multiSelectedPaths } = useLibraryStore.getState();
-    const { selectedImage } = useEditorStore.getState();
+  const handleAutoLensCorrection = useCallback(
+    (paths?: string[]) => {
+      const { multiSelectedPaths } = useLibraryStore.getState();
+      const { selectedImage } = useEditorStore.getState();
 
-    const pathsToUpdate =
-      paths && paths.length > 0
-        ? paths
-        : multiSelectedPaths.length > 0
-          ? multiSelectedPaths
-          : selectedImage
-            ? [selectedImage.path]
-            : [];
+      const pathsToUpdate =
+        paths && paths.length > 0
+          ? paths
+          : multiSelectedPaths.length > 0
+            ? multiSelectedPaths
+            : selectedImage
+              ? [selectedImage.path]
+              : [];
 
-    if (pathsToUpdate.length === 0) return;
+      const editingPath = useUIStore.getState().activeView === 'editor' ? selectedImage?.path : undefined;
+      const batchPaths = pathsToUpdate.filter((path) => path !== editingPath);
+      if (batchPaths.length < pathsToUpdate.length) {
+        setAdjustments((prev: Adjustments) => ({ ...prev, ...LENS_CORRECTION_AUTO }));
+      }
+      if (batchPaths.length === 0) return;
 
-    pathsToUpdate.forEach((p) => globalImageCache.delete(p));
+      batchPaths.forEach((p) => globalImageCache.delete(p));
 
-    invoke('apply_auto_lens_correction_to_paths', { paths: pathsToUpdate })
-      .then(() => reloadAdjustmentsForPaths(pathsToUpdate))
-      .catch((err) => toast.error(`Failed to apply auto lens correction: ${err}`));
-  }, []);
+      invoke('apply_auto_lens_correction_to_paths', { paths: batchPaths })
+        .then(() => reloadAdjustmentsForPaths(batchPaths))
+        .catch((err) => toast.error(`Failed to apply auto lens correction: ${err}`));
+    },
+    [setAdjustments],
+  );
 
   const handleAutoStraightenPaths = useCallback(
     (paths: string[]) => {

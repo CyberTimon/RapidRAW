@@ -560,63 +560,71 @@ pub(crate) async fn export_images_impl(
                     return skip();
                 }
 
+                let is_raw = is_raw_file(&source_path_str);
+                let load_adjustments = || -> Result<_, String> {
+                    let sidecar = crate::metadata::sidecar::load_sidecar(&sidecar_path);
+                    let mut js_adjustments = match &adjustments_mode {
+                        ExportAdjustmentsMode::UseSidecars {
+                            active_adjustments, ..
+                        } => match active_adjustments.as_ref().filter(|_| is_current_edit) {
+                            Some(adj) => adj.clone(),
+                            None => develop_defaults::resolve(&sidecar.adjustments, &source_path)
+                                .into_owned(),
+                        },
+                        ExportAdjustmentsMode::GlobalOverride(adj) => {
+                            let mut adj = adj.clone();
+                            crate::ai::jobs::resolve_detached(
+                                &app_handle_clone,
+                                &image_path_str,
+                                &mut adj,
+                            )
+                            .map_err(|e| {
+                                format!("Failed to generate AI results for export: {}", e)
+                            })?;
+                            adj
+                        }
+                    };
+                    hydrate_adjustments(&state, &mut js_adjustments);
+                    let fingerprint =
+                        (on_conflict == ConflictAction::OverwriteIfChanged).then(|| {
+                            export_records.fingerprint(
+                                &source_path,
+                                &js_adjustments,
+                                &output_format,
+                                &export_settings,
+                                &settings,
+                                is_raw,
+                            )
+                        });
+                    Ok((sidecar, js_adjustments, fingerprint))
+                };
+
+                let mut loaded = None;
+                if outputs_exist && on_conflict == ConflictAction::OverwriteIfChanged {
+                    let prepared = load_adjustments()?;
+                    if let (_, _, Some(fingerprint)) = &prepared
+                        && export_records.is_current(&output_path, fingerprint)
+                    {
+                        return skip();
+                    }
+                    loaded = Some(prepared);
+                }
+
                 if !is_current_edit
                     && matches!(adjustments_mode, ExportAdjustmentsMode::UseSidecars { .. })
                 {
                     crate::ai::jobs::ensure_ready(&app_handle_clone, &image_path_str)
                         .map_err(|e| format!("Failed to generate AI results for export: {}", e))?;
+                    loaded = None;
                 }
 
-                let sidecar = crate::metadata::sidecar::load_sidecar(&sidecar_path);
-                let export_xmp =
-                    crate::metadata::export_metadata::ExportXmp::from_metadata(&sidecar);
-
-                let mut js_adjustments = match &adjustments_mode {
-                    ExportAdjustmentsMode::UseSidecars {
-                        active_adjustments, ..
-                    } => {
-                        if is_current_edit {
-                            if let Some(adj) = active_adjustments {
-                                adj.clone()
-                            } else {
-                                develop_defaults::resolve(&sidecar.adjustments, &source_path)
-                                    .into_owned()
-                            }
-                        } else {
-                            develop_defaults::resolve(&sidecar.adjustments, &source_path)
-                                .into_owned()
-                        }
-                    }
-                    ExportAdjustmentsMode::GlobalOverride(adj) => {
-                        let mut adj = adj.clone();
-                        crate::ai::jobs::resolve_detached(
-                            &app_handle_clone,
-                            &image_path_str,
-                            &mut adj,
-                        )
-                        .map_err(|e| format!("Failed to generate AI results for export: {}", e))?;
-                        adj
-                    }
+                let (sidecar, js_adjustments, fingerprint) = match loaded {
+                    Some(prepared) => prepared,
+                    None => load_adjustments()?,
                 };
 
-                hydrate_adjustments(&state, &mut js_adjustments);
-                let is_raw = is_raw_file(&source_path_str);
-                let fingerprint = (on_conflict == ConflictAction::OverwriteIfChanged).then(|| {
-                    export_records.fingerprint(
-                        &source_path,
-                        &js_adjustments,
-                        &output_format,
-                        &export_settings,
-                        &settings,
-                        is_raw,
-                    )
-                });
-                if outputs_exist
-                    && let Some(fingerprint) = &fingerprint
-                    && export_records.is_current(&output_path, fingerprint)
-                {
-                    return skip();
-                }
+                let export_xmp =
+                    crate::metadata::export_metadata::ExportXmp::from_metadata(&sidecar);
 
                 let result: Result<(), String> = (|| {
                     if extension == "cube" {

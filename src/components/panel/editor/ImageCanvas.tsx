@@ -4121,6 +4121,7 @@ const ImageCanvas = memo(
                           e.stopPropagation();
                         }
                       }}
+                      onFocus={(e) => (e.target as HTMLElement).blur()}
                     >
                       <ReactCrop
                         aspect={
