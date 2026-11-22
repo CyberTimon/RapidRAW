@@ -49,6 +49,7 @@ pub struct DecodeGpu {
 struct DecodeSlot {
     owner: Arc<wgpu::Device>,
     gpu: DecodeGpu,
+    lean: bool,
 }
 
 static DECODE_GPU: Mutex<Option<DecodeSlot>> = Mutex::new(None);
@@ -70,6 +71,19 @@ pub fn decode_gpu_context() -> Result<DecodeGpu, String> {
     Ok(decode_gpu_for(&context))
 }
 
+pub fn release_decode_gpu(failed: &Arc<wgpu::Device>) -> bool {
+    let mut slot = DECODE_GPU.lock().unwrap_or_else(|e| e.into_inner());
+    let released = slot.as_ref().is_some_and(|slot| {
+        !slot.lean
+            && Arc::ptr_eq(&slot.gpu.device, failed)
+            && !Arc::ptr_eq(&slot.gpu.device, &slot.owner)
+    });
+    if released {
+        *slot = None;
+    }
+    released
+}
+
 fn decode_gpu_for(context: &GpuContext) -> DecodeGpu {
     let mut slot = DECODE_GPU.lock().unwrap_or_else(|e| e.into_inner());
     if DECODE_DEVICE_LOST.swap(false, Ordering::AcqRel) {
@@ -80,11 +94,18 @@ fn decode_gpu_for(context: &GpuContext) -> DecodeGpu {
     {
         return existing.gpu.clone();
     }
+    let adapter = adapter_label(&context.adapter);
+    let lean = crate::decode::gpu_fallback::has_failed(&adapter);
     let opened = open_device(
         &context.adapter,
         "Decode Device",
         wgpu::Features::empty(),
         &context.limits,
+        if lean {
+            wgpu::MemoryHints::MemoryUsage
+        } else {
+            wgpu::MemoryHints::Performance
+        },
         &DECODE_DEVICE_LOST,
     );
     let (device, queue) = opened.unwrap_or_else(|e| {
@@ -95,11 +116,12 @@ fn decode_gpu_for(context: &GpuContext) -> DecodeGpu {
         device,
         queue,
         limits: context.limits.clone(),
-        adapter: adapter_label(&context.adapter),
+        adapter,
     };
     *slot = Some(DecodeSlot {
         owner: Arc::clone(&context.device),
         gpu: gpu.clone(),
+        lean,
     });
     gpu
 }
@@ -109,6 +131,7 @@ fn open_device(
     label: &'static str,
     required_features: wgpu::Features,
     limits: &wgpu::Limits,
+    memory_hints: wgpu::MemoryHints,
     lost: &'static AtomicBool,
 ) -> Result<(Arc<wgpu::Device>, Arc<wgpu::Queue>), String> {
     let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
@@ -116,7 +139,7 @@ fn open_device(
         required_features,
         required_limits: limits.clone(),
         experimental_features: wgpu::ExperimentalFeatures::default(),
-        memory_hints: wgpu::MemoryHints::Performance,
+        memory_hints,
         trace: wgpu::Trace::Off,
     }))
     .map_err(|e| e.to_string())?;
@@ -266,6 +289,7 @@ pub fn get_or_init_gpu_context(
         "Processing Device",
         required_features,
         &limits,
+        wgpu::MemoryHints::Performance,
         &GPU_DEVICE_LOST,
     )
     .inspect_err(|_| crate::render::gpu::fallback::abandon_attempt())?;

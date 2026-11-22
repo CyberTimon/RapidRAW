@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard, Once};
+use std::time::Duration;
 
 use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,7 @@ use crate::app::settings::load_settings;
 use crate::app::state::AppState;
 use crate::render::gpu::context::{
     DecodeGpu, adapter_label, app_handle, current_gpu_context, decode_gpu_context,
+    release_decode_gpu,
 };
 use crate::render::gpu::fallback::{gpu_identity, load_record, store_record};
 
@@ -90,6 +92,17 @@ pub fn cpu_limit() -> Option<usize> {
         memory.recall(&gpu);
     }
     lowest(memory.confirmed, memory.session).map(|limit| limit.pixels)
+}
+
+pub fn has_failed(adapter: &str) -> bool {
+    if app_handle().is_none() {
+        return false;
+    }
+    let mut memory = memory();
+    memory.recall(&gpu_identity(adapter));
+    [memory.confirmed, memory.suspected, memory.session]
+        .iter()
+        .any(Option::is_some)
 }
 
 pub fn reset() {
@@ -238,7 +251,15 @@ pub(crate) fn on_gpu<T>(load: Load, run: impl FnOnce(&DecodeGpu) -> Result<T>) -
                 load.pixels,
                 e
             );
+            let _ = context.device.poll(wgpu::PollType::Wait {
+                submission_index: None,
+                timeout: Some(Duration::from_secs(5)),
+            });
             memory().failed(gpu, load);
+            if release_decode_gpu(&context.device) {
+                crate::decode::demosaic::forget();
+                crate::decode::develop::forget();
+            }
             None
         }
     }

@@ -175,6 +175,10 @@ fn with_kernels<T>(device: &Arc<wgpu::Device>, f: impl FnOnce(&Kernels) -> Resul
     f(kernels.as_ref().map_err(|e| anyhow!("{}", e))?)
 }
 
+pub fn forget() {
+    *KERNELS.lock().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
 pub fn warm(device: &Arc<wgpu::Device>) -> Result<()> {
     with_kernels(device, |_| Ok(()))
 }
