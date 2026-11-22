@@ -351,7 +351,7 @@ fn generate_thumbnail_data_with_metadata(
                 Cow::Borrowed(patched)
             } else if let Some(img) = preloaded_image {
                 let prepared =
-                    image_loader::prepare_base_image_cow(img, &source_path_str, adjustments)?;
+                    image_loader::prepare_base_image(img, &source_path_str, adjustments)?;
                 raw_scale_factor = crate::ai::upscale::scale_between(img, &prepared);
                 prepared
             } else {
@@ -532,7 +532,7 @@ fn generate_thumbnail_data_with_metadata(
     let final_image: Cow<DynamicImage> = if let Some(patched) = &cached_patched {
         Cow::Borrowed(patched)
     } else if let Some(img) = preloaded_image {
-        image_loader::prepare_base_image_cow(img, &source_path_str, adjustments)?
+        image_loader::prepare_base_image(img, &source_path_str, adjustments)?
     } else {
         if let Some(before_decode) = before_decode {
             before_decode();

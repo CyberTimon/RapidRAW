@@ -214,6 +214,8 @@ pub fn run() {
             _ => {}
         })
         .setup(move |app| {
+            platform::monitor::watch_screen_changes(app.handle());
+
             #[cfg(feature = "tethering")]
             {
                 std::thread::spawn(|| {

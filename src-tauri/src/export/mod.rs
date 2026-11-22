@@ -29,7 +29,7 @@ use crate::app::settings::load_settings;
 use crate::app::state::AppState;
 use crate::decode::as_shot::as_shot;
 use crate::decode::formats::is_raw_file;
-use crate::decode::image_loader::prepare_base_image_cow;
+use crate::decode::image_loader::prepare_base_image;
 use crate::export::encode::{save_image_with_metadata, set_timestamps_from_exif};
 use crate::export::geometry::apply_export_geometry_and_watermark;
 use crate::export::masks::export_masks_for_image;
@@ -723,7 +723,7 @@ pub(crate) async fn export_images_impl(
                         cached_patched_image(&state, &loaded_image.image, &js_adjustments)
                     });
                     let prepare_base = |adjustments: &Value| -> Result<Arc<DynamicImage>, String> {
-                        match prepare_base_image_cow(&source_image, source_image_path, adjustments)
+                        match prepare_base_image(&source_image, source_image_path, adjustments)
                             .map_err(|e| format!("Failed to composite AI patches: {}", e))?
                         {
                             Cow::Owned(prepared) => Ok(Arc::new(prepared)),

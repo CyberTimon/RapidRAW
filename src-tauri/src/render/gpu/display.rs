@@ -1013,21 +1013,38 @@ static DISPLAYS_CHECKED_AT: AtomicU64 = AtomicU64::new(0);
 static DISPLAYS_TRACKED: AtomicBool = AtomicBool::new(false);
 static HDR_AVAILABLE: AtomicBool = AtomicBool::new(false);
 static DISPLAY_REFRESH_PENDING: AtomicBool = AtomicBool::new(false);
+static DISPLAY_REFRESH_REQUESTED_AT: AtomicU64 = AtomicU64::new(0);
+
+fn uptime_ms() -> u64 {
+    static STARTED: OnceLock<Instant> = OnceLock::new();
+    STARTED.get_or_init(Instant::now).elapsed().as_millis() as u64 + 1
+}
 
 pub fn invalidate_displays() {
     DISPLAYS_CHECKED_AT.store(0, Ordering::Release);
 }
 
 pub fn request_display_refresh(app_handle: &tauri::AppHandle) {
-    const DEBOUNCE: Duration = Duration::from_millis(300);
-    if !DISPLAYS_TRACKED.load(Ordering::Acquire)
-        || DISPLAY_REFRESH_PENDING.swap(true, Ordering::AcqRel)
-    {
+    const QUIET_MS: u64 = 300;
+    const MAX_WAIT_MS: u64 = 2000;
+    if !DISPLAYS_TRACKED.load(Ordering::Acquire) {
+        return;
+    }
+    DISPLAY_REFRESH_REQUESTED_AT.store(uptime_ms(), Ordering::Release);
+    if DISPLAY_REFRESH_PENDING.swap(true, Ordering::AcqRel) {
         return;
     }
     let app_handle = app_handle.clone();
     std::thread::spawn(move || {
-        std::thread::sleep(DEBOUNCE);
+        let started = uptime_ms();
+        loop {
+            let now = uptime_ms();
+            let quiet = now.saturating_sub(DISPLAY_REFRESH_REQUESTED_AT.load(Ordering::Acquire));
+            if quiet >= QUIET_MS || now.saturating_sub(started) >= MAX_WAIT_MS {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(QUIET_MS - quiet));
+        }
         DISPLAY_REFRESH_PENDING.store(false, Ordering::Release);
         invalidate_displays();
         if let Some(context) = current_gpu_context(&app_handle.state::<AppState>()) {
@@ -1071,8 +1088,7 @@ pub fn refresh_displays(
     settings: &AppSettings,
 ) {
     const INTERVAL_MS: u64 = 3000;
-    static STARTED: OnceLock<Instant> = OnceLock::new();
-    let now = STARTED.get_or_init(Instant::now).elapsed().as_millis() as u64 + 1;
+    let now = uptime_ms();
     let checked_at = DISPLAYS_CHECKED_AT.load(Ordering::Acquire);
     if checked_at != 0 && now.saturating_sub(checked_at) < INTERVAL_MS {
         return;

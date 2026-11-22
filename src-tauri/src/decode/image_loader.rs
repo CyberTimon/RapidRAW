@@ -94,7 +94,7 @@ pub fn load_and_composite(
         (base_w as f32 / decode_scale).round() as u32,
         (base_h as f32 / decode_scale).round() as u32,
     );
-    let prepared = match prepare_base_image_at(&base_image, full_dims, path, adjustments)? {
+    let prepared = match prepare_reduced_base_image(&base_image, full_dims, path, adjustments)? {
         Cow::Owned(img) => Some(img),
         Cow::Borrowed(_) => None,
     };
@@ -104,35 +104,28 @@ pub fn load_and_composite(
     Ok((prepared.unwrap_or(base_image), scale * decode_scale))
 }
 
-pub fn prepare_base_image_cow<'a>(
+pub fn prepare_base_image<'a>(
     base_image: &'a DynamicImage,
     path: &str,
     adjustments: &Value,
 ) -> Result<Cow<'a, DynamicImage>> {
-    prepare_base_image_at(base_image, base_image.dimensions(), path, adjustments)
+    prepare_reduced_base_image(base_image, base_image.dimensions(), path, adjustments)
 }
 
-fn prepare_base_image_at<'a>(
+fn prepare_reduced_base_image<'a>(
     base_image: &'a DynamicImage,
     full_dims: (u32, u32),
     path: &str,
     adjustments: &Value,
 ) -> Result<Cow<'a, DynamicImage>> {
-    let has_patches = adjustments
-        .get("aiPatches")
-        .and_then(|v| v.as_array())
-        .is_some_and(|a| !a.is_empty());
-
     let denoised = crate::ai::denoise::apply_ai_denoise(base_image, path, adjustments);
     let upscaled = crate::ai::upscale::apply_ai_upscale(base_image, denoised, path, adjustments);
-    match crate::adjustments::negative_conversion::apply_negative_conversion(
+    let prepared = crate::adjustments::negative_conversion::apply_negative_conversion(
         upscaled,
         is_raw_file(path),
         adjustments,
-    ) {
-        Cow::Owned(prepared) if !has_patches => Ok(Cow::Owned(prepared)),
-        prepared => composite_patches_cow(prepared, full_dims, path, adjustments),
-    }
+    );
+    composite_patches_cow(prepared, full_dims, path, adjustments)
 }
 
 pub fn load_base_image_from_bytes(

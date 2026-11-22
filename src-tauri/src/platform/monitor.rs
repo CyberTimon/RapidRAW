@@ -46,6 +46,13 @@ pub fn tag_surface(surface: &wgpu::Surface, tag: SurfaceTag) {
     platform::tag_surface(surface, tag);
 }
 
+pub fn watch_screen_changes(app_handle: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    platform::watch_screen_changes(app_handle);
+    #[cfg(not(target_os = "macos"))]
+    let _ = app_handle;
+}
+
 #[cfg(target_os = "windows")]
 mod platform {
     use super::{HdrDisplay, MonitorState, SurfaceTag, SystemColor, WideGamut};
@@ -284,13 +291,17 @@ mod platform {
 mod platform {
     use super::{HdrDisplay, MonitorState, SurfaceTag, SystemColor, WideGamut};
     use crate::render::color_space::OutputColorSpace;
+    use block2::RcBlock;
     use objc2::runtime::AnyObject;
     use objc2::{class, msg_send};
+    use objc2_app_kit::NSApplicationDidChangeScreenParametersNotification;
     use objc2_core_graphics::{
         CGColorSpace, kCGColorSpaceAdobeRGB1998, kCGColorSpaceDisplayP3,
         kCGColorSpaceExtendedLinearSRGB, kCGColorSpaceITUR_2020, kCGColorSpaceROMMRGB,
         kCGColorSpaceSRGB,
     };
+    use objc2_foundation::{NSNotification, NSNotificationCenter};
+    use std::ptr::NonNull;
     use wgpu::rwh::{HasWindowHandle, RawWindowHandle};
 
     const DISPLAY_GAMUT_P3: isize = 2;
@@ -346,6 +357,22 @@ mod platform {
             };
             Some(MonitorState { hdr, color })
         }
+    }
+
+    pub fn watch_screen_changes(app_handle: &tauri::AppHandle) {
+        let app_handle = app_handle.clone();
+        let block = RcBlock::new(move |_: NonNull<NSNotification>| {
+            crate::render::gpu::display::request_display_refresh(&app_handle);
+        });
+        let observer = unsafe {
+            NSNotificationCenter::defaultCenter().addObserverForName_object_queue_usingBlock(
+                Some(NSApplicationDidChangeScreenParametersNotification),
+                None,
+                None,
+                &block,
+            )
+        };
+        std::mem::forget(observer);
     }
 
     pub fn tag_surface(surface: &wgpu::Surface, tag: SurfaceTag) {

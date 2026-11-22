@@ -108,7 +108,15 @@ gphoto2 = { git = "https://github.com/CyberTimon/libgphoto2-rs", optional = true
 apple-native-keyring-store = { version = "1", features = ["keychain"] }
 objc = "0.2"
 objc2 = "0.6"
+block2 = "0.6"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = [
+    "std",
+    "NSApplication",
+] }
 objc2-foundation = { version = "0.3.2", features = [
+    "block2",
+    "NSNotification",
+    "NSOperation",
     "NSData",
     "NSDictionary",
     "NSString",
