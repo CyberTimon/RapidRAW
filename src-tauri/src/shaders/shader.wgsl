@@ -289,7 +289,6 @@ const HIGHLIGHT_CEILING: f32 = -0.1;
 const HIGHLIGHT_CLIP_HOLD: f32 = 1.0;
 const HIGHLIGHT_HOLD_RANGE: f32 = 2.0;
 const HIGHLIGHT_HOLD_TOP: f32 = 0.5;
-const AGX_WHITE_LEVEL: f32 = 2.53;
 const HIGHLIGHT_SHOULDER: f32 = 1.5;
 const HIGHLIGHT_WHITE_LO: f32 = -1.0;
 const HIGHLIGHT_WHITE_HI: f32 = 1.0;
@@ -1783,7 +1782,7 @@ fn agx_display_linear(x: vec3<f32>) -> vec3<f32> {
 fn agx_tonemap(c: vec3<f32>) -> vec3<f32> {
     let hue = rgb_to_hsv(c).x;
     let exposure = log2(max(c / AGX_SCENE_GREY, vec3<f32>(AGX_EPSILON)));
-    let x = clamp((exposure - AGX_BLACK_EV) / AGX_RANGE_EV, vec3<f32>(0.0), vec3<f32>(1.0));
+    let x = clamp((exposure - AGX_BLACK_EV) / AGX_RANGE_EV, vec3<f32>(0.0), vec3<f32>(AGX_HDR_MAX_X));
     var hsv = rgb_to_hsv(agx_display_linear(x));
     let shift = (hsv.x - hue) / 360.0;
     hsv.x = (hue + (1.0 - AGX_HUE_PRESERVATION) * (shift - round(shift)) * 360.0 + 360.0) % 360.0;
