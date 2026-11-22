@@ -38,6 +38,35 @@
   <url type="homepage">https://github.com/CyberTimon/RapidRAW</url>
 
   <releases>
+    <release version="v1.7.1" date="2026-11-22">
+        <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.7.1</url>
+        <description translate="no">
+            <p>New Features</p>
+            <ul>
+                <li>HDR Support: An HDR preview on HDR screens (on Linux with a Wayland desktop that supports HDR), HDR export as JPEG with a gain map or as JPEG XL in PQ Rec. 2020 with an adjustable headroom, HDR photos from phones that open as HDR, and an HDR-aware histogram and waveform.</li>
+                <li>Wide Gamut Color Pipeline: Photos are edited in Rec. 2020 instead of sRGB, so the deep colors from cameras and phones are kept, and exports can use sRGB, Display P3, Adobe RGB, ProPhoto RGB or Rec. 2020.</li>
+                <li>Monitor Color Management: The preview is color managed for your monitor, with automatic profile detection or a custom ICC profile, and a Preview Gamut option to see sRGB or the full gamut of your monitor.</li>
+                <li>Rewritten Panorama, HDR Merge &amp; Focus Stacking: One merge window with a live preview, a new panorama stitcher with projections, Boundary Warp and Auto Crop, RAW HDR merges into float DNGs with automatic deghosting, and better aligned, noise-aware focus stacking.</li>
+                <li>AVIF &amp; JPEG XL: AVIF files open at their full bit depth, including HDR AVIFs, JPEG XL files are decoded with jxl-rs, and lossy JPEG XL exports keep wide gamut colors.</li>
+                <li>AgX Tone Mapper: AgX is now a faithful port of darktable's AgX with better hue handling, matches the brightness of the Basic tone mapper and turns clipped highlights pure white.</li>
+                <li>RAW Decoding Improvements: RAW files are decoded on the CPU when the GPU can't handle them, with a new Auto, GPU or CPU setting, hot and dead pixels are removed automatically, and RCD demosaicing no longer makes green too dark near black.</li>
+                <li>Skip Unchanged Exports: A new If file exists option to keep both files, overwrite, overwrite only changed photos or skip, also in the CLI with --on-conflict.</li>
+                <li>Editing Improvements: Undo history for the last 20 edited photos, live preset previews on hover, and AI Denoise without grid patterns in the shadows.</li>
+            </ul>
+            <p>Core Improvements</p>
+            <ul>
+                <li>Full 16-Bit TIFF Exports: 16-bit TIFF exports now keep their full precision.</li>
+                <li>Better Exports: Exports use less memory, single image exports use the file naming template, and the library refreshes after exporting into the open folder.</li>
+                <li>Crop Panel: The crop panel shows the whole image when opened and restores the zoom when closed, and the arrow keys switch photos like everywhere else in the editor.</li>
+                <li>Reorganized Menus: Frame Editor and Collage moved into the Merge menu, Lens Correction is one toggle, and the Productivity menu is split into actions and toggles.</li>
+                <li>GPU Fixes: RapidRAW tries the GPU backend again after a crash instead of switching to OpenGL for good, and the black background and crushed contrast on OpenGL are fixed.</li>
+                <li>NVIDIA on Linux: Fixed blank or broken windows with the NVIDIA driver on X11.</li>
+                <li>Other Fixes: Sorting by date taken works across RAW and JPEG files, photos with a missing LUT no longer render black, and Escape or right-click cancels pickers.</li>
+                <li>New Language: Added Swedish.</li>
+                <li>Stability &amp; Bug Fixes: General bug fixes and performance improvements.</li>
+            </ul>
+        </description>
+    </release>
     <release version="v1.7.0" date="2026-11-15">
         <url type="details">https://github.com/CyberTimon/RapidRAW/releases/tag/v1.7.0</url>
         <description translate="no">

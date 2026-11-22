@@ -57,9 +57,20 @@ RapidRAW is for photographers who love to edit their photos in a <strong>clean, 
 <details>
 <summary><strong>Recent Changes</strong></summary>
 
+- **2026-11-22:** Made AgX reach pure white at the sensor's clipping point, made the crop panel show the whole image when opened and restore the zoom when closed, and kept the arrow keys for switching photos in the crop panel
+- **2026-11-21:** Added HEIC support on Windows and macOS, export conflict handling that can skip unchanged photos, automatic hot and dead pixel removal and live preset previews on hover, kept full precision in 16-bit TIFF exports, removed the grid patterns AI denoise left in shadows, and moved Frame Editor and Collage into the Merge menu
+- **2026-11-20:** Rewrote HDR merge and focus stacking on the new merge engine, with RAW merges saved as float DNGs and automatic deghosting, added AVIF decoding, opened gain map, PQ and HLG photos as HDR, added the HDR preview on Linux Wayland, retried the GPU backend after a crash instead of switching to OpenGL for good, and fixed blank windows with NVIDIA on X11
+- **2026-11-19:** Fixed RCD estimating green too dark near black, as found by Hanno Schwalm for darktable
+- **2026-11-18:** Added monitor color management with automatic profile detection, an HDR preview button in the editor toolbar, a CPU fallback for RAW decoding, undo history for the last 20 edited photos and Swedish translation, and fixed the black background on the OpenGL and DirectX 12 backends
+- **2026-11-17:** Moved the color pipeline to a Rec. 2020 working space, rewrote AgX as a port of darktable's AgX, and added HDR export (JPEG with a gain map, JPEG XL in PQ) and export color spaces (sRGB, Display P3, Adobe RGB, ProPhoto RGB and Rec. 2020)
+- **2026-11-16:** Rewrote the panorama stitcher with bundle adjustment, lens distortion and exposure correction, graph-cut seams, multi-band blending, projections, boundary warp and auto crop
 - **2026-11-15:** Made sharpening halo-free and independent of exposure, and fixed stepped soft edges under highlights and the other tone sliders
 - **2026-11-14:** Docked the filmstrip into the side panels as a vertical grid, added six library thumbnail sizes, added crop rotation by dragging around the frame, rebuilt contrast around each photo's own midtone, kept RAW metadata in JPEG XL exports, added camera make and model to the metadata panel, and made the AI denoise and RapidRes cache about three times smaller
 - **2026-11-13:** Added default adjustments with per-camera presets and automatic lens correction, and kept zooming smooth while a RAW file loads
+
+<details>
+<summary><strong>Expand further</strong></summary>
+
 - **2026-11-12:** Retuned the tone sliders, improved generative fill edges and cloud inpainting, fixed AI masks on Linux systems with a decimal comma locale, and fixed renames that left sidecar files behind
 - **2026-11-11:** Added RapidRes, a 2x AI super resolution fine-tuned on RapidRAW's own RAW pipeline, and removed green checkerboard artifacts in bright flat areas like snow
 - **2026-11-10:** Moved demosaicing to the GPU with RCD for Bayer and Markesteijn for X-Trans, reworked highlights, shadows, whites, blacks, clarity and structure with stronger highlight recovery, and rebuilt the color grading wheels in OKLab
@@ -67,10 +78,6 @@ RapidRAW is for photographers who love to edit their photos in a <strong>clean, 
 - **2026-11-07:** Rebuilt glow, halation and lens flare with realistic glare and aperture ghosts, rebuilt film grain, convert embedded ICC profiles of non-RAW images to sRGB, render previews at the real display size, added the option to export the original alongside edits, and fixed Olympus ORF white balance
 - **2026-11-06:** Added an interface scale setting for a compact UI, and fixed macOS context menus and canvas flicker when switching images
 - **2026-11-05:** Reworked lens correction to match Lensfun exactly with per-image lens profiles, moved relight, fog, lens blur and all transforms to the GPU, added next/previous image preloading and interactive 3D depth views
-
-<details>
-<summary><strong>Expand further</strong></summary>
-
 - **2026-11-04:** Fixed macOS local network access with ad-hoc signing, Let's Encrypt certificates on Android, and export panel validation
 - **2026-11-03:** Added Match Brush mask with adaptive color, tone and texture matching, and reworked liquify and retouch with frequency separation smoothing
 - **2026-11-02:** Added Motion Blur with panning, moving subject, spin and depth parallax, reworked clone and heal with automatic source matching, enabled the GPU renderer on Linux Wayland, and added EXIF and ICC metadata to TIFF exports
@@ -575,12 +582,13 @@ Explore example edits processed entirely within RapidRAW. You can download the `
       <h4>Core Editing Engine</h4>
       <ul>
         <li><strong>Furka Engine:</strong> GPU demosaicing (RCD for Bayer, Markesteijn for X-Trans), strong highlight recovery, and halo-free, edge-aware tone sliders in a floating-point WGSL pipeline for instant feedback.</li>
+        <li><strong>Wide Gamut & HDR:</strong> Edits in a linear Rec. 2020 working space, with color management for your monitor, an HDR preview on HDR screens, and HDR export.</li>
         <li><strong>Layered Masking:</strong> AI subject, sky, foreground, depth, text prompt, and face part masks, a Match Brush that follows similar colors and textures, and parametric color and luminance masks.</li>
         <li><strong>Retouching Tools:</strong> Clone, Heal, Retouch, and Liquify tools for dust removal, skin smoothing, and reshaping.</li>
         <li><strong>Noise Reduction:</strong> Non-destructive AI Denoise, classic BM3D denoise, and manual luma and color noise reduction.</li>
         <li><strong>RapidRes:</strong> 2x AI super resolution fine-tuned on RapidRAW's own RAW pipeline, for real extra detail without fake texture.</li>
         <li><strong>Generative Edits:</strong> Remove or add elements using text prompts, powered by an optional AI backend.</li>
-        <li><strong>Full RAW Support:</strong> Supports a wide range of RAW camera formats through rawler, with JPEG support included.</li>
+        <li><strong>Full RAW Support:</strong> Supports a wide range of RAW camera formats through rawler, plus JPEG, TIFF, AVIF, JPEG XL and more (HEIC on Windows and macOS).</li>
         <li><strong>Non-Destructive Workflow:</strong> All edits are stored in a <code>.rrdata</code> sidecar file, leaving your original images untouched.</li>
         <li><strong>Lens Correction:</strong> Automatic distortion, TCA, and vignette correction powered by Lensfun.</li><br><br>
       </ul>
@@ -618,16 +626,16 @@ Explore example edits processed entirely within RapidRAW. You can download the `
     <td valign="top" width="50%" style="border-top: 1px solid #444; padding-top: 12px;">
       <h4>Productivity & UI</h4>
       <ul>
-        <li><strong>Preset System:</strong> Create, save, import, share, and adjust preset intensity.</li>
+        <li><strong>Preset System:</strong> Create, save, import, share, preview on hover, and adjust preset intensity.</li>
         <li><strong>Default Adjustments:</strong> A starting edit for every new photo, with per-camera presets and automatic lens correction.</li>
         <li><strong>Image Analytics:</strong> Real-time Vectorscope, Waveform, RGB Parade, and Histogram displays.</li>
         <li><strong>Copy & Paste Settings:</strong> Quickly transfer adjustments and masks between images. AI masks are generated again for every image.</li>
         <li><strong>Speed Edit:</strong> Hold W and drag on the photo to change sliders, with keyboard shortcuts to switch sliders and images.</li>
         <li><strong>Before / After Compare:</strong> Full original, split, and side-by-side compare modes.</li>
-        <li><strong>Undo/Redo History:</strong> Robust history tracking for every edit step.</li>
-        <li><strong>Compositions & Merging:</strong> Bracketed HDR merging, Focus Stacking, seamless Panorama Stitcher, and Collage Maker.</li>
+        <li><strong>Undo/Redo History:</strong> Robust history tracking for every edit step, kept for the last 20 photos you edited.</li>
+        <li><strong>Compositions & Merging:</strong> Panorama Stitcher with projections and boundary warp, HDR merge to a float DNG with automatic deghosting, Focus Stacking, and Collage Maker.</li>
         <li><strong>Film Negatives:</strong> Non-destructive negative conversion with color balance and print controls.</li>
-        <li><strong>Flexible Exporting:</strong> Export to JPEG, PNG, WebP, AVIF, TIFF, JXL, or LUT formats with custom watermarking and EXIF retention.</li><br><br>
+        <li><strong>Flexible Exporting:</strong> Export to JPEG, PNG, WebP, AVIF, TIFF, JXL, or LUT formats in sRGB, Display P3, Adobe RGB, ProPhoto RGB or Rec. 2020, as HDR JPEG or JXL, with custom watermarking, EXIF retention, and skipping of unchanged photos.</li><br><br>
       </ul>
     </td>
   </tr>
@@ -676,8 +684,9 @@ RapidRAW relies on [dnglab / rawler](https://github.com/dnglab/dnglab) for RAW f
 
 RapidRAW isn't just for RAW files! You can also import, edit, and convert standard image formats:
 
-- **Standard Formats:** `.jpg`, `.jpeg`, `.png`, `.webp`, `.jxl`, `.tiff`, `.tif`, `.bmp`, `.gif`
-- **High Dynamic Range (HDR) / Wide Gamut:** `.exr`, `.hdr`
+- **Standard Formats:** `.jpg`, `.jpeg`, `.png`, `.webp`, `.jxl`, `.avif`, `.tiff`, `.tif`, `.bmp`, `.gif`
+- **HEIC / HEIF:** `.heic`, `.heif` (Windows and macOS only, decoded by the system. HEIC uses the patented HEVC codec, so it isn't supported on Linux)
+- **High Dynamic Range (HDR) / Wide Gamut:** `.exr`, `.hdr`. HDR photos with a gain map (Ultra HDR JPEGs, iPhone HEICs, AVIFs) and PQ or HLG files also open as HDR.
 - **Graphics & Textures:** `.tga`, `.ico`, `.dds`
 - **Specialist Formats:** `.qoi`, `.ff`
 - **Netpbm Bitmaps:** `.pnm`, `.pbm`, `.pgm`, `.ppm`, `.pam`
@@ -1044,20 +1053,22 @@ RapidRAW is built to be lightweight and cross-platform. The minimum (tested) req
 **Hardware Recommendations:**
 
 - **RAM:** **16GB or more is highly recommended.** While the application may run on systems with less memory, performance is best with 16GB+ to handle high-resolution RAW files, undo history, and complex layer masking without slowdowns.
-- **GPU:** A dedicated GPU is recommended. RapidRAW relies heavily on GPU acceleration for its processing pipeline. Very old GPU architectures (generally pre-2015) or older integrated graphics may struggle, leading to instability or graphical artifacts.
+- **GPU:** A dedicated GPU is recommended. RapidRAW relies heavily on GPU acceleration for its processing pipeline. Very old GPU architectures (generally pre-2015) or older integrated graphics may struggle, leading to instability or graphical artifacts. If the GPU can't decode RAW files, RapidRAW decodes them on the CPU instead, which is slower.
 
 ### Common Problems
 
 <details>
 <summary>App crashes when opening an image / entering edit mode</summary>
 
-If the application crashes immediately when you try to start editing a picture, it is often due to the automatic selection of the GPU backend.
+If the application crashes immediately when you try to start editing a picture, it is often due to the automatic selection of the GPU backend. After a crash, RapidRAW tries another backend on the next start by itself. If it keeps crashing:
 
 1.  Open **Settings** on the **Home Screen** (Gear icon).
 2.  Navigate to the **Processing** tab.
 3.  Locate the **Processing Backend** setting.
 4.  Change it from **Auto** to a specific backend supported by your OS (e.g., **Vulkan**, **DirectX12**, **OpenGL**, or **Metal**).
 5.  Restart the application and try opening the image again. Experiment with different backends if the first one doesn't work.
+
+If only RAW files fail to open, set **RAW Decoding** in the same tab to **CPU**.
 
 </details>
 
@@ -1091,7 +1102,7 @@ On Linux, the image preview is drawn by the webview by default, which is slower 
 2.  Turn on **Enable Direct WGPU Render**.
 3.  Click **Save & Relaunch**.
 
-This option is still experimental on Linux. It is not available on **X11**.
+This option is still experimental on Linux. It is not available on **X11**. Monitor color management and the HDR preview also need it.
 
 </details>
 
