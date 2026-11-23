@@ -1,7 +1,7 @@
 use crate::app::settings::load_settings;
 use crate::app::state::{AppState, PreviewJob, PreviewTarget, PreviewTask};
 use crate::decode::formats::is_raw_file;
-use crate::decode::image_loader::prepare_base_image_cow;
+use crate::decode::image_loader::prepare_base_image;
 use crate::library::sidecars::parse_virtual_path;
 use crate::masks::generation::{
     MaskDefinition, build_warped_image_for_masks, generate_mask_bitmap,
@@ -435,7 +435,7 @@ pub async fn generate_preview_for_path(
             &settings,
             None,
         )?;
-        let base_image = prepare_base_image_cow(&pristine, &source_path_str, &js_adjustments)
+        let base_image = prepare_base_image(&pristine, &source_path_str, &js_adjustments)
             .map_err(|e| e.to_string())?;
         let base_scale = crate::ai::upscale::scale_between(&pristine, &base_image);
         let (fitted, fit_scale) = crate::render::source::fit_to_gpu(&context, &base_image);

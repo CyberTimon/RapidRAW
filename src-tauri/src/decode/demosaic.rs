@@ -278,6 +278,10 @@ pub(crate) fn white_level(raw_image: &RawImage) -> f32 {
         .unwrap_or(u16::MAX as u32) as f32
 }
 
+pub fn forget() {
+    *KERNELS.lock().unwrap_or_else(|e| e.into_inner()) = None;
+}
+
 pub fn warm(device: &Arc<wgpu::Device>) -> Result<()> {
     with_kernels(device, |_| Ok(()))
 }
