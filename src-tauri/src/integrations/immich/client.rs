@@ -447,7 +447,7 @@ fn mime_for(file_name: &str) -> &'static str {
         "webp" => "image/webp",
         "avif" => "image/avif",
         "jxl" => "image/jxl",
-        "heic" | "heif" => "image/heic",
+        "heic" | "heif" | "hif" => "image/heic",
         _ => "application/octet-stream",
     }
 }
