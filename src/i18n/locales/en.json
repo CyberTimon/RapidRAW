@@ -1027,6 +1027,9 @@
     },
     "destination": {
       "customFolder": "Custom folder",
+      "dialogFolder": "Start in",
+      "dialogFolderLastUsed": "Last used folder",
+      "dialogFolderSource": "Image folder",
       "originalFolder": "Original image folder",
       "subfolder": "Subfolder",
       "subfolderPlaceholder": "e.g. final, WebP"

@@ -1077,6 +1077,9 @@
     },
     "destination": {
       "customFolder": "Folder niestandardowy",
+      "dialogFolder": "Zacznij w",
+      "dialogFolderLastUsed": "Ostatnio używany folder",
+      "dialogFolderSource": "Folder zdjęcia",
       "originalFolder": "Folder oryginalnego obrazu",
       "subfolder": "Podfolder",
       "subfolderPlaceholder": "np. final, WebP"

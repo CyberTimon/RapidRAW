@@ -1024,6 +1024,9 @@
     },
     "destination": {
       "customFolder": "カスタムフォルダー",
+      "dialogFolder": "開始フォルダー",
+      "dialogFolderLastUsed": "前回使用したフォルダー",
+      "dialogFolderSource": "画像のフォルダー",
       "originalFolder": "元の画像フォルダー",
       "subfolder": "サブフォルダー",
       "subfolderPlaceholder": "例：final, WebP"

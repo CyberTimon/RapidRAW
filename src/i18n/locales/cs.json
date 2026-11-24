@@ -1077,6 +1077,9 @@
     },
     "destination": {
       "customFolder": "Vlastní složka",
+      "dialogFolder": "Začít v",
+      "dialogFolderLastUsed": "Naposledy použitá složka",
+      "dialogFolderSource": "Složka snímku",
       "originalFolder": "Původní složka snímku",
       "subfolder": "Podsložka",
       "subfolderPlaceholder": "např. final, WebP"

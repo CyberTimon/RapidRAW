@@ -1116,6 +1116,9 @@
     },
     "destination": {
       "customFolder": "Pasirinktas aplankas",
+      "dialogFolder": "Pradėti nuo",
+      "dialogFolderLastUsed": "Paskutinis naudotas aplankas",
+      "dialogFolderSource": "Nuotraukos aplankas",
       "originalFolder": "Originalios nuotraukos aplankas",
       "subfolder": "Poaplankis",
       "subfolderPlaceholder": "pvz., galutiniai, WebP"

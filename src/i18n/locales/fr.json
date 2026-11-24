@@ -1052,6 +1052,9 @@
     },
     "destination": {
       "customFolder": "Dossier personnalisé",
+      "dialogFolder": "Ouvrir dans",
+      "dialogFolderLastUsed": "Dernier dossier utilisé",
+      "dialogFolderSource": "Dossier de l'image",
       "originalFolder": "Dossier de l'image d'origine",
       "subfolder": "Sous-dossier",
       "subfolderPlaceholder": "ex. final, WebP"

@@ -65,6 +65,8 @@ export interface EditInApp {
 
 export type GroupPreference = 'jpeg' | 'raw';
 
+export type ExportDialogFolder = 'lastUsed' | 'source';
+
 export type GroupingMode = 'off' | GroupPreference;
 
 export type CompareView = 'off' | 'vertical' | 'horizontal' | 'sideBySide';
@@ -129,6 +131,7 @@ export interface AppSettings {
   processingBackend?: string;
   rawDecoding?: string;
   linuxGpuOptimization?: boolean;
+  exportDialogFolder?: ExportDialogFolder;
   exportPresets?: ExportPreset[];
   myLenses?: any;
   customAspectRatios?: CustomAspectRatio[];

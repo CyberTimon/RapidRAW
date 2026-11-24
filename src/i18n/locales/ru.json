@@ -1077,6 +1077,9 @@
     },
     "destination": {
       "customFolder": "Пользовательская папка",
+      "dialogFolder": "Открывать в",
+      "dialogFolderLastUsed": "Последняя использованная папка",
+      "dialogFolderSource": "Папка изображения",
       "originalFolder": "Папка исходного изображения",
       "subfolder": "Вложенная папка",
       "subfolderPlaceholder": "напр. final, WebP"

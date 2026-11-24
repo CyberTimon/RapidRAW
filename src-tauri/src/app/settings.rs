@@ -678,6 +678,8 @@ pub struct AppSettings {
     #[serde(default = "default_export_presets")]
     pub export_presets: Vec<ExportPreset>,
     #[serde(default)]
+    pub export_dialog_folder: Option<String>,
+    #[serde(default)]
     pub my_lenses: Option<Vec<MyLens>>,
     #[serde(default)]
     pub enable_folder_image_counts: Option<bool>,
@@ -912,6 +914,7 @@ impl Default for AppSettings {
             ai_cache_limits_migrated_v1: Some(true),
             library_view_mode: Some("flat".to_string()),
             export_presets: default_export_presets(),
+            export_dialog_folder: None,
             my_lenses: Some(Vec::new()),
             #[cfg(target_os = "android")]
             high_res_zoom_multiplier: Some(0.75),
