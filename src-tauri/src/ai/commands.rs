@@ -51,6 +51,11 @@ pub fn cancel_ai_task(task_id: String, state: tauri::State<'_, AppState>) -> Res
     Ok(())
 }
 
+#[tauri::command]
+pub fn get_ai_gpu_support() -> crate::ai::models::GpuAccelerationSupport {
+    crate::ai::models::gpu_acceleration_support()
+}
+
 fn encode_to_base64_png(image: &GrayImage) -> Result<String, String> {
     let mut buf = Cursor::new(Vec::new());
     image

@@ -13,6 +13,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -550,13 +552,155 @@ fn gpu_execution_provider() -> Option<ExecutionProviderDispatch> {
     )
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+#[cfg(target_os = "linux")]
+fn gpu_execution_provider() -> Option<ExecutionProviderDispatch> {
+    use ort::execution_providers::{CUDAExecutionProvider, ExecutionProvider};
+
+    static USABLE: OnceLock<bool> = OnceLock::new();
+    let provider = || CUDAExecutionProvider::default().build().error_on_failure();
+    USABLE
+        .get_or_init(|| {
+            if !CUDAExecutionProvider::default()
+                .is_available()
+                .unwrap_or(false)
+            {
+                return false;
+            }
+            let probe = cuda_probe_session(provider());
+            match &probe {
+                Ok(_) => log::info!("AI models run on the GPU through the CUDA provider"),
+                Err(e) => log::warn!("CUDA is unavailable, AI models use the CPU: {}", e),
+            }
+            probe.is_ok()
+        })
+        .then(provider)
+}
+
+#[cfg(target_os = "linux")]
+fn cuda_probe_session(provider: ExecutionProviderDispatch) -> ort::Result<Session> {
+    let value_type = ValueType::Tensor {
+        ty: TensorElementType::Float32,
+        shape: Shape::new([1]),
+        dimension_symbols: SymbolicDimensions::empty(1),
+    };
+    let mut graph = Graph::new()?;
+    graph.set_inputs([Outlet::new("input", &value_type)?])?;
+    graph.set_outputs([Outlet::new("output", &value_type)?])?;
+    graph.add_node(Node::new(
+        "Identity",
+        ONNX_DOMAIN,
+        "probe",
+        ["input"],
+        ["output"],
+        [],
+    )?)?;
+    let mut model = Model::new([Opset::new(ONNX_DOMAIN, 18)?])?;
+    model.add_graph(graph)?;
+    model.into_session(Session::builder()?.with_execution_providers([provider])?)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
 fn gpu_execution_provider() -> Option<ExecutionProviderDispatch> {
     None
 }
 
 fn gpu_allowed_on_platform() -> bool {
     !cfg!(target_os = "macos")
+}
+
+#[cfg(target_os = "linux")]
+static GPU_SETTING_AT_LAUNCH: OnceLock<bool> = OnceLock::new();
+
+#[cfg(target_os = "linux")]
+fn system_cuda_runtime() -> Option<PathBuf> {
+    static RUNTIME: OnceLock<Option<PathBuf>> = OnceLock::new();
+    RUNTIME
+        .get_or_init(|| {
+            [c"libonnxruntime.so.1", c"libonnxruntime.so"]
+                .into_iter()
+                .find_map(locate_cuda_runtime)
+        })
+        .clone()
+}
+
+/// `ort` panics on a runtime that fails to load or is too old, so it is checked first.
+#[cfg(target_os = "linux")]
+fn locate_cuda_runtime(library: &std::ffi::CStr) -> Option<PathBuf> {
+    let loaded = unsafe {
+        let handle = libc::dlopen(library.as_ptr(), libc::RTLD_NOW);
+        if handle.is_null() {
+            return None;
+        }
+        let symbol = libc::dlsym(handle, c"OrtGetApiBase".as_ptr());
+        let mut info: libc::Dl_info = std::mem::zeroed();
+        let supported = !symbol.is_null()
+            && libc::dladdr(symbol, &mut info) != 0
+            && !info.dli_fname.is_null()
+            && {
+                let get_api_base: unsafe extern "C" fn() -> *const ort::sys::OrtApiBase =
+                    std::mem::transmute(symbol);
+                let base = get_api_base();
+                !base.is_null() && {
+                    let version = ((*base).GetVersionString)();
+                    !version.is_null()
+                        && std::ffi::CStr::from_ptr(version)
+                            .to_string_lossy()
+                            .split('.')
+                            .nth(1)
+                            .and_then(|minor| minor.parse::<u32>().ok())
+                            .is_some_and(|minor| minor >= ort::MINOR_VERSION)
+                        && !((*base).GetApi)(ort::MINOR_VERSION).is_null()
+                }
+            };
+        let path = supported
+            .then(|| std::ffi::CStr::from_ptr(info.dli_fname).to_str().ok())
+            .flatten()
+            .map(PathBuf::from);
+        libc::dlclose(handle);
+        path
+    }?;
+    let loaded = std::path::absolute(loaded).ok()?;
+    let resolved = loaded.canonicalize().ok();
+    [Some(loaded), resolved]
+        .into_iter()
+        .flatten()
+        .find(|runtime| {
+            runtime.to_str().is_some()
+                && runtime
+                    .with_file_name("libonnxruntime_providers_cuda.so")
+                    .is_file()
+        })
+}
+
+/// Runs even with the GPU off: once the bundled runtime is loaded, its soname answers the lookup.
+#[cfg(target_os = "linux")]
+pub fn select_runtime(bundled: PathBuf, use_gpu: bool) -> PathBuf {
+    let _ = GPU_SETTING_AT_LAUNCH.set(use_gpu);
+    system_cuda_runtime().filter(|_| use_gpu).unwrap_or(bundled)
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GpuAccelerationSupport {
+    supported: bool,
+    launch_setting: Option<bool>,
+}
+
+pub fn gpu_acceleration_support() -> GpuAccelerationSupport {
+    #[cfg(target_os = "linux")]
+    {
+        GpuAccelerationSupport {
+            supported: system_cuda_runtime().is_some(),
+            launch_setting: GPU_SETTING_AT_LAUNCH.get().copied(),
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        GpuAccelerationSupport {
+            supported: cfg!(any(target_os = "windows", target_os = "macos")),
+            launch_setting: None,
+        }
+    }
 }
 
 type GpuModelPatch = fn() -> ort::Result<(Model, Vec<Output>)>;
@@ -858,7 +1002,8 @@ pub async fn get_or_init_ai_models(
     };
 
     if !is_downloaded(&models) {
-        for asset in model.assets(models.gpu_inference()) {
+        let gpu_inference = model == AiMaskModel::Foreground && models.gpu_inference();
+        for asset in model.assets(gpu_inference) {
             download_and_verify_model(app_handle, &models.models_dir, asset).await?;
         }
         models.downloaded.lock().unwrap().insert(model);

@@ -43,6 +43,7 @@ export enum Invokes {
   ClearAiModels = 'clear_ai_models',
   ClearImmichCache = 'clear_immich_cache',
   ClearMetadataCache = 'clear_metadata_cache',
+  GetAiGpuSupport = 'get_ai_gpu_support',
   GetAiJobsStatus = 'get_ai_jobs_status',
   GetFolderTree = 'get_folder_tree',
   GetFolderChildren = 'get_folder_children',

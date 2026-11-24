@@ -93,6 +93,11 @@ interface SettingItemProps {
   statusAction?: { label: string; onClick(): void } | null;
 }
 
+interface AiGpuSupport {
+  supported: boolean;
+  launchSetting: boolean | null;
+}
+
 interface GpuFallbacks {
   backend: { failed: string; using: string; retryPending: boolean } | null;
   rawDecodingMegapixels: number | null;
@@ -716,6 +721,13 @@ export default function SettingsPanel({
       .then(setIsWgpuSupported)
       .catch(() => setIsWgpuSupported(false));
   }, []);
+  const [aiGpuSupport, setAiGpuSupport] = useState<AiGpuSupport | null>(null);
+  useEffect(() => {
+    invoke<AiGpuSupport>(Invokes.GetAiGpuSupport).then(setAiGpuSupport).catch(console.error);
+  }, []);
+  const aiGpuAcceleration = appSettings?.aiGpuAcceleration ?? true;
+  const aiGpuRestartRequired =
+    typeof aiGpuSupport?.launchSetting === 'boolean' && aiGpuSupport.launchSetting !== aiGpuAcceleration;
   const displayStatus = useDisplayStatus(DISPLAY_STATUS_INTERVAL);
   const [gpuFallbacks, setGpuFallbacks] = useState<GpuFallbacks | null>(null);
   const refreshGpuFallbacks = useCallback(() => {
@@ -1436,14 +1448,14 @@ export default function SettingsPanel({
                               <li>{t('settings.processing.ai.cpu.feature2')}</li>
                               <li>{t('settings.processing.ai.cpu.feature3')}</li>
                             </Text>
-                            {(osPlatform === 'windows' || osPlatform === 'macos') && (
-                              <div className="mt-8">
+                            {aiGpuSupport?.supported && (
+                              <div className="mt-8 space-y-4">
                                 <SettingItem
                                   label={t('settings.processing.ai.cpu.gpuAcceleration')}
                                   description={t('settings.processing.ai.cpu.gpuAccelerationDesc')}
                                 >
                                   <Switch
-                                    checked={appSettings?.aiGpuAcceleration ?? true}
+                                    checked={aiGpuAcceleration}
                                     id="ai-gpu-acceleration-toggle"
                                     label={t('settings.processing.ai.cpu.gpuAccelerationLabel')}
                                     onChange={(checked) =>
@@ -1451,6 +1463,23 @@ export default function SettingsPanel({
                                     }
                                   />
                                 </SettingItem>
+                                {aiGpuRestartRequired && (
+                                  <>
+                                    <Text
+                                      as="div"
+                                      color={TextColors.info}
+                                      className="p-3 bg-blue-900/10 border border-blue-500/50 rounded-lg flex items-center gap-3"
+                                    >
+                                      <Info size={18} />
+                                      <p>{t('settings.processing.restartRequired')}</p>
+                                    </Text>
+                                    <div className="flex justify-end">
+                                      <Button onClick={handleSaveAndRelaunch}>
+                                        {t('settings.processing.saveRelaunch')}
+                                      </Button>
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             )}
                           </motion.div>

@@ -330,6 +330,11 @@ pub fn run() {
                         { "libonnxruntime.so" }
                     };
                     let ort_library_path = resource_path.join(ort_library_name);
+                    #[cfg(target_os = "linux")]
+                    let ort_library_path = ai::models::select_runtime(
+                        ort_library_path,
+                        settings.ai_gpu_acceleration,
+                    );
                     std::env::set_var("ORT_DYLIB_PATH", &ort_library_path);
                     cli_println!("Set ORT_DYLIB_PATH to: {}", ort_library_path.display());
                 }
@@ -692,6 +697,7 @@ pub fn run() {
             ai::jobs::queue_ai_jobs,
             ai::jobs::retry_failed_ai_jobs,
             ai::commands::cancel_ai_task,
+            ai::commands::get_ai_gpu_support,
             retouch::inpainting::invoke_generative_replace_with_mask_def,
             retouch::inpainting::generate_manual_cleanup_patch,
             retouch::inpainting::generate_liquify_patch,
