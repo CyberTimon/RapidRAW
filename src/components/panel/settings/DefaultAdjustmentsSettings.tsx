@@ -11,6 +11,7 @@ import {
   Camera,
   CameraDefaults,
   DevelopDefaultsSettings,
+  ExposureSnapping,
   SliderResetTarget,
 } from '../../../types/settings';
 import { Invokes } from '../../../types/invokes';
@@ -66,6 +67,15 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
     () => [
       { value: 'neutral', label: t('settings.processing.defaultAdjustments.sliderResetNeutral') },
       { value: 'defaults', label: t('settings.processing.defaultAdjustments.sliderResetDefaults') },
+    ],
+    [t],
+  );
+
+  const exposureSnappingOptions = useMemo<OptionItem<ExposureSnapping>[]>(
+    () => [
+      { value: 'off', label: t('settings.processing.defaultAdjustments.exposureSnappingOff') },
+      { value: 'third', label: t('settings.processing.defaultAdjustments.exposureSnappingThird') },
+      { value: 'half', label: t('settings.processing.defaultAdjustments.exposureSnappingHalf') },
     ],
     [t],
   );
@@ -183,6 +193,23 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
         />
         <Text variant={TextVariants.small} className="mt-2">
           {t('settings.processing.defaultAdjustments.sliderResetDesc')}
+        </Text>
+      </div>
+
+      <div>
+        <Text variant={TextVariants.heading} className="block mb-2">
+          {t('settings.processing.defaultAdjustments.exposureSnapping')}
+        </Text>
+        <Dropdown
+          onChange={(value: ExposureSnapping) =>
+            appSettings && onSettingsChange({ ...appSettings, exposureSnapping: value })
+          }
+          options={exposureSnappingOptions}
+          value={appSettings?.exposureSnapping ?? 'off'}
+          triggerClassName="bg-bg-primary"
+        />
+        <Text variant={TextVariants.small} className="mt-2">
+          {t('settings.processing.defaultAdjustments.exposureSnappingDesc')}
         </Text>
       </div>
 
