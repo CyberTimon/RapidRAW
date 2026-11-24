@@ -23,6 +23,7 @@ export const THEMES: Array<ThemeProps> = [
       '--app-accent': 'rgb(255, 255, 255)',
       '--app-border-color': 'rgb(45, 45, 45)',
       '--app-hover-color': 'rgb(255, 255, 255)',
+      '--app-curve-guide': 'rgb(255, 255, 255)',
     },
   },
   {
@@ -32,14 +33,15 @@ export const THEMES: Array<ThemeProps> = [
     cssVariables: {
       '--app-bg-primary': 'rgb(245, 245, 245)',
       '--app-bg-secondary': 'rgb(255, 255, 255)',
-      '--app-surface': 'rgb(241, 241, 241)',
-      '--app-card-active': 'rgb(250, 250, 250)',
+      '--app-surface': 'rgb(236, 236, 236)',
+      '--app-card-active': 'rgb(248, 248, 248)',
       '--app-button-text': 'rgb(255, 255, 255)',
       '--app-text-primary': 'rgb(20, 20, 20)',
-      '--app-text-secondary': 'rgb(108, 108, 108)',
+      '--app-text-secondary': 'rgb(88, 88, 88)',
       '--app-accent': 'rgb(198, 142, 110)',
-      '--app-border-color': 'rgb(224, 224, 224)',
+      '--app-border-color': 'rgb(212, 212, 212)',
       '--app-hover-color': 'rgb(198, 142, 110)',
+      '--app-curve-guide': 'rgb(0, 0, 0)',
     },
   },
   {
@@ -57,6 +59,7 @@ export const THEMES: Array<ThemeProps> = [
       '--app-accent': 'rgb(220, 220, 220)',
       '--app-border-color': 'rgb(138, 138, 138)',
       '--app-hover-color': 'rgb(220, 220, 220)',
+      '--app-curve-guide': 'rgb(255, 255, 255)',
     },
   },
 ];
