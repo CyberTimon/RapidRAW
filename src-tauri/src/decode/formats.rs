@@ -79,7 +79,7 @@ pub const NON_RAW_EXTENSIONS: &[&str] = &[
 ];
 
 #[cfg(any(target_os = "windows", target_os = "macos"))]
-pub const OS_DECODED_EXTENSIONS: &[&str] = &["heic", "heif"];
+pub const OS_DECODED_EXTENSIONS: &[&str] = &["heic", "heif", "hif"];
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub const OS_DECODED_EXTENSIONS: &[&str] = &[];
 
