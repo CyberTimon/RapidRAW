@@ -80,12 +80,22 @@ export const getAiDenoiseEnablePatch = (aiProvider?: string): Partial<Adjustment
   aiDenoiseMethod: aiProvider === 'ai-free' ? DenoiseMethod.Bm3d : DenoiseMethod.Ai,
 });
 
-export const LENS_CORRECTION_AUTO: Partial<Adjustments> = {
+export const getAutoLensCorrectionAdjustments = (options?: {
+  distortion?: boolean;
+  chromaticAberration?: boolean;
+  vignetting?: boolean;
+  distortionAmount?: number;
+  chromaticAberrationAmount?: number;
+  vignettingAmount?: number;
+}): Partial<Adjustments> => ({
   lensCorrectionMode: 'auto',
-  lensDistortionEnabled: true,
-  lensTcaEnabled: true,
-  lensVignetteEnabled: true,
-};
+  lensDistortionEnabled: options?.distortion ?? true,
+  lensTcaEnabled: options?.chromaticAberration ?? true,
+  lensVignetteEnabled: options?.vignetting ?? true,
+  lensDistortionAmount: options?.distortionAmount ?? 100,
+  lensTcaAmount: options?.chromaticAberrationAmount ?? 100,
+  lensVignetteAmount: options?.vignettingAmount ?? 100,
+});
 
 export const LENS_CORRECTION_OFF: Partial<Adjustments> = {
   lensDistortionEnabled: false,

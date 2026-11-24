@@ -24,6 +24,12 @@ pub struct CameraDefaults {
 pub struct DevelopDefaultsSettings {
     pub preset_id: Option<String>,
     pub auto_lens_correction: bool,
+    pub lens_correction_distortion: Option<bool>,
+    pub lens_correction_chromatic_aberration: Option<bool>,
+    pub lens_correction_vignetting: Option<bool>,
+    pub lens_correction_distortion_amount: Option<f64>,
+    pub lens_correction_chromatic_aberration_amount: Option<f64>,
+    pub lens_correction_vignetting_amount: Option<f64>,
     pub apply_to_non_raw: bool,
     pub cameras: Vec<CameraDefaults>,
 }
@@ -188,12 +194,53 @@ pub fn camera_of(path: &Path) -> Option<Camera> {
     camera
 }
 
-pub fn auto_lens_correction_adjustments() -> [(&'static str, Value); 4] {
+const AUTO_LENS_CORRECTION_KEYS: [&str; 7] = [
+    "lensCorrectionMode",
+    "lensDistortionEnabled",
+    "lensDistortionAmount",
+    "lensTcaEnabled",
+    "lensTcaAmount",
+    "lensVignetteEnabled",
+    "lensVignetteAmount",
+];
+
+pub fn auto_lens_correction_adjustments(
+    settings: &DevelopDefaultsSettings,
+) -> [(&'static str, Value); 7] {
+    let amount = |value: Option<f64>| match value {
+        Some(value) if value.is_finite() => value.clamp(0.0, 200.0),
+        _ => 100.0,
+    };
     [
         ("lensCorrectionMode", json!("auto")),
-        ("lensDistortionEnabled", json!(true)),
-        ("lensTcaEnabled", json!(true)),
-        ("lensVignetteEnabled", json!(true)),
+        (
+            "lensDistortionEnabled",
+            json!(settings.lens_correction_distortion.unwrap_or(true)),
+        ),
+        (
+            "lensDistortionAmount",
+            json!(amount(settings.lens_correction_distortion_amount)),
+        ),
+        (
+            "lensTcaEnabled",
+            json!(
+                settings
+                    .lens_correction_chromatic_aberration
+                    .unwrap_or(true)
+            ),
+        ),
+        (
+            "lensTcaAmount",
+            json!(amount(settings.lens_correction_chromatic_aberration_amount)),
+        ),
+        (
+            "lensVignetteEnabled",
+            json!(settings.lens_correction_vignetting.unwrap_or(true)),
+        ),
+        (
+            "lensVignetteAmount",
+            json!(amount(settings.lens_correction_vignetting_amount)),
+        ),
     ]
 }
 
@@ -223,7 +270,7 @@ fn fill_from_factory(value: &mut Value, factory: &Value) {
 
 fn build_overlay(
     preset_id: Option<&str>,
-    auto_lens_correction: bool,
+    settings: &DevelopDefaultsSettings,
     presets: &[PresetItem],
 ) -> Map<String, Value> {
     let mut overlay = Map::new();
@@ -246,8 +293,8 @@ fn build_overlay(
         }
     }
 
-    if auto_lens_correction {
-        for (key, value) in auto_lens_correction_adjustments() {
+    if settings.auto_lens_correction {
+        for (key, value) in auto_lens_correction_adjustments(settings) {
             overlay.insert(key.to_string(), value);
         }
     }
@@ -259,7 +306,7 @@ fn build(settings: &DevelopDefaultsSettings, presets: &[PresetItem]) -> DevelopD
     DevelopDefaults {
         all_cameras: Arc::new(build_overlay(
             settings.preset_id.as_deref(),
-            settings.auto_lens_correction,
+            settings,
             presets,
         )),
         cameras: settings
@@ -273,11 +320,7 @@ fn build(settings: &DevelopDefaultsSettings, presets: &[PresetItem]) -> DevelopD
                 };
                 (
                     Camera::key(&rule.make, &rule.model),
-                    Arc::new(build_overlay(
-                        preset_id,
-                        settings.auto_lens_correction,
-                        presets,
-                    )),
+                    Arc::new(build_overlay(preset_id, settings, presets)),
                 )
             })
             .collect(),
@@ -303,10 +346,9 @@ pub fn is_customized(path: &Path) -> bool {
 }
 
 pub fn keeps_embedded_preview(path: &Path) -> bool {
-    let lens_correction = auto_lens_correction_adjustments();
-    overlay(path).keys().all(|key| {
-        key == TONE_MAPPER_KEY || lens_correction.iter().any(|(lens_key, _)| lens_key == key)
-    })
+    overlay(path)
+        .keys()
+        .all(|key| key == TONE_MAPPER_KEY || AUTO_LENS_CORRECTION_KEYS.contains(&key.as_str()))
 }
 
 pub fn apply_overlay(base: &mut Value, path: &Path) {
@@ -417,7 +459,7 @@ mod tests {
 
     #[test]
     fn overlay_is_empty_without_customisation() {
-        assert!(build_overlay(None, false, &[]).is_empty());
+        assert!(build_overlay(None, &DevelopDefaultsSettings::default(), &[]).is_empty());
         assert!(build(&DevelopDefaultsSettings::default(), &[]).is_empty());
     }
 
@@ -437,7 +479,7 @@ mod tests {
                 }),
             )],
         })];
-        let overlay = build_overlay(Some("p1"), false, &presets);
+        let overlay = build_overlay(Some("p1"), &DevelopDefaultsSettings::default(), &presets);
         assert_eq!(overlay.get("exposure"), Some(&json!(0.5)));
         for key in ["masks", "aiPatches", "crop", "aspectRatio"] {
             assert!(!overlay.contains_key(key), "{key} should not be a default");
@@ -459,7 +501,11 @@ mod tests {
                 "exposure": 1.0,
             }),
         ))];
-        let overlay = Value::Object(build_overlay(Some("p1"), false, &presets));
+        let overlay = Value::Object(build_overlay(
+            Some("p1"),
+            &DevelopDefaultsSettings::default(),
+            &presets,
+        ));
         assert!(!crate::ai::jobs::has_ai_results(&overlay));
         assert_eq!(overlay.get("exposure"), Some(&json!(1.0)));
     }
@@ -470,15 +516,45 @@ mod tests {
             "p1",
             json!({ "lensCorrectionMode": "manual", "contrast": 10 }),
         ))];
-        let overlay = build_overlay(Some("p1"), true, &presets);
+        let settings = DevelopDefaultsSettings {
+            auto_lens_correction: true,
+            lens_correction_distortion: Some(false),
+            lens_correction_chromatic_aberration: Some(false),
+            lens_correction_vignetting: Some(true),
+            lens_correction_distortion_amount: Some(50.0),
+            lens_correction_chromatic_aberration_amount: Some(120.0),
+            lens_correction_vignetting_amount: Some(0.0),
+            ..Default::default()
+        };
+        let overlay = build_overlay(Some("p1"), &settings, &presets);
         assert_eq!(overlay.get("lensCorrectionMode"), Some(&json!("auto")));
-        assert_eq!(overlay.get("lensDistortionEnabled"), Some(&json!(true)));
+        assert_eq!(overlay.get("lensDistortionEnabled"), Some(&json!(false)));
+        assert_eq!(overlay.get("lensDistortionAmount"), Some(&json!(50.0)));
+        assert_eq!(overlay.get("lensTcaEnabled"), Some(&json!(false)));
+        assert_eq!(overlay.get("lensTcaAmount"), Some(&json!(120.0)));
+        assert_eq!(overlay.get("lensVignetteEnabled"), Some(&json!(true)));
+        assert_eq!(overlay.get("lensVignetteAmount"), Some(&json!(0.0)));
         assert_eq!(overlay.get("contrast"), Some(&json!(10)));
     }
 
     #[test]
+    fn auto_lens_correction_keeps_existing_all_enabled_defaults() {
+        let settings = DevelopDefaultsSettings {
+            auto_lens_correction: true,
+            ..Default::default()
+        };
+        let adjustments = auto_lens_correction_adjustments(&settings);
+        assert_eq!(adjustments[1].1, json!(true));
+        assert_eq!(adjustments[2].1, json!(100.0));
+        assert_eq!(adjustments[3].1, json!(true));
+        assert_eq!(adjustments[4].1, json!(100.0));
+        assert_eq!(adjustments[5].1, json!(true));
+        assert_eq!(adjustments[6].1, json!(100.0));
+    }
+
+    #[test]
     fn missing_preset_falls_back_to_factory() {
-        assert!(build_overlay(Some("gone"), false, &[]).is_empty());
+        assert!(build_overlay(Some("gone"), &DevelopDefaultsSettings::default(), &[]).is_empty());
     }
 
     #[test]
@@ -579,7 +655,7 @@ mod tests {
             "p1",
             json!({ "hsl": { "reds": { "hue": 10 } }, "rotation": 2.0 }),
         ))];
-        let overlay = build_overlay(Some("p1"), false, &presets);
+        let overlay = build_overlay(Some("p1"), &DevelopDefaultsSettings::default(), &presets);
         let hsl = overlay.get("hsl").and_then(Value::as_object).unwrap();
         assert_eq!(hsl["reds"]["hue"], json!(10));
         assert_eq!(hsl["reds"]["saturation"], json!(0));

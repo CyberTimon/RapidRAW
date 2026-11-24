@@ -16,8 +16,8 @@ import {
   AutoAdjustMode,
   CROP_GEOMETRY_KEYS,
   INITIAL_ADJUSTMENTS,
-  LENS_CORRECTION_AUTO,
   COPYABLE_ADJUSTMENT_KEYS,
+  getAutoLensCorrectionAdjustments,
   isSameCropGeometry,
   PasteMode,
   getActiveTools,
@@ -371,6 +371,15 @@ export function useEditorActions() {
     (paths?: string[]) => {
       const { multiSelectedPaths } = useLibraryStore.getState();
       const { selectedImage } = useEditorStore.getState();
+      const correctionSettings = useSettingsStore.getState().appSettings?.developDefaults;
+      const autoCorrection = getAutoLensCorrectionAdjustments({
+        distortion: correctionSettings?.lensCorrectionDistortion,
+        chromaticAberration: correctionSettings?.lensCorrectionChromaticAberration,
+        vignetting: correctionSettings?.lensCorrectionVignetting,
+        distortionAmount: correctionSettings?.lensCorrectionDistortionAmount,
+        chromaticAberrationAmount: correctionSettings?.lensCorrectionChromaticAberrationAmount,
+        vignettingAmount: correctionSettings?.lensCorrectionVignettingAmount,
+      });
 
       const pathsToUpdate =
         paths && paths.length > 0
@@ -384,7 +393,7 @@ export function useEditorActions() {
       const editingPath = useUIStore.getState().activeView === 'editor' ? selectedImage?.path : undefined;
       const batchPaths = pathsToUpdate.filter((path) => path !== editingPath);
       if (batchPaths.length < pathsToUpdate.length) {
-        setAdjustments((prev: Adjustments) => ({ ...prev, ...LENS_CORRECTION_AUTO }));
+        setAdjustments((prev: Adjustments) => ({ ...prev, ...autoCorrection }));
       }
       if (batchPaths.length === 0) return;
 

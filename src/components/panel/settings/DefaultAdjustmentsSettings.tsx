@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 import Dropdown, { OptionItem } from '../../ui/Dropdown';
 import Switch from '../../ui/Switch';
+import Slider from '../../ui/Slider';
 import Text from '../../ui/Text';
 import { TextVariants } from '../../../types/typography';
 import {
@@ -152,6 +153,92 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
         <Text variant={TextVariants.small} className="mt-2">
           {t('settings.processing.defaultAdjustments.autoLensCorrectionDesc')}
         </Text>
+        <div className="pl-4 border-l-2 border-border-color ml-1 mt-3 space-y-4">
+          <div>
+            <Switch
+              checked={developDefaults.lensCorrectionDistortion ?? true}
+              id="default-lens-correction-distortion-toggle"
+              label={t('modals.lensCorrection.distortion')}
+              onChange={(checked) =>
+                update({
+                  lensCorrectionDistortion: checked,
+                  lensCorrectionDistortionAmount: checked
+                    ? (developDefaults.lensCorrectionDistortionAmount ?? 100)
+                    : 100,
+                })
+              }
+            />
+            {(developDefaults.lensCorrectionDistortion ?? true) && (
+              <div className="mt-2">
+                <Slider
+                  label={t('modals.lensCorrection.amount')}
+                  value={developDefaults.lensCorrectionDistortionAmount ?? 100}
+                  min={0}
+                  max={200}
+                  step={1}
+                  defaultValue={100}
+                  onChange={(event) => update({ lensCorrectionDistortionAmount: Number(event.target.value) })}
+                />
+              </div>
+            )}
+          </div>
+          <div>
+            <Switch
+              checked={developDefaults.lensCorrectionChromaticAberration ?? true}
+              id="default-lens-correction-chromatic-aberration-toggle"
+              label={t('modals.lensCorrection.chromaticAberration')}
+              onChange={(checked) =>
+                update({
+                  lensCorrectionChromaticAberration: checked,
+                  lensCorrectionChromaticAberrationAmount: checked
+                    ? (developDefaults.lensCorrectionChromaticAberrationAmount ?? 100)
+                    : 100,
+                })
+              }
+            />
+            {(developDefaults.lensCorrectionChromaticAberration ?? true) && (
+              <div className="mt-2">
+                <Slider
+                  label={t('modals.lensCorrection.amount')}
+                  value={developDefaults.lensCorrectionChromaticAberrationAmount ?? 100}
+                  min={0}
+                  max={200}
+                  step={1}
+                  defaultValue={100}
+                  onChange={(event) => update({ lensCorrectionChromaticAberrationAmount: Number(event.target.value) })}
+                />
+              </div>
+            )}
+          </div>
+          <div>
+            <Switch
+              checked={developDefaults.lensCorrectionVignetting ?? true}
+              id="default-lens-correction-vignetting-toggle"
+              label={t('modals.lensCorrection.vignetting')}
+              onChange={(checked) =>
+                update({
+                  lensCorrectionVignetting: checked,
+                  lensCorrectionVignettingAmount: checked
+                    ? (developDefaults.lensCorrectionVignettingAmount ?? 100)
+                    : 100,
+                })
+              }
+            />
+            {(developDefaults.lensCorrectionVignetting ?? true) && (
+              <div className="mt-2">
+                <Slider
+                  label={t('modals.lensCorrection.amount')}
+                  value={developDefaults.lensCorrectionVignettingAmount ?? 100}
+                  min={0}
+                  max={200}
+                  step={1}
+                  defaultValue={100}
+                  onChange={(event) => update({ lensCorrectionVignettingAmount: Number(event.target.value) })}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div>

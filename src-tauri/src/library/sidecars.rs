@@ -353,6 +353,8 @@ pub async fn apply_auto_lens_correction_to_paths(
     paths: Vec<String>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
+    let develop_defaults =
+        crate::app::settings::load_settings(app_handle.clone())?.develop_defaults;
     tauri::async_runtime::spawn_blocking(move || {
         update_sidecars_and_thumbnails(paths, app_handle, move |_, source_path, metadata| {
             crate::metadata::sidecar::fill_missing_exif(metadata, source_path);
@@ -363,7 +365,9 @@ pub async fn apply_auto_lens_correction_to_paths(
 
             if let Some(obj) = metadata.adjustments.as_object_mut() {
                 for (key, value) in
-                    crate::adjustments::develop_defaults::auto_lens_correction_adjustments()
+                    crate::adjustments::develop_defaults::auto_lens_correction_adjustments(
+                        &develop_defaults,
+                    )
                 {
                     obj.insert(key.to_string(), value);
                 }
