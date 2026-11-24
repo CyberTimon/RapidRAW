@@ -171,6 +171,8 @@ const EditorToolbar = memo(
     const prevIsLoadingRef = useRef(isLoading);
     const [isVcHovered, setIsVcHovered] = useState(false);
     const [isInfoHovered, setIsInfoHovered] = useState(false);
+    const [isPathCopied, setIsPathCopied] = useState(false);
+    const pathCopiedTimeoutRef = useRef<number | null>(null);
     const [isHistoryVisible, setIsHistoryVisible] = useState(false);
     const historyButtonRef = useRef<HTMLDivElement>(null);
     useMenuDismiss(historyButtonRef, isHistoryVisible, setIsHistoryVisible);
@@ -294,7 +296,27 @@ const EditorToolbar = memo(
       e.currentTarget.blur();
     };
 
-    const isExpanded = isInfoHovered && (hasExif || isLoading);
+    const showExifRow = hasExif || isLoading;
+    const isExpanded = isInfoHovered;
+    const physicalPath = selectedImage.path.split('?vc=')[0];
+
+    useEffect(
+      () => () => {
+        if (pathCopiedTimeoutRef.current) window.clearTimeout(pathCopiedTimeoutRef.current);
+      },
+      [],
+    );
+
+    const handleCopyPath = async () => {
+      try {
+        await navigator.clipboard.writeText(physicalPath);
+        setIsPathCopied(true);
+        if (pathCopiedTimeoutRef.current) window.clearTimeout(pathCopiedTimeoutRef.current);
+        pathCopiedTimeoutRef.current = window.setTimeout(() => setIsPathCopied(false), 1500);
+      } catch (err) {
+        console.error('Failed to copy path:', err);
+      }
+    };
 
     return (
       <div className="relative shrink-0 flex items-center justify-between px-3 h-12 gap-3 z-40">
@@ -335,7 +357,10 @@ const EditorToolbar = memo(
             className={clsx(
               'bg-surface flex flex-col items-center overflow-hidden transition-all duration-200 ease-out pt-2',
               isExpanded
-                ? 'h-18 px-8 rounded-2xl absolute min-w-85 whitespace-nowrap shadow-2xl shadow-black/50'
+                ? clsx(
+                    showExifRow ? 'h-23' : 'h-14',
+                    'px-8 rounded-2xl absolute min-w-85 max-w-full whitespace-nowrap shadow-2xl shadow-black/50',
+                  )
                 : 'h-9 px-4 rounded-[18px] absolute min-w-0 w-auto max-w-full shadow-none',
             )}
             onMouseEnter={() => setIsInfoHovered(true)}
@@ -437,10 +462,23 @@ const EditorToolbar = memo(
               </div>
             </div>
 
+            <div className={clsx('mt-1 w-full min-w-0 h-4 shrink-0', isExpanded ? 'flex justify-center' : 'hidden')}>
+              <button
+                className="w-0 min-w-full text-center select-text cursor-copy"
+                data-tooltip={physicalPath}
+                onClick={handleCopyPath}
+                onKeyDown={handleButtonKeyDown}
+              >
+                <Text as="span" variant={TextVariants.small} className="block truncate">
+                  {isPathCopied ? t('editor.metadata.copied') : physicalPath}
+                </Text>
+              </button>
+            </div>
+
             <div
               className={clsx(
                 'relative mt-2 w-full grow justify-center border-t border-text-secondary/10 pt-2 transition-opacity duration-200',
-                isExpanded ? 'opacity-100 delay-75' : 'opacity-0 hidden',
+                isExpanded && showExifRow ? 'opacity-100 delay-75' : 'opacity-0 hidden',
                 hasExif && 'cursor-pointer',
               )}
               onClick={() => hasExif && onToggleDateView()}
