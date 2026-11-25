@@ -30,6 +30,7 @@ dependencies = [
  "imageproc",
  "imgref",
  "include_dir",
+ "inventory",
  "jni 0.21.1",
  "jni 0.22.4",
  "jxl",
@@ -3237,6 +3238,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "inventory"
+version = "0.3.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6928282826c822ad91bf1c9a1cb90a30ba1c26770749929b4656cd6be829cd7c"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]

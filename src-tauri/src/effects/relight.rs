@@ -325,3 +325,31 @@ pub fn encode(enc: &mut ComputeEncoder, job: &Relight, src: &Slot, dst: &Slot) {
         },
     );
 }
+
+impl crate::effects::registry::EffectJob for Relight {
+    fn encode(&self, enc: &mut ComputeEncoder, src: &Slot, dst: &Slot) {
+        encode(enc, self, src, dst);
+    }
+}
+
+inventory::submit! {
+    crate::effects::registry::EffectDescriptor {
+        order: 10,
+        tool_id: "relight",
+        enabled_key: "relightEnabled",
+        hash_keys: &[
+            "relightLights",
+            "relightAmbient",
+            "relightSoftness",
+            "relightShine",
+            "relightShadows",
+            "relightShadowSoftness",
+            "relightNormalMap",
+        ],
+        hashes_orientation: false,
+        prepare: |ctx| {
+            prepare(ctx.adjustments, ctx.geometry, ctx.working_size)
+                .map(|job| Box::new(job) as Box<dyn crate::effects::registry::EffectJob>)
+        },
+    }
+}

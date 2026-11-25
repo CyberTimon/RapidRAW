@@ -225,3 +225,33 @@ pub fn encode(enc: &mut ComputeEncoder, job: &Fog, src: &Slot, dst: &Slot) {
         },
     );
 }
+
+impl crate::effects::registry::EffectJob for Fog {
+    fn encode(&self, enc: &mut ComputeEncoder, src: &Slot, dst: &Slot) {
+        encode(enc, self, src, dst);
+    }
+}
+
+inventory::submit! {
+    crate::effects::registry::EffectDescriptor {
+        order: 20,
+        tool_id: "fog",
+        enabled_key: "fogEnabled",
+        hash_keys: &[
+            "fogAmount",
+            "fogStart",
+            "fogDensity",
+            "fogHeight",
+            "fogVariation",
+            "fogGlow",
+            "fogTemperature",
+            "fogTint",
+            "fogDepthMap",
+        ],
+        hashes_orientation: true,
+        prepare: |ctx| {
+            prepare(ctx.adjustments, ctx.geometry, ctx.working_size)
+                .map(|job| Box::new(job) as Box<dyn crate::effects::registry::EffectJob>)
+        },
+    }
+}

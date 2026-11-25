@@ -505,3 +505,32 @@ pub fn encode(enc: &mut ComputeEncoder, job: &LensBlur, src: &Slot, dst: &Slot) 
         },
     );
 }
+
+impl crate::effects::registry::EffectJob for LensBlur {
+    fn encode(&self, enc: &mut ComputeEncoder, src: &Slot, dst: &Slot) {
+        encode(enc, self, src, dst);
+    }
+}
+
+inventory::submit! {
+    crate::effects::registry::EffectDescriptor {
+        order: 30,
+        tool_id: "lensBlur",
+        enabled_key: "lensBlurEnabled",
+        hash_keys: &[
+            "lensBlurAmount",
+            "lensBlurDiffusion",
+            "lensBlurShape",
+            "lensBlurMinDepth",
+            "lensBlurMaxDepth",
+            "lensBlurMinFade",
+            "lensBlurMaxFade",
+            "lensBlurDepthMap",
+        ],
+        hashes_orientation: false,
+        prepare: |ctx| {
+            prepare(ctx.adjustments, ctx.geometry, ctx.working_size)
+                .map(|job| Box::new(job) as Box<dyn crate::effects::registry::EffectJob>)
+        },
+    }
+}
