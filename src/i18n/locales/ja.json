@@ -128,6 +128,8 @@
       "copyParametric": "{{channel}} パラメトリックカーブをコピー",
       "copyPoint": "{{channel}} ポイントカーブをコピー",
       "curveDataUnavailable": "カーブデータがありません。",
+      "input": "入力",
+      "output": "出力",
       "parametricCurve": "パラメトリックカーブ",
       "params": {
         "blackLevel": "黒レベル",

@@ -128,6 +128,8 @@
       "copyParametric": "Copiar corba paramètrica de {{channel}}",
       "copyPoint": "Copiar corba de punts de {{channel}}",
       "curveDataUnavailable": "Dades de la corba no disponibles.",
+      "input": "Entrada",
+      "output": "Sortida",
       "parametricCurve": "Corba paramètrica",
       "params": {
         "blackLevel": "Nivell de negre",

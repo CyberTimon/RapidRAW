@@ -128,6 +128,8 @@
       "copyParametric": "Copia Curva Parametrica {{channel}}",
       "copyPoint": "Copia Curva per Punti {{channel}}",
       "curveDataUnavailable": "Dati curva non disponibili.",
+      "input": "Ingresso",
+      "output": "Uscita",
       "parametricCurve": "Curva Parametrica",
       "params": {
         "blackLevel": "Livello del Nero",
