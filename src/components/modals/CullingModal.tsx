@@ -12,6 +12,7 @@ import Dropdown from '../ui/Dropdown';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
 import { useProcessStore } from '../../store/useProcessStore';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 const EMPTY_THUMBNAILS: Record<string, string> = {};
 
@@ -117,6 +118,8 @@ export default function CullingModal({
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
+
+  useEscapeToClose(isOpen, onClose);
 
   useEffect(() => {
     if (suggestions || error) {

@@ -25,6 +25,7 @@ import { LAYOUTS, type Layout, type LayoutDefinition } from './CollageVariants';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import { getDevicePixelRatio } from '../../utils/displayScale';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 interface CollageModalProps {
   isOpen: boolean;
@@ -138,6 +139,8 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
       return () => clearTimeout(timer);
     }
   }, [isOpen, ASPECT_RATIO_PRESETS]);
+
+  useEscapeToClose(isOpen, onClose);
 
   useEffect(() => {
     if (!isOpen || sourceImages.length === 0) return;

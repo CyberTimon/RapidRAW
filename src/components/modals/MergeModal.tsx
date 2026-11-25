@@ -31,6 +31,7 @@ import {
   PanoramaSettings,
 } from '../../types/library';
 import { MergeModalState } from '../../store/useUIStore';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 const SETTINGS_COMMIT_DELAY_MS = 250;
 
@@ -221,6 +222,8 @@ export default function MergeModal({
     pendingSettings.current = null;
     onClose();
   }, [onClose, isSaving]);
+
+  useEscapeToClose(isOpen, handleClose);
 
   const handleBackdropMouseDown = (e: React.MouseEvent) => {
     mouseDownTarget.current = e.target;
