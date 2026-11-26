@@ -144,7 +144,8 @@
       "resetAllParametric": "Alle parametrische curven herstellen",
       "resetAllPoint": "Alle puntcurven herstellen",
       "resetParametric": "{{channel}} parametrische curve herstellen",
-      "resetPoint": "{{channel}} puntcurve herstellen"
+      "resetPoint": "{{channel}} puntcurve herstellen",
+      "showInputHistogram": "Histogram vóór de curve tonen"
     },
     "details": {
       "aiDenoise": "AI-ruisonderdrukking",

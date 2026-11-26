@@ -144,7 +144,8 @@
       "resetAllParametric": "Ripristina Tutte le Curve Parametriche",
       "resetAllPoint": "Ripristina Tutte le Curve per Punti",
       "resetParametric": "Ripristina Curva Parametrica {{channel}}",
-      "resetPoint": "Ripristina Curva per Punti {{channel}}"
+      "resetPoint": "Ripristina Curva per Punti {{channel}}",
+      "showInputHistogram": "Mostra istogramma prima della curva"
     },
     "details": {
       "aiDenoise": "Riduzione rumore IA",

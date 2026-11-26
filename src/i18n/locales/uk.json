@@ -144,7 +144,8 @@
       "resetAllParametric": "Скинути всі параметричні криві",
       "resetAllPoint": "Скинути всі точкові криві",
       "resetParametric": "Скинути параметричну криву ({{channel}})",
-      "resetPoint": "Скинути точкову криву ({{channel}})"
+      "resetPoint": "Скинути точкову криву ({{channel}})",
+      "showInputHistogram": "Показати гістограму до застосування кривої"
     },
     "details": {
       "aiDenoise": "Зменшення шуму ШІ",

@@ -144,7 +144,8 @@
       "resetAllParametric": "すべてのパラメトリックカーブをリセット",
       "resetAllPoint": "すべてのポイントカーブをリセット",
       "resetParametric": "{{channel}} パラメトリックカーブをリセット",
-      "resetPoint": "{{channel}} ポイントカーブをリセット"
+      "resetPoint": "{{channel}} ポイントカーブをリセット",
+      "showInputHistogram": "カーブ適用前のヒストグラムを表示"
     },
     "details": {
       "aiDenoise": "AIノイズ除去",

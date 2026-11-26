@@ -144,7 +144,8 @@
       "resetAllParametric": "Atstatyti visas parametrines kreives",
       "resetAllPoint": "Atstatyti visas taškų kreives",
       "resetParametric": "Atstatyti {{channel}} parametrinę kreivę",
-      "resetPoint": "Atstatyti {{channel}} taškų kreivę"
+      "resetPoint": "Atstatyti {{channel}} taškų kreivę",
+      "showInputHistogram": "Rodyti histogramą prieš kreivę"
     },
     "details": {
       "aiDenoise": "DI triukšmo slopinimas",

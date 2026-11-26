@@ -144,7 +144,8 @@
       "resetAllParametric": "Restablir totes les corbes paramètriques",
       "resetAllPoint": "Restablir totes les corbes de punts",
       "resetParametric": "Restablir corba paramètrica de {{channel}}",
-      "resetPoint": "Restablir corba de punts de {{channel}}"
+      "resetPoint": "Restablir corba de punts de {{channel}}",
+      "showInputHistogram": "Mostra l’histograma abans de la corba"
     },
     "details": {
       "aiDenoise": "Reducció de soroll IA",

@@ -144,7 +144,8 @@
       "resetAllParametric": "Сбросить все параметрические кривые",
       "resetAllPoint": "Сбросить все точечные кривые",
       "resetParametric": "Сбросить параметрическую кривую {{channel}}",
-      "resetPoint": "Сбросить точечную кривую {{channel}}"
+      "resetPoint": "Сбросить точечную кривую {{channel}}",
+      "showInputHistogram": "Показать гистограмму до применения кривой"
     },
     "details": {
       "aiDenoise": "ИИ-шумоподавление",

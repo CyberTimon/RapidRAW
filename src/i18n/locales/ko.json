@@ -144,7 +144,8 @@
       "resetAllParametric": "모든 파라메트릭 커브 초기화",
       "resetAllPoint": "모든 포인트 커브 초기화",
       "resetParametric": "{{channel}} 파라메트릭 커브 초기화",
-      "resetPoint": "{{channel}} 포인트 커브 초기화"
+      "resetPoint": "{{channel}} 포인트 커브 초기화",
+      "showInputHistogram": "곡선 적용 전 히스토그램 표시"
     },
     "details": {
       "aiDenoise": "AI 노이즈 제거",

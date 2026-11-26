@@ -6,8 +6,9 @@ use crate::render::analytics::{AnalyticsFrame, AnalyticsPixels};
 use crate::render::gpu::context::{GpuContext, lock_or_reset};
 use crate::render::gpu::display::{DisplayLayer, DisplayOutput, align_texture_dimension};
 use crate::render::gpu::processor::{
-    AnalyticsReadback, GPU_IMAGE_CACHE_ENTRIES, GPU_IMAGE_CACHE_PIXELS, GPU_SOURCE_CACHE_ENTRIES,
-    GpuProcessor, NEXT_GPU_IMAGE_ID, RenderOutputPrecision, RenderRequest, RenderedPixels,
+    AnalyticsReadback, CURVE_INPUT_BUFFER_SIZE, CURVE_INPUT_COUNTS_SIZE, CURVE_INPUT_HEADER_SIZE,
+    GPU_IMAGE_CACHE_ENTRIES, GPU_IMAGE_CACHE_PIXELS, GPU_SOURCE_CACHE_ENTRIES, GpuProcessor,
+    NEXT_GPU_IMAGE_ID, RenderOutputPrecision, RenderRequest, RenderedPixels,
     analytics_readback_sender,
 };
 use crate::render::source::RenderSource;
@@ -237,12 +238,28 @@ fn process_and_get_dynamic_image_inner(
     } else {
         1.0
     };
+    let curve_input = analytics_config
+        .as_ref()
+        .is_some_and(|analytics| {
+            analytics.capture_curve_input && (output_to_display || !output_precision.is_high())
+        })
+        .then(|| {
+            device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Curve Input Histogram"),
+                size: CURVE_INPUT_BUFFER_SIZE,
+                usage: wgpu::BufferUsages::STORAGE
+                    | wgpu::BufferUsages::COPY_DST
+                    | wgpu::BufferUsages::COPY_SRC,
+                mapped_at_creation: false,
+            })
+        });
     let (processed_pixels, out_w, out_h, out_x, out_y) = processor.run(
         input,
         &mask_view,
         request,
         output_to_display,
         output_precision,
+        curve_input.as_ref(),
     )?;
 
     let mut final_encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -252,6 +269,7 @@ fn process_and_get_dynamic_image_inner(
 
     let mut async_readback_buffer: Option<wgpu::Buffer> = None;
     let mut async_padded_bpr: u32 = 0;
+    let mut curve_input_offset = None;
 
     if let (true, Some(display_textures)) = (analytics_config.is_some(), &display_textures) {
         let bytes_per_pixel = if output_precision.is_high() { 8 } else { 4 };
@@ -260,7 +278,9 @@ fn process_and_get_dynamic_image_inner(
         let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) & !(align - 1);
         let output_buffer_size = (padded_bytes_per_row * out_h) as u64;
 
-        let output_buffer = processor.readback_buffer(output_buffer_size);
+        let readback_size =
+            output_buffer_size + curve_input.as_ref().map_or(0, |_| CURVE_INPUT_COUNTS_SIZE);
+        let output_buffer = processor.readback_buffer(readback_size);
 
         final_encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
@@ -290,6 +310,21 @@ fn process_and_get_dynamic_image_inner(
 
         async_readback_buffer = Some(output_buffer);
         async_padded_bpr = padded_bytes_per_row;
+        submit_final_encoder = true;
+    }
+
+    if let Some(curve_input) = &curve_input {
+        let offset = u64::from(async_padded_bpr) * u64::from(out_h);
+        let output_buffer = async_readback_buffer
+            .get_or_insert_with(|| processor.readback_buffer(CURVE_INPUT_COUNTS_SIZE));
+        final_encoder.copy_buffer_to_buffer(
+            curve_input,
+            CURVE_INPUT_HEADER_SIZE,
+            output_buffer,
+            offset,
+            CURVE_INPUT_COUNTS_SIZE,
+        );
+        curve_input_offset = Some(offset);
         submit_final_encoder = true;
     }
 
@@ -345,6 +380,17 @@ fn process_and_get_dynamic_image_inner(
     }
 
     if let Some(analytics) = analytics_config {
+        let cpu_frame = match &processed_pixels {
+            RenderedPixels::U8(pixels) if !skip_readback => Some(AnalyticsFrame {
+                data: AnalyticsPixels::Owned(pixels.clone()),
+                width: out_w,
+                height: out_h,
+                row_stride: out_w as usize * 4,
+                peak: 1.0,
+                space: analytics.space,
+            }),
+            _ => None,
+        };
         if let (Some(output_buffer), Some(submission)) = (async_readback_buffer, final_submission) {
             let _ = analytics_readback_sender().send(AnalyticsReadback {
                 device: Arc::clone(&context.device),
@@ -357,25 +403,19 @@ fn process_and_get_dynamic_image_inner(
                 row_stride: async_padded_bpr as usize,
                 half_float: output_precision.is_high(),
                 peak: output_peak,
+                curve_input_offset,
+                cpu_frame,
+            });
+        } else if let Some(frame) = cpu_frame {
+            let _ = analytics.sender.send(AnalyticsJob {
+                path: analytics.path,
+                frame,
+                compute_waveform: analytics.compute_waveform,
+                active_waveform_channel: analytics.active_waveform_channel,
+                curve_input_counts: None,
             });
         } else {
-            if let RenderedPixels::U8(pixels) = &processed_pixels {
-                let _ = analytics.sender.send(AnalyticsJob {
-                    path: analytics.path,
-                    frame: AnalyticsFrame {
-                        data: AnalyticsPixels::Owned(pixels.clone()),
-                        width: out_w,
-                        height: out_h,
-                        row_stride: out_w as usize * 4,
-                        peak: 1.0,
-                        space: analytics.space,
-                    },
-                    compute_waveform: analytics.compute_waveform,
-                    active_waveform_channel: analytics.active_waveform_channel,
-                });
-            } else {
-                log::warn!("Skipping analytics for a high-precision CPU readback");
-            }
+            log::warn!("Skipping analytics for a high-precision CPU readback");
         }
     }
 

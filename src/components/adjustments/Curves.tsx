@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2 } from 'lucide-react';
+import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2, Square, SquareCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ActiveChannel,
@@ -13,7 +13,7 @@ import {
   areSectionPropsEqual,
 } from '../../utils/adjustments';
 import { Theme } from '../../types/settings';
-import { OPTION_SEPARATOR } from '../../types/ui';
+import { Option, OPTION_SEPARATOR } from '../../types/ui';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
 import Slider from '../ui/Slider';
@@ -202,10 +202,24 @@ function getZeroHistogramPath(data: Array<any>) {
   return `M0,255 L${pathData} L255,255 Z`;
 }
 
-const HistogramFill = memo(({ channel, opacity }: { channel: ActiveChannel; opacity: number }) => {
-  const displayed: number[] | undefined = useEditorStore((state) => state.histogram?.[channel]) as any;
+interface HistogramFillProps {
+  channel: ActiveChannel;
+  opacity: number;
+  isForMask: boolean;
+}
+
+const HistogramFill = memo(({ channel, opacity, isForMask }: HistogramFillProps) => {
+  const useInput = useEditorStore((state) => !isForMask && state.showCurveInputHistogram);
+  const displayed = useEditorStore((state) => {
+    if (!useInput) return state.histogram?.[channel];
+    const input = state.curveInputHistogram;
+    return input && input.path === state.selectedImage?.path ? input.bins[channel] : undefined;
+  });
   const sdrWhite = useEditorStore((state) => state.scopeWhite);
-  const data = useMemo(() => displayed && sdrHistogram(displayed, sdrWhite), [displayed, sdrWhite]);
+  const data = useMemo(
+    () => (!displayed || useInput ? displayed : sdrHistogram(displayed, sdrWhite)),
+    [displayed, sdrWhite, useInput],
+  );
   const histogramPath = useMemo(() => getHistogramPath(data ?? []), [data]);
   const zeroHistogramPath = useMemo(() => getZeroHistogramPath(data ?? []), [data]);
 
@@ -275,7 +289,7 @@ function convertParametricToPoints(settings: ParametricCurveSettings): Array<Coo
 const POINT_HIT_RADIUS_PX = 12;
 const MIN_POINT_GAP_X = 1;
 
-function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: CurveGraphProps) {
+function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isForMask = false }: CurveGraphProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
@@ -625,6 +639,21 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     e.stopPropagation();
 
     const channelLabel = t(`adjustments.curves.channels.${activeChannel}`);
+    const showCurveMenu = (options: Option[]) => {
+      if (!isForMask) {
+        const { showCurveInputHistogram, setEditor } = useEditorStore.getState();
+        options.push(
+          { type: OPTION_SEPARATOR },
+          {
+            label: t('adjustments.curves.showInputHistogram'),
+            checked: showCurveInputHistogram,
+            icon: showCurveInputHistogram ? SquareCheck : Square,
+            onClick: () => setEditor({ showCurveInputHistogram: !showCurveInputHistogram, curveInputHistogram: null }),
+          },
+        );
+      }
+      showContextMenu(e.clientX, e.clientY, options);
+    };
 
     if (isParametricMode) {
       const handleCopyParametric = () => {
@@ -711,7 +740,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
         });
       }
 
-      showContextMenu(e.clientX, e.clientY, options);
+      showCurveMenu(options);
       return;
     }
 
@@ -799,7 +828,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       });
     }
 
-    showContextMenu(e.clientX, e.clientY, options);
+    showCurveMenu(options);
   };
 
   const splitPositions = useMemo(
@@ -899,7 +928,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               stroke="rgba(255,255,255,0.1)"
               strokeWidth="0.5"
             />
-            <HistogramFill channel={activeChannel} opacity={histogramOpacity} />
+            <HistogramFill channel={activeChannel} opacity={histogramOpacity} isForMask={isForMask} />
             <line
               x1="0"
               y1="255"
