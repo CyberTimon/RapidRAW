@@ -311,8 +311,11 @@ fn complete_analytics_readback(readback: AnalyticsReadback) {
         let curve_input_counts = readback.curve_input_offset.map(|offset| {
             let start = offset as usize;
             mapped[start..start + CURVE_INPUT_COUNTS_SIZE as usize]
-                .chunks_exact(4)
-                .map(|bin| u32::from_le_bytes(bin.try_into().unwrap()))
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .copied()
+                .map(u32::from_le_bytes)
                 .collect()
         });
         let frame = readback.cpu_frame.unwrap_or_else(|| {

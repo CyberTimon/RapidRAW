@@ -14,7 +14,8 @@ pub fn curve_input_histogram(counts: &[u32]) -> Option<HistogramData> {
     if counts.len() != 4 * CURVE_INPUT_BINS {
         return None;
     }
-    let mut channels = counts.chunks_exact(CURVE_INPUT_BINS).map(|bins| {
+    let (channels, _) = counts.as_chunks::<CURVE_INPUT_BINS>();
+    let mut channels = channels.iter().map(|bins| {
         let mut channel: Vec<f32> = bins.iter().map(|&count| count as f32).collect();
         apply_gaussian_smoothing(&mut channel, 2.0);
         normalize_histogram_range(&mut channel, 0.99);
