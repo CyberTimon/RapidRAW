@@ -36,6 +36,7 @@
       "colorMixer": "Mikser kolorów",
       "grading": {
         "balance": "Balans",
+        "blackHold": "Zachowanie czerni",
         "blending": "Mieszanie",
         "global": "Globalnie",
         "highlights": "Światła",
@@ -948,6 +949,7 @@
         "exportTitle": "Eksportuj {{type}}",
         "importPresetsTitle": "Importuj presety",
         "legacyPreset": "Przestarzały preset",
+        "lightroomFolderTitle": "Wybierz folder ustawień predefiniowanych Lightrooma",
         "presetFile": "Plik presetu",
         "rapidRawPreset": "Preset RapidRAW"
       },
@@ -980,12 +982,21 @@
       },
       "title": "Presety",
       "toasts": {
-        "importFailed": "Nie udało się zaimportować {{fileName}}: {{error}}"
+        "importFailed": "Nie udało się zaimportować {{fileName}}: {{error}}",
+        "lightroomFailed": "Nie udało się zaimportować ustawień predefiniowanych Lightrooma: {{error}}",
+        "lightroomImported_one": "Zaimportowano ustawienia predefiniowane Lightrooma: {{count}}",
+        "lightroomImported_few": "Zaimportowano ustawienia predefiniowane Lightrooma: {{count}}",
+        "lightroomImported_many": "Zaimportowano ustawienia predefiniowane Lightrooma: {{count}}",
+        "lightroomImported_other": "Zaimportowano ustawienia predefiniowane Lightrooma: {{count}}",
+        "lightroomMissingProfiles": "Nie znaleziono niektórych profili Lightrooma: {{profiles}}",
+        "lightroomNoPresetsInFolder": "W tym folderze nie znaleziono ustawień predefiniowanych Lightrooma.",
+        "lightroomNotFound": "Nie znaleziono automatycznie ustawień predefiniowanych Lightrooma. Wybierz folder Settings programu Camera Raw."
       },
       "tooltips": {
         "explore": "Odkryj presety społeczności",
         "export": "Eksportuj wszystkie presety do pliku .rrpreset",
         "import": "Importuj presety z pliku .rrpreset",
+        "importLightroom": "Importuj ustawienia predefiniowane z Lightrooma",
         "saveNew": "Zapisz jako nowy preset"
       },
       "types": {

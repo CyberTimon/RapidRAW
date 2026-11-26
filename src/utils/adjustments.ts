@@ -63,6 +63,7 @@ export enum ColorAdjustment {
 
 export enum ColorGrading {
   Balance = 'balance',
+  BlackHold = 'blackHold',
   Blending = 'blending',
   Global = 'global',
   Highlights = 'highlights',
@@ -456,6 +457,7 @@ export interface Color {
 interface ColorGradingProps {
   [index: string]: number | HueSatLum;
   balance: number;
+  blackHold: number;
   blending: number;
   global: HueSatLum;
   highlights: HueSatLum;
@@ -596,6 +598,7 @@ export const COLOR_LABELS: Array<Color> = [
 
 const INITIAL_COLOR_GRADING: ColorGradingProps = {
   balance: 0,
+  blackHold: 0,
   blending: 50,
   global: { hue: 0, saturation: 0, luminance: 0 },
   highlights: { hue: 0, saturation: 0, luminance: 0 },
@@ -1416,6 +1419,26 @@ export const getActiveTools = (adjustments: ToolStateSource): ActiveTools =>
   Object.entries(adjustments.sectionVisibility ?? {})
     .filter(([, visible]) => !visible)
     .reduce((activeTools, [id]) => setToolActive(activeTools, id, false), {});
+
+const PRESET_AUTO_TONE_KEY = 'presetAutoTone';
+const PRESET_SUBJECT_FOCUS_KEY = 'presetSubjectFocus';
+
+export const getPresetMarkers = (adjustments: Partial<Adjustments>) => {
+  const flags = adjustments as Record<string, unknown>;
+  return {
+    autoTone: !!flags[PRESET_AUTO_TONE_KEY],
+    subjectFocus: !!flags[PRESET_SUBJECT_FOCUS_KEY],
+  };
+};
+
+export const withoutPresetMarkers = (adjustments: Partial<Adjustments>): Partial<Adjustments> => {
+  const {
+    [PRESET_AUTO_TONE_KEY]: _autoTone,
+    [PRESET_SUBJECT_FOCUS_KEY]: _subjectFocus,
+    ...rest
+  } = adjustments as Record<string, unknown>;
+  return rest as Partial<Adjustments>;
+};
 
 export const mergeActiveTools = (base: ToolStateSource, overrides: ToolStateSource): ActiveTools => ({
   ...getActiveTools(base),

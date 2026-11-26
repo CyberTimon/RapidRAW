@@ -742,6 +742,8 @@ pub fn run() {
             library::presets::handle_import_presets_from_file,
             library::presets::handle_import_legacy_presets_from_file,
             library::presets::handle_import_presets_from_files,
+            library::xmp_presets::import::import_xmp_presets,
+            ai::lens_blur_focus::calculate_lens_blur_focus,
             library::presets::handle_export_presets_to_file,
             library::presets::save_community_preset,
             library::sidecars::clear_all_sidecars,

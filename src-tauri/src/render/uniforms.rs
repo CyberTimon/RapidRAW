@@ -153,7 +153,7 @@ pub struct GlobalAdjustments {
     pub color_grading_global: ColorGradeSettings,
     pub color_grading_blending: f32,
     pub color_grading_balance: f32,
-    _pad2: f32,
+    pub color_grading_black_hold: f32,
     _pad3: f32,
 
     pub color_calibration: ColorCalibrationSettings,
@@ -216,7 +216,7 @@ pub struct MaskAdjustments {
     pub color_grading_global: ColorGradeSettings,
     pub color_grading_blending: f32,
     pub color_grading_balance: f32,
-    _pad5: f32,
+    pub color_grading_black_hold: f32,
     _pad6: f32,
 
     pub hsl: [HslColor; 8],
@@ -285,6 +285,7 @@ struct AdjustmentScales {
     color_grading_luminance: f32,
     color_grading_blending: f32,
     color_grading_balance: f32,
+    color_grading_black_hold: f32,
 
     color_calibration_hue: f32,
     color_calibration_saturation: f32,
@@ -335,6 +336,7 @@ const SCALES: AdjustmentScales = AdjustmentScales {
     color_grading_luminance: 1000.0,
     color_grading_blending: 100.0,
     color_grading_balance: 200.0,
+    color_grading_black_hold: 100.0,
 
     color_calibration_hue: 400.0,
     color_calibration_saturation: 120.0,
@@ -826,7 +828,11 @@ fn get_global_adjustments_from_json(
         } else {
             0.0
         },
-        _pad2: 0.0,
+        color_grading_black_hold: if color_grading_visible {
+            cg_obj["blackHold"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_grading_black_hold
+        } else {
+            0.0
+        },
         _pad3: 0.0,
 
         color_calibration: color_cal_settings,
@@ -998,7 +1004,11 @@ fn get_mask_adjustments_from_json(
         } else {
             0.0
         },
-        _pad5: 0.0,
+        color_grading_black_hold: if color_grading_visible {
+            cg_obj["blackHold"].as_f64().unwrap_or(0.0) as f32 / SCALES.color_grading_black_hold
+        } else {
+            0.0
+        },
         _pad6: 0.0,
 
         hsl: if color_mixer_visible {

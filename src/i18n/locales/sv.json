@@ -36,6 +36,7 @@
       "colorMixer": "Färgblandare",
       "grading": {
         "balance": "Balans",
+        "blackHold": "Bevara svärta",
         "blending": "Blandning",
         "global": "Global",
         "highlights": "Högdagrar",
@@ -898,6 +899,7 @@
         "exportTitle": "Exportera {{type}}",
         "importPresetsTitle": "Importera förinställningar",
         "legacyPreset": "Äldre förinställning",
+        "lightroomFolderTitle": "Välj mappen med Lightroom-förinställningar",
         "presetFile": "Förinställningsfil",
         "rapidRawPreset": "RapidRAW-förinställning"
       },
@@ -930,12 +932,19 @@
       },
       "title": "Förinställningar",
       "toasts": {
-        "importFailed": "Det gick inte att importera {{fileName}}: {{error}}"
+        "importFailed": "Det gick inte att importera {{fileName}}: {{error}}",
+        "lightroomFailed": "Det gick inte att importera Lightroom-förinställningar: {{error}}",
+        "lightroomImported_one": "Importerade {{count}} Lightroom-förinställning",
+        "lightroomImported_other": "Importerade {{count}} Lightroom-förinställningar",
+        "lightroomMissingProfiles": "Vissa Lightroom-profiler hittades inte: {{profiles}}",
+        "lightroomNoPresetsInFolder": "Inga Lightroom-förinställningar hittades i mappen.",
+        "lightroomNotFound": "Lightroom-förinställningar hittades inte automatiskt. Välj mappen Settings för Camera Raw."
       },
       "tooltips": {
         "explore": "Utforska användarnas förinställningar",
         "export": "Exportera alla förinställningar till en .rrpreset-fil",
         "import": "Importera förinställningar från en .rrpreset-fil",
+        "importLightroom": "Importera förinställningar från Lightroom",
         "saveNew": "Spara som ny förinställning"
       },
       "types": {

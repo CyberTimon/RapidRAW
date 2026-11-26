@@ -168,7 +168,7 @@ impl TransferCurve {
         cutoff: 0.0031308,
     };
 
-    const REC709: Self = Self {
+    pub const REC709: Self = Self {
         power: 0.45,
         offset: 0.099_296_83,
         slope: 4.5,

@@ -36,6 +36,7 @@
       "colorMixer": "Kleurenmixer",
       "grading": {
         "balance": "Balans",
+        "blackHold": "Zwart behouden",
         "blending": "Menging",
         "global": "Globaal",
         "highlights": "Hooglichten",
@@ -898,6 +899,7 @@
         "exportTitle": "{{type}} exporteren",
         "importPresetsTitle": "Voorinstellingen importeren",
         "legacyPreset": "Verouderde voorinstelling",
+        "lightroomFolderTitle": "Selecteer de map met Lightroom-voorinstellingen",
         "presetFile": "Voorinstellingsbestand",
         "rapidRawPreset": "RapidRAW-voorinstelling"
       },
@@ -930,12 +932,19 @@
       },
       "title": "Voorinstellingen",
       "toasts": {
-        "importFailed": "Importeren van {{fileName}} mislukt: {{error}}"
+        "importFailed": "Importeren van {{fileName}} mislukt: {{error}}",
+        "lightroomFailed": "Lightroom-voorinstellingen importeren mislukt: {{error}}",
+        "lightroomImported_one": "{{count}} Lightroom-voorinstelling geïmporteerd",
+        "lightroomImported_other": "{{count}} Lightroom-voorinstellingen geïmporteerd",
+        "lightroomMissingProfiles": "Sommige Lightroom-profielen zijn niet gevonden: {{profiles}}",
+        "lightroomNoPresetsInFolder": "Geen Lightroom-voorinstellingen gevonden in die map.",
+        "lightroomNotFound": "Lightroom-voorinstellingen zijn niet automatisch gevonden. Selecteer de Camera Raw-map Settings."
       },
       "tooltips": {
         "explore": "Community-voorinstellingen verkennen",
         "export": "Alle voorinstellingen exporteren naar .rrpreset-bestand",
         "import": "Voorinstellingen importeren uit .rrpreset-bestand",
+        "importLightroom": "Voorinstellingen uit Lightroom importeren",
         "saveNew": "Opslaan als nieuwe voorinstelling"
       },
       "types": {

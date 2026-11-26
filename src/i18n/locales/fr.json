@@ -36,6 +36,7 @@
       "colorMixer": "Mélangeur de couleurs",
       "grading": {
         "balance": "Balance",
+        "blackHold": "Préservation des noirs",
         "blending": "Mélange",
         "global": "Global",
         "highlights": "Hautes lumières",
@@ -923,6 +924,7 @@
         "exportTitle": "Exporter {{type}}",
         "importPresetsTitle": "Importer des paramètres prédéfinis",
         "legacyPreset": "Ancien paramètre prédéfini",
+        "lightroomFolderTitle": "Sélectionner le dossier des paramètres prédéfinis Lightroom",
         "presetFile": "Fichier de paramètre prédéfini",
         "rapidRawPreset": "Paramètre prédéfini RapidRAW"
       },
@@ -955,12 +957,20 @@
       },
       "title": "Paramètres prédéfinis",
       "toasts": {
-        "importFailed": "Échec de l'importation de {{fileName}} : {{error}}"
+        "importFailed": "Échec de l'importation de {{fileName}} : {{error}}",
+        "lightroomFailed": "Échec de l’importation des paramètres prédéfinis Lightroom : {{error}}",
+        "lightroomImported_one": "{{count}} paramètre prédéfini Lightroom importé",
+        "lightroomImported_many": "{{count}} de paramètres prédéfinis Lightroom importés",
+        "lightroomImported_other": "{{count}} paramètres prédéfinis Lightroom importés",
+        "lightroomMissingProfiles": "Certains profils Lightroom sont introuvables : {{profiles}}",
+        "lightroomNoPresetsInFolder": "Aucun paramètre prédéfini Lightroom trouvé dans ce dossier.",
+        "lightroomNotFound": "Les paramètres prédéfinis Lightroom n’ont pas été trouvés automatiquement. Sélectionnez le dossier Settings de Camera Raw."
       },
       "tooltips": {
         "explore": "Explorer les paramètres prédéfinis de la communauté",
         "export": "Exporter tous les paramètres prédéfinis vers un fichier .rrpreset",
         "import": "Importer des paramètres prédéfinis à partir d'un fichier .rrpreset",
+        "importLightroom": "Importer des paramètres prédéfinis depuis Lightroom",
         "saveNew": "Enregistrer comme nouveau paramètre prédéfini"
       },
       "types": {

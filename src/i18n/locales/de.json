@@ -36,6 +36,7 @@
       "colorMixer": "Farbmischer",
       "grading": {
         "balance": "Abgleich",
+        "blackHold": "Schwarz halten",
         "blending": "Mischen",
         "global": "Global",
         "highlights": "Lichter",
@@ -898,6 +899,7 @@
         "exportTitle": "{{type}} exportieren",
         "importPresetsTitle": "Vorgaben importieren",
         "legacyPreset": "Alte Vorgabe",
+        "lightroomFolderTitle": "Lightroom-Vorgabenordner auswählen",
         "presetFile": "Vorgabendatei",
         "rapidRawPreset": "RapidRAW Vorgabe"
       },
@@ -930,12 +932,19 @@
       },
       "title": "Vorgaben",
       "toasts": {
-        "importFailed": "Import von {{fileName}} fehlgeschlagen: {{error}}"
+        "importFailed": "Import von {{fileName}} fehlgeschlagen: {{error}}",
+        "lightroomFailed": "Lightroom-Vorgaben konnten nicht importiert werden: {{error}}",
+        "lightroomImported_one": "{{count}} Lightroom-Vorgabe importiert",
+        "lightroomImported_other": "{{count}} Lightroom-Vorgaben importiert",
+        "lightroomMissingProfiles": "Einige Lightroom-Profile wurden nicht gefunden: {{profiles}}",
+        "lightroomNoPresetsInFolder": "In diesem Ordner wurden keine Lightroom-Vorgaben gefunden.",
+        "lightroomNotFound": "Lightroom-Vorgaben wurden nicht automatisch gefunden. Wähle den Camera-Raw-Ordner „Settings“ aus."
       },
       "tooltips": {
         "explore": "Community-Vorgaben entdecken",
         "export": "Alle Vorgaben als .rrpreset exportieren",
         "import": "Vorgaben aus .rrpreset importieren",
+        "importLightroom": "Vorgaben aus Lightroom importieren",
         "saveNew": "Als neue Vorgabe speichern"
       },
       "types": {

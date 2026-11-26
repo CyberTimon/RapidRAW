@@ -36,6 +36,7 @@
       "colorMixer": "Смешение цветов",
       "grading": {
         "balance": "Баланс",
+        "blackHold": "Сохранение чёрного",
         "blending": "Смешивание",
         "global": "Глобально",
         "highlights": "Света",
@@ -948,6 +949,7 @@
         "exportTitle": "Экспорт: {{type}}",
         "importPresetsTitle": "Импортировать пресеты",
         "legacyPreset": "Старый пресет",
+        "lightroomFolderTitle": "Выберите папку пресетов Lightroom",
         "presetFile": "Файл пресета",
         "rapidRawPreset": "Пресет RapidRAW"
       },
@@ -980,12 +982,21 @@
       },
       "title": "Пресеты",
       "toasts": {
-        "importFailed": "Не удалось импортировать {{fileName}}: {{error}}"
+        "importFailed": "Не удалось импортировать {{fileName}}: {{error}}",
+        "lightroomFailed": "Не удалось импортировать пресеты Lightroom: {{error}}",
+        "lightroomImported_one": "Импортировано пресетов Lightroom: {{count}}",
+        "lightroomImported_few": "Импортировано пресетов Lightroom: {{count}}",
+        "lightroomImported_many": "Импортировано пресетов Lightroom: {{count}}",
+        "lightroomImported_other": "Импортировано пресетов Lightroom: {{count}}",
+        "lightroomMissingProfiles": "Некоторые профили Lightroom не найдены: {{profiles}}",
+        "lightroomNoPresetsInFolder": "В этой папке нет пресетов Lightroom.",
+        "lightroomNotFound": "Пресеты Lightroom не найдены автоматически. Выберите папку Settings программы Camera Raw."
       },
       "tooltips": {
         "explore": "Обзор пресетов сообщества",
         "export": "Экспортировать все пресеты в файл .rrpreset",
         "import": "Импортировать пресеты из файла .rrpreset",
+        "importLightroom": "Импортировать пресеты из Lightroom",
         "saveNew": "Сохранить как новый пресет"
       },
       "types": {
