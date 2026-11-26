@@ -957,6 +957,7 @@
         "filmstrip": "Filmstrip",
         "info": "Info",
         "inpaint": "Inpaint",
+        "history": "History",
         "masks": "Masks",
         "presets": "Presets",
         "tethering": "Tethering"
@@ -2519,6 +2520,13 @@
       "filterLabel": "Image Files",
       "select": "Select",
       "selectImageFile": "Select an image file"
+    },
+    "history": {
+      "title": "History",
+      "initial": "Initial State",
+      "undo": "Undo",
+      "redo": "Redo",
+      "noImage": "Select an image to see its edit history"
     },
     "lut": {
       "clearLut": "Clear LUT",
