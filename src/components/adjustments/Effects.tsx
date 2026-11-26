@@ -19,31 +19,30 @@ import {
   getRelightLightColor,
   MotionBlurLayer,
   MotionBlurType,
+  areSectionPropsEqual,
 } from '../../utils/adjustments';
 import Dropdown from '../ui/Dropdown';
-import LUTControl from '../ui/LUTControl';
+import LUTControl from './LUTControl';
 import ColorField, { normalizeHexColor, useParsedTextField } from '../ui/ColorField';
 import { ColorSwatch } from './Color';
-import { AppSettings } from '../ui/AppProperties';
+import { AppSettings } from '../../types/settings';
 import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { TextVariants } from '../../types/typography';
-import { DepthRangePicker } from '../ui/DepthRangePicker';
-import DepthScope from '../ui/depthScope/DepthScope';
-import { ScenePatch } from '../ui/depthScope/scene';
+import { DepthRangePicker } from './DepthRangePicker';
+import DepthScope from './depthScope/DepthScope';
+import { ScenePatch } from './depthScope/scene';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import { useEditorActions } from '../../hooks/useEditorActions';
-import { areSectionPropsEqual } from '../../utils/adjustments';
 
 interface EffectsPanelProps {
   adjustments: Adjustments;
   isForMask?: boolean;
   setAdjustments(adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): void;
   handleLutSelect(path: string, isSceneReferred: boolean): void;
-  onLutHover?: (path: string | null) => void;
   appSettings: AppSettings | null;
   onDragStateChange?: (isDragging: boolean) => void;
 }
@@ -212,7 +211,6 @@ function EffectsPanel({
   setAdjustments,
   isForMask = false,
   handleLutSelect,
-  onLutHover,
   appSettings,
   onDragStateChange,
 }: EffectsPanelProps) {
@@ -469,6 +467,7 @@ function EffectsPanel({
           title={t('adjustments.effects.creative')}
         >
           <Slider
+            resetKey="glowAmount"
             label={t('adjustments.effects.glow')}
             max={100}
             min={0}
@@ -479,6 +478,7 @@ function EffectsPanel({
           />
 
           <Slider
+            resetKey="halationAmount"
             label={t('adjustments.effects.halation')}
             max={100}
             min={0}
@@ -492,6 +492,7 @@ function EffectsPanel({
 
           {!isForMask && (
             <Slider
+              resetKey="flareAmount"
               label={t('adjustments.effects.lightFlares')}
               max={100}
               min={0}
@@ -514,6 +515,7 @@ function EffectsPanel({
         >
           <div className="space-y-4">
             <Slider
+              resetKey="motionBlurAmount"
               label={t('adjustments.effects.amount')}
               max={100}
               min={0}
@@ -525,6 +527,7 @@ function EffectsPanel({
 
             {(adjustments.motionBlurType ?? 'linear') === 'linear' && (
               <Slider
+                resetKey="motionBlurAngle"
                 label={t('adjustments.effects.motionBlurAngle')}
                 max={90}
                 min={-90}
@@ -537,6 +540,7 @@ function EffectsPanel({
             )}
 
             <Slider
+              resetKey="motionBlurHighlights"
               label={t('adjustments.effects.motionBlurHighlights')}
               max={100}
               min={0}
@@ -611,6 +615,7 @@ function EffectsPanel({
                       />
                     )}
                     <Slider
+                      resetKey="motionBlurDepth"
                       label={t('adjustments.effects.amount')}
                       max={100}
                       min={0}
@@ -650,6 +655,7 @@ function EffectsPanel({
                   ) : (
                     <>
                       <Slider
+                        resetKey="lensBlurAmount"
                         label={t('adjustments.effects.amount')}
                         max={100}
                         min={0}
@@ -664,6 +670,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="lensBlurDiffusion"
                         label={t('adjustments.effects.lensDiffusion')}
                         max={100}
                         min={0}
@@ -741,6 +748,7 @@ function EffectsPanel({
                     ) : (
                       <>
                         <Slider
+                          resetKey="relightAmbient"
                           label={t('adjustments.effects.relightAmbient')}
                           max={100}
                           min={-100}
@@ -754,6 +762,7 @@ function EffectsPanel({
                         />
 
                         <Slider
+                          resetKey="relightSoftness"
                           label={t('adjustments.effects.relightSoftness')}
                           max={100}
                           min={0}
@@ -768,6 +777,7 @@ function EffectsPanel({
                         />
 
                         <Slider
+                          resetKey="relightShine"
                           label={t('adjustments.effects.relightShine')}
                           max={100}
                           min={0}
@@ -787,6 +797,7 @@ function EffectsPanel({
 
                         {adjustments.relightShadows && (
                           <Slider
+                            resetKey="relightShadowSoftness"
                             label={t('adjustments.effects.relightShadowSoftness')}
                             max={100}
                             min={0}
@@ -1022,6 +1033,7 @@ function EffectsPanel({
                   ) : (
                     <>
                       <Slider
+                        resetKey="fogAmount"
                         label={t('adjustments.effects.amount')}
                         max={100}
                         min={0}
@@ -1051,6 +1063,7 @@ function EffectsPanel({
                       )}
 
                       <Slider
+                        resetKey="fogStart"
                         label={t('adjustments.effects.fogStart')}
                         max={100}
                         min={0}
@@ -1063,6 +1076,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogDensity"
                         label={t('adjustments.effects.fogDensity')}
                         max={100}
                         min={0}
@@ -1075,6 +1089,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogHeight"
                         label={t('adjustments.effects.fogHeight')}
                         max={100}
                         min={0}
@@ -1087,6 +1102,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogVariation"
                         label={t('adjustments.effects.fogVariation')}
                         max={100}
                         min={0}
@@ -1099,6 +1115,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogGlow"
                         label={t('adjustments.effects.glow')}
                         max={100}
                         min={0}
@@ -1111,6 +1128,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogTemperature"
                         label={t('adjustments.color.temperature')}
                         max={100}
                         min={-100}
@@ -1124,6 +1142,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogTint"
                         label={t('adjustments.color.tint')}
                         max={100}
                         min={-100}
@@ -1147,7 +1166,6 @@ function EffectsPanel({
                 lutName={adjustments.lutName || null}
                 lutIntensity={adjustments.lutIntensity ?? 100}
                 onLutSelect={handleLutSelect}
-                onLutHover={onLutHover}
                 onIntensityChange={handleLutIntensityChange}
                 onClear={handleLutClear}
                 onDragStateChange={onDragStateChange}
@@ -1166,6 +1184,7 @@ function EffectsPanel({
                 onPointerDown={() => setEditor(canvasToolState({ activeCenterMarker: 'vignette' }))}
               >
                 <Slider
+                  resetKey="vignetteAmount"
                   label={t('adjustments.effects.amount')}
                   max={100}
                   min={-100}
@@ -1176,6 +1195,7 @@ function EffectsPanel({
                   onDragStateChange={onDragStateChange}
                 />
                 <Slider
+                  resetKey="vignetteMidpoint"
                   defaultValue={50}
                   label={t('adjustments.effects.midpoint')}
                   max={100}
@@ -1187,6 +1207,7 @@ function EffectsPanel({
                   fillOrigin="min"
                 />
                 <Slider
+                  resetKey="vignetteRoundness"
                   label={t('adjustments.effects.roundness')}
                   max={100}
                   min={-100}
@@ -1196,6 +1217,7 @@ function EffectsPanel({
                   onDragStateChange={onDragStateChange}
                 />
                 <Slider
+                  resetKey="vignetteFeather"
                   defaultValue={50}
                   label={t('adjustments.effects.feather')}
                   max={100}
@@ -1213,6 +1235,7 @@ function EffectsPanel({
           {!hiddenTools.includes('grain') && (
             <AdjustmentSubSection id="grain" order={toolOrder.indexOf('grain')} title={t('adjustments.effects.grain')}>
               <Slider
+                resetKey="grainAmount"
                 label={t('adjustments.effects.amount')}
                 max={100}
                 min={0}
@@ -1222,6 +1245,7 @@ function EffectsPanel({
                 onDragStateChange={onDragStateChange}
               />
               <Slider
+                resetKey="grainSize"
                 defaultValue={25}
                 label={t('adjustments.effects.size')}
                 max={100}
@@ -1233,6 +1257,7 @@ function EffectsPanel({
                 fillOrigin="min"
               />
               <Slider
+                resetKey="grainRoughness"
                 defaultValue={50}
                 label={t('adjustments.effects.roughness')}
                 max={100}

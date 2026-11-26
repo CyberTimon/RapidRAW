@@ -11,9 +11,14 @@ import {
   INITIAL_ADJUSTMENTS,
   MonochromeFilm,
   MonochromeToning,
+  Adjustments,
+  ColorGrading,
+  getAdjustmentToolOrder,
+  getHiddenAdjustmentTools,
+  areSectionPropsEqual,
+  withToolCollapsed,
 } from '../../utils/adjustments';
-import { Adjustments, ColorGrading, getAdjustmentToolOrder, getHiddenAdjustmentTools } from '../../utils/adjustments';
-import { AppSettings } from '../ui/AppProperties';
+import { AppSettings } from '../../types/settings';
 import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -35,7 +40,6 @@ import {
 import { TextColors, TextWeights } from '../../types/typography';
 import { useUIStore } from '../../store/useUIStore';
 import { HSL_MIXER_BANDS, HslMixerBand, HslMixerProperty } from '../../utils/hslMixer';
-import { areSectionPropsEqual, withToolCollapsed } from '../../utils/adjustments';
 
 interface ColorProps {
   color: string;
@@ -324,6 +328,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
           min={0}
           onChange={(e: any) => handleColorGradingSliderChange(ColorGrading.Blending, e.target.value)}
           step={1}
+          resetKey="colorGrading.blending"
           value={colorGrading.blending}
           onDragStateChange={onDragStateChange}
         />
@@ -334,6 +339,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
           min={-100}
           onChange={(e: any) => handleColorGradingSliderChange(ColorGrading.Balance, e.target.value)}
           step={1}
+          resetKey="colorGrading.balance"
           value={colorGrading.balance}
           onDragStateChange={onDragStateChange}
         />
@@ -396,6 +402,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           max={100}
           step={1}
           defaultValue={0}
+          resetKey="colorCalibration.shadowsTint"
           value={colorCalibration.shadowsTint}
           onChange={(e: any) => handleShadowsChange(e.target.value)}
           onDragStateChange={onDragStateChange}
@@ -424,6 +431,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           max={100}
           step={1}
           defaultValue={0}
+          resetKey={`colorCalibration.${activePrimary}Hue`}
           value={currentValues.hue}
           onChange={(e: any) => handlePrimaryChange('Hue', e.target.value)}
           onDragStateChange={onDragStateChange}
@@ -435,6 +443,7 @@ const ColorCalibrationPanel = ({ adjustments, setAdjustments, onDragStateChange 
           max={100}
           step={1}
           defaultValue={0}
+          resetKey={`colorCalibration.${activePrimary}Saturation`}
           value={currentValues.saturation}
           onChange={(e: any) => handlePrimaryChange('Saturation', e.target.value)}
           onDragStateChange={onDragStateChange}
@@ -558,6 +567,7 @@ const MonochromePanel = ({ adjustments, setAdjustments, onDragStateChange }: Col
           min={0}
           step={1}
           defaultValue={0}
+          resetKey="monochromeFilterHue"
           value={filterHue}
           onChange={(e: SliderChangeEvent) => handleChange('monochromeFilterHue', Number(e.target.value))}
           onDragStateChange={onDragStateChange}
@@ -569,6 +579,7 @@ const MonochromePanel = ({ adjustments, setAdjustments, onDragStateChange }: Col
           min={0}
           step={1}
           defaultValue={0}
+          resetKey="monochromeFilterStrength"
           value={filterStrength}
           onChange={(e: SliderChangeEvent) => handleChange('monochromeFilterStrength', Number(e.target.value))}
           onDragStateChange={onDragStateChange}
@@ -607,6 +618,7 @@ const MonochromeMixPanel = ({
           min={-100}
           step={1}
           defaultValue={0}
+          resetKey={`monochromeMix.${name}`}
           value={values[name] ?? 0}
           onChange={(e: SliderChangeEvent) => onChange(name, e.target.value)}
           onDragStateChange={onDragStateChange}
@@ -662,6 +674,7 @@ const MonochromeToningPanel = ({ adjustments, setAdjustments, onDragStateChange 
           min={0}
           step={1}
           defaultValue={INITIAL_ADJUSTMENTS.monochromeToning[hueKey]}
+          resetKey={`monochromeToning.${hueKey}`}
           value={toning[hueKey]}
           onChange={(e: SliderChangeEvent) => handleToningChange(hueKey, e.target.value)}
           onDragStateChange={onDragStateChange}
@@ -673,6 +686,7 @@ const MonochromeToningPanel = ({ adjustments, setAdjustments, onDragStateChange 
           min={0}
           step={1}
           defaultValue={0}
+          resetKey={`monochromeToning.${saturationKey}`}
           value={toning[saturationKey]}
           onChange={(e: SliderChangeEvent) => handleToningChange(saturationKey, e.target.value)}
           onDragStateChange={onDragStateChange}
@@ -705,6 +719,7 @@ const MonochromeToningPanel = ({ adjustments, setAdjustments, onDragStateChange 
         min={-100}
         step={1}
         defaultValue={0}
+        resetKey="monochromeToning.balance"
         value={toning.balance}
         onChange={(e: SliderChangeEvent) => handleToningChange('balance', e.target.value)}
         onDragStateChange={onDragStateChange}
@@ -880,6 +895,7 @@ function ColorPanel({
       min={-100}
       onChange={(e: SliderChangeEvent) => handleHslChange(color, property, e.target.value)}
       step={1}
+      resetKey={`hsl.${color}.${property}`}
       value={hsl[color][property]}
       trackClassName={`${MIXER_TRACK_PREFIX[property]}-slider-${color}`}
       onDragStateChange={onDragStateChange}
@@ -974,6 +990,7 @@ function ColorPanel({
           ) : (
             <>
               <Slider
+                resetKey="vibrance"
                 label={t('adjustments.color.vibrance')}
                 max={100}
                 min={-100}
@@ -984,6 +1001,7 @@ function ColorPanel({
                 onDragStateChange={onDragStateChange}
               />
               <Slider
+                resetKey="saturation"
                 label={t('adjustments.color.saturation')}
                 max={100}
                 min={-100}
@@ -1005,6 +1023,7 @@ function ColorPanel({
           title={isForMask ? t('adjustments.color.localHue') : t('adjustments.color.hue')}
         >
           <Slider
+            resetKey="hue"
             label={t('adjustments.color.hue')}
             max={180}
             min={-180}

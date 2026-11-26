@@ -24,13 +24,6 @@ on:
       upload-artifacts:
         required: false
         type: boolean
-      repository:
-        required: false
-        type: string
-      ref:
-        required: false
-        type: string
-        default: ${{ github.ref }}
       mobile:
         required: false
         type: string
@@ -42,21 +35,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-        with:
-          repository: ${{ inputs.repository }}
-          ref: ${{ inputs.ref }}
-          fetch-depth: 0
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           rustflags: ''
+          cache: false
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          key: ${{ inputs.mobile == '' && inputs.platform || format('{0}-{1}', inputs.platform, inputs.mobile) }}-${{ contains(inputs.build-args, 'tethering') && 'tethering' || 'standard' }}
+          key: ${{ inputs.mobile == '' && inputs.platform || format('{0}-{1}', inputs.platform, inputs.mobile) }}
+          save-if: ${{ github.ref == 'refs/heads/main' && !contains(inputs.build-args, 'tethering') }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
@@ -113,7 +104,7 @@ jobs:
           link-to-sdk: true
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
       - name: Setup Android signing
         if: inputs.mobile == 'android' && github.event_name != 'pull_request'
@@ -202,9 +193,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          tag_ref="${{ inputs.ref }}"
-          tag_name="${tag_ref#refs/tags/}"
-          gh release upload "$tag_name" "$RUNNER_TEMP"/android-release-assets/* --clobber
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP"/android-release-assets/* --clobber
 
       - name: Upload Android Artifacts
         if: ${{ inputs.mobile == 'android' && inputs.release-id == '' }}

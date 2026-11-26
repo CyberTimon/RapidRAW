@@ -4,3 +4,4 @@ src-tauri/target
 src-tauri/gen
 src-tauri/rawler
 data
+src/components/modals/CollageVariants.tsx

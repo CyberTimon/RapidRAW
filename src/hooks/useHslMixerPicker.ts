@@ -6,8 +6,8 @@ import { useEditorStore } from '../store/useEditorStore';
 import { Adjustments, INITIAL_ADJUSTMENTS, INITIAL_MASK_ADJUSTMENTS } from '../utils/adjustments';
 import { HslMixerBand, HslMixerProperty, HslPresence, HslPresenceMode, sampleHslPresence } from '../utils/hslMixer';
 import { RenderSize } from './useImageRenderSize';
-import { Invokes } from '../components/ui/AppProperties';
-import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../components/ui/Slider';
+import { Invokes } from '../types/invokes';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../utils/fineAdjustment';
 import { prepareAdjustmentsPayload } from '../utils/backendPayload';
 
 export const MIXER_SAMPLE_SCREEN_SIZE = 16;

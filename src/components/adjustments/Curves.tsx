@@ -10,30 +10,19 @@ import {
   DEFAULT_PARAMETRIC_CURVE_SETTINGS,
   ParametricCurveSettings,
   getDefaultCurves,
+  areSectionPropsEqual,
 } from '../../utils/adjustments';
-import { Theme, OPTION_SEPARATOR } from '../ui/AppProperties';
+import { Theme } from '../../types/settings';
+import { OPTION_SEPARATOR } from '../../types/ui';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
 import Slider from '../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
-import { areSectionPropsEqual } from '../../utils/adjustments';
 import { useEditorStore } from '../../store/useEditorStore';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/fineAdjustment';
 
 let curveClipboard: Array<Coord> | null = null;
 let parametricClipboard: any = null;
-
-export interface ChannelConfig {
-  [index: string]: ColorData;
-  [ActiveChannel.Luma]: ColorData;
-  [ActiveChannel.Red]: ColorData;
-  [ActiveChannel.Green]: ColorData;
-  [ActiveChannel.Blue]: ColorData;
-}
-
-interface ColorData {
-  color: string;
-  data: any;
-}
 
 interface CurveGraphProps {
   adjustments: Adjustments | any;
@@ -196,6 +185,17 @@ function getHistogramPath(data: Array<any>) {
   return `M0,255 L${pathData} L255,255 Z`;
 }
 
+function sdrHistogram(data: number[], sdrWhite: number) {
+  if (sdrWhite >= 0.999 || data.length < 2) return data;
+  const last = data.length - 1;
+  return data.map((_, index) => {
+    const position = index * sdrWhite;
+    const low = Math.floor(position);
+    const fraction = position - low;
+    return data[low] * (1 - fraction) + data[Math.min(low + 1, last)] * fraction;
+  });
+}
+
 function getZeroHistogramPath(data: Array<any>) {
   if (!data || data.length === 0) return '';
   const pathData = data.map((_, index: number) => `${(index / 255) * 255},255`).join(' ');
@@ -203,7 +203,9 @@ function getZeroHistogramPath(data: Array<any>) {
 }
 
 const HistogramFill = memo(({ channel, opacity }: { channel: ActiveChannel; opacity: number }) => {
-  const data: number[] | undefined = useEditorStore((state) => state.histogram?.[channel]) as any;
+  const displayed: number[] | undefined = useEditorStore((state) => state.histogram?.[channel]) as any;
+  const sdrWhite = useEditorStore((state) => state.scopeWhite);
+  const data = useMemo(() => displayed && sdrHistogram(displayed, sdrWhite), [displayed, sdrWhite]);
   const histogramPath = useMemo(() => getHistogramPath(data ?? []), [data]);
   const zeroHistogramPath = useMemo(() => getZeroHistogramPath(data ?? []), [data]);
 
@@ -270,12 +272,8 @@ function convertParametricToPoints(settings: ParametricCurveSettings): Array<Coo
   return buildParametricPoints(settings);
 }
 
-const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const POINT_HIT_RADIUS_PX = 12;
 const MIN_POINT_GAP_X = 1;
-
-const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
-  'shiftKey' in event && (event.shiftKey || event.altKey);
 
 function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: CurveGraphProps) {
   const { t } = useTranslation();
@@ -1051,6 +1049,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={0}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.whiteLevel`}
+
                   value={activeParametricSettings.whiteLevel}
                   onChange={(e: any) => updateParametricValue('whiteLevel', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1062,6 +1062,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.highlights`}
+
                   value={activeParametricSettings.highlights}
                   onChange={(e: any) => updateParametricValue('highlights', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1073,6 +1075,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.lights`}
+
                   value={activeParametricSettings.lights}
                   onChange={(e: any) => updateParametricValue('lights', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1084,6 +1088,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.darks`}
+
                   value={activeParametricSettings.darks}
                   onChange={(e: any) => updateParametricValue('darks', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1095,6 +1101,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.shadows`}
+
                   value={activeParametricSettings.shadows}
                   onChange={(e: any) => updateParametricValue('shadows', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1106,6 +1114,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.blackLevel`}
+
                   value={activeParametricSettings.blackLevel}
                   onChange={(e: any) => updateParametricValue('blackLevel', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}

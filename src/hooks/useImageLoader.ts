@@ -1,11 +1,18 @@
 import { useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import i18n from 'i18next';
+import { adjustmentsFromMetadata, fetchImageDefaults } from '../utils/developDefaults';
 import { toast } from 'react-toastify';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Invokes } from '../components/ui/AppProperties';
-import { INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
+import { Invokes } from '../types/invokes';
+
+export function notifyEmbeddedPreview(loadImageResult: any) {
+  if (loadImageResult?.is_embedded_preview) {
+    toast.warning(i18n.t('editor.toasts.embeddedPreview'), { toastId: 'embedded-preview' });
+  }
+}
 
 export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
   const selectedImage = useEditorStore((s) => s.selectedImage);
@@ -24,6 +31,23 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
 
   const isWgpuActive = appSettings?.useWgpuRenderer !== false && selectedImage?.isReady && wgpuPhase === 'live';
 
+  const selectedPath = selectedImage?.path;
+  useEffect(() => {
+    useEditorStore.getState().setEditor({ imageDefaults: null });
+    if (!selectedPath) return;
+    let isCurrent = true;
+    fetchImageDefaults(selectedPath)
+      .then((imageDefaults) => {
+        if (isCurrent && useEditorStore.getState().selectedImage?.path === selectedPath) {
+          useEditorStore.getState().setEditor({ imageDefaults });
+        }
+      })
+      .catch((err) => console.error('Failed to load default adjustments:', err));
+    return () => {
+      isCurrent = false;
+    };
+  }, [selectedPath]);
+
   useEffect(() => {
     if (selectedImage && !selectedImage.isReady && selectedImage.path) {
       let isEffectActive = true;
@@ -36,15 +60,10 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
           const metadata: any = await invoke(Invokes.LoadMetadata, { path: selectedImage.path });
           if (!isEffectActive) return;
 
-          let initialAdjusts;
-          if (metadata.adjustments && !metadata.adjustments.is_null) {
-            initialAdjusts = normalizeLoadedAdjustments(metadata.adjustments);
-          } else {
-            initialAdjusts = { ...INITIAL_ADJUSTMENTS };
-          }
+          const initialAdjusts = adjustmentsFromMetadata(metadata.adjustments);
 
           setEditor({ adjustments: initialAdjusts });
-          resetHistory(initialAdjusts);
+          resetHistory(initialAdjusts, selectedImage.path);
         } catch (err) {
           console.error('Failed to load metadata early:', err);
         }
@@ -75,6 +94,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
             }
             return state;
           });
+          notifyEmbeddedPreview(loadImageResult);
         } catch (err) {
           if (isEffectActive) {
             console.error('Failed to load image:', err);
@@ -101,13 +121,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
         isEffectActive = false;
       };
     }
-  }, [
-    selectedImage?.path,
-    selectedImage?.isReady,
-    resetHistory,
-    setEditor,
-    setLibrary,
-  ]);
+  }, [selectedImage?.path, selectedImage?.isReady, resetHistory, setEditor, setLibrary]);
 
   useEffect(() => {
     if (selectedImage?.path && selectedImage.isReady && (finalPreviewUrl || isWgpuActive)) {

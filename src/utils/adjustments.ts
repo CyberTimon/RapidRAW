@@ -1,9 +1,10 @@
 import { Crop } from 'react-image-crop';
 import { v4 as uuidv4 } from 'uuid';
-import { SubMask, SubMaskMode } from '../components/panel/right/Masks';
-import type { AdjustmentLayout, AppSettings } from '../components/ui/AppProperties';
+import { SubMask, SubMaskMode } from '../types/masks';
+import type { AdjustmentLayout, AppSettings } from '../types/settings';
 import type { WhiteBalance } from './whiteBalance';
 import defaultAdjustments from './defaultAdjustments.json';
+import type { ParseKeys } from 'i18next';
 
 export enum ActiveChannel {
   Blue = 'blue',
@@ -79,11 +80,30 @@ export const getAiDenoiseEnablePatch = (aiProvider?: string): Partial<Adjustment
   aiDenoiseMethod: aiProvider === 'ai-free' ? DenoiseMethod.Bm3d : DenoiseMethod.Ai,
 });
 
+export const LENS_CORRECTION_AUTO: Partial<Adjustments> = {
+  lensCorrectionMode: 'auto',
+  lensDistortionEnabled: true,
+  lensTcaEnabled: true,
+  lensVignetteEnabled: true,
+};
+
+export const LENS_CORRECTION_OFF: Partial<Adjustments> = {
+  lensDistortionEnabled: false,
+  lensTcaEnabled: false,
+  lensVignetteEnabled: false,
+};
+
+export const isLensCorrectionActive = (adjustments: Adjustments): boolean =>
+  (adjustments.lensCorrectionMode === 'auto' || (!!adjustments.lensMaker && !!adjustments.lensModel)) &&
+  (adjustments.lensDistortionEnabled || adjustments.lensTcaEnabled || adjustments.lensVignetteEnabled);
+
 export enum DetailsAdjustment {
   AiDenoiseAmount = 'aiDenoiseAmount',
   AiDenoiseDetail = 'aiDenoiseDetail',
   AiDenoiseEnabled = 'aiDenoiseEnabled',
   AiDenoiseMethod = 'aiDenoiseMethod',
+  AiUpscaleDetail = 'aiUpscaleDetail',
+  AiUpscaleEnabled = 'aiUpscaleEnabled',
   Clarity = 'clarity',
   Dehaze = 'dehaze',
   Structure = 'structure',
@@ -288,6 +308,8 @@ export interface Adjustments {
   aiDenoiseEnabled: boolean;
   aiDenoiseMethod: DenoiseMethod;
   aiPatches: Array<AiPatch>;
+  aiUpscaleDetail: number;
+  aiUpscaleEnabled: boolean;
   aspectRatio: number | null;
   baselineExposure: boolean;
   blacks: number;
@@ -726,6 +748,9 @@ export type CropGeometry = Pick<Adjustments, (typeof CROP_GEOMETRY_KEYS)[number]
 export const pickCropGeometry = (adjustments: Adjustments): CropGeometry =>
   Object.fromEntries(CROP_GEOMETRY_KEYS.map((key) => [key, structuredClone(adjustments[key])])) as CropGeometry;
 
+export const isSameCropGeometry = (a: CropGeometry, b: CropGeometry) =>
+  CROP_GEOMETRY_KEYS.every((key) => JSON.stringify(a[key]) === JSON.stringify(b[key]));
+
 export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any => {
   if (!loadedAdjustments) {
     return INITIAL_ADJUSTMENTS;
@@ -887,7 +912,7 @@ export const MONOCHROME_ADJUSTMENT_KEYS = [
 ] as const;
 
 export interface AdjustmentGroup {
-  label: string;
+  label: ParseKeys;
   keys: string[];
 }
 
@@ -952,6 +977,10 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
         DetailsAdjustment.AiDenoiseAmount,
         DetailsAdjustment.AiDenoiseDetail,
       ],
+    },
+    {
+      label: 'modals.copyPaste.groups.aiUpscale',
+      keys: [DetailsAdjustment.AiUpscaleEnabled, DetailsAdjustment.AiUpscaleDetail],
     },
     {
       label: 'modals.copyPaste.groups.chromaticAberration',
@@ -1030,6 +1059,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
         Effect.MotionBlurAmount,
         Effect.MotionBlurAngle,
         Effect.MotionBlurType,
+        Effect.MotionBlurLayer,
         Effect.MotionBlurHighlights,
         Effect.MotionBlurDepthEnabled,
         Effect.MotionBlurDepth,
@@ -1161,6 +1191,8 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     DetailsAdjustment.AiDenoiseMethod,
     DetailsAdjustment.AiDenoiseAmount,
     DetailsAdjustment.AiDenoiseDetail,
+    DetailsAdjustment.AiUpscaleEnabled,
+    DetailsAdjustment.AiUpscaleDetail,
     DetailsAdjustment.ChromaticAberrationRedCyan,
     DetailsAdjustment.ChromaticAberrationBlueYellow,
     DetailsAdjustment.NegativeConversionEnabled,
@@ -1315,6 +1347,7 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
     { id: 'sharpening', label: 'adjustments.details.sharpening' },
     { id: 'presence', label: 'adjustments.details.presence' },
     { id: 'noiseReduction', label: 'adjustments.details.noiseReduction' },
+    { id: 'superResolution', label: 'adjustments.details.superResolution' },
     { id: 'chromaticAberration', label: 'adjustments.details.chromaticAberration' },
     { id: 'negativeConversion', label: 'adjustments.details.negativeConversion' },
   ],

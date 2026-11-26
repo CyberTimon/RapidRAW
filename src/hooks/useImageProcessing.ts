@@ -7,7 +7,8 @@ import { useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { Adjustments, COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
-import { Invokes, Panel } from '../components/ui/AppProperties';
+import { Invokes } from '../types/invokes';
+import { Panel } from '../types/ui';
 import { debouncedSave, getOriginalAdjustments } from './useEditorActions';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { prepareAdjustmentsPayload } from '../utils/backendPayload';
@@ -49,6 +50,7 @@ export function useImageProcessing(
   const adjustments = useEditorStore((state) => state.adjustments);
   const previewOverride = useEditorStore((state) => state.previewOverride);
   const isWaveformVisible = useEditorStore((state) => state.isWaveformVisible);
+  const displayRevision = useEditorStore((state) => state.displayRevision);
   const activeWaveformChannel = useEditorStore((state) => state.activeWaveformChannel);
   const displaySize = useEditorStore((state) => state.displaySize);
   const baseRenderSize = useEditorStore((state) => state.baseRenderSize);
@@ -107,8 +109,20 @@ export function useImageProcessing(
       if (view === 'off' || !image?.isReady || ui.activeView !== 'editor' || ui.activePanel === Panel.Crop) return;
 
       const originalAdjustments = getOriginalAdjustments(currentAdjustments);
-      const { useWgpuRenderer } = useSettingsStore.getState().appSettings ?? {};
-      const key = JSON.stringify([image.path, targetRes, useWgpuRenderer, originalAdjustments]);
+      const { useWgpuRenderer, hdrDisplay, gainMapMode, displayColorMode, displayIccProfile, wideGamutPreview } =
+        useSettingsStore.getState().appSettings ?? {};
+      const key = JSON.stringify([
+        image.path,
+        targetRes,
+        useWgpuRenderer,
+        hdrDisplay,
+        gainMapMode,
+        displayColorMode,
+        displayIccProfile,
+        wideGamutPreview,
+        useEditorStore.getState().displayRevision,
+        originalAdjustments,
+      ]);
       if (key === originalRequestKeyRef.current) return;
       originalRequestKeyRef.current = key;
 
@@ -194,8 +208,8 @@ export function useImageProcessing(
             const url = URL.createObjectURL(blob);
 
             setEditor((state) => {
-              if (state.interactivePatch && state.interactivePatch.url)
-                setTimeout(() => URL.revokeObjectURL(state.interactivePatch.url), 100);
+              const previousUrl = state.interactivePatch?.url;
+              if (previousUrl) setTimeout(() => URL.revokeObjectURL(previousUrl), 100);
               return {
                 interactivePatch: {
                   url,
@@ -221,8 +235,9 @@ export function useImageProcessing(
             });
 
             setEditor((state) => {
-              if (state.interactivePatch && state.interactivePatch.url) {
-                setTimeout(() => URL.revokeObjectURL(state.interactivePatch.url), 500);
+              const previousUrl = state.interactivePatch?.url;
+              if (previousUrl) {
+                setTimeout(() => URL.revokeObjectURL(previousUrl), 500);
               }
               return { interactivePatch: null };
             });
@@ -341,8 +356,11 @@ export function useImageProcessing(
   const calculateTargetRes = useCallback(
     (displayMax: number = fittedDisplayMax * (transformWrapperRef.current?.instance.transformState?.scale || 1)) => {
       const dpr = getDevicePixelRatio();
+      const upscale = adjustments.aiUpscaleEnabled ? 2 : 1;
       const originalMax =
-        originalSize.width > 0 && originalSize.height > 0 ? Math.max(originalSize.width, originalSize.height) : 0;
+        originalSize.width > 0 && originalSize.height > 0
+          ? Math.max(originalSize.width, originalSize.height) * upscale
+          : 0;
       return calculateTargetResolution(
         appSettings,
         displayMax,
@@ -350,7 +368,7 @@ export function useImageProcessing(
         originalMax,
       );
     },
-    [appSettings, fittedDisplayMax, transformWrapperRef, originalSize],
+    [appSettings, fittedDisplayMax, transformWrapperRef, originalSize, adjustments.aiUpscaleEnabled],
   );
 
   const uncroppedTargetRes = useMemo(() => {
@@ -428,7 +446,6 @@ export function useImageProcessing(
     return () => {
       requestHiFiZoom.cancel();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeView,
     displaySize.width,
@@ -488,8 +505,6 @@ export function useImageProcessing(
 
         applyAdjustments(renderAdjustments, false, targetRes);
 
-        if (previewOverride) return;
-
         const prev = prevAdjustmentsRef.current;
 
         if (!prev || prev.path !== selectedImage.path) {
@@ -529,7 +544,6 @@ export function useImageProcessing(
     return () => {
       if (dragIdleTimer.current) clearTimeout(dragIdleTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeView,
     adjustments,
@@ -542,9 +556,15 @@ export function useImageProcessing(
     appSettings?.enableBaselineExposure,
     appSettings?.baselineExposure,
     appSettings?.compensateHighlightPreservation,
+    appSettings?.hdrDisplay,
+    appSettings?.gainMapMode,
+    appSettings?.displayColorMode,
+    appSettings?.displayIccProfile,
+    appSettings?.wideGamutPreview,
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
+    displayRevision,
   ]);
 
   return {

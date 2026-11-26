@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
-import { ImageFile, Invokes } from '../components/ui/AppProperties';
+import { ImageFile } from '../types/library';
+import { Invokes } from '../types/invokes';
 
 export function useImagePreloader(sortedImageList: ImageFile[]) {
   const path = useEditorStore((s) => s.selectedImage?.path ?? null);

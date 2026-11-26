@@ -4,15 +4,9 @@ import { toast } from 'react-toastify';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { canvasToolState, useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
-import {
-  Invokes,
-  ImageFile,
-  ImageFlag,
-  LibraryViewMode,
-  AlbumItem,
-  Album,
-  AlbumGroup,
-} from '../components/ui/AppProperties';
+import { Invokes } from '../types/invokes';
+import { ImageFile, ImageFlag, AlbumItem, Album, AlbumGroup, type FolderNode } from '../types/library';
+import { LibraryViewMode } from '../types/settings';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { computeSortedLibrary } from './useSortedLibrary';
@@ -328,7 +322,7 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
   }, []);
 
   const handleUpdateExif = useCallback(async (paths: Array<string> | undefined, updates: Record<string, string>) => {
-    const { multiSelectedPaths, imageList, setLibrary } = useLibraryStore.getState();
+    const { multiSelectedPaths, setLibrary } = useLibraryStore.getState();
     const { selectedImage, setEditor } = useEditorStore.getState();
 
     const pathsToUpdate =
@@ -550,7 +544,7 @@ export function useLibraryActions(handleImageSelect?: (path: string, openInEdito
     handleSettingsChange({ ...appSettings, pinnedFolders: newPins });
 
     try {
-      const trees = await invoke(Invokes.GetPinnedFolderTrees, {
+      const trees = await invoke<FolderNode[]>(Invokes.GetPinnedFolderTrees, {
         paths: newPins,
         expandedFolders: Array.from(expandedFolders),
         showImageCounts: appSettings.enableFolderImageCounts ?? false,

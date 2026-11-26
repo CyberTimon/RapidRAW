@@ -5,15 +5,17 @@ import clsx from 'clsx';
 import { FolderOpen, Loader2, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
-import { AppSettings, Invokes } from '../../ui/AppProperties';
+import { AppSettings } from '../../../types/settings';
+import { Invokes } from '../../../types/invokes';
 import { useUIStore } from '../../../store/useUIStore';
 import { formatBytes } from '../../../utils/formatBytes';
-import { DEFAULT_IMMICH_SETTINGS } from '../../immich/immichApi';
-import { useImmichStore } from '../../immich/useImmichStore';
+import { DEFAULT_IMMICH_SETTINGS } from '../../../utils/immichApi';
+import { useImmichStore } from '../../../store/useImmichStore';
 
 interface StorageUsage {
   thumbnails: number;
   aiDenoise: number;
+  aiUpscale: number;
   aiMaps: number;
   metadata: number;
   immich: number;
@@ -45,8 +47,16 @@ const storageItems: StorageItem[] = [
     key: 'aiDenoise',
     color: 'bg-[#9d93ad]',
     limit: {
-      get: (settings) => settings?.aiCacheLimitGb ?? 10,
+      get: (settings) => settings?.aiCacheLimitGb ?? 25,
       set: (settings, gb) => ({ ...settings, aiCacheLimitGb: gb }),
+    },
+  },
+  {
+    key: 'aiUpscale',
+    color: 'bg-[#a49ab8]',
+    limit: {
+      get: (settings) => settings?.aiUpscaleCacheLimitGb ?? 25,
+      set: (settings, gb) => ({ ...settings, aiUpscaleCacheLimitGb: gb }),
     },
   },
   {
@@ -308,6 +318,11 @@ export default function DataManagementSettings({
       invoke: Invokes.ClearAiDenoiseCache,
       message: t('settings.data.modals.aiDenoiseMessage'),
       success: t('settings.data.statuses.aiDenoiseSuccess'),
+    },
+    aiUpscale: {
+      invoke: Invokes.ClearAiUpscaleCache,
+      message: t('settings.data.modals.aiUpscaleMessage'),
+      success: t('settings.data.statuses.aiUpscaleSuccess'),
     },
     aiMaps: {
       invoke: Invokes.ClearAiMapsCache,

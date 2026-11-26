@@ -3,7 +3,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, XCircle, Loader2, Users, Trash2, Star, Tag } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CullingSettings, CullingSuggestions, Invokes, Progress } from '../ui/AppProperties';
+import { CullingSettings, CullingSuggestions, Progress } from '../../types/library';
+import { Invokes } from '../../types/invokes';
 import Button from '../ui/Button';
 import Switch from '../ui/Switch';
 import Slider from '../ui/Slider';
@@ -244,7 +245,7 @@ export default function CullingModal({
         <div className="w-full bg-surface rounded-full h-2.5 mt-2">
           <div
             className="bg-accent h-2.5 rounded-full"
-            style={{ width: `${(progress.current / progress.total) * 100}%` }}
+            style={{ width: `${((progress.current ?? 0) / progress.total) * 100}%` }}
           />
         </div>
       )}

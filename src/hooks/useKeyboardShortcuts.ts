@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
-import { ImageFile, ImageFlag, Panel, ExifOverlay, LibraryViewMode } from '../components/ui/AppProperties';
+import { ImageFile, ImageFlag } from '../types/library';
+import { Panel } from '../types/ui';
+import { ExifOverlay, LibraryViewMode } from '../types/settings';
 import { KEYBIND_DEFINITIONS, getEffectiveCombo, normalizeCombo } from '../utils/keyboardUtils';
-import { useEditorStore } from '../store/useEditorStore';
+import { cancelCanvasTool, getZoomContentSize, getZoomPercent, useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { getReopenedPanelWidth, useUIStore } from '../store/useUIStore';
+import { getReopenedPanelWidth, isPanelVisible, useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { applyCrop, cancelCrop, useEditorActions } from './useEditorActions';
 import { useLibraryActions } from './useLibraryActions';
@@ -207,11 +209,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = getDevicePixelRatio();
-          const currentPercent =
-            s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
-              ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
-              : 1.0;
+          const currentPercent = getZoomPercent(s.editor);
           handleZoomChange(Math.min(currentPercent + 0.1, 2.0));
         },
       },
@@ -219,11 +217,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = getDevicePixelRatio();
-          const currentPercent =
-            s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
-              ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
-              : 1.0;
+          const currentPercent = getZoomPercent(s.editor);
           handleZoomChange(Math.max(currentPercent - 0.1, 0.1));
         },
       },
@@ -232,20 +226,18 @@ export const useKeyboardShortcuts = ({
         execute: (e: any, s: any) => {
           e.preventDefault();
           const dpr = getDevicePixelRatio();
-          const { originalSize, displaySize, baseRenderSize } = s.editor;
-          const currentPercent =
-            originalSize?.width > 0 && displaySize?.width > 0
-              ? Math.round(((displaySize.width * dpr) / originalSize.width) * 100)
-              : 100;
+          const { baseRenderSize } = s.editor;
+          const content = getZoomContentSize(s.editor);
+          const currentPercent = Math.round(getZoomPercent(s.editor) * 100);
           let fitPercent = 100;
 
-          if (originalSize?.width > 0 && baseRenderSize?.width > 0) {
-            const originalAspect = originalSize.width / originalSize.height;
+          if (content.width > 0 && content.height > 0 && baseRenderSize?.width > 0) {
+            const contentAspect = content.width / content.height;
             const baseAspect = baseRenderSize.width / baseRenderSize.height;
             fitPercent =
-              originalAspect > baseAspect
-                ? Math.round(((baseRenderSize.width * dpr) / originalSize.width) * 100)
-                : Math.round(((baseRenderSize.height * dpr) / originalSize.height) * 100);
+              contentAspect > baseAspect
+                ? Math.round(((baseRenderSize.width * dpr) / content.width) * 100)
+                : Math.round(((baseRenderSize.height * dpr) / content.height) * 100);
           }
 
           const doubleFitPercent = fitPercent * 2;
@@ -262,11 +254,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = getDevicePixelRatio();
-          const currentPercent =
-            s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
-              ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
-              : 1.0;
+          const currentPercent = getZoomPercent(s.editor);
           handleZoomChange(Math.min(currentPercent * 1.2, 2.0));
         },
       },
@@ -274,11 +262,7 @@ export const useKeyboardShortcuts = ({
         shouldFire: (s: any) => s.ui.activeView === 'editor' && !!s.editor.selectedImage,
         execute: (e: any, s: any) => {
           e.preventDefault();
-          const dpr = getDevicePixelRatio();
-          const currentPercent =
-            s.editor.originalSize?.width > 0 && s.editor.displaySize?.width > 0
-              ? (s.editor.displaySize.width * dpr) / s.editor.originalSize.width
-              : 1.0;
+          const currentPercent = getZoomPercent(s.editor);
           handleZoomChange(Math.max(currentPercent / 1.2, 0.1));
         },
       },
@@ -451,7 +435,8 @@ export const useKeyboardShortcuts = ({
         },
       },
       toggle_library_exif: {
-        shouldFire: (s: any) => s.ui.activeView === 'library',
+        shouldFire: (s: any) =>
+          s.ui.activeView === 'library' || (s.ui.filmstripShowFileInfo && isPanelVisible(s.ui, Panel.Filmstrip)),
         execute: (e: any, s: any) => {
           e.preventDefault();
           const current = s.settings.appSettings?.exifOverlay || ExifOverlay.Off;
@@ -658,8 +643,8 @@ export const useKeyboardShortcuts = ({
         match: (e: KeyboardEvent) => e.code === 'Escape',
         execute: (e: KeyboardEvent, s: any) => {
           e.preventDefault();
-          if (s.editor.isStraightenActive) s.editor.setEditor({ isStraightenActive: false });
-          else if (s.ui.customEscapeHandler) s.ui.customEscapeHandler();
+          if (cancelCanvasTool()) return;
+          if (s.ui.customEscapeHandler) s.ui.customEscapeHandler();
           else if (s.editor.activeAiSubMaskId) s.editor.setEditor({ activeAiSubMaskId: null });
           else if (s.editor.activeAiPatchContainerId) s.editor.setEditor({ activeAiPatchContainerId: null });
           else if (s.editor.activeMaskId) s.editor.setEditor({ activeMaskId: null });
@@ -755,7 +740,7 @@ export const useKeyboardShortcuts = ({
         state.ui.isImportModalOpen ||
         state.ui.isCopyPasteSettingsModalOpen ||
         state.ui.confirmModalState.isOpen ||
-        state.ui.panoramaModalState.isOpen ||
+        state.ui.mergeModalState.isOpen ||
         state.ui.cullingModalState.isOpen ||
         state.ui.collageModalState.isOpen;
 

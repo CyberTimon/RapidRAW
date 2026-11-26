@@ -6,6 +6,7 @@ import {
   Flag,
   FlagOff,
   Check,
+  Eraser,
   ClipboardPaste,
   Copy,
   CopyPlus,
@@ -34,6 +35,7 @@ import {
   Gauge,
   Layers,
   Grip,
+  Maximize2,
   Film,
   Contrast,
   Home,
@@ -58,27 +60,24 @@ import { useContextMenu } from '../context/ContextMenuContext';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { JobKind, useProcessStore } from '../store/useProcessStore';
-import { useUIStore } from '../store/useUIStore';
+import { openMergeModal, useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import {
-  Invokes,
-  ImageFlag,
-  Option,
-  OPTION_SEPARATOR,
-  Panel,
-  AlbumItem,
-  Album,
-  AlbumGroup,
-  EditInApp,
-} from '../components/ui/AppProperties';
+import { getOpenImageDefaults, hasCustomDefaults, openImageHasCustomDefaults } from '../utils/developDefaults';
+import { Invokes } from '../types/invokes';
+import { ImageFlag, AlbumItem, Album, AlbumGroup } from '../types/library';
+import { Option, OPTION_SEPARATOR, Panel } from '../types/ui';
+import { EditInApp } from '../types/settings';
 import {
   AutoAdjustMode,
   Color,
   COLOR_LABELS,
   getAiDenoiseEnablePatch,
   INITIAL_ADJUSTMENTS,
+  isLensCorrectionActive,
+  LENS_CORRECTION_AUTO,
+  LENS_CORRECTION_OFF,
 } from '../utils/adjustments';
-import TaggingSubMenu from '../context/TaggingSubMenu';
+import TaggingSubMenu from '../components/panel/library/TaggingSubMenu';
 import {
   buildAutoAdjustModeOptions,
   debouncedSave,
@@ -88,13 +87,9 @@ import {
 import { useLibraryActions } from './useLibraryActions';
 import { transferFiles } from './useFileOperations';
 import { globalImageCache } from '../utils/ImageLRUCache';
-import {
-  immichAlbumOf,
-  isImmichAlbumId,
-  isImmichImagePath,
-  removeFromImmichAlbum,
-} from '../components/immich/immichApi';
-import { useImmichStore } from '../components/immich/useImmichStore';
+import { immichAlbumOf, isImmichAlbumId, isImmichImagePath, removeFromImmichAlbum } from '../utils/immichApi';
+import { useImmichStore } from '../store/useImmichStore';
+import type { ParseKeys } from 'i18next';
 
 export interface UseAppContextMenusProps {
   handleImageSelect: (path: string) => void;
@@ -147,16 +142,50 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       label: t('contextMenus.editor.flag'),
       icon: Flag,
       submenu: [
+        { label: t('contextMenus.editor.unflagged'), icon: FlagOff, onClick: () => handleSetFlag(null, paths) },
+        { type: OPTION_SEPARATOR },
         { label: t('contextMenus.editor.flagPick'), icon: Flag, onClick: () => handleSetFlag(ImageFlag.Pick, paths) },
         {
           label: t('contextMenus.editor.flagReject'),
           icon: Ban,
           onClick: () => handleSetFlag(ImageFlag.Reject, paths),
         },
-        { label: t('contextMenus.editor.unflagged'), icon: FlagOff, onClick: () => handleSetFlag(null, paths) },
       ],
     }),
     [handleSetFlag, t],
+  );
+
+  const buildRatingMenu = useCallback(
+    (paths?: string[]) => ({
+      label: t('contextMenus.editor.rating'),
+      icon: Star,
+      submenu: [
+        { label: t('contextMenus.editor.noRating'), onClick: () => handleRate(0, paths) },
+        { type: OPTION_SEPARATOR },
+        ...[1, 2, 3, 4, 5].map((rating: number) => ({
+          label: t('contextMenus.editor.ratingLabel', { count: rating }),
+          onClick: () => handleRate(rating, paths),
+        })),
+      ],
+    }),
+    [handleRate, t],
+  );
+
+  const buildColorLabelMenu = useCallback(
+    (paths?: string[]) => ({
+      label: t('contextMenus.editor.colorLabel'),
+      icon: Palette,
+      submenu: [
+        { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null, paths) },
+        { type: OPTION_SEPARATOR },
+        ...COLOR_LABELS.map((label: Color) => ({
+          label: t(`contextMenus.colors.${label.name}` as ParseKeys),
+          color: label.color,
+          onClick: () => handleSetColorLabel(label.name, paths),
+        })),
+      ],
+    }),
+    [handleSetColorLabel, t],
   );
 
   const albumIcons = useMemo(
@@ -361,15 +390,22 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               submenu: buildAutoAdjustModeOptions(t, handleAutoAdjustments),
             },
             {
-              label: t('contextMenus.editor.autoLensCorrection'),
-              icon: Aperture,
-              onClick: () => handleAutoLensCorrection([selectedImage.path]),
-              disabled: !selectedImage?.isReady,
-            },
-            {
               label: t('contextMenus.editor.autoStraighten'),
               icon: ScanLine,
               onClick: handleAutoStraighten,
+              disabled: !selectedImage?.isReady,
+            },
+            { type: OPTION_SEPARATOR },
+            {
+              label: isLensCorrectionActive(adjustments)
+                ? t('contextMenus.editor.removeLensCorrection')
+                : t('contextMenus.editor.lensCorrection'),
+              icon: Aperture,
+              onClick: () =>
+                handleEnableAdjustments(
+                  [selectedImage.path],
+                  isLensCorrectionActive(adjustments) ? LENS_CORRECTION_OFF : LENS_CORRECTION_AUTO,
+                ),
               disabled: !selectedImage?.isReady,
             },
             {
@@ -386,6 +422,21 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 ),
               disabled: !selectedImage?.isReady,
             },
+            ...(useSettingsStore.getState().appSettings?.aiProvider === 'ai-free'
+              ? []
+              : [
+                  {
+                    label: adjustments.aiUpscaleEnabled
+                      ? t('contextMenus.editor.removeSuperResolution')
+                      : t('contextMenus.editor.superResolution'),
+                    icon: Maximize2,
+                    onClick: () =>
+                      handleEnableAdjustments([selectedImage.path], {
+                        aiUpscaleEnabled: !adjustments.aiUpscaleEnabled,
+                      }),
+                    disabled: !selectedImage?.isReady,
+                  },
+                ]),
             {
               label: adjustments.monochromeEnabled
                 ? t('contextMenus.editor.removeBlackWhite')
@@ -408,50 +459,19 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 }),
               disabled: !selectedImage?.isReady,
             },
-            {
-              icon: LayoutTemplate,
-              label: t('contextMenus.editor.frameImage'),
-              onClick: () => {
-                setUI({ collageModalState: { isOpen: true, sourceImages: [selectedImage] } });
-              },
-            },
-            { label: t('contextMenus.editor.cullImage'), icon: Users, disabled: true },
           ],
         },
         {
-          label: t('contextMenus.merge.title'),
-          icon: LayersArrowDown,
-          submenu: [
-            { disabled: true, icon: SquaresUnite, label: t('contextMenus.editor.stitchPanorama') },
-            { disabled: true, icon: Images, label: t('contextMenus.editor.mergeHdr') },
-            { disabled: true, icon: Layers, label: t('contextMenus.merge.focusStack') },
-          ],
+          icon: LayoutTemplate,
+          label: t('contextMenus.editor.frameImage'),
+          onClick: () => {
+            setUI({ collageModalState: { isOpen: true, sourceImages: [selectedImage] } });
+          },
         },
         { type: OPTION_SEPARATOR },
-        {
-          label: t('contextMenus.editor.rating'),
-          icon: Star,
-          submenu: [0, 1, 2, 3, 4, 5].map((rating: number) => ({
-            label:
-              rating === 0
-                ? t('contextMenus.editor.noRating')
-                : t('contextMenus.editor.ratingLabel', { count: rating }),
-            onClick: () => handleRate(rating),
-          })),
-        },
+        buildRatingMenu(),
         buildFlagMenu(),
-        {
-          label: t('contextMenus.editor.colorLabel'),
-          icon: Palette,
-          submenu: [
-            { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null) },
-            ...COLOR_LABELS.map((label: Color) => ({
-              label: t(`contextMenus.colors.${label.name}`),
-              color: label.color,
-              onClick: () => handleSetColorLabel(label.name),
-            })),
-          ],
-        },
+        buildColorLabelMenu(),
         {
           label: t('contextMenus.editor.tagging'),
           icon: Tag,
@@ -474,17 +494,31 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.cancel'), icon: X, onClick: () => {} },
             {
-              label: t('contextMenus.editor.confirmReset'),
+              label: openImageHasCustomDefaults()
+                ? t('contextMenus.editor.resetToDefaults')
+                : t('contextMenus.editor.confirmReset'),
               icon: Check,
               isDestructive: true,
-              onClick: () => {
-                resetHistory({
-                  ...INITIAL_ADJUSTMENTS,
-                  aiPatches: [],
-                });
-                setEditor({ adjustments: { ...INITIAL_ADJUSTMENTS, aiPatches: [] } });
+              onClick: async () => {
+                const resetData = { ...(await getOpenImageDefaults()), aiPatches: [] };
+                resetHistory(resetData);
+                setEditor({ adjustments: resetData });
               },
             },
+            ...(openImageHasCustomDefaults()
+              ? [
+                  {
+                    label: t('contextMenus.editor.resetToNeutral'),
+                    icon: Eraser,
+                    isDestructive: true,
+                    onClick: () => {
+                      const resetData = { ...structuredClone(INITIAL_ADJUSTMENTS), aiPatches: [] };
+                      resetHistory(resetData);
+                      setEditor({ adjustments: resetData });
+                    },
+                  },
+                ]
+              : []),
           ],
         },
       ];
@@ -495,9 +529,9 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       handleCopyAdjustments,
       handlePasteAdjustments,
       handleAutoAdjustments,
-      handleRate,
+      buildRatingMenu,
       buildFlagMenu,
-      handleSetColorLabel,
+      buildColorLabelMenu,
       handleTagsChanged,
       buildEditInOptions,
       showContextMenu,
@@ -607,6 +641,7 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       const collageLabel = t('contextMenus.thumbnail.collage', { count: selectionCount });
       const stitchLabel = t('contextMenus.editor.stitchPanorama');
       const denoiseLabel = t('contextMenus.thumbnail.denoise', { count: selectionCount });
+      const superResolutionLabel = t('contextMenus.thumbnail.superResolution', { count: selectionCount });
       const mergeLabel = t('contextMenus.editor.mergeHdr');
 
       const handleCreateVirtualCopy = async (sourcePath: string) => {
@@ -743,14 +778,42 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               submenu: buildAutoAdjustModeOptions(t, handleApplyAutoAdjustmentsToSelection),
             },
             {
-              label: t('contextMenus.thumbnail.autoLensCorrection', { count: selectionCount }),
-              icon: Aperture,
-              onClick: () => handleAutoLensCorrection(finalSelection),
-            },
-            {
               label: t('contextMenus.thumbnail.autoStraighten', { count: selectionCount }),
               icon: ScanLine,
               onClick: () => handleAutoStraightenPaths(finalSelection),
+            },
+            {
+              label: cullLabel,
+              icon: Users,
+              onClick: () =>
+                setUI({
+                  cullingModalState: {
+                    isOpen: true,
+                    progress: null,
+                    suggestions: null,
+                    error: null,
+                    pathsToCull: finalSelection,
+                  },
+                }),
+              disabled: selectionCount < 2,
+            },
+            { type: OPTION_SEPARATOR },
+            {
+              label: t('contextMenus.thumbnail.lensCorrection', { count: selectionCount }),
+              icon: Aperture,
+              disabled: selectionCount === 0,
+              submenu: [
+                {
+                  label: t('contextMenus.thumbnail.enable'),
+                  icon: Check,
+                  onClick: () => handleAutoLensCorrection(finalSelection),
+                },
+                {
+                  label: t('contextMenus.thumbnail.remove'),
+                  icon: X,
+                  onClick: () => handleEnableAdjustments(finalSelection, LENS_CORRECTION_OFF),
+                },
+              ],
             },
             {
               label: denoiseLabel,
@@ -773,6 +836,27 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 },
               ],
             },
+            ...(useSettingsStore.getState().appSettings?.aiProvider === 'ai-free'
+              ? []
+              : [
+                  {
+                    label: superResolutionLabel,
+                    icon: Maximize2,
+                    disabled: finalSelection.length === 0,
+                    submenu: [
+                      {
+                        label: t('contextMenus.thumbnail.enable'),
+                        icon: Check,
+                        onClick: () => handleEnableAdjustments(finalSelection, { aiUpscaleEnabled: true }),
+                      },
+                      {
+                        label: t('contextMenus.thumbnail.remove'),
+                        icon: X,
+                        onClick: () => handleEnableAdjustments(finalSelection, { aiUpscaleEnabled: false }),
+                      },
+                    ],
+                  },
+                ]),
             {
               label: t('contextMenus.editor.convertBlackWhite'),
               icon: Contrast,
@@ -807,30 +891,6 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 },
               ],
             },
-            {
-              icon: LayoutTemplate,
-              label: collageLabel,
-              onClick: () => {
-                const imagesForCollage = imageList.filter((img) => finalSelection.includes(img.path));
-                setUI({ collageModalState: { isOpen: true, sourceImages: imagesForCollage } });
-              },
-              disabled: selectionCount === 0 || selectionCount > 9,
-            },
-            {
-              label: cullLabel,
-              icon: Users,
-              onClick: () =>
-                setUI({
-                  cullingModalState: {
-                    isOpen: true,
-                    progress: null,
-                    suggestions: null,
-                    error: null,
-                    pathsToCull: finalSelection,
-                  },
-                }),
-              disabled: selectionCount < 2,
-            },
           ],
         },
         {
@@ -841,53 +901,29 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
               disabled: selectionCount < 2 || selectionCount > 30,
               icon: SquaresUnite,
               label: stitchLabel,
-              onClick: () => {
-                setUI({
-                  panoramaModalState: {
-                    error: null,
-                    finalImageBase64: null,
-                    isOpen: true,
-                    isProcessing: false,
-                    progressMessage: null,
-                    stitchingSourcePaths: finalSelection,
-                  },
-                });
-              },
+              onClick: () => openMergeModal('panorama', finalSelection),
             },
             {
               disabled: selectionCount < 2 || selectionCount > 9,
               icon: Images,
               label: mergeLabel,
-              onClick: () => {
-                setUI({
-                  hdrModalState: {
-                    error: null,
-                    finalImageBase64: null,
-                    isOpen: true,
-                    isProcessing: false,
-                    progressMessage: null,
-                    stitchingSourcePaths: finalSelection,
-                  },
-                });
-              },
+              onClick: () => openMergeModal('hdr', finalSelection),
             },
             {
               disabled: selectionCount < 2,
               icon: Layers,
               label: t('contextMenus.merge.focusStack'),
+              onClick: () => openMergeModal('focusStack', finalSelection),
+            },
+            { type: OPTION_SEPARATOR },
+            {
+              icon: LayoutTemplate,
+              label: collageLabel,
               onClick: () => {
-                setUI({
-                  focusStackModalState: {
-                    error: null,
-                    finalImageBase64: null,
-                    depthMapBase64: null,
-                    isOpen: true,
-                    isProcessing: false,
-                    progressMessage: null,
-                    sourcePaths: finalSelection,
-                  },
-                });
+                const imagesForCollage = imageList.filter((img) => finalSelection.includes(img.path));
+                setUI({ collageModalState: { isOpen: true, sourceImages: imagesForCollage } });
               },
+              disabled: selectionCount === 0 || selectionCount > 9,
             },
           ],
         },
@@ -903,6 +939,12 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           icon: CopyPlus,
           label: t('contextMenus.thumbnail.duplicateImage'),
           submenu: [
+            {
+              label: t('contextMenus.thumbnail.virtualCopy'),
+              icon: CopyPlus,
+              disabled: !isSingleSelection,
+              onClick: () => handleCreateVirtualCopy(finalSelection[0]),
+            },
             {
               label: t('contextMenus.thumbnail.physicalCopy'),
               icon: Copy,
@@ -924,40 +966,13 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
                 }
               },
             },
-            {
-              label: t('contextMenus.thumbnail.virtualCopy'),
-              icon: CopyPlus,
-              disabled: !isSingleSelection,
-              onClick: () => handleCreateVirtualCopy(finalSelection[0]),
-            },
           ],
         },
         { icon: FileEdit, label: renameLabel, onClick: () => props.handleRenameFiles(finalSelection) },
         { type: OPTION_SEPARATOR },
-        {
-          icon: Star,
-          label: t('contextMenus.editor.rating'),
-          submenu: [0, 1, 2, 3, 4, 5].map((rating: number) => ({
-            label:
-              rating === 0
-                ? t('contextMenus.editor.noRating')
-                : t('contextMenus.editor.ratingLabel', { count: rating }),
-            onClick: () => handleRate(rating, finalSelection),
-          })),
-        },
+        buildRatingMenu(finalSelection),
         buildFlagMenu(finalSelection),
-        {
-          label: t('contextMenus.editor.colorLabel'),
-          icon: Palette,
-          submenu: [
-            { label: t('contextMenus.editor.noLabel'), onClick: () => handleSetColorLabel(null, finalSelection) },
-            ...COLOR_LABELS.map((label: Color) => ({
-              label: t(`contextMenus.colors.${label.name}`),
-              color: label.color,
-              onClick: () => handleSetColorLabel(label.name, finalSelection),
-            })),
-          ],
-        },
+        buildColorLabelMenu(finalSelection),
         {
           label: t('contextMenus.editor.tagging'),
           icon: Tag,
@@ -1013,11 +1028,23 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           submenu: [
             { label: t('contextMenus.editor.cancel'), icon: X, onClick: () => {} },
             {
-              label: t('contextMenus.editor.confirmReset'),
+              label: hasCustomDefaults(appSettings)
+                ? t('contextMenus.editor.resetToDefaults')
+                : t('contextMenus.editor.confirmReset'),
               icon: Check,
               isDestructive: true,
               onClick: () => handleResetAdjustments(finalSelection),
             },
+            ...(hasCustomDefaults(appSettings)
+              ? [
+                  {
+                    label: t('contextMenus.editor.resetToNeutral'),
+                    icon: Eraser,
+                    isDestructive: true,
+                    onClick: () => handleResetAdjustments(finalSelection, true),
+                  },
+                ]
+              : []),
           ],
         },
         {
@@ -1035,9 +1062,9 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
       handleCopyAdjustments,
       handlePasteAdjustments,
       handleAutoAdjustments,
-      handleRate,
+      buildRatingMenu,
       buildFlagMenu,
-      handleSetColorLabel,
+      buildColorLabelMenu,
       handleTagsChanged,
       handleResetAdjustments,
       buildEditInOptions,

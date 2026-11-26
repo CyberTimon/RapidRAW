@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { Coord } from '../../../../utils/adjustments';
 import { getStrokeCenter } from '../../../../utils/maskUtils';
-import { ToolType } from '../../right/Masks';
+import { ToolType } from '../../../../types/masks';
 
 interface CloneLine {
   brushSize: number;

@@ -3,8 +3,10 @@ import { Image as ImageIcon, Star, SlidersHorizontal, Loader2, Pause } from 'luc
 import clsx from 'clsx';
 import { Grid, useGridCallbackRef } from 'react-window';
 import { useTranslation } from 'react-i18next';
-import { ImageFile, ImageFlag, SelectedImage, ThumbnailAspectRatio, GroupingMode } from '../ui/AppProperties';
-import FlagBadges from '../ui/FlagBadges';
+import { ImageFile, ImageFlag } from '../../types/library';
+import { SelectedImage } from '../../types/editor';
+import { ThumbnailAspectRatio, GroupingMode } from '../../types/settings';
+import FlagBadges from './library/FlagBadges';
 import { Color, COLOR_LABELS } from '../../utils/adjustments';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
@@ -383,7 +385,6 @@ const FilmstripList = ({
   height: number;
   width: number;
   data: Omit<ItemData, 'itemHeight' | 'setRatio'> & {
-    clickTriggeredScroll: React.RefObject<boolean>;
     multiSelectedSet: Set<string>;
   };
 }) => {
@@ -588,12 +589,7 @@ const FilmstripList = ({
 
       if (index !== -1) {
         if (currentPath !== prevSelectedPath.current) {
-          const isVisible = isItemVisible(index);
-
-          if (data.clickTriggeredScroll.current) {
-            data.clickTriggeredScroll.current = false;
-            performSafeScroll(index, true);
-          } else if (!isVisible) {
+          if (!isItemVisible(index)) {
             performSafeScroll(index);
           }
           prevSelectedPath.current = currentPath;
@@ -605,7 +601,7 @@ const FilmstripList = ({
         }
       }
     }
-  }, [data.selectedPath, data.imageList, isItemVisible, data.clickTriggeredScroll, performSafeScroll, gridHandle]);
+  }, [data.selectedPath, data.imageList, isItemVisible, performSafeScroll, gridHandle]);
 
   const setRatio = useCallback((path: string, ratio: number) => {
     if (Math.abs((ratioMapRef.current[path] || 0) - ratio) > 0.01) {
@@ -676,6 +672,21 @@ interface FilmStripProps {
   totalImages?: number;
 }
 
+export function useFilmstripActivePath(selectedPath: string | undefined, imageList: ImageFile[]) {
+  const groupingMode: GroupingMode = useSettingsStore((s) => s.appSettings?.grouping) ?? 'off';
+  const fullImageList = useLibraryStore((s) => (groupingMode === 'off' ? null : s.imageList));
+
+  return useMemo(() => {
+    if (!selectedPath || groupingMode === 'off') return selectedPath;
+    if (selectedPath.includes('?vc=')) return selectedPath;
+    if (imageList.some((img) => img.path === selectedPath)) return selectedPath;
+    const selected = fullImageList?.find((img) => img.path === selectedPath);
+    if (!selected?.group_id) return selectedPath;
+    const primary = imageList.find((img) => img.group_id === selected.group_id && !img.is_virtual_copy);
+    return primary?.path ?? selectedPath;
+  }, [selectedPath, imageList, fullImageList, groupingMode]);
+}
+
 export default function Filmstrip({
   imageList,
   imageRatings,
@@ -689,7 +700,6 @@ export default function Filmstrip({
   selectedImage,
   thumbnailAspectRatio,
 }: FilmStripProps) {
-  const clickTriggeredScroll = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ height: 0, width: 0 });
 
@@ -707,31 +717,12 @@ export default function Filmstrip({
     return () => ro.disconnect();
   }, []);
 
-  const groupingMode: GroupingMode = useSettingsStore((s) => s.appSettings?.grouping) ?? 'off';
-  const fullImageList = useLibraryStore((s) => (groupingMode === 'off' ? null : s.imageList));
+  const filmstripActivePath = useFilmstripActivePath(selectedImage?.path, imageList);
 
-  const filmstripActivePath = useMemo(() => {
-    const path = selectedImage?.path;
-    if (!path || groupingMode === 'off') return path;
-    if (path.includes('?vc=')) return path;
-    if (imageList.some((img) => img.path === path)) return path;
-    const selected = fullImageList?.find((img) => img.path === path);
-    if (!selected?.group_id) return path;
-    const primary = imageList.find((img) => img.group_id === selected.group_id && !img.is_virtual_copy);
-    return primary?.path ?? path;
-  }, [selectedImage?.path, imageList, fullImageList, groupingMode]);
-
-  const selectedPathRef = useRef(selectedImage?.path);
-  selectedPathRef.current = selectedImage?.path;
   const onImageSelectRef = useRef(onImageSelect);
   onImageSelectRef.current = onImageSelect;
 
-  const handleImageSelect = useCallback((path: string, event: any) => {
-    if (path !== selectedPathRef.current) {
-      clickTriggeredScroll.current = true;
-    }
-    onImageSelectRef.current?.(path, event);
-  }, []);
+  const handleImageSelect = useCallback((path: string, event: any) => onImageSelectRef.current?.(path, event), []);
 
   const multiSelectedSet = useMemo(() => new Set(multiSelectedPaths), [multiSelectedPaths]);
 
@@ -746,7 +737,6 @@ export default function Filmstrip({
       onContextMenu,
       onRequestThumbnails,
       onImageSelect: handleImageSelect,
-      clickTriggeredScroll,
     }),
     [
       imageList,

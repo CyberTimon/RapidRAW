@@ -1,21 +1,26 @@
 import { useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { homeDir } from '@tauri-apps/api/path';
+import { dirname, homeDir } from '@tauri-apps/api/path';
 import { toast } from 'react-toastify';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { canvasToolState, useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { Invokes, LibraryViewMode, ImageFile } from '../components/ui/AppProperties';
-import { INITIAL_ADJUSTMENTS, normalizeLoadedAdjustments } from '../utils/adjustments';
+import { Invokes } from '../types/invokes';
+import { LibraryViewMode } from '../types/settings';
+import { ImageFile } from '../types/library';
+import { INITIAL_ADJUSTMENTS } from '../utils/adjustments';
+import { adjustmentsFromMetadata } from '../utils/developDefaults';
+import { isSameValue } from '../utils/editHistory';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { decodeImage } from '../utils/decodeImage';
 import { debouncedSave, debouncedSetHistory } from './useEditorActions';
+import { notifyEmbeddedPreview } from './useImageLoader';
 import { clearLibrarySelection } from './useLibraryActions';
 import { computeSortedLibrary } from './useSortedLibrary';
-import { getImmichAlbumImages, isImmichAlbumId } from '../components/immich/immichApi';
+import { getImmichAlbumImages, isImmichAlbumId } from '../utils/immichApi';
 
 export interface AppNavigationProps {
   clearThumbnailQueue: () => void;
@@ -149,7 +154,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     });
 
     debouncedSave.flush();
-    debouncedSetHistory.cancel();
+    debouncedSetHistory.flush();
 
     const lastActivePath = selectedImage?.path ?? null;
     const isStillVisible =
@@ -169,7 +174,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
   const handleImageSelect = useCallback(
     async (path: string, openInEditor: boolean = true) => {
       const generation = ++imageSelectGeneration;
-      const { selectedImage, isSliderDragging, resetHistory, setEditor } = useEditorStore.getState();
+      const { selectedImage, isSliderDragging, resetHistory, stashHistory, setEditor } = useEditorStore.getState();
       const { setLibrary } = useLibraryStore.getState();
       const { setUI } = useUIStore.getState();
       const wasEditorVisible = useUIStore.getState().activeView === 'editor';
@@ -182,7 +187,6 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
       useEditorStore.getState().patchesSentToBackend.clear();
       debouncedSave.flush();
-      debouncedSetHistory.cancel();
 
       if (selectedImage?.path && cachedEditStateRef.current) {
         globalImageCache.set(selectedImage.path, cachedEditStateRef.current);
@@ -211,6 +215,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         setEditor({ wgpuPhase: 'hidden' });
       }
 
+      stashHistory();
       selectedImagePathRef.current = path;
 
       const { multiSelectedPaths } = useLibraryStore.getState();
@@ -238,7 +243,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         compactEditorPanelHeightOverride: null,
       });
 
-      if (isFrontendCached) {
+      if (isFrontendCached && cached) {
         setEditor({
           selectedImage: {
             ...cached.selectedImage,
@@ -252,7 +257,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         });
 
         setEditor({ adjustments: cached.adjustments });
-        resetHistory(cached.adjustments);
+        resetHistory(cached.adjustments, path);
         prevAdjustmentsRef.current = { path, adjustments: cached.adjustments };
 
         setLibrary({ isViewLoading: false });
@@ -267,6 +272,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
             isBackendReadyRef.current = true;
             currentResRef.current = 0;
             setEditor({ originalSize: { width: _result.width, height: _result.height } });
+            notifyEmbeddedPreview(_result);
           })
           .catch((err: any) => {
             if (String(err).includes('cancelled')) return;
@@ -278,15 +284,10 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         invoke(Invokes.LoadMetadata, { path })
           .then((metadata: any) => {
             if (selectedImagePathRef.current !== path) return;
-            let freshAdjustments: any;
-            if (metadata.adjustments && !metadata.adjustments.is_null) {
-              freshAdjustments = normalizeLoadedAdjustments(metadata.adjustments);
-            } else {
-              freshAdjustments = { ...INITIAL_ADJUSTMENTS };
-            }
-            if (!isSliderDragging && JSON.stringify(cached.adjustments) !== JSON.stringify(freshAdjustments)) {
+            const freshAdjustments = adjustmentsFromMetadata(metadata.adjustments);
+            if (!isSliderDragging && !isSameValue(cached.adjustments, freshAdjustments)) {
               setEditor({ adjustments: freshAdjustments });
-              resetHistory(freshAdjustments);
+              resetHistory(freshAdjustments, path);
               prevAdjustmentsRef.current = { path, adjustments: freshAdjustments };
               globalImageCache.set(path, { ...cached, adjustments: freshAdjustments });
             }
@@ -353,7 +354,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       const { setLibrary, sortCriteria } = useLibraryStore.getState();
       const { setUI } = useUIStore.getState();
       const { setProcess } = useProcessStore.getState();
-      const { selectedImage, resetHistory, setEditor } = useEditorStore.getState();
+      const { selectedImage, resetHistory, stashHistory, setEditor } = useEditorStore.getState();
       const libraryViewMode = appSettings?.libraryViewMode;
 
       if (!skipHistory && path) {
@@ -368,7 +369,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         globalImageCache.clear();
         setUI({ activeView: 'library' });
       } else {
-        setLibrary({ isViewLoading: true });
+        setLibrary({ isViewLoading: true, activeAlbumId: null });
       }
 
       try {
@@ -413,10 +414,10 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
         if (!preserveEditor && selectedImage) {
           debouncedSave.flush();
-          debouncedSetHistory.cancel();
+          stashHistory();
           setEditor({ selectedImage: null, finalPreviewUrl: null, uncroppedAdjustedPreviewUrl: null, histogram: null });
           setEditor({ adjustments: INITIAL_ADJUSTMENTS });
-          resetHistory(INITIAL_ADJUSTMENTS);
+          resetHistory(INITIAL_ADJUSTMENTS, null);
           useEditorStore.getState().patchesSentToBackend.clear();
         }
 
@@ -549,6 +550,15 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       }
     }
   }, [handleSelectSubfolder, handleSelectAlbum]);
+
+  const handleOpenContainingFolder = useCallback(
+    async (filePath: string) => {
+      const folderPath = await dirname(filePath);
+      if (!folderPath || useLibraryStore.getState().currentFolderPath === folderPath) return;
+      await handleSelectSubfolder(folderPath, false, undefined, true, true);
+    },
+    [handleSelectSubfolder],
+  );
 
   const handleOpenFolder = useCallback(async () => {
     const { osPlatform, appSettings, handleSettingsChange } = useSettingsStore.getState();
@@ -710,6 +720,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     handleSelectSubfolder,
     handleSelectAlbum,
     handleOpenFolder,
+    handleOpenContainingFolder,
     handleNavBack,
     handleNavForward,
     handleContinueSession,

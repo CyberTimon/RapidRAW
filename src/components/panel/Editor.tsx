@@ -4,13 +4,16 @@ import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { invoke } from '@tauri-apps/api/core';
 
-import { ImageDimensions, RenderSize, useImageRenderSize } from '../../hooks/useImageRenderSize';
+import { getFitRenderSize, ImageDimensions, RenderSize, useImageRenderSize } from '../../hooks/useImageRenderSize';
 import {
   Adjustments,
   AiPatch,
+  CropGeometry,
   MaskContainer,
   INITIAL_ADJUSTMENTS,
+  isSameCropGeometry,
   omitTonalAdjustments,
+  pickCropGeometry,
 } from '../../utils/adjustments';
 import { useShallow } from 'zustand/react/shallow';
 import { prepareAdjustmentsPayload } from '../../utils/backendPayload';
@@ -24,13 +27,17 @@ import {
   moveCropInsideBounds,
   zoomCrop,
   normalizeCropChange,
+  getCroppedDimensions,
 } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas, { ImageRegion, MaskOverlayImage } from './editor/ImageCanvas';
 import SpeedEditOverlay from './editor/overlays/SpeedEditOverlay';
-import { Mask, SubMask } from './right/Masks';
-import { CompareView, Panel, TransformState, Invokes } from '../ui/AppProperties';
-import { useEditorStore, WgpuPhase } from '../../store/useEditorStore';
+import { Mask, SubMask } from '../../types/masks';
+import { CompareView } from '../../types/settings';
+import { Panel } from '../../types/ui';
+import { TransformState } from '../../types/editor';
+import { Invokes } from '../../types/invokes';
+import { cancelCanvasTool, useEditorStore, WgpuPhase } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
@@ -179,7 +186,6 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const isFullScreen = useUIStore((s) => s.isFullScreen);
   const activePanel = useUIStore((s) => s.activePanel);
   const isInstantTransition = useUIStore((s) => s.isInstantTransition);
-  const setUI = useUIStore((s) => s.setUI);
   const isLoading = useLibraryStore((s) => s.isViewLoading);
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore(useShallow((s) => omitTonalAdjustments(s.adjustments)));
@@ -477,17 +483,12 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     if (!selectedImage?.width || !selectedImage?.height) {
       return null;
     }
-    if (adjustments.crop) {
-      return { width: adjustments.crop.width, height: adjustments.crop.height } as ImageDimensions;
-    }
-    if (selectedImage) {
-      const orientationSteps = adjustments.orientationSteps || 0;
-      const isSwapped = orientationSteps === 1 || orientationSteps === 3;
-      const width = isSwapped ? selectedImage.height : selectedImage.width;
-      const height = isSwapped ? selectedImage.width : selectedImage.height;
-      return { width, height } as ImageDimensions;
-    }
-    return null;
+    return getCroppedDimensions(
+      selectedImage.width,
+      selectedImage.height,
+      adjustments.orientationSteps || 0,
+      adjustments.crop,
+    );
   }, [selectedImage, adjustments.crop, adjustments.orientationSteps]);
 
   const imageRenderSize = useImageRenderSize(imageContainerRef, croppedDimensions);
@@ -698,7 +699,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         const dt = Math.min(time - lastTime, 32);
         lastTime = time;
 
-        let { positionX: x, positionY: y, scale } = transformStateRef.current;
+        const { scale } = transformStateRef.current;
+        let { positionX: x, positionY: y } = transformStateRef.current;
         const bounds = getTransformBounds(scale);
 
         x += vx * dt;
@@ -779,49 +781,68 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     [animateTransform, applyTransform, clampToBounds],
   );
 
-  const isCropViewShown = isCropping && !!uncroppedAdjustedPreviewUrl;
-  const wasCropViewShownRef = useRef(isCropViewShown);
+  const wasCroppingRef = useRef(isCropping);
+  const preCropViewRef = useRef<{
+    path: string;
+    geometry: CropGeometry;
+    x: number;
+    y: number;
+    zoom: number;
+  } | null>(null);
 
   useLayoutEffect(() => {
-    if (wasCropViewShownRef.current === isCropViewShown) return;
-    wasCropViewShownRef.current = isCropViewShown;
+    if (wasCroppingRef.current === isCropping) return;
+    wasCroppingRef.current = isCropping;
+
+    if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+    if (physicsFrameId.current) cancelAnimationFrame(physicsFrameId.current);
 
     const container = imageContainerRef.current;
-    const crop = getEffectiveCrop();
-    const irs = imageRenderSizeRef.current;
-    const { positionX, positionY, scale } = transformStateRef.current;
-    if (!container || !crop || !selectedImage || !irs.width || !crop.width || scale <= 1.01) return;
+    if (!container || !selectedImage?.width || !selectedImage.height) {
+      preCropViewRef.current = null;
+      applyTransform(0, 0, 1);
+      return;
+    }
 
-    const { width: W, height: H } = getOrientedDimensions(
-      selectedImage.width,
-      selectedImage.height,
-      adjustments.orientationSteps || 0,
-    );
-    const viewportW = irs.width + 2 * irs.offsetX;
-    const viewportH = irs.height + 2 * irs.offsetY;
-    const uncroppedScale = Math.min(viewportW / W, viewportH / H);
-    const uncroppedLeft = (viewportW - W * uncroppedScale) / 2;
-    const uncroppedTop = (viewportH - H * uncroppedScale) / 2;
-    const croppedScale = irs.width / crop.width;
-
+    const orientationSteps = adjustments.orientationSteps || 0;
+    const { width: W, height: H } = getOrientedDimensions(selectedImage.width, selectedImage.height, orientationSteps);
+    const crop =
+      adjustments.crop?.width && adjustments.crop.height ? adjustments.crop : { x: 0, y: 0, width: W, height: H };
+    const layout = getFitRenderSize(container.clientWidth, container.clientHeight, crop.width, crop.height);
     const centerX = container.clientWidth / 2;
     const centerY = container.clientHeight / 2;
-    const contentX = (centerX - positionX) / scale;
-    const contentY = (centerY - positionY) / scale;
 
-    const target = isCropViewShown
-      ? {
-          x: uncroppedLeft + (crop.x + (contentX - irs.offsetX) / croppedScale) * uncroppedScale,
-          y: uncroppedTop + (crop.y + (contentY - irs.offsetY) / croppedScale) * uncroppedScale,
-        }
-      : {
-          x: irs.offsetX + ((contentX - uncroppedLeft) / uncroppedScale - crop.x) * croppedScale,
-          y: irs.offsetY + ((contentY - uncroppedTop) / uncroppedScale - crop.y) * croppedScale,
-        };
+    if (isCropping) {
+      const { positionX, positionY, scale } = transformStateRef.current;
+      preCropViewRef.current =
+        scale > 1.01
+          ? {
+              path: selectedImage.path,
+              geometry: pickCropGeometry(adjustments),
+              x: crop.x + ((centerX - positionX) / scale - layout.offsetX) / layout.scale,
+              y: crop.y + ((centerY - positionY) / scale - layout.offsetY) / layout.scale,
+              zoom: scale * layout.scale,
+            }
+          : null;
+      applyTransform(0, 0, 1);
+      return;
+    }
 
-    const bounded = clampToBounds(centerX - target.x * scale, centerY - target.y * scale, scale);
+    const saved = preCropViewRef.current;
+    preCropViewRef.current = null;
+    if (!saved || saved.path !== selectedImage.path || !isSameCropGeometry(adjustments, saved.geometry)) {
+      applyTransform(0, 0, 1);
+      return;
+    }
+
+    const scale = Math.max(1, saved.zoom / layout.scale);
+    const bounded = clampToBounds(
+      centerX - (layout.offsetX + (saved.x - crop.x) * layout.scale) * scale,
+      centerY - (layout.offsetY + (saved.y - crop.y) * layout.scale) * scale,
+      scale,
+    );
     applyTransform(bounded.x, bounded.y, bounded.scale);
-  }, [isCropViewShown, getEffectiveCrop, selectedImage, adjustments.orientationSteps, applyTransform, clampToBounds]);
+  }, [isCropping, selectedImage, adjustments, applyTransform, clampToBounds]);
 
   useImperativeHandle(
     transformWrapperRef,
@@ -1207,8 +1228,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         lastPanPos.current = { x: e.clientX, y: e.clientY };
 
         const bounds = getTransformBounds(transformStateRef.current.scale);
-        let curX = transformStateRef.current.positionX;
-        let curY = transformStateRef.current.positionY;
+        const curX = transformStateRef.current.positionX;
+        const curY = transformStateRef.current.positionY;
 
         if (curX < bounds.minX && dx < 0) dx *= 0.35;
         if (curX > bounds.maxX && dx > 0) dx *= 0.35;
@@ -1235,8 +1256,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           const panX = midX - lastPinch.current.midX;
           const panY = midY - lastPinch.current.midY;
 
-          let newX = mouseX - (mouseX - transformStateRef.current.positionX) * ratio + panX;
-          let newY = mouseY - (mouseY - transformStateRef.current.positionY) * ratio + panY;
+          const newX = mouseX - (mouseX - transformStateRef.current.positionX) * ratio + panX;
+          const newY = mouseY - (mouseY - transformStateRef.current.positionY) * ratio + panY;
 
           const bounded = clampToBounds(newX, newY, newScale);
           applyTransform(bounded.x, bounded.y, bounded.scale);
@@ -1341,6 +1362,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     (e: React.MouseEvent) => {
       if (suppressContextMenuRef.current && e.ctrlKey) {
         suppressContextMenuRef.current = false;
+        e.preventDefault();
+        return;
+      }
+      if (cancelCanvasTool()) {
         e.preventDefault();
         return;
       }
@@ -2041,7 +2066,6 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     }
 
     requestMaskOverlay(maskDefForOverlay, useEditorStore.getState().adjustments);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     overlayTriggerHash,
     requestMaskOverlay,
@@ -2234,6 +2258,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   useEffect(() => {
     if (!isCropping || !selectedImage?.width) {
       setCrop(null);
+      lastValidCropRef.current = null;
       return;
     }
 
@@ -2499,14 +2524,14 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         const expandEdge = (edge: 'L' | 'T' | 'R' | 'B', target: number) => {
           let low = 0,
             high = 1;
-          let startVal = edge === 'L' ? currL : edge === 'T' ? currT : edge === 'R' ? currR : currB;
+          const startVal = edge === 'L' ? currL : edge === 'T' ? currT : edge === 'R' ? currR : currB;
           let bestVal = startVal;
 
           for (let i = 0; i < 15; i++) {
-            let mid = (low + high) / 2;
-            let testVal = startVal + (target - startVal) * mid;
+            const mid = (low + high) / 2;
+            const testVal = startVal + (target - startVal) * mid;
 
-            let testCrop: PercentCrop = {
+            const testCrop: PercentCrop = {
               unit: '%',
               x: edge === 'L' ? testVal : currL,
               y: edge === 'T' ? testVal : currT,
@@ -2556,7 +2581,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   );
 
   const handleCropComplete = useCallback(
-    (_: any, pc: PercentCrop) => {
+    (_: any, completedCrop: PercentCrop) => {
+      // ReactCrop reports the crop from its last render, which can lag behind the last validated drag update.
+      const pc = lastValidCropRef.current ?? completedCrop;
       if (!pc.width || !pc.height || !selectedImage?.width) {
         return;
       }
@@ -2572,10 +2599,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
       const newPixelCrop: Crop = {
         unit: 'px',
-        x: Math.ceil((pc.x / 100) * baseW),
-        y: Math.ceil((pc.y / 100) * baseH),
-        width: Math.floor((pc.width / 100) * baseW),
-        height: Math.floor((pc.height / 100) * baseH),
+        x: Math.ceil((pc.x / 100) * baseW - 1e-6),
+        y: Math.ceil((pc.y / 100) * baseH - 1e-6),
+        width: Math.floor((pc.width / 100) * baseW + 1e-6),
+        height: Math.floor((pc.height / 100) * baseH + 1e-6),
       };
 
       setAdjustments((prev: Adjustments) => {

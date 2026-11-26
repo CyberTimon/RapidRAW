@@ -8,8 +8,9 @@ import Switch from '../ui/Switch';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { createImmichAlbum, DEFAULT_IMMICH_SETTINGS, ImmichSettings } from './immichApi';
-import { useImmichStore } from './useImmichStore';
+import { createImmichAlbum, DEFAULT_IMMICH_SETTINGS } from '../../utils/immichApi';
+import { ImmichSettings } from '../../types/settings';
+import { useImmichStore } from '../../store/useImmichStore';
 
 export function useImmichExportAvailable() {
   return useImmichStore((state) => state.isConfigured);

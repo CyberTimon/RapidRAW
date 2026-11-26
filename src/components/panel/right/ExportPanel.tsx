@@ -13,6 +13,7 @@ import ImagePicker from '../../ui/ImagePicker';
 import ColorField, { normalizeHexColor, ParsedTextField, useParsedTextField } from '../../ui/ColorField';
 import {
   BorderBasis,
+  ConflictAction,
   ExportPreset,
   ExportSettings,
   FileFormat,
@@ -24,17 +25,26 @@ import {
   MAX_EXPORT_DPI,
   TiffBitDepth,
   WatermarkAnchor,
-} from '../../ui/ExportImportProperties';
-import { Invokes, SelectedImage, AppSettings, Panel } from '../../ui/AppProperties';
-import ExportPresetsList from '../../ui/ExportPresetsList';
+  COLOR_SPACE_FILE_FORMATS,
+  DEFAULT_HDR_HEADROOM,
+  HDR_FILE_FORMATS,
+  EXPORT_COLOR_SPACES,
+  ExportColorSpace,
+} from '../../../types/export';
+import { Invokes } from '../../../types/invokes';
+import { SelectedImage } from '../../../types/editor';
+import { AppSettings } from '../../../types/settings';
+import { Panel } from '../../../types/ui';
+import ExportPresetsList from './ExportPresetsList';
 import { useExportSettings } from '../../../hooks/useExportSettings';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
+import { useDisplayStatus } from '../../../hooks/useDisplayStatus';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useUIStore } from '../../../store/useUIStore';
 import ImmichExportOptions, { useImmichExportAvailable, useImmichExportChoice } from '../../immich/ImmichExportOptions';
-import { prepareImmichExport } from '../../immich/immichApi';
+import { prepareImmichExport } from '../../../utils/immichApi';
 import { formatBytes } from '../../../utils/formatBytes';
 
 interface ExportPanelProps {
@@ -73,13 +83,20 @@ interface ValidatedNumberInputProps {
   disabled: boolean;
   field: ParsedTextField<number>;
   max?: number;
+  background?: string;
 }
 
-function ValidatedNumberInput({ ariaLabel, disabled, field, max }: ValidatedNumberInputProps) {
+function ValidatedNumberInput({
+  ariaLabel,
+  disabled,
+  field,
+  max,
+  background = 'bg-surface',
+}: ValidatedNumberInputProps) {
   return (
     <input
       aria-label={ariaLabel}
-      className={`w-20 bg-surface text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
+      className={`w-20 ${background} text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
         field.parsed === null ? 'border-red-500' : 'border-surface focus:border-accent'
       }`}
       disabled={disabled}
@@ -252,6 +269,16 @@ export default function ExportPanel({
     [t],
   );
 
+  const onConflictOptions = useMemo(
+    () => [
+      { label: t('export.conflict.createUnique'), value: ConflictAction.CreateUnique },
+      { label: t('export.conflict.overwrite'), value: ConflictAction.Overwrite },
+      { label: t('export.conflict.overwriteIfChanged'), value: ConflictAction.OverwriteIfChanged },
+      { label: t('export.conflict.skip'), value: ConflictAction.Skip },
+    ],
+    [t],
+  );
+
   const {
     fileFormat,
     setFileFormat,
@@ -259,6 +286,12 @@ export default function ExportPanel({
     setJpegQuality,
     tiffBitDepth,
     setTiffBitDepth,
+    colorSpace,
+    setColorSpace,
+    hdr,
+    setHdr,
+    hdrHeadroom,
+    setHdrHeadroom,
     dpi,
     setDpi,
     enableResize,
@@ -323,6 +356,8 @@ export default function ExportPanel({
     setDestinationType,
     subfolder,
     setSubfolder,
+    onConflict,
+    setOnConflict,
   } = useExportSettings();
 
   const adjustmentsRef = useRef(useEditorStore.getState().adjustments);
@@ -395,6 +430,14 @@ export default function ExportPanel({
   const [imageAspectRatio, setImageAspectRatio] = useState(16 / 9);
   const filenameInputRef = useRef<HTMLInputElement>(null);
   const osPlatform = useOsPlatform();
+  const displayStatus = useDisplayStatus();
+  const hdrPreviewHint = !displayStatus
+    ? null
+    : !displayStatus.hdrActive
+      ? t('export.file.hdrNoPreview')
+      : !appSettings?.hdrDisplay
+        ? t('export.file.hdrPreviewOff')
+        : null;
   const isAndroid = osPlatform === 'android';
   const canExportToImmich = useImmichExportAvailable() && !isAndroid;
   const destination = destinationType === 'immich' && !canExportToImmich ? 'customFolder' : destinationType;
@@ -402,7 +445,7 @@ export default function ExportPanel({
   const activePanels = useUIStore((state) => state.activePanels);
   const isPanelReallyActive = Object.values(activePanels).includes(Panel.Export);
 
-  const { status, progress, errorMessage } = exportState;
+  const { status, progress, errorMessage, exportedCount, skippedCount } = exportState;
   const isExporting = [Status.Exporting, Status.Cancelling].includes(status);
   const isCancelling = status === Status.Cancelling;
   const isLibraryContext = !!onClose;
@@ -447,7 +490,7 @@ export default function ExportPanel({
           path: watermarkPath,
         });
         setWatermarkImageAspectRatio(dimensions.height > 0 ? dimensions.width / dimensions.height : 1);
-      } catch (error) {
+      } catch {
         setWatermarkImageAspectRatio(1);
       }
     };
@@ -505,6 +548,9 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       tiffBitDepth,
+      colorSpace,
+      hdr,
+      hdrHeadroom,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
@@ -559,6 +605,9 @@ export default function ExportPanel({
     fileFormat,
     jpegQuality,
     tiffBitDepth,
+    colorSpace,
+    hdr,
+    hdrHeadroom,
     enableResize,
     resizeMode,
     resizeValue,
@@ -609,11 +658,15 @@ export default function ExportPanel({
       filenameTemplate,
       jpegQuality,
       tiffBitDepth,
+      colorSpace,
+      hdr,
+      hdrHeadroom,
       keepMetadata,
       preserveTimestamps,
       preserveFolders,
       destinationType: destination,
       subfolder,
+      onConflict: isAndroid ? ConflictAction.CreateUnique : onConflict,
       resize: enableResize ? { mode: resizeMode, value: resizeValue, dontEnlarge } : null,
       border: borderSettings,
       pad: padSettings,
@@ -646,13 +699,17 @@ export default function ExportPanel({
       if (isImmich) {
         exportSettings.preserveFolders = false;
         exportSettings.exportOriginal = null;
+        exportSettings.exportMasks = false;
+        exportSettings.onConflict = ConflictAction.CreateUnique;
         outputFolderOrFile = await prepareImmichExport(immichExport.album, immichExport.withOriginal);
       } else if (isOriginalFolder) {
         outputFolderOrFile = 'originalFolderDummy';
       } else if (shouldChooseOutputFile) {
-        const originalFilename = pathsToExport[0].split(/[\\/]/).pop() || '';
-        const stem = originalFilename.substring(0, originalFilename.lastIndexOf('.')) || originalFilename;
-        const suggestedName = (filenameTemplate || '').replace('{original_filename}', stem);
+        exportSettings.onConflict = ConflictAction.Overwrite;
+        const suggestedName = await invoke<string>(Invokes.ResolveExportFileStem, {
+          path: pathsToExport[0],
+          filenameTemplate,
+        });
         const outputFileName = `${suggestedName}.${selectedFormat.extensions[0]}`;
 
         outputFolderOrFile = isAndroid
@@ -695,9 +752,12 @@ export default function ExportPanel({
 
         setExportState({
           destination: isOriginalFolder || isImmich || isAndroid ? null : outputFolderOrFile,
+          isOriginalFolder,
           errorMessage: '',
           progress: { current: 0, total: numImages },
           status: Status.Exporting,
+          exportedCount: undefined,
+          skippedCount: undefined,
         });
         await invoke(Invokes.ExportImages, {
           paths: pathsToExport,
@@ -775,7 +835,7 @@ export default function ExportPanel({
                   <Slider
                     defaultValue={90}
                     label={
-                      fileFormat === FileFormats.Jxl && jpegQuality === 100
+                      fileFormat === FileFormats.Jxl && jpegQuality === 100 && !hdr
                         ? t('export.file.qualityLossless')
                         : t('export.file.quality')
                     }
@@ -838,30 +898,28 @@ export default function ExportPanel({
               </div>
             </Section>
 
-            {numImages > 1 && (
-              <Section title={t('export.sections.fileNaming')}>
-                <input
-                  className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
-                  disabled={isExporting}
-                  onChange={(e) => setFilenameTemplate(e.target.value)}
-                  ref={filenameInputRef}
-                  type="text"
-                  value={filenameTemplate}
-                />
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {FILENAME_VARIABLES.map((variable: string) => (
-                    <button
-                      className="px-2 py-1 bg-surface text-text-secondary text-xs rounded-md hover:bg-card-active transition-colors disabled:opacity-50"
-                      disabled={isExporting}
-                      key={variable}
-                      onClick={() => handleVariableClick(variable)}
-                    >
-                      {variable}
-                    </button>
-                  ))}
-                </div>
-              </Section>
-            )}
+            <Section title={t('export.sections.fileNaming')}>
+              <input
+                className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+                disabled={isExporting}
+                onChange={(e) => setFilenameTemplate(e.target.value)}
+                ref={filenameInputRef}
+                type="text"
+                value={filenameTemplate}
+              />
+              <div className="flex flex-wrap gap-2 mt-2">
+                {FILENAME_VARIABLES.map((variable: string) => (
+                  <button
+                    className="px-2 py-1 bg-surface text-text-secondary text-xs rounded-md hover:bg-card-active transition-colors disabled:opacity-50"
+                    disabled={isExporting}
+                    key={variable}
+                    onClick={() => handleVariableClick(variable)}
+                  >
+                    {variable}
+                  </button>
+                ))}
+              </div>
+            </Section>
 
             {fileFormat !== FileFormats.Cube && (
               <>
@@ -1002,7 +1060,9 @@ export default function ExportPanel({
                   )}
                 </Section>
 
-                {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Webp].includes(fileFormat as FileFormats) && (
+                {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff, FileFormats.Webp, FileFormats.Jxl].includes(
+                  fileFormat as FileFormats,
+                ) && (
                   <Section title={t('export.sections.metadata')}>
                     <Switch
                       checked={keepMetadata}
@@ -1133,53 +1193,118 @@ export default function ExportPanel({
                       className="overflow-hidden"
                     >
                       <div className="px-4 pb-4 pt-2 border-t border-surface/50 flex flex-col gap-4">
-                        <Switch
-                          label={t('export.advanced.preserveFolders')}
-                          checked={preserveFolders}
-                          onChange={setPreserveFolders}
-                          disabled={isExporting}
-                        />
+                        {HDR_FILE_FORMATS.includes(fileFormat) && (
+                          <Switch
+                            label={t('export.file.hdr')}
+                            tooltip={t(
+                              fileFormat === FileFormats.Jpeg ? 'export.file.hdrJpegHint' : 'export.file.hdrJxlHint',
+                            )}
+                            checked={hdr}
+                            onChange={setHdr}
+                            disabled={isExporting}
+                          />
+                        )}
+                        {HDR_FILE_FORMATS.includes(fileFormat) && hdr && (
+                          <div className="pl-2 border-l-2 border-card-active">
+                            <Slider
+                              label={
+                                <span
+                                  data-tooltip={[t('export.file.hdrHeadroomHint'), hdrPreviewHint]
+                                    .filter(Boolean)
+                                    .join(' ')}
+                                >
+                                  {t('export.file.hdrHeadroom')}
+                                </span>
+                              }
+                              min={1}
+                              max={4}
+                              step={0.1}
+                              value={hdrHeadroom}
+                              defaultValue={DEFAULT_HDR_HEADROOM}
+                              onChange={(e) => setHdrHeadroom(Number(e.target.value))}
+                              fillOrigin="min"
+                              suffix=" EV"
+                              disabled={isExporting}
+                            />
+                          </div>
+                        )}
+                        {COLOR_SPACE_FILE_FORMATS.includes(fileFormat) && !(hdr && fileFormat === FileFormats.Jxl) && (
+                          <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
+                            <Text variant={TextVariants.label} className="mb-1">
+                              {t('export.file.colorSpace')}
+                            </Text>
+                            <Dropdown
+                              options={EXPORT_COLOR_SPACES}
+                              value={colorSpace}
+                              onChange={(value) => setColorSpace(value as ExportColorSpace)}
+                              disabled={isExporting}
+                              className="w-full"
+                            />
+                          </div>
+                        )}
+                        {!isAndroid && destination !== 'immich' && (
+                          <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
+                            <Text variant={TextVariants.label} className="mb-1">
+                              {t('export.conflict.label')}
+                            </Text>
+                            <Dropdown
+                              options={onConflictOptions}
+                              value={onConflict}
+                              onChange={(value) => setOnConflict(value as ConflictAction)}
+                              disabled={isExporting}
+                              className="w-full"
+                            />
+                          </div>
+                        )}
+                        {destination !== 'immich' && destination !== 'originalFolder' && (
+                          <Switch
+                            label={t('export.advanced.preserveFolders')}
+                            checked={preserveFolders}
+                            onChange={setPreserveFolders}
+                            disabled={isExporting}
+                          />
+                        )}
                         {fileFormat !== FileFormats.Cube && (
+                          <Switch
+                            checked={preserveTimestamps}
+                            disabled={isExporting}
+                            label={t('export.advanced.preserveTimestamps')}
+                            onChange={setPreserveTimestamps}
+                          />
+                        )}
+                        {fileFormat !== FileFormats.Cube && destination !== 'immich' && (
                           <>
                             <Switch
-                              checked={preserveTimestamps}
-                              disabled={isExporting}
-                              label={t('export.advanced.preserveTimestamps')}
-                              onChange={setPreserveTimestamps}
-                            />
-                            <Switch
-                              label={t('export.advanced.exportMasks')}
-                              checked={exportMasks}
-                              onChange={setExportMasks}
+                              label={t('export.advanced.exportOriginal')}
+                              checked={exportOriginal}
+                              onChange={setExportOriginal}
                               disabled={isExporting}
                             />
-                            {destination !== 'immich' && (
-                              <>
+                            {exportOriginal && (
+                              <div className="pl-2 border-l-2 border-card-active flex flex-col gap-4">
                                 <Switch
-                                  label={t('export.advanced.exportOriginal')}
-                                  checked={exportOriginal}
-                                  onChange={setExportOriginal}
+                                  label={t('export.advanced.originalCrop')}
+                                  checked={originalCrop}
+                                  onChange={setOriginalCrop}
                                   disabled={isExporting}
                                 />
-                                {exportOriginal && (
-                                  <div className="pl-2 border-l-2 border-card-active flex flex-col gap-4">
-                                    <Switch
-                                      label={t('export.advanced.originalCrop')}
-                                      checked={originalCrop}
-                                      onChange={setOriginalCrop}
-                                      disabled={isExporting}
-                                    />
-                                    <Switch
-                                      label={t('export.advanced.originalKeepExposure')}
-                                      checked={originalKeepExposure}
-                                      onChange={setOriginalKeepExposure}
-                                      disabled={isExporting}
-                                    />
-                                  </div>
-                                )}
-                              </>
+                                <Switch
+                                  label={t('export.advanced.originalKeepExposure')}
+                                  checked={originalKeepExposure}
+                                  onChange={setOriginalKeepExposure}
+                                  disabled={isExporting}
+                                />
+                              </div>
                             )}
                           </>
+                        )}
+                        {fileFormat !== FileFormats.Cube && destination !== 'immich' && (
+                          <Switch
+                            label={t('export.advanced.exportMasks')}
+                            checked={exportMasks}
+                            onChange={setExportMasks}
+                            disabled={isExporting}
+                          />
                         )}
                         {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff].includes(fileFormat as FileFormats) && (
                           <div className="flex items-center gap-2">
@@ -1188,6 +1313,7 @@ export default function ExportPanel({
                             </Text>
                             <ValidatedNumberInput
                               ariaLabel={t('export.file.resolution')}
+                              background="bg-bg-secondary"
                               disabled={isExporting}
                               field={dpiField}
                               max={MAX_EXPORT_DPI}
@@ -1242,7 +1368,9 @@ export default function ExportPanel({
                 : status === Status.Cancelling
                   ? 'bg-yellow-500/20 text-yellow-400 shadow-none'
                   : status === Status.Success
-                    ? 'bg-green-500/70 text-white shadow-none'
+                    ? skippedCount && !exportedCount
+                      ? 'bg-amber-500/80 text-white shadow-none'
+                      : 'bg-green-500/70 text-white shadow-none'
                     : status === Status.Error
                       ? 'bg-red-500/20 text-red-400 shadow-none'
                       : status === Status.Cancelled
@@ -1272,7 +1400,12 @@ export default function ExportPanel({
               </>
             ) : status === Status.Success ? (
               <>
-                <CheckCircle size={18} className="mr-2" /> {t('export.status.success')}
+                <CheckCircle size={18} className="mr-2" />
+                {!skippedCount
+                  ? t('export.status.success')
+                  : exportedCount
+                    ? t('export.status.successWithSkipped', { exported: exportedCount, skipped: skippedCount })
+                    : t('export.status.allSkipped')}
               </>
             ) : status === Status.Error ? (
               <>

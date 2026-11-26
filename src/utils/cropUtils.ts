@@ -4,6 +4,8 @@ import { Crop } from 'react-image-crop';
 // 0 is the default, because the image ratio differs per image and cannot be stored as one number.
 export const ORIGINAL_RATIO = 0;
 
+export const MAX_FINE_ROTATION = 45;
+
 export function resolveAspectRatio(
   aspectRatio: number | null,
   image: { width: number; height: number } | null | undefined,
@@ -25,6 +27,32 @@ export function getOrientedDimensions(
     width: isSwapped ? imageHeight : imageWidth,
     height: isSwapped ? imageWidth : imageHeight,
   };
+}
+
+export function getCroppedDimensions(
+  imageWidth: number,
+  imageHeight: number,
+  orientationSteps: number,
+  crop: Crop | null | undefined,
+): { width: number; height: number } {
+  if (crop?.width && crop?.height) return { width: crop.width, height: crop.height };
+  return getOrientedDimensions(imageWidth, imageHeight, orientationSteps);
+}
+
+export function getCropViewLayout(
+  viewportWidth: number,
+  viewportHeight: number,
+  imageWidth: number,
+  imageHeight: number,
+): { left: number; top: number; width: number; height: number; scale: number } {
+  const margin = Math.round(Math.min(40, Math.max(16, Math.min(viewportWidth, viewportHeight) * 0.04)));
+  const scale = Math.max(
+    0,
+    Math.min((viewportWidth - 2 * margin) / imageWidth, (viewportHeight - 2 * margin) / imageHeight),
+  );
+  const width = imageWidth * scale;
+  const height = imageHeight * scale;
+  return { left: (viewportWidth - width) / 2, top: (viewportHeight - height) / 2, width, height, scale };
 }
 
 export function normalizeCropChange(
@@ -128,10 +156,29 @@ export function calculateAreaPreservingCrop(
   const { width: W, height: H } = getOrientedDimensions(imageWidth, imageHeight, orientationSteps);
 
   const area = currentCrop.width * currentCrop.height;
-  const newH = Math.sqrt(area / aspectRatio);
-  const newW = aspectRatio * newH;
   const centerX = currentCrop.x + currentCrop.width / 2;
   const centerY = currentCrop.y + currentCrop.height / 2;
+
+  const largestForCurrentRatio = calculateCenteredCrop(
+    imageWidth,
+    imageHeight,
+    orientationSteps,
+    currentCrop.width / currentCrop.height,
+    rotation,
+  );
+  if (largestForCurrentRatio && area >= largestForCurrentRatio.width * largestForCurrentRatio.height * 0.99) {
+    const largest = calculateCenteredCrop(imageWidth, imageHeight, orientationSteps, aspectRatio, rotation);
+    if (!largest) return null;
+    const moved: Crop = {
+      ...largest,
+      x: Math.round(Math.min(Math.max(centerX - largest.width / 2, 0), W - largest.width)),
+      y: Math.round(Math.min(Math.max(centerY - largest.height / 2, 0), H - largest.height)),
+    };
+    return isCropWithinBounds(moved, W, H, rotation) ? moved : largest;
+  }
+
+  const newH = Math.sqrt(area / aspectRatio);
+  const newW = aspectRatio * newH;
 
   const candidate: Crop = {
     unit: 'px',
@@ -329,7 +376,8 @@ export function forceCropInBounds(crop: Crop, imageW: number, imageH: number, ro
   }
 
   if (rotation === 0) {
-    let { x, y, width, height } = crop;
+    const { width, height } = crop;
+    let { x, y } = crop;
     x = Math.max(0, Math.min(x, imageW - width));
     y = Math.max(0, Math.min(y, imageH - height));
     return { ...crop, x, y };
@@ -375,11 +423,10 @@ export function zoomCrop(
   const MIN_SIZE = 64;
 
   let targetW = crop.width * scaleFactor;
-  let targetH = targetW / A;
+  const targetH = targetW / A;
 
   if (targetW < MIN_SIZE || targetH < MIN_SIZE) {
     targetW = Math.max(MIN_SIZE, MIN_SIZE * A);
-    targetH = targetW / A;
   }
 
   const originX = mouseX ?? crop.x + crop.width / 2;
