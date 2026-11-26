@@ -1,7 +1,7 @@
 import { Theme } from '../types/settings';
 
 export interface ThemeProps {
-  cssVariables: any;
+  cssVariables: Record<string, string>;
   id: Theme;
   name: string;
   splashImage: string;
@@ -15,6 +15,7 @@ export const THEMES: Array<ThemeProps> = [
     cssVariables: {
       '--app-bg-primary': 'rgb(24, 24, 24)',
       '--app-bg-secondary': 'rgb(35, 35, 35)',
+      '--app-editor-bg': 'rgb(44, 44, 44)',
       '--app-surface': 'rgb(28, 28, 28)',
       '--app-card-active': 'rgb(43, 43, 43)',
       '--app-button-text': 'rgb(0, 0, 0)',
@@ -32,6 +33,7 @@ export const THEMES: Array<ThemeProps> = [
     cssVariables: {
       '--app-bg-primary': 'rgb(245, 245, 245)',
       '--app-bg-secondary': 'rgb(255, 255, 255)',
+      '--app-editor-bg': 'rgb(255, 255, 255)',
       '--app-surface': 'rgb(241, 241, 241)',
       '--app-card-active': 'rgb(250, 250, 250)',
       '--app-button-text': 'rgb(255, 255, 255)',
@@ -49,6 +51,7 @@ export const THEMES: Array<ThemeProps> = [
     cssVariables: {
       '--app-bg-primary': 'rgb(112, 112, 112)',
       '--app-bg-secondary': 'rgb(118, 118, 118)',
+      '--app-editor-bg': 'rgb(118, 118, 118)',
       '--app-surface': 'rgb(108, 108, 108)',
       '--app-card-active': 'rgb(133, 133, 133)',
       '--app-button-text': 'rgb(45, 45, 45)',
@@ -62,3 +65,8 @@ export const THEMES: Array<ThemeProps> = [
 ];
 
 export const DEFAULT_THEME_ID = Theme.Dark;
+export const NEUTRAL_CANVAS_COLOR = '#808080';
+
+export function getTheme(themeId: string): ThemeProps {
+  return THEMES.find(({ id }) => id === themeId) ?? THEMES[0];
+}

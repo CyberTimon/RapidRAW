@@ -298,6 +298,8 @@
       "autoAdjust": "Ajuste automático",
       "autoStraighten": "Enderezar automáticamente",
       "cancel": "Cancelar",
+      "canvasBackground": "Fondo del lienzo",
+      "canvasColorReset": "Restablecer",
       "closeViewer": "Cerrar la segunda ventana",
       "colorLabel": "Etiqueta de color",
       "confirmReset": "Confirmar restablecimiento",

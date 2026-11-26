@@ -56,6 +56,7 @@ pub struct WgpuTransformPayload {
     pub clip_height: f32,
     pub bg_primary: [f32; 4],
     pub bg_secondary: [f32; 4],
+    pub viewer_background: Option<[f32; 4]>,
     pub pixelated: bool,
     pub split_origin: [f32; 2],
     pub split_normal: [f32; 2],
@@ -80,7 +81,10 @@ pub async fn update_wgpu_transform(
     state: tauri::State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<bool, String> {
-    crate::platform::viewer_window::set_viewer_background(&app_handle, payload.bg_secondary);
+    crate::platform::viewer_window::set_viewer_background(
+        &app_handle,
+        payload.viewer_background.unwrap_or(payload.bg_secondary),
+    );
 
     let Some(context) = crate::render::gpu::context::current_gpu_context(&state) else {
         return Ok(false);

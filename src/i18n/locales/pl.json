@@ -298,6 +298,8 @@
       "autoAdjust": "Auto-korekta",
       "autoStraighten": "Automatyczne prostowanie",
       "cancel": "Anuluj",
+      "canvasBackground": "Tło obszaru roboczego",
+      "canvasColorReset": "Resetuj",
       "closeViewer": "Zamknij drugie okno",
       "colorLabel": "Etykieta koloru",
       "confirmReset": "Potwierdź reset",

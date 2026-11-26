@@ -258,6 +258,7 @@ function App() {
   const { requestThumbnails, clearThumbnailQueue, markGenerated } = useThumbnails();
 
   const transformWrapperRef = useRef<any>(null);
+  const wgpuBackgroundRef = useRef<HTMLDivElement>(null);
   const preloadedDataRef = useRef<{
     trees?: Promise<any>;
     images?: Promise<ImageFile[]>;
@@ -927,11 +928,16 @@ function App() {
       <ImageLoaderManager cachedEditStateRef={cachedEditStateRef} />
       <div
         className={clsx(
-          'flex flex-col h-screen font-sans text-text-primary overflow-hidden select-none',
+          'relative isolate flex flex-col h-screen font-sans text-text-primary overflow-hidden select-none',
           useMacWindowShell && 'macos-window-shell',
-          isWgpuActive ? 'bg-transparent' : 'bg-bg-primary',
         )}
       >
+        <div
+          ref={wgpuBackgroundRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 bg-bg-primary"
+          style={{ clipPath: isWgpuActive ? 'var(--editor-viewport-clip, none)' : undefined }}
+        />
         {!isAndroid && (
           <div
             className={clsx(
@@ -989,6 +995,7 @@ function App() {
                   {selectedImage && (
                     <EditorView
                       transformWrapperRef={transformWrapperRef}
+                      wgpuBackgroundRef={wgpuBackgroundRef}
                       isResizing={isResizing}
                       layoutMode={layoutMode}
                       isAndroid={isAndroid}

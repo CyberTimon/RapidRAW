@@ -298,6 +298,8 @@
       "autoAdjust": "Autom. anpassen",
       "autoStraighten": "Automatisch ausrichten",
       "cancel": "Abbrechen",
+      "canvasBackground": "Hintergrund der Bildfläche",
+      "canvasColorReset": "Zurücksetzen",
       "closeViewer": "Zweites Fenster schließen",
       "colorLabel": "Farbmarkierung",
       "confirmReset": "Zurücksetzen bestätigen",

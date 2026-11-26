@@ -298,6 +298,8 @@
       "autoAdjust": "Auto Adjust",
       "autoStraighten": "Auto Straighten",
       "cancel": "Cancel",
+      "canvasBackground": "Canvas Background",
+      "canvasColorReset": "Reset",
       "closeViewer": "Close second window",
       "colorLabel": "Color Label",
       "confirmReset": "Confirm Reset",

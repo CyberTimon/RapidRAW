@@ -104,6 +104,7 @@ interface EditorState {
   aiUpscaleProgress: Record<string, number>;
   isAIConnectorConnected: boolean;
   wgpuPhase: WgpuPhase;
+  canvasPreviewColor: string | null;
   patchesSentToBackend: Set<string>;
 
   // Clipboard
@@ -234,6 +235,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   aiUpscaleProgress: {},
   isMaskControlHovered: false,
   wgpuPhase: 'hidden',
+  canvasPreviewColor: null,
   patchesSentToBackend: new Set<string>(),
 
   setEditor: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),

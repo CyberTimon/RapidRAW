@@ -1,4 +1,13 @@
-import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect, useImperativeHandle } from 'react';
+import {
+  type RefObject,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  useLayoutEffect,
+  useImperativeHandle,
+} from 'react';
 import { Crop, PercentCrop } from 'react-image-crop';
 import { Loader2 } from 'lucide-react';
 import clsx from 'clsx';
@@ -46,16 +55,20 @@ import { useEditorActions, withRotation } from '../../hooks/useEditorActions';
 import { clickZoomTarget, interpretWheel, movedBeyondClick } from '../../utils/canvasControls';
 import { getVisibleImageRegion } from '../../utils/previewResolution';
 import { getDevicePixelRatio } from '../../utils/displayScale';
+import { getTheme, NEUTRAL_CANVAS_COLOR } from '../../utils/themes';
+import { normalizeHexColor } from '../ui/ColorField';
 
-const parseRgb = (rgbStr: string): [number, number, number, number] => {
-  const match = rgbStr.match(/[\d.]+/g);
+const parseBackgroundColor = (color: string): [number, number, number, number] => {
+  if (color.startsWith('#')) {
+    const rgb = Number.parseInt(color.slice(1), 16);
+    return [(rgb >> 16) / 255, ((rgb >> 8) & 255) / 255, (rgb & 255) / 255, 1];
+  }
+  const match = color.match(/[\d.]+/g);
   if (match && match.length >= 3) {
     return [parseFloat(match[0]) / 255, parseFloat(match[1]) / 255, parseFloat(match[2]) / 255, 1.0];
   }
   return [0, 0, 0, 1.0];
 };
-
-const NEUTRAL_GREY_RGB: [number, number, number, number] = [128 / 255, 128 / 255, 128 / 255, 1.0];
 
 const NO_SPLIT = { splitOrigin: [0, 0], splitNormal: [0, 0], splitOffset: [0, 0] };
 
@@ -169,8 +182,11 @@ interface WgpuRenderState {
   showOriginal: boolean;
   compareView: CompareView;
   splitPosition: number;
-  bgPrimary: [number, number, number, number];
-  bgSecondary: [number, number, number, number];
+  backgrounds: {
+    bgPrimary: [number, number, number, number];
+    bgSecondary: [number, number, number, number];
+    viewerBackground: [number, number, number, number];
+  };
 }
 
 interface EditorProps {
@@ -178,10 +194,23 @@ interface EditorProps {
   onContextMenu(event: any): void;
   onImageSelect?(path: string, event?: any): void;
   transformWrapperRef: any;
+  wgpuBackgroundRef: RefObject<HTMLDivElement | null>;
 }
 
-export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, transformWrapperRef }: EditorProps) {
+export default function Editor({
+  onBackToLibrary,
+  onContextMenu,
+  onImageSelect,
+  transformWrapperRef,
+  wgpuBackgroundRef,
+}: EditorProps) {
   const appSettings = useSettingsStore((s) => s.appSettings);
+  const canvasPreviewColor = useEditorStore((s) => s.canvasPreviewColor);
+  const neutralGrey = appSettings?.editorNeutralGreyBg ?? false;
+  const canvasColorOverride =
+    normalizeHexColor(canvasPreviewColor ?? appSettings?.editorCanvasColor ?? '') ??
+    (neutralGrey ? NEUTRAL_CANVAS_COLOR : undefined);
+  const theme = useSettingsStore((s) => s.theme);
   const osPlatform = useSettingsStore((s) => s.osPlatform);
   const isFullScreen = useUIStore((s) => s.isFullScreen);
   const activePanel = useUIStore((s) => s.activePanel);
@@ -1704,16 +1733,19 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     showOriginal,
     compareView: activeCompareView,
     splitPosition,
-    bgPrimary: [24 / 255, 24 / 255, 24 / 255, 1.0],
-    bgSecondary: [35 / 255, 35 / 255, 35 / 255, 1.0],
+    backgrounds: {
+      bgPrimary: [24 / 255, 24 / 255, 24 / 255, 1.0],
+      bgSecondary: [44 / 255, 44 / 255, 44 / 255, 1.0],
+      viewerBackground: [35 / 255, 35 / 255, 35 / 255, 1.0],
+    },
   });
   const syncWgpuRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    const rootStyle = getComputedStyle(document.documentElement);
-    const bgPrimaryStr = rootStyle.getPropertyValue('--app-bg-primary') || 'rgb(24, 24, 24)';
-    const bgSecondaryStr = rootStyle.getPropertyValue('--app-bg-secondary') || 'rgb(35, 35, 35)';
-    const isNeutralGrey = appSettings?.editorNeutralGreyBg ?? false;
+    const { cssVariables } = getTheme(theme);
+    const primaryBackground = cssVariables['--app-bg-primary'];
+    const secondaryBackground = cssVariables['--app-bg-secondary'];
+    const canvasBackground = cssVariables['--app-editor-bg'];
 
     wgpuStateRef.current = {
       useWgpuRenderer: appSettings?.useWgpuRenderer,
@@ -1725,12 +1757,16 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       showOriginal,
       compareView: activeCompareView,
       splitPosition,
-      bgPrimary: parseRgb(bgPrimaryStr),
-      bgSecondary: isNeutralGrey ? NEUTRAL_GREY_RGB : parseRgb(bgSecondaryStr),
+      backgrounds: {
+        bgPrimary: parseBackgroundColor(primaryBackground),
+        bgSecondary: parseBackgroundColor(canvasColorOverride ?? canvasBackground),
+        viewerBackground: parseBackgroundColor(neutralGrey ? NEUTRAL_CANVAS_COLOR : secondaryBackground),
+      },
     };
   }, [
     appSettings?.useWgpuRenderer,
-    appSettings?.editorNeutralGreyBg,
+    neutralGrey,
+    canvasColorOverride,
     selectedImage?.path,
     selectedImage?.isReady,
     wgpuPhase,
@@ -1739,7 +1775,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     showOriginal,
     activeCompareView,
     splitPosition,
-    appSettings?.theme,
+    theme,
     finalPreviewUrl,
   ]);
 
@@ -1747,7 +1783,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     syncWgpuRef.current();
   }, [
     appSettings?.useWgpuRenderer,
-    appSettings?.editorNeutralGreyBg,
+    neutralGrey,
+    canvasColorOverride,
     selectedImage?.path,
     selectedImage?.isReady,
     wgpuPhase,
@@ -1756,7 +1793,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     showOriginal,
     activeCompareView,
     splitPosition,
-    appSettings?.theme,
+    theme,
     finalPreviewUrl,
     imageRenderSize,
   ]);
@@ -1777,6 +1814,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       if (!isEffectActive) return;
 
       const state = wgpuStateRef.current;
+      const { backgrounds } = state;
       const container = imageContainerRef.current;
 
       if (!container) {
@@ -1802,12 +1840,22 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         currentRect.height < 10 ||
         state.useWgpuRenderer === false ||
         state.wgpuPhase === 'hidden';
+      const background = wgpuBackgroundRef.current;
+      if (!shouldHide && background) {
+        const { left, top, right, bottom } = viewportRect;
+        // Keep the shell opaque while exposing the native surface inside the viewport.
+        const viewportClip = `polygon(evenodd, 0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${left}px ${top}px, ${right}px ${top}px, ${right}px ${bottom}px, ${left}px ${bottom}px, ${left}px ${top}px)`;
+        if (background.style.getPropertyValue('--editor-viewport-clip') !== viewportClip) {
+          background.style.setProperty('--editor-viewport-clip', viewportClip);
+        }
+      }
       const isLayoutPending = !state.isReady || irs.width === 0 || irs.height === 0;
+      const backgroundKey = `${backgrounds.bgPrimary},${backgrounds.bgSecondary},${backgrounds.viewerBackground}`;
 
       if (shouldHide || isLayoutPending) {
         if (!shouldHide) return;
 
-        const hiddenTransform = `${state.path},hidden,${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')}`;
+        const hiddenTransform = `${state.path},hidden,${windowWidth},${windowHeight},-999999,-999999,1,1,${clipX},${clipY},${clipW},${clipH},${backgroundKey}`;
 
         if (lastWgpuTransformRef.current !== hiddenTransform && !isInvoking) {
           lastWgpuTransformRef.current = hiddenTransform;
@@ -1824,8 +1872,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
               clipY,
               clipWidth: clipW,
               clipHeight: clipH,
-              bgPrimary: state.bgPrimary || [0, 0, 0, 1],
-              bgSecondary: state.bgSecondary || [0, 0, 0, 1],
+              ...backgrounds,
               pixelated: false,
               ...NO_SPLIT,
               path: state.path,
@@ -1894,7 +1941,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
               : NO_SPLIT;
 
       const isArming = state.wgpuPhase === 'arming';
-      const currentTransform = `${state.path},${isArming},${windowWidth},${windowHeight},${screenX},${screenY},${screenW},${screenH},${clipX},${clipY},${clipW},${clipH},${state.bgPrimary?.join(',')},${state.bgSecondary?.join(',')},${split.splitOrigin},${split.splitNormal},${split.splitOffset}`;
+      const currentTransform = `${state.path},${isArming},${windowWidth},${windowHeight},${screenX},${screenY},${screenW},${screenH},${clipX},${clipY},${clipW},${clipH},${backgroundKey},${split.splitOrigin},${split.splitNormal},${split.splitOffset}`;
 
       if (lastWgpuTransformRef.current !== currentTransform && !isInvoking) {
         lastWgpuTransformRef.current = currentTransform;
@@ -1916,8 +1963,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
             clipY,
             clipWidth: clipW,
             clipHeight: clipH,
-            bgPrimary: state.bgPrimary || [0, 0, 0, 1],
-            bgSecondary: state.bgSecondary || [0, 0, 0, 1],
+            ...backgrounds,
             pixelated: isZoomedIn,
             ...split,
             path: sentPath,
@@ -1965,7 +2011,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       resizeObserver.disconnect();
       window.removeEventListener('resize', scheduleSync);
     };
-  }, [getVisibleImageRect]);
+  }, [getVisibleImageRect, wgpuBackgroundRef]);
 
   const overlayTriggerHash = useMemo(() => {
     let activeMaskDef = null;
@@ -2733,8 +2779,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           'flex-1 flex relative overflow-hidden isolate',
           isFullScreen ? 'rounded-none' : 'rounded-lg',
           appSettings?.useWgpuRenderer !== false && !isFullScreen && 'ring-[9999px] ring-bg-secondary',
-          !isWgpuActive && (appSettings?.editorNeutralGreyBg ? 'bg-[#808080]' : 'bg-bg-secondary'),
+          !isWgpuActive && 'bg-editor-bg',
         )}
+        style={{ backgroundColor: isWgpuActive ? undefined : canvasColorOverride }}
       >
         {isSideBySide && (
           <div

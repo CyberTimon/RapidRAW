@@ -6,7 +6,7 @@ import { useUIStore, reconcileWorkspace } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useProcessStore } from '../store/useProcessStore';
-import { THEMES, DEFAULT_THEME_ID, ThemeProps } from '../utils/themes';
+import { DEFAULT_THEME_ID, getTheme } from '../utils/themes';
 import { COPYABLE_ADJUSTMENT_KEYS, withAdjustmentLayout } from '../utils/adjustments';
 import { setLocalUiScale } from '../utils/displayScale';
 import { FilterCriteria, RawStatus, EditedStatus, FlagStatus, type FolderNode } from '../types/library';
@@ -474,17 +474,8 @@ export const useAppInitialization = ({
 
   useEffect(() => {
     const root = document.documentElement;
-    const currentThemeId = theme || DEFAULT_THEME_ID;
-
-    const baseTheme =
-      THEMES.find((t: ThemeProps) => t.id === currentThemeId) ||
-      THEMES.find((t: ThemeProps) => t.id === DEFAULT_THEME_ID);
-    if (!baseTheme) return;
-
-    const finalCssVariables: any = { ...baseTheme.cssVariables };
-
-    Object.entries(finalCssVariables).forEach(([key, value]) => {
-      root.style.setProperty(key, value as string);
+    Object.entries(getTheme(theme).cssVariables).forEach(([key, value]) => {
+      root.style.setProperty(key, value);
     });
 
     const fontFamily = appSettings?.fontFamily || 'poppins';
