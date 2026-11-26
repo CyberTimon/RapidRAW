@@ -127,6 +127,7 @@
       "channelTitle": "{{channel}} Channel",
       "copyParametric": "Copy {{channel}} Parametric Curve",
       "copyPoint": "Copy {{channel}} Point Curve",
+      "cubicSpline": "Cubic spline",
       "curveDataUnavailable": "Curve data not available.",
       "parametricCurve": "Parametric Curve",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Reset All Parametric Curves",
       "resetAllPoint": "Reset All Point Curves",
       "resetParametric": "Reset {{channel}} Parametric Curve",
-      "resetPoint": "Reset {{channel}} Point Curve"
+      "resetPoint": "Reset {{channel}} Point Curve",
+      "showProcessedHistogram": "Show processed histogram"
     },
     "details": {
       "aiDenoise": "AI Denoise",

@@ -127,6 +127,7 @@
       "channelTitle": "{{channel}} kanaal",
       "copyParametric": "Kopieer {{channel}} parametrische curve",
       "copyPoint": "Kopieer {{channel}} puntcurve",
+      "cubicSpline": "Kubische spline",
       "curveDataUnavailable": "Curvegegevens niet beschikbaar.",
       "parametricCurve": "Parametrische curve",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Alle parametrische curven herstellen",
       "resetAllPoint": "Alle puntcurven herstellen",
       "resetParametric": "{{channel}} parametrische curve herstellen",
-      "resetPoint": "{{channel}} puntcurve herstellen"
+      "resetPoint": "{{channel}} puntcurve herstellen",
+      "showProcessedHistogram": "Histogram na bewerking tonen"
     },
     "details": {
       "aiDenoise": "AI-ruisonderdrukking",

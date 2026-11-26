@@ -1,8 +1,8 @@
 struct Point {
     x: f32,
     y: f32,
-    _pad1: f32,
-    _pad2: f32,
+    tangent: f32,
+    interpolation: u32,
 }
 
 struct HslColor {
@@ -233,6 +233,19 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(13) var tone_base_texture: texture_2d<f32>;
 @group(0) @binding(14) var haze_texture: texture_2d<f32>;
 @group(0) @binding(15) var airlight_texture: texture_2d<f32>;
+
+struct CurveInputHistogram {
+    sample_step: u32,
+    x_start: u32,
+    y_start: u32,
+    x_end: u32,
+    y_end: u32,
+    mask_source: u32,
+    bins: array<atomic<u32>, 2048>,
+}
+
+@group(0) @binding(16) var<storage, read_write> curve_input: CurveInputHistogram;
+@group(0) @binding(17) var<storage, read> extended_curve_points: array<Point>;
 
 const GF_LUMA_FLOOR: f32 = 1.0e-4;
 const HZ_OMEGA: f32 = 0.95;
@@ -509,7 +522,7 @@ fn interpolate_cubic_hermite(x: f32, p1: Point, p2: Point, m1: f32, m2: f32) -> 
 
 const CURVE_SRC_GLOBAL: u32 = 0xFFFFFFFFu;
 
-fn curve_point(src: u32, ch: u32, i: u32) -> Point {
+fn raw_curve_point(src: u32, ch: u32, i: u32) -> Point {
     if (src == CURVE_SRC_GLOBAL) {
         switch ch {
             case 0u: { return adjustments.global.luma_curve[i]; }
@@ -518,13 +531,20 @@ fn curve_point(src: u32, ch: u32, i: u32) -> Point {
             default: { return adjustments.global.blue_curve[i]; }
         }
     }
-    let mask = min(src, 31u);
     switch ch {
-        case 0u: { return adjustments.mask_adjustments[mask].luma_curve[i]; }
-        case 1u: { return adjustments.mask_adjustments[mask].red_curve[i]; }
-        case 2u: { return adjustments.mask_adjustments[mask].green_curve[i]; }
-        default: { return adjustments.mask_adjustments[mask].blue_curve[i]; }
+        case 0u: { return adjustments.mask_adjustments[src].luma_curve[i]; }
+        case 1u: { return adjustments.mask_adjustments[src].red_curve[i]; }
+        case 2u: { return adjustments.mask_adjustments[src].green_curve[i]; }
+        default: { return adjustments.mask_adjustments[src].blue_curve[i]; }
     }
+}
+
+fn curve_point(src: u32, ch: u32, i: u32) -> Point {
+    let header = raw_curve_point(src, ch, 0u);
+    if ((header.interpolation & 2u) != 0u) {
+        return extended_curve_points[(header.interpolation >> 2u) + i];
+    }
+    return raw_curve_point(src, ch, i);
 }
 
 fn curve_count(src: u32, ch: u32) -> u32 {
@@ -552,11 +572,14 @@ fn apply_curve(val: f32, src: u32, ch: u32, count: u32) -> f32 {
     if (x <= first.x) { return first.y / 255.0; }
     let last = curve_point(src, ch, count - 1u);
     if (x >= last.x) { return last.y / 255.0; }
-    for (var i = 0u; i < 15u; i = i + 1u) {
-        if (i >= count - 1u) { break; }
+    for (var i = 0u; i + 1u < count; i = i + 1u) {
         let p2 = curve_point(src, ch, i + 1u);
         if (x <= p2.x) {
             let p1 = curve_point(src, ch, i);
+            if (p1.interpolation == 1u) {
+                let result_y = interpolate_cubic_hermite(x, p1, p2, p1.tangent, p2.tangent);
+                return clamp(result_y / 255.0, 0.0, 1.0);
+            }
             let p0 = curve_point(src, ch, select(i - 1u, 0u, i == 0u));
             let p3 = curve_point(src, ch, min(count - 1u, i + 2u));
             let delta_before = (p1.y - p0.y) / max(0.001, p1.x - p0.x);
@@ -1855,6 +1878,11 @@ fn is_default_curve(src: u32, ch: u32, count: u32) -> bool {
         return false;
     }
 
+    // Natural splines can amplify small point deviations, so the legacy tolerance is unsafe.
+    if (curve_point(src, ch, 0u).interpolation == 1u) {
+        return false;
+    }
+
     var is_identity = true;
     for (var i = 0u; i < count; i = i + 1u) {
         let p = curve_point(src, ch, i);
@@ -1882,12 +1910,25 @@ fn apply_extended_curve(val: f32, src: u32, ch: u32) -> f32 {
     return apply_curve(inside, src, ch, curve_count(src, ch)) + val - inside;
 }
 
-fn apply_all_curves(color: vec3<f32>, src: u32) -> vec3<f32> {
+fn count_curve_input(master_input: vec3<f32>, channel_input: vec3<f32>, offset: u32) {
+    let master = vec3<u32>(round(saturate(master_input) * 255.0));
+    let channels = vec3<u32>(round(saturate(channel_input) * 255.0));
+    // The master curve maps each RGB component, so its histogram combines all three.
+    atomicAdd(&curve_input.bins[offset + 768u + master.r], 1u);
+    atomicAdd(&curve_input.bins[offset + 768u + master.g], 1u);
+    atomicAdd(&curve_input.bins[offset + 768u + master.b], 1u);
+    atomicAdd(&curve_input.bins[offset + channels.r], 1u);
+    atomicAdd(&curve_input.bins[offset + 256u + channels.g], 1u);
+    atomicAdd(&curve_input.bins[offset + 512u + channels.b], 1u);
+}
+
+fn apply_all_curves(color: vec3<f32>, src: u32, sample_input: bool) -> vec3<f32> {
     let display = clamp(color, vec3<f32>(0.0), vec3<f32>(adjustments.global.display_peak));
     let has_red = has_curve(src, 1u);
     let has_green = has_curve(src, 2u);
     let has_blue = has_curve(src, 3u);
-    if (!(has_curve(src, 0u) || has_red || has_green || has_blue)) {
+    let has_curves = has_curve(src, 0u) || has_red || has_green || has_blue;
+    if (!has_curves && !sample_input) {
         return display;
     }
 
@@ -1895,6 +1936,13 @@ fn apply_all_curves(color: vec3<f32>, src: u32) -> vec3<f32> {
     var r = apply_extended_curve(srgb.r, src, 0u);
     var g = apply_extended_curve(srgb.g, src, 0u);
     var b = apply_extended_curve(srgb.b, src, 0u);
+
+    if (sample_input) {
+        count_curve_input(srgb, select(srgb, vec3<f32>(r, g, b), has_curves), select(1024u, 0u, src == CURVE_SRC_GLOBAL));
+    }
+    if (!has_curves) {
+        return display;
+    }
 
     if (has_red) {
         r = apply_extended_curve(r, src, 1u);
@@ -2359,12 +2407,17 @@ fn main(
 
     base_srgb = apply_filmic_exposure(base_srgb, t_brightness);
 
-    var final_rgb = apply_all_curves(base_srgb, CURVE_SRC_GLOBAL);
+    let sample_step = curve_input.sample_step;
+    let sample_curve_input = sample_step > 0u
+        && absolute_coord.x >= curve_input.x_start && absolute_coord.x < curve_input.x_end
+        && absolute_coord.y >= curve_input.y_start && absolute_coord.y < curve_input.y_end
+        && all(absolute_coord % vec2<u32>(max(sample_step, 1u)) == vec2<u32>(0u));
+    var final_rgb = apply_all_curves(base_srgb, CURVE_SRC_GLOBAL, sample_curve_input);
 
     for (var i = 0u; has_feature(F_MASKS) && i < adjustments.mask_count; i = i + 1u) {
         let influence = get_mask_influence(i, absolute_coord);
         if (influence > 0.001) {
-            let mask_curved_srgb = apply_all_curves(final_rgb, i);
+            let mask_curved_srgb = apply_all_curves(final_rgb, i, sample_curve_input && curve_input.mask_source == i);
             final_rgb = mix(final_rgb, mask_curved_srgb, influence);
         }
     }

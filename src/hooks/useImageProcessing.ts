@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import throttle from 'lodash.throttle';
 import { useEditorStore } from '../store/useEditorStore';
-import { useUIStore } from '../store/useUIStore';
+import { isPanelVisible, useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { Adjustments, COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
@@ -16,6 +16,9 @@ import { calculateTargetResolution, getVisibleImageRegion } from '../utils/previ
 import { getDevicePixelRatio } from '../utils/displayScale';
 
 const isWgpuRender = (buffer: ArrayBuffer) => new TextDecoder().decode(buffer.slice(0, 11)) === 'WGPU_RENDER';
+
+const isCurveEditorVisible = (state: ReturnType<typeof useUIStore.getState>) =>
+  state.activeView === 'editor' && state.collapsibleSectionsState.curves && isPanelVisible(state, Panel.Adjustments);
 
 const isSameIgnoringCrop = (a: Adjustments, b: Adjustments) => {
   const keys = new Set([...Object.keys(a), ...Object.keys(b)] as Array<keyof Adjustments>);
@@ -50,6 +53,7 @@ export function useImageProcessing(
   const adjustments = useEditorStore((state) => state.adjustments);
   const previewOverride = useEditorStore((state) => state.previewOverride);
   const isWaveformVisible = useEditorStore((state) => state.isWaveformVisible);
+  const activeMaskContainerId = useEditorStore((state) => state.activeMaskContainerId);
   const displayRevision = useEditorStore((state) => state.displayRevision);
   const activeWaveformChannel = useEditorStore((state) => state.activeWaveformChannel);
   const displaySize = useEditorStore((state) => state.displaySize);
@@ -60,9 +64,14 @@ export function useImageProcessing(
   const setEditor = useEditorStore((state) => state.setEditor);
 
   const activeView = useUIStore((state) => state.activeView);
+  const isCurveVisible = useUIStore(isCurveEditorVisible);
+  const isMaskPanelVisible = useUIStore((state) => isPanelVisible(state, Panel.Masks));
   const activePanel = useUIStore((state) => state.activePanel);
   const isViewerOpen = useUIStore((state) => state.isViewerOpen);
   const appSettings = useSettingsStore((state) => state.appSettings);
+  const curveHistogramMaskId = isMaskPanelVisible ? activeMaskContainerId : null;
+  const captureCurveInput =
+    appSettings?.curveHistogramMode !== 'output' && (isCurveVisible || Boolean(curveHistogramMaskId));
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
 
   const uncroppedJobIdRef = useRef(0);
@@ -165,6 +174,11 @@ export function useImageProcessing(
       const roi = calculateROI();
 
       try {
+        const ui = useUIStore.getState();
+        const maskId = isPanelVisible(ui, Panel.Masks) ? useEditorStore.getState().activeMaskContainerId : null;
+        const captureInput =
+          useSettingsStore.getState().appSettings?.curveHistogramMode !== 'output' &&
+          (isCurveEditorVisible(ui) || Boolean(maskId));
         const request = invoke<ArrayBuffer>(Invokes.ApplyAdjustments, {
           jsAdjustments: payload,
           original: false,
@@ -174,6 +188,8 @@ export function useImageProcessing(
           requestAnalytics: true,
           computeWaveform: !!isWaveformVisible,
           activeWaveformChannel: activeWaveformChannelRef.current || null,
+          captureCurveInput: captureInput,
+          curveHistogramMaskId: captureInput ? maskId : null,
         });
         if (!dragging) renderOriginal(targetRes);
         const buffer = await request;
@@ -564,6 +580,8 @@ export function useImageProcessing(
     appSettings?.copyPasteSettings?.includedAdjustments,
     appSettings?.copyPasteSettings?.autoSync,
     isWaveformVisible,
+    captureCurveInput,
+    curveHistogramMaskId,
     displayRevision,
   ]);
 

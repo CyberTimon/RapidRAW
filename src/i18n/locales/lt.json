@@ -127,6 +127,7 @@
       "channelTitle": "{{channel}} kanalas",
       "copyParametric": "Kopijuoti {{channel}} parametrinę kreivę",
       "copyPoint": "Kopijuoti {{channel}} taškų kreivę",
+      "cubicSpline": "Kubinis splainas",
       "curveDataUnavailable": "Kreivės duomenys nepasiekiami.",
       "parametricCurve": "Parametrinė kreivė",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Atstatyti visas parametrines kreives",
       "resetAllPoint": "Atstatyti visas taškų kreives",
       "resetParametric": "Atstatyti {{channel}} parametrinę kreivę",
-      "resetPoint": "Atstatyti {{channel}} taškų kreivę"
+      "resetPoint": "Atstatyti {{channel}} taškų kreivę",
+      "showProcessedHistogram": "Rodyti apdorotą histogramą"
     },
     "details": {
       "aiDenoise": "DI triukšmo slopinimas",

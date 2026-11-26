@@ -13,7 +13,7 @@ use crate::render::gpu::context::GpuContext;
 use crate::render::gpu::pipelines::{
     ALL_SHADER_FEATURES, GpuPipelines, HighPrecisionPipeline, output_shader_source, shader_features,
 };
-use crate::render::uniforms::{AllAdjustments, MAX_MASKS};
+use crate::render::uniforms::{AllAdjustments, GpuAdjustments, MAX_MASKS, Point};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Roi {
@@ -196,6 +196,8 @@ pub struct GpuProcessor {
     high_precision_tile: std::sync::Mutex<Option<Arc<HighPrecisionTile>>>,
     tile_output_size: wgpu::Extent3d,
     adjustments_buffer: wgpu::Buffer,
+    empty_curve_input_buffer: wgpu::Buffer,
+    empty_extended_curve_points: wgpu::Buffer,
     mask_cache: std::sync::Mutex<Option<MaskCache>>,
     motion_cache: std::sync::Mutex<Vec<(u64, Arc<MotionBlurred>)>>,
     motion_grain: std::sync::Mutex<Vec<(u64, f32)>>,
@@ -214,6 +216,9 @@ pub struct GpuProcessor {
 type ReadbackPool = Arc<std::sync::Mutex<Vec<wgpu::Buffer>>>;
 
 const READBACK_POOL_SIZE: usize = 3;
+pub const CURVE_INPUT_HEADER_SIZE: u64 = 6 * 4;
+pub const CURVE_INPUT_COUNTS_SIZE: u64 = 8 * crate::render::analytics::CURVE_INPUT_BINS as u64 * 4;
+pub const CURVE_INPUT_BUFFER_SIZE: u64 = CURVE_INPUT_HEADER_SIZE + CURVE_INPUT_COUNTS_SIZE;
 
 fn recycle_readback_buffer(pool: &ReadbackPool, buffer: wgpu::Buffer) {
     let mut pool = pool.lock().unwrap_or_else(|e| e.into_inner());
@@ -256,6 +261,8 @@ pub struct AnalyticsReadback {
     pub row_stride: usize,
     pub half_float: bool,
     pub peak: f32,
+    pub curve_input_offset: Option<u64>,
+    pub cpu_frame: Option<AnalyticsFrame>,
 }
 
 pub fn analytics_readback_sender() -> &'static std::sync::mpsc::Sender<AnalyticsReadback> {
@@ -302,32 +309,47 @@ fn complete_analytics_readback(readback: AnalyticsReadback) {
             buffer: readback.buffer,
             pool: readback.pool,
         };
-        let (data, row_stride) = if readback.half_float {
-            let row_samples = readback.width as usize * 4;
-            let pixels = mapped
-                .chunks(readback.row_stride)
-                .take(readback.height as usize)
-                .flat_map(|row| bytemuck::cast_slice::<u8, f16>(&row[..row_samples * 2]))
-                .map(|sample| {
-                    ((sample.to_f32() / readback.peak).clamp(0.0, 1.0) * 255.0).round() as u8
-                })
-                .collect();
-            (AnalyticsPixels::Owned(pixels), row_samples)
-        } else {
-            (AnalyticsPixels::Mapped(mapped), readback.row_stride)
-        };
-        let _ = analytics.sender.send(AnalyticsJob {
-            path: analytics.path,
-            frame: AnalyticsFrame {
+        let curve_input_counts = readback.curve_input_offset.map(|offset| {
+            let start = offset as usize;
+            mapped[start..start + CURVE_INPUT_COUNTS_SIZE as usize]
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .copied()
+                .map(u32::from_le_bytes)
+                .collect()
+        });
+        let frame = readback.cpu_frame.unwrap_or_else(|| {
+            let (data, row_stride) = if readback.half_float {
+                let row_samples = readback.width as usize * 4;
+                let pixels = mapped
+                    .chunks(readback.row_stride)
+                    .take(readback.height as usize)
+                    .flat_map(|row| bytemuck::cast_slice::<u8, f16>(&row[..row_samples * 2]))
+                    .map(|sample| {
+                        ((sample.to_f32() / readback.peak).clamp(0.0, 1.0) * 255.0).round() as u8
+                    })
+                    .collect();
+                (AnalyticsPixels::Owned(pixels), row_samples)
+            } else {
+                (AnalyticsPixels::Mapped(mapped), readback.row_stride)
+            };
+            AnalyticsFrame {
                 data,
                 width: readback.width,
                 height: readback.height,
                 row_stride,
                 peak: readback.peak,
                 space: analytics.space,
-            },
+            }
+        });
+        let _ = analytics.sender.send(AnalyticsJob {
+            path: analytics.path,
+            frame,
             compute_waveform: analytics.compute_waveform,
             active_waveform_channel: analytics.active_waveform_channel,
+            curve_input_counts,
+            curve_histogram_mask_id: analytics.curve_histogram_mask.map(|(id, _)| id),
         });
     }
 }
@@ -385,8 +407,20 @@ impl GpuProcessor {
 
         let adjustments_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Adjustments Buffer"),
-            size: std::mem::size_of::<AllAdjustments>() as u64,
+            size: std::mem::size_of::<GpuAdjustments>() as u64,
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        let empty_extended_curve_points = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Empty Extended Curve Points"),
+            size: std::mem::size_of::<Point>() as u64,
+            usage: wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        let empty_curve_input_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Disabled Curve Input Histogram"),
+            size: CURVE_INPUT_BUFFER_SIZE,
+            usage: wgpu::BufferUsages::STORAGE,
             mapped_at_creation: false,
         });
 
@@ -453,6 +487,8 @@ impl GpuProcessor {
             high_precision_tile: std::sync::Mutex::new(None),
             tile_output_size: clamped_tile_size,
             adjustments_buffer,
+            empty_curve_input_buffer,
+            empty_extended_curve_points,
             mask_cache: std::sync::Mutex::new(None),
             motion_cache: std::sync::Mutex::new(Vec::new()),
             motion_grain: std::sync::Mutex::new(Vec::new()),
@@ -1452,6 +1488,7 @@ impl GpuProcessor {
         mut request: RenderRequest,
         output_to_display: bool,
         output_precision: RenderOutputPrecision,
+        curve_input: Option<(&wgpu::Buffer, u32)>,
     ) -> Result<(RenderedPixels, u32, u32, u32, u32), String> {
         if request.lut.is_none() {
             request.adjustments.global.has_lut = 0;
@@ -1466,6 +1503,22 @@ impl GpuProcessor {
         let queue = &self.context.queue;
         let scale = (width.min(height) as f32) / 1080.0;
         const MAX_MASK_BINDINGS: u32 = 1;
+        let extended_points =
+            bytemuck::cast_slice(request.adjustments.extended_curve_points.as_ref());
+        if extended_points.len() > device.limits().max_storage_buffer_binding_size as usize {
+            return Err("Extended curve points exceed the GPU storage buffer limit".to_string());
+        }
+        let extended_points = (!extended_points.is_empty()).then(|| {
+            use wgpu::util::DeviceExt;
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Extended Curve Points"),
+                contents: extended_points,
+                usage: wgpu::BufferUsages::STORAGE,
+            })
+        });
+        let extended_points = extended_points
+            .as_ref()
+            .unwrap_or(&self.empty_extended_curve_points);
 
         let display_textures =
             output_to_display.then(|| self.display_textures(output_precision.texture_format()));
@@ -1684,7 +1737,7 @@ impl GpuProcessor {
 
                 let mut main_encoder = device.create_command_encoder(&Default::default());
 
-                let mut tile_adjustments = adjustments;
+                let mut tile_adjustments = adjustments.gpu;
                 tile_adjustments.tile_offset_x = input_x_start;
                 tile_adjustments.tile_offset_y = input_y_start;
                 queue.write_buffer(
@@ -1692,6 +1745,11 @@ impl GpuProcessor {
                     0,
                     bytemuck::bytes_of(&tile_adjustments),
                 );
+                if let Some((buffer, mask_index)) = curve_input {
+                    let sample_step = width.max(height).div_ceil(512);
+                    let tile = [sample_step, x_start, y_start, x_end, y_end, mask_index];
+                    queue.write_buffer(buffer, 0, bytemuck::cast_slice(&tile));
+                }
 
                 let mut bind_group_entries = vec![
                     wgpu::BindGroupEntry {
@@ -1759,6 +1817,17 @@ impl GpuProcessor {
                 bind_group_entries.push(wgpu::BindGroupEntry {
                     binding: 14 + MAX_MASK_BINDINGS,
                     resource: wgpu::BindingResource::TextureView(airlight_view),
+                });
+                bind_group_entries.push(wgpu::BindGroupEntry {
+                    binding: 16,
+                    resource: curve_input
+                        .map(|(buffer, _)| buffer)
+                        .unwrap_or(&self.empty_curve_input_buffer)
+                        .as_entire_binding(),
+                });
+                bind_group_entries.push(wgpu::BindGroupEntry {
+                    binding: 17,
+                    resource: extended_points.as_entire_binding(),
                 });
 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {

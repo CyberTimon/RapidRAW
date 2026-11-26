@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 pub struct Point {
     x: f32,
     y: f32,
-    _pad1: f32,
-    _pad2: f32,
+    tangent: f32,
+    interpolation: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -238,13 +238,33 @@ pub const MAX_MASKS: usize = 32;
 
 #[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
-pub struct AllAdjustments {
+pub struct GpuAdjustments {
     pub global: GlobalAdjustments,
     pub mask_adjustments: [MaskAdjustments; MAX_MASKS],
     pub mask_count: u32,
     pub tile_offset_x: u32,
     pub tile_offset_y: u32,
     pub mask_atlas_cols: u32,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AllAdjustments {
+    pub gpu: GpuAdjustments,
+    pub extended_curve_points: std::sync::Arc<[Point]>,
+}
+
+impl std::ops::Deref for AllAdjustments {
+    type Target = GpuAdjustments;
+
+    fn deref(&self) -> &Self::Target {
+        &self.gpu
+    }
+}
+
+impl std::ops::DerefMut for AllAdjustments {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.gpu
+    }
 }
 
 struct AdjustmentScales {
@@ -504,19 +524,88 @@ fn parse_monochrome_settings(
     }
 }
 
-fn convert_points_to_aligned(frontend_points: Vec<serde_json::Value>) -> [Point; 16] {
+fn convert_points_to_aligned(
+    frontend_points: Vec<serde_json::Value>,
+    natural: bool,
+    extended_points: &mut Vec<Point>,
+) -> [Point; 16] {
     let mut aligned_points = [Point::default(); 16];
-    for (i, point) in frontend_points.iter().enumerate().take(16) {
+    let count = frontend_points.len();
+    let mut overflow = if count > 16 {
+        vec![Point::default(); count]
+    } else {
+        Vec::new()
+    };
+    let points = if count > 16 {
+        overflow.as_mut_slice()
+    } else {
+        &mut aligned_points[..count]
+    };
+    for (i, point) in frontend_points.iter().enumerate() {
         if let (Some(x), Some(y)) = (point["x"].as_f64(), point["y"].as_f64()) {
-            aligned_points[i] = Point {
+            points[i] = Point {
                 x: x as f32,
                 y: y as f32,
-                _pad1: 0.0,
-                _pad2: 0.0,
+                tangent: 0.0,
+                interpolation: 0,
             };
         }
     }
+    if natural && let Some(tangents) = natural_curve_tangents(points) {
+        for (point, tangent) in points.iter_mut().zip(tangents) {
+            point.tangent = tangent;
+            point.interpolation = 1;
+        }
+    }
+    if count > 16 {
+        aligned_points.copy_from_slice(&overflow[..16]);
+        let offset = extended_points.len() as u32;
+        extended_points.extend_from_slice(&overflow);
+        // Bit 1 selects overflow storage; higher bits carry its point offset.
+        aligned_points[0].interpolation |= 2 | (offset << 2);
+    }
     aligned_points
+}
+
+fn natural_curve_tangents(points: &[Point]) -> Option<Vec<f32>> {
+    let n = points.len();
+    if n < 2
+        || points
+            .iter()
+            .enumerate()
+            .any(|(i, p)| !p.x.is_finite() || !p.y.is_finite() || (i > 0 && p.x <= points[i - 1].x))
+    {
+        return None;
+    }
+    let h: Vec<f64> = points
+        .windows(2)
+        .map(|p| p[1].x as f64 - p[0].x as f64)
+        .collect();
+    let delta: Vec<f64> = points
+        .windows(2)
+        .zip(&h)
+        .map(|(p, h)| (p[1].y as f64 - p[0].y as f64) / h)
+        .collect();
+    let mut diagonal = vec![1.0; n];
+    let mut rhs = vec![0.0; n];
+    for i in 1..n - 1 {
+        diagonal[i] = 2.0 * (h[i - 1] + h[i]);
+        rhs[i] = 6.0 * (delta[i] - delta[i - 1]);
+    }
+    for i in 1..n - 1 {
+        let factor = h[i - 1] / diagonal[i - 1];
+        diagonal[i] -= factor * if i == 1 { 0.0 } else { h[i - 1] };
+        rhs[i] -= factor * rhs[i - 1];
+    }
+    let mut second = vec![0.0; n];
+    for i in (1..n - 1).rev() {
+        second[i] = (rhs[i] - h[i] * second[i + 1]) / diagonal[i];
+    }
+    let mut tangents: Vec<f32> = (0..n - 1)
+        .map(|i| (delta[i] - h[i] * (2.0 * second[i] + second[i + 1]) / 6.0) as f32)
+        .collect();
+    tangents.push((delta[n - 2] + h[n - 2] * (second[n - 2] + 2.0 * second[n - 1]) / 6.0) as f32);
+    tangents.iter().all(|m| m.is_finite()).then_some(tangents)
 }
 
 fn mat3_to_gpu_mat3(m: Mat3) -> GpuMat3 {
@@ -534,6 +623,7 @@ fn get_global_adjustments_from_json(
     baseline_exposure: f32,
     render: RenderOptions,
     source_peak: f32,
+    extended_points: &mut Vec<Point>,
 ) -> GlobalAdjustments {
     let RenderOptions {
         tonemapper_override,
@@ -560,6 +650,8 @@ fn get_global_adjustments_from_json(
 
     let default_curve = serde_json::json!([{"x": 0.0, "y": 0.0}, {"x": 255.0, "y": 255.0}]);
     let curves_obj = js_adjustments.get("curves").cloned().unwrap_or_default();
+    let natural = js_adjustments["curveInterpolation"].as_str() == Some("natural")
+        && js_adjustments["curveMode"].as_str() != Some("parametric");
 
     let luma_points: Vec<serde_json::Value> = if is_visible("curves") {
         curves_obj
@@ -836,10 +928,10 @@ fn get_global_adjustments_from_json(
         } else {
             [HslColor::default(); 8]
         },
-        luma_curve: convert_points_to_aligned(luma_points.clone()),
-        red_curve: convert_points_to_aligned(red_points.clone()),
-        green_curve: convert_points_to_aligned(green_points.clone()),
-        blue_curve: convert_points_to_aligned(blue_points.clone()),
+        luma_curve: convert_points_to_aligned(luma_points.clone(), natural, extended_points),
+        red_curve: convert_points_to_aligned(red_points.clone(), natural, extended_points),
+        green_curve: convert_points_to_aligned(green_points.clone(), natural, extended_points),
+        blue_curve: convert_points_to_aligned(blue_points.clone(), natural, extended_points),
         luma_curve_count: luma_points.len() as u32,
         red_curve_count: red_points.len() as u32,
         green_curve_count: green_points.len() as u32,
@@ -874,6 +966,7 @@ fn get_global_adjustments_from_json(
 fn get_mask_adjustments_from_json(
     adj: &serde_json::Value,
     global_white_balance: WhiteBalance,
+    extended_points: &mut Vec<Point>,
 ) -> MaskAdjustments {
     if adj.is_null() {
         return MaskAdjustments::default();
@@ -890,6 +983,8 @@ fn get_mask_adjustments_from_json(
     };
 
     let curves_obj = adj.get("curves").cloned().unwrap_or_default();
+    let natural = adj["curveInterpolation"].as_str() == Some("natural")
+        && adj["curveMode"].as_str() != Some("parametric");
     let luma_points: Vec<serde_json::Value> = if is_visible("curves") {
         curves_obj["luma"].as_array().cloned().unwrap_or_default()
     } else {
@@ -1006,10 +1101,10 @@ fn get_mask_adjustments_from_json(
         } else {
             [HslColor::default(); 8]
         },
-        luma_curve: convert_points_to_aligned(luma_points.clone()),
-        red_curve: convert_points_to_aligned(red_points.clone()),
-        green_curve: convert_points_to_aligned(green_points.clone()),
-        blue_curve: convert_points_to_aligned(blue_points.clone()),
+        luma_curve: convert_points_to_aligned(luma_points.clone(), natural, extended_points),
+        red_curve: convert_points_to_aligned(red_points.clone(), natural, extended_points),
+        green_curve: convert_points_to_aligned(green_points.clone(), natural, extended_points),
+        blue_curve: convert_points_to_aligned(blue_points.clone(), natural, extended_points),
         luma_curve_count: luma_points.len() as u32,
         red_curve_count: red_points.len() as u32,
         green_curve_count: green_points.len() as u32,
@@ -1050,6 +1145,7 @@ pub fn get_all_adjustments_from_json(
     } else {
         as_shot.white_balance
     };
+    let mut extended_curve_points = Vec::new();
     let global = get_global_adjustments_from_json(
         js_adjustments,
         is_raw,
@@ -1057,6 +1153,7 @@ pub fn get_all_adjustments_from_json(
         effective_baseline_exposure(js_adjustments, as_shot, render.baseline),
         render,
         as_shot.source_peak,
+        &mut extended_curve_points,
     );
     let mut mask_adjustments = [MaskAdjustments::default(); MAX_MASKS];
     let mut mask_count = 0;
@@ -1072,17 +1169,65 @@ pub fn get_all_adjustments_from_json(
         .enumerate()
         .take(MAX_MASKS)
     {
-        mask_adjustments[i] =
-            get_mask_adjustments_from_json(&mask_def.adjustments, target_white_balance);
+        mask_adjustments[i] = get_mask_adjustments_from_json(
+            &mask_def.adjustments,
+            target_white_balance,
+            &mut extended_curve_points,
+        );
         mask_count += 1;
     }
 
     AllAdjustments {
-        global,
-        mask_adjustments,
-        mask_count,
-        tile_offset_x: 0,
-        tile_offset_y: 0,
-        mask_atlas_cols: 1,
+        gpu: GpuAdjustments {
+            global,
+            mask_adjustments,
+            mask_count,
+            tile_offset_x: 0,
+            tile_offset_y: 0,
+            mask_atlas_cols: 1,
+        },
+        extended_curve_points: extended_curve_points.into(),
+    }
+}
+
+#[cfg(test)]
+mod curve_tests {
+    use super::*;
+
+    fn points(count: usize) -> Vec<serde_json::Value> {
+        (0..count)
+            .map(|i| {
+                serde_json::json!({
+                    "x": i as f32 * 255.0 / (count - 1) as f32,
+                    "y": if i + 1 == count { 240.0 } else { i as f32 * 8.0 }
+                })
+            })
+            .collect()
+    }
+
+    #[test]
+    fn curve_storage_preserves_the_16_17_point_boundary() {
+        for natural in [false, true] {
+            let mut extended = Vec::new();
+            let inline = convert_points_to_aligned(points(16), natural, &mut extended);
+            assert!(extended.is_empty());
+            assert_eq!(inline[0].interpolation, u32::from(natural));
+            let saved = points(17);
+            let overflow = convert_points_to_aligned(saved.clone(), natural, &mut extended);
+            assert_eq!(extended.len(), 17);
+            assert_eq!(overflow[0].interpolation, 2 | u32::from(natural));
+            assert_eq!(extended.last().unwrap().y, 240.0);
+            if natural {
+                let expected = natural_curve_tangents(&extended).unwrap();
+                for (point, tangent) in extended.iter().zip(expected) {
+                    assert_eq!(point.tangent, tangent);
+                }
+                let truncated = natural_curve_tangents(&extended[..16]).unwrap();
+                assert_ne!(extended[15].tangent, truncated[15]);
+            }
+            let second = convert_points_to_aligned(saved, natural, &mut extended);
+            assert_eq!(second[0].interpolation >> 2, 17);
+            assert_eq!(extended.len(), 34);
+        }
     }
 }

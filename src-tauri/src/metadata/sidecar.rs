@@ -178,7 +178,7 @@ pub fn is_image_edited(
     let default_adj =
         get_all_adjustments_from_json(&develop_defaults_json, is_raw, reference, render);
 
-    bytemuck::bytes_of(&current_adj) != bytemuck::bytes_of(&default_adj)
+    bytemuck::bytes_of(&current_adj.gpu) != bytemuck::bytes_of(&default_adj.gpu)
 }
 
 const SIDECAR_LOCK_STRIPES: usize = 64;

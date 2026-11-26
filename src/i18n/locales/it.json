@@ -127,6 +127,7 @@
       "channelTitle": "Canale {{channel}}",
       "copyParametric": "Copia Curva Parametrica {{channel}}",
       "copyPoint": "Copia Curva per Punti {{channel}}",
+      "cubicSpline": "Spline cubica",
       "curveDataUnavailable": "Dati curva non disponibili.",
       "parametricCurve": "Curva Parametrica",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Ripristina Tutte le Curve Parametriche",
       "resetAllPoint": "Ripristina Tutte le Curve per Punti",
       "resetParametric": "Ripristina Curva Parametrica {{channel}}",
-      "resetPoint": "Ripristina Curva per Punti {{channel}}"
+      "resetPoint": "Ripristina Curva per Punti {{channel}}",
+      "showProcessedHistogram": "Mostra l’istogramma dell’immagine elaborata"
     },
     "details": {
       "aiDenoise": "Riduzione rumore IA",

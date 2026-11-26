@@ -127,6 +127,7 @@
       "channelTitle": "Canal {{channel}}",
       "copyParametric": "Copiar corba paramètrica de {{channel}}",
       "copyPoint": "Copiar corba de punts de {{channel}}",
+      "cubicSpline": "Spline cúbic",
       "curveDataUnavailable": "Dades de la corba no disponibles.",
       "parametricCurve": "Corba paramètrica",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Restablir totes les corbes paramètriques",
       "resetAllPoint": "Restablir totes les corbes de punts",
       "resetParametric": "Restablir corba paramètrica de {{channel}}",
-      "resetPoint": "Restablir corba de punts de {{channel}}"
+      "resetPoint": "Restablir corba de punts de {{channel}}",
+      "showProcessedHistogram": "Mostra l’histograma de la imatge processada"
     },
     "details": {
       "aiDenoise": "Reducció de soroll IA",

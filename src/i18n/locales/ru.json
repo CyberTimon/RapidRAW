@@ -127,6 +127,7 @@
       "channelTitle": "Канал {{channel}}",
       "copyParametric": "Копировать параметрическую кривую ({{channel}})",
       "copyPoint": "Копировать точечную кривую ({{channel}})",
+      "cubicSpline": "Кубический сплайн",
       "curveDataUnavailable": "Данные кривой недоступны.",
       "parametricCurve": "Параметрическая кривая",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Сбросить все параметрические кривые",
       "resetAllPoint": "Сбросить все точечные кривые",
       "resetParametric": "Сбросить параметрическую кривую {{channel}}",
-      "resetPoint": "Сбросить точечную кривую {{channel}}"
+      "resetPoint": "Сбросить точечную кривую {{channel}}",
+      "showProcessedHistogram": "Показывать гистограмму обработанного изображения"
     },
     "details": {
       "aiDenoise": "ИИ-шумоподавление",

@@ -321,6 +321,7 @@ pub struct EditorRender {
     adjustments: AllAdjustments,
     masks: crate::masks::generation::GeneratedMasks,
     mask_cache_key: u64,
+    mask_ids: Vec<String>,
     lut: Option<Arc<crate::adjustments::lut_processing::Lut>>,
     motion_blur: crate::effects::motion_blur::MotionBlurs,
 }
@@ -364,6 +365,12 @@ impl EditorRender {
                 render,
             ),
             mask_cache_key: masks.cache_key ^ image_generation as u64,
+            mask_ids: mask_definitions
+                .into_iter()
+                .filter(|mask| mask.visible && !mask.sub_masks.is_empty())
+                .take(crate::render::uniforms::MAX_MASKS)
+                .map(|mask| mask.id)
+                .collect(),
             masks,
             lut: adjustments["lutPath"]
                 .as_str()
@@ -378,13 +385,20 @@ impl EditorRender {
         }
     }
 
+    pub fn mask_index(&self, id: &str) -> Option<u32> {
+        self.mask_ids
+            .iter()
+            .position(|mask_id| mask_id == id)
+            .map(|index| index as u32)
+    }
+
     pub fn request(
         &self,
         roi: Option<crate::render::gpu::processor::Roi>,
         hsl_probe: bool,
     ) -> RenderRequest<'_> {
         RenderRequest {
-            adjustments: self.adjustments,
+            adjustments: self.adjustments.clone(),
             mask_bitmaps: &self.masks.bitmaps,
             mask_cache_key: Some(self.mask_cache_key),
             lut: self.lut.clone(),

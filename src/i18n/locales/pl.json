@@ -127,6 +127,7 @@
       "channelTitle": "Kanał {{channel}}",
       "copyParametric": "Kopiuj krzywą parametryczną ({{channel}})",
       "copyPoint": "Kopiuj krzywą punktową ({{channel}})",
+      "cubicSpline": "Splajn kubiczny",
       "curveDataUnavailable": "Dane krzywej są niedostępne.",
       "parametricCurve": "Krzywa parametryczna",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Resetuj wszystkie krzywe parametryczne",
       "resetAllPoint": "Resetuj wszystkie krzywe punktowe",
       "resetParametric": "Resetuj krzywą parametryczną ({{channel}})",
-      "resetPoint": "Resetuj krzywą punktową ({{channel}})"
+      "resetPoint": "Resetuj krzywą punktową ({{channel}})",
+      "showProcessedHistogram": "Pokaż histogram przetworzonego obrazu"
     },
     "details": {
       "aiDenoise": "Odszumianie AI",

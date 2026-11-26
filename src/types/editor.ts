@@ -1,4 +1,4 @@
-import type { ActiveChannel, Adjustments } from '../utils/adjustments';
+import type { Adjustments } from '../utils/adjustments';
 import type { WhiteBalance } from '../utils/whiteBalance';
 import type { Folder } from './library';
 import type { ToolType } from './masks';
@@ -56,17 +56,15 @@ export interface WaveformData {
   width: number;
 }
 
-export interface ChannelConfig {
-  [index: string]: ColorData;
-  [ActiveChannel.Luma]: ColorData;
-  [ActiveChannel.Red]: ColorData;
-  [ActiveChannel.Green]: ColorData;
-  [ActiveChannel.Blue]: ColorData;
+export type HistogramBins = Record<'red' | 'green' | 'blue' | 'luma', number[]>;
+
+export interface CurveInputHistogram {
+  path: string;
+  bins: HistogramBins;
 }
 
-interface ColorData {
-  color: string;
-  data: any;
+export interface MaskCurveInputHistogram extends CurveInputHistogram {
+  maskId: string;
 }
 
 export type OverlayMode =

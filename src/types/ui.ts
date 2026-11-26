@@ -42,6 +42,7 @@ export enum Panel {
 export type PanelRegion = 'leftTop' | 'leftBottom' | 'rightTop' | 'rightBottom';
 
 export interface Option {
+  checked?: boolean;
   color?: string;
   disabled?: boolean;
   icon?: any;

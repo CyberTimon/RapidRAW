@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import { Status } from '../types/export';
 import { Invokes } from '../types/invokes';
 import { Progress } from '../types/library';
-import { ImageDefaults, WaveformData } from '../types/editor';
+import { HistogramBins, ImageDefaults, MaskCurveInputHistogram, WaveformData } from '../types/editor';
 import { Adjustments, MaskContainer } from '../utils/adjustments';
 import { AiJobsStatus, JobKind, JobStatus, useProcessStore } from '../store/useProcessStore';
 import { useEditorStore } from '../store/useEditorStore';
@@ -39,9 +39,9 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
   const sdrWhite = view.getFloat32(offset, true);
   offset += 4;
 
-  const bins = readU32();
-  let histogram: { red: number[]; green: number[]; blue: number[]; luma: number[] } | null = null;
-  if (bins > 0) {
+  const readHistogram = (): HistogramBins | null => {
+    const bins = readU32();
+    if (bins === 0) return null;
     const readChannel = () => {
       const channel = new Array<number>(bins);
       for (let i = 0; i < bins; i++) {
@@ -50,8 +50,9 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
       }
       return channel;
     };
-    histogram = { red: readChannel(), green: readChannel(), blue: readChannel(), luma: readChannel() };
-  }
+    return { red: readChannel(), green: readChannel(), blue: readChannel(), luma: readChannel() };
+  };
+  const histogram = readHistogram();
 
   const width = readU32();
   const height = readU32();
@@ -67,7 +68,16 @@ const parseAnalyticsPacket = async (buffer: ArrayBuffer) => {
     waveform = { width, height, rgb, luma, parade, vectorscope };
   }
 
-  return { path, sdrWhite, histogram, waveform };
+  const curveInput = offset < buffer.byteLength ? readHistogram() : null;
+  let maskCurveInput: MaskCurveInputHistogram | null = null;
+  if (offset < buffer.byteLength) {
+    const maskIdLength = readU32();
+    const maskId = new TextDecoder().decode(new Uint8Array(buffer, offset, maskIdLength));
+    offset += maskIdLength;
+    const bins = readHistogram();
+    if (bins) maskCurveInput = { path, maskId, bins };
+  }
+  return { path, sdrWhite, histogram, waveform, curveInput, maskCurveInput };
 };
 
 interface TauriListenerProps {
@@ -594,14 +604,19 @@ export function useTauriListeners({
     const analyticsChannel = new Channel<ArrayBuffer>();
     analyticsChannel.onmessage = async (buffer) => {
       const sequence = ++analyticsSequence;
-      const { path, sdrWhite, histogram, waveform } = await parseAnalyticsPacket(buffer);
+      const { path, sdrWhite, histogram, waveform, curveInput, maskCurveInput } = await parseAnalyticsPacket(buffer);
       if (!isEffectActive || sequence < latestAppliedAnalytics) return;
-      if (path !== useEditorStore.getState().selectedImage?.path) return;
+      const editor = useEditorStore.getState();
+      if (path !== editor.selectedImage?.path) return;
       latestAppliedAnalytics = sequence;
-      const update: { histogram?: any; waveform?: WaveformData; scopeWhite: number } = { scopeWhite: sdrWhite };
+      const update: Parameters<typeof editor.setEditor>[0] = { scopeWhite: sdrWhite };
       if (histogram) update.histogram = histogram;
       if (waveform) update.waveform = waveform;
-      useEditorStore.getState().setEditor(update);
+      if (curveInput) {
+        update.curveInputHistogram = { path, bins: curveInput };
+        update.maskCurveInputHistogram = maskCurveInput;
+      }
+      editor.setEditor(update);
     };
     invoke(Invokes.SubscribeAnalytics, { channel: analyticsChannel }).catch((err) =>
       console.error('Failed to subscribe to analytics:', err),

@@ -127,6 +127,7 @@
       "channelTitle": "{{channel}} 通道",
       "copyParametric": "复制 {{channel}} 参数曲线",
       "copyPoint": "复制 {{channel}} 点曲线",
+      "cubicSpline": "三次样条",
       "curveDataUnavailable": "曲线数据不可用。",
       "parametricCurve": "参数曲线",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "重置所有参数曲线",
       "resetAllPoint": "重置所有点曲线",
       "resetParametric": "重置 {{channel}} 参数曲线",
-      "resetPoint": "重置 {{channel}} 点曲线"
+      "resetPoint": "重置 {{channel}} 点曲线",
+      "showProcessedHistogram": "显示处理后的直方图"
     },
     "details": {
       "aiDenoise": "AI 降噪",

@@ -8,6 +8,27 @@ pub struct HistogramData {
     luma: Vec<f32>,
 }
 
+pub const CURVE_INPUT_BINS: usize = 256;
+
+pub fn curve_input_histogram(counts: &[u32]) -> Option<HistogramData> {
+    if counts.len() != 4 * CURVE_INPUT_BINS {
+        return None;
+    }
+    let (channels, _) = counts.as_chunks::<CURVE_INPUT_BINS>();
+    let mut channels = channels.iter().map(|bins| {
+        let mut channel: Vec<f32> = bins.iter().map(|&count| count as f32).collect();
+        apply_gaussian_smoothing(&mut channel, 2.0);
+        normalize_histogram_range(&mut channel, 0.99);
+        channel
+    });
+    Some(HistogramData {
+        red: channels.next()?,
+        green: channels.next()?,
+        blue: channels.next()?,
+        luma: channels.next()?,
+    })
+}
+
 pub enum AnalyticsPixels {
     Owned(Vec<u8>),
     Mapped(crate::render::gpu::processor::PooledReadback),
@@ -200,28 +221,36 @@ pub fn encode_analytics_packet(
     sdr_white: f32,
     histogram: Option<&HistogramData>,
     waveform: Option<&WaveformData>,
+    curve_input: Option<&HistogramData>,
+    mask_curve_input: Option<(&str, &HistogramData)>,
 ) -> Vec<u8> {
     let put_u32 = |out: &mut Vec<u8>, v: usize| out.extend_from_slice(&(v as u32).to_le_bytes());
     let wave_len = waveform.map_or(0, |w| {
         w.rgb.len() + w.luma.len() + w.parade.len() + w.vectorscope.len()
     });
-    let mut out = Vec::with_capacity(path.len() + 4 * 256 * 4 + wave_len + 40);
+    let input_len = curve_input.map_or(0, |histogram| 4 + histogram.red.len() * 4 * 4);
+    let mask_input_len = mask_curve_input.map_or(0, |(id, histogram)| {
+        8 + id.len() + histogram.red.len() * 4 * 4
+    });
+    let mut out =
+        Vec::with_capacity(path.len() + 4 * 256 * 4 + wave_len + input_len + mask_input_len + 40);
 
     put_u32(&mut out, path.len());
     out.extend_from_slice(path.as_bytes());
     out.extend_from_slice(&sdr_white.to_le_bytes());
 
-    match histogram {
+    let write_histogram = |out: &mut Vec<u8>, data: Option<&HistogramData>| match data {
         Some(h) => {
-            put_u32(&mut out, h.red.len());
+            put_u32(out, h.red.len());
             for channel in [&h.red, &h.green, &h.blue, &h.luma] {
                 for v in channel.iter() {
                     out.extend_from_slice(&v.to_le_bytes());
                 }
             }
         }
-        None => put_u32(&mut out, 0),
-    }
+        None => put_u32(out, 0),
+    };
+    write_histogram(&mut out, histogram);
 
     match waveform {
         Some(w) => {
@@ -235,6 +264,15 @@ pub fn encode_analytics_packet(
         None => {
             put_u32(&mut out, 0);
             put_u32(&mut out, 0);
+        }
+    }
+
+    if curve_input.is_some() {
+        write_histogram(&mut out, curve_input);
+        if let Some((mask_id, histogram)) = mask_curve_input {
+            put_u32(&mut out, mask_id.len());
+            out.extend_from_slice(mask_id.as_bytes());
+            write_histogram(&mut out, Some(histogram));
         }
     }
 

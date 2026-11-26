@@ -127,6 +127,7 @@
       "channelTitle": "{{channel}} kanál",
       "copyParametric": "Kopírovat parametrickou křivku ({{channel}})",
       "copyPoint": "Kopírovat bodovou křivku ({{channel}})",
+      "cubicSpline": "Kubický splajn",
       "curveDataUnavailable": "Údaje o křivce nejsou k dispozici.",
       "parametricCurve": "Parametrická křivka",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Resetovat všechny parametrické křivky",
       "resetAllPoint": "Resetovat všechny bodové křivky",
       "resetParametric": "Resetovat parametrickou křivku ({{channel}})",
-      "resetPoint": "Resetovat bodovou křivku ({{channel}})"
+      "resetPoint": "Resetovat bodovou křivku ({{channel}})",
+      "showProcessedHistogram": "Zobrazit histogram zpracovaného snímku"
     },
     "details": {
       "aiDenoise": "AI odšumění",

@@ -127,6 +127,7 @@
       "channelTitle": "{{channel}} チャンネル",
       "copyParametric": "{{channel}} パラメトリックカーブをコピー",
       "copyPoint": "{{channel}} ポイントカーブをコピー",
+      "cubicSpline": "3次スプライン",
       "curveDataUnavailable": "カーブデータがありません。",
       "parametricCurve": "パラメトリックカーブ",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "すべてのパラメトリックカーブをリセット",
       "resetAllPoint": "すべてのポイントカーブをリセット",
       "resetParametric": "{{channel}} パラメトリックカーブをリセット",
-      "resetPoint": "{{channel}} ポイントカーブをリセット"
+      "resetPoint": "{{channel}} ポイントカーブをリセット",
+      "showProcessedHistogram": "処理後のヒストグラムを表示"
     },
     "details": {
       "aiDenoise": "AIノイズ除去",

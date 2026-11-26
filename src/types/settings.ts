@@ -142,6 +142,7 @@ export interface AppSettings {
   createXmpIfMissing?: boolean;
   isWaveformVisible?: boolean;
   waveformHeight?: number;
+  curveHistogramMode?: 'input' | 'output';
   activeWaveformChannel?: string;
   useWgpuRenderer?: boolean;
   editorNeutralGreyBg?: boolean;

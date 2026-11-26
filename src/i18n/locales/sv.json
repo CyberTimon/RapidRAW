@@ -127,6 +127,7 @@
       "channelTitle": "Kanal: {{channel}}",
       "copyParametric": "Kopiera parametrisk kurva för {{channel}}",
       "copyPoint": "Kopiera punktkurva för {{channel}}",
+      "cubicSpline": "Kubisk spline",
       "curveDataUnavailable": "Kurvdata är inte tillgängliga.",
       "parametricCurve": "Parametrisk kurva",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Återställ alla parametriska kurvor",
       "resetAllPoint": "Återställ alla punktkurvor",
       "resetParametric": "Återställ parametrisk kurva för {{channel}}",
-      "resetPoint": "Återställ punktkurva för {{channel}}"
+      "resetPoint": "Återställ punktkurva för {{channel}}",
+      "showProcessedHistogram": "Visa bearbetat histogram"
     },
     "details": {
       "aiDenoise": "AI-brusreducering",

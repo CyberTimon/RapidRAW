@@ -127,6 +127,7 @@
       "channelTitle": "{{channel}}-Kanal",
       "copyParametric": "Parametrische {{channel}}-Kurve kopieren",
       "copyPoint": "Punktkurve ({{channel}}) kopieren",
+      "cubicSpline": "Kubischer Spline",
       "curveDataUnavailable": "Kurvendaten nicht verfügbar.",
       "parametricCurve": "Parametrische Kurve",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Alle parametrischen Kurven zurücksetzen",
       "resetAllPoint": "Alle Punktkurven zurücksetzen",
       "resetParametric": "Parametrische {{channel}}-Kurve zurücksetzen",
-      "resetPoint": "Punktkurve ({{channel}}) zurücksetzen"
+      "resetPoint": "Punktkurve ({{channel}}) zurücksetzen",
+      "showProcessedHistogram": "Histogramm nach Bearbeitung"
     },
     "details": {
       "aiDenoise": "KI-Entrauschen",

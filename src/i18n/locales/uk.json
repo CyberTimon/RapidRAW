@@ -127,6 +127,7 @@
       "channelTitle": "Канал {{channel}}",
       "copyParametric": "Копіювати параметричну криву ({{channel}})",
       "copyPoint": "Копіювати точкову криву ({{channel}})",
+      "cubicSpline": "Кубічний сплайн",
       "curveDataUnavailable": "Дані кривої недоступні.",
       "parametricCurve": "Параметрична крива",
       "params": {
@@ -144,7 +145,8 @@
       "resetAllParametric": "Скинути всі параметричні криві",
       "resetAllPoint": "Скинути всі точкові криві",
       "resetParametric": "Скинути параметричну криву ({{channel}})",
-      "resetPoint": "Скинути точкову криву ({{channel}})"
+      "resetPoint": "Скинути точкову криву ({{channel}})",
+      "showProcessedHistogram": "Показувати гістограму обробленого зображення"
     },
     "details": {
       "aiDenoise": "Зменшення шуму ШІ",

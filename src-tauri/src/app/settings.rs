@@ -131,6 +131,7 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "pointCurves",
         "parametricCurve",
         "curveMode",
+        "curveInterpolation",
         "highlights",
         "shadows",
         "whites",
@@ -694,6 +695,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub waveform_height: Option<u32>,
     #[serde(default)]
+    pub curve_histogram_mode: Option<String>,
+    #[serde(default)]
     pub active_waveform_channel: Option<String>,
     #[serde(default)]
     pub use_wgpu_renderer: Option<bool>,
@@ -924,6 +927,7 @@ impl Default for AppSettings {
             create_xmp_if_missing: Some(false),
             is_waveform_visible: Some(false),
             waveform_height: Some(220),
+            curve_histogram_mode: Some("input".to_string()),
             active_waveform_channel: Some("luma".to_string()),
             #[cfg(any(target_os = "linux", target_os = "android"))]
             use_wgpu_renderer: Some(false),
@@ -1164,7 +1168,13 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
 
         if !new_features.is_empty() {
             for feature in new_features {
-                if default_included.contains(&feature) {
+                if default_included.contains(&feature)
+                    && (feature != "curveInterpolation"
+                        || settings
+                            .copy_paste_settings
+                            .included_adjustments
+                            .contains("curves"))
+                {
                     settings
                         .copy_paste_settings
                         .included_adjustments

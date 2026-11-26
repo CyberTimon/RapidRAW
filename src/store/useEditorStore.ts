@@ -6,10 +6,12 @@ import {
   SelectedImage,
   WaveformData,
   BrushSettings,
-  ChannelConfig,
   OverlayMode,
   type SpeedEditTarget,
   type ImageDefaults,
+  type CurveInputHistogram,
+  type HistogramBins,
+  type MaskCurveInputHistogram,
 } from '../types/editor';
 import { CompareView } from '../types/settings';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
@@ -59,7 +61,9 @@ interface EditorState {
   originalPreview: { path: string; url: string | null } | null;
 
   // Analytics
-  histogram: ChannelConfig | null;
+  histogram: HistogramBins | null;
+  curveInputHistogram: CurveInputHistogram | null;
+  maskCurveInputHistogram: MaskCurveInputHistogram | null;
   waveform: WaveformData | null;
   isWaveformVisible: boolean;
   scopeWhite: number;
@@ -185,6 +189,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   splitPosition: 0.5,
   originalPreview: null,
   histogram: null,
+  curveInputHistogram: null,
+  maskCurveInputHistogram: null,
   waveform: null,
   isWaveformVisible: false,
   scopeWhite: 1,

@@ -1,8 +1,11 @@
+import type { CurveInputHistogram, MaskCurveInputHistogram } from '../types/editor';
 import type { Adjustments } from './adjustments';
 
 interface ImageCacheEntry {
   adjustments: Adjustments;
   histogram: any;
+  curveInputHistogram: CurveInputHistogram | null;
+  maskCurveInputHistogram: MaskCurveInputHistogram | null;
   waveform: any;
   finalPreviewUrl: string | null;
   uncroppedPreviewUrl: string | null;
