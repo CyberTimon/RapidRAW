@@ -608,47 +608,6 @@ fn natural_curve_tangents(points: &[Point]) -> Option<Vec<f32>> {
     tangents.iter().all(|m| m.is_finite()).then_some(tangents)
 }
 
-#[cfg(test)]
-mod curve_tests {
-    use super::*;
-
-    fn points(count: usize) -> Vec<serde_json::Value> {
-        (0..count)
-            .map(|i| {
-                serde_json::json!({
-                    "x": i as f32 * 255.0 / (count - 1) as f32,
-                    "y": if i + 1 == count { 240.0 } else { i as f32 * 8.0 }
-                })
-            })
-            .collect()
-    }
-
-    #[test]
-    fn curve_storage_preserves_the_16_17_point_boundary() {
-        for natural in [false, true] {
-            let mut extended = Vec::new();
-            let inline = convert_points_to_aligned(points(16), natural, &mut extended);
-            assert!(extended.is_empty());
-            assert_eq!(inline[0].interpolation, u32::from(natural));
-            let saved = points(17);
-            let overflow = convert_points_to_aligned(saved.clone(), natural, &mut extended);
-            assert_eq!(extended.len(), 17);
-            assert_eq!(overflow[0].interpolation, 2 | u32::from(natural));
-            assert_eq!(extended.last().unwrap().y, 240.0);
-            if natural {
-                let expected = natural_curve_tangents(&extended).unwrap();
-                for (point, tangent) in extended.iter().zip(expected) {
-                    assert_eq!(point.tangent, tangent);
-                }
-                let truncated = natural_curve_tangents(&extended[..16]).unwrap();
-                assert_ne!(extended[15].tangent, truncated[15]);
-            }
-            let second = convert_points_to_aligned(saved, natural, &mut extended);
-            assert_eq!(second[0].interpolation >> 2, 17);
-            assert_eq!(extended.len(), 34);
-        }
-    }
-}
 fn mat3_to_gpu_mat3(m: Mat3) -> GpuMat3 {
     GpuMat3 {
         col0: [m.x_axis.x, m.x_axis.y, m.x_axis.z, 0.0],
@@ -1228,5 +1187,47 @@ pub fn get_all_adjustments_from_json(
             mask_atlas_cols: 1,
         },
         extended_curve_points: extended_curve_points.into(),
+    }
+}
+
+#[cfg(test)]
+mod curve_tests {
+    use super::*;
+
+    fn points(count: usize) -> Vec<serde_json::Value> {
+        (0..count)
+            .map(|i| {
+                serde_json::json!({
+                    "x": i as f32 * 255.0 / (count - 1) as f32,
+                    "y": if i + 1 == count { 240.0 } else { i as f32 * 8.0 }
+                })
+            })
+            .collect()
+    }
+
+    #[test]
+    fn curve_storage_preserves_the_16_17_point_boundary() {
+        for natural in [false, true] {
+            let mut extended = Vec::new();
+            let inline = convert_points_to_aligned(points(16), natural, &mut extended);
+            assert!(extended.is_empty());
+            assert_eq!(inline[0].interpolation, u32::from(natural));
+            let saved = points(17);
+            let overflow = convert_points_to_aligned(saved.clone(), natural, &mut extended);
+            assert_eq!(extended.len(), 17);
+            assert_eq!(overflow[0].interpolation, 2 | u32::from(natural));
+            assert_eq!(extended.last().unwrap().y, 240.0);
+            if natural {
+                let expected = natural_curve_tangents(&extended).unwrap();
+                for (point, tangent) in extended.iter().zip(expected) {
+                    assert_eq!(point.tangent, tangent);
+                }
+                let truncated = natural_curve_tangents(&extended[..16]).unwrap();
+                assert_ne!(extended[15].tangent, truncated[15]);
+            }
+            let second = convert_points_to_aligned(saved, natural, &mut extended);
+            assert_eq!(second[0].interpolation >> 2, 17);
+            assert_eq!(extended.len(), 34);
+        }
     }
 }
