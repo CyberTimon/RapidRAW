@@ -1,8 +1,8 @@
-use crate::ai::models::gpu_inference;
+use crate::ai::models::{DENOISE_OUTPUT, gpu_inference};
 use anyhow::Result;
 use image::{DynamicImage, Rgb32FImage};
 use ndarray::Array4;
-use ort::session::Session;
+use ort::session::{OutputSelector, RunOptions, Session};
 use ort::value::Tensor;
 use rayon::prelude::*;
 use std::sync::Mutex;
@@ -12,12 +12,14 @@ struct TileParams {
     cs: usize,
     margin: usize,
     overlap: usize,
+    output: &'static str,
 }
 
 const DENOISE_TILE: TileParams = TileParams {
     cs: 504,
     margin: 40,
     overlap: 56,
+    output: DENOISE_OUTPUT,
 };
 
 pub const UPSCALE_TILE_SIZE: usize = 544;
@@ -26,6 +28,7 @@ const UPSCALE_TILE: TileParams = TileParams {
     cs: UPSCALE_TILE_SIZE,
     margin: 16,
     overlap: 16,
+    output: "output",
 };
 
 #[inline]
@@ -104,6 +107,7 @@ fn run_tiled(
         cs: params.cs * s,
         margin: params.margin * s,
         overlap: params.overlap * s,
+        ..params
     });
     let xs = tile_origins(width, params);
     let ys = tile_origins(height, params);
@@ -124,8 +128,11 @@ fn run_tiled(
                 let tile = (|| -> Result<Array4<f32>> {
                     let crop = extract_tile_mirror(img, x0, y0, params.cs);
                     let t_input = Tensor::from_array(crop)?;
+                    let run_options = RunOptions::new()?
+                        .with_outputs(OutputSelector::no_default().with(params.output));
                     let mut sess = session.lock().unwrap();
-                    let outputs = gpu_inference(sess.run(ort::inputs![t_input]))?;
+                    let outputs =
+                        gpu_inference(sess.run_with_options(ort::inputs![t_input], &run_options))?;
                     outputs[0]
                         .try_extract_array::<f32>()?
                         .as_standard_layout()

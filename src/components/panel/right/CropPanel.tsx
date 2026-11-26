@@ -35,12 +35,14 @@ import { CustomAspectRatio } from '../../../types/settings';
 import { Orientation } from '../../../types/ui';
 import { motion, AnimatePresence } from 'framer-motion';
 import Text from '../../ui/Text';
+import PanelHeader from '../../ui/PanelHeader';
 import Slider from '../../ui/Slider';
 import Switch from '../../ui/Switch';
 import Dropdown from '../../ui/Dropdown';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
+import { useShortcuts } from '../../../hooks/useShortcuts';
 import {
   calculateAreaPreservingCrop,
   calculateCenteredCrop,
@@ -111,6 +113,7 @@ export default function CropPanel() {
   const liveRotation = useEditorStore((s) => s.liveRotation);
   const setEditor = useEditorStore((s) => s.setEditor);
   const { setAdjustments, handleRotate, handleAutoStraighten } = useEditorActions();
+  const shortcut = useShortcuts();
 
   const [customW, setCustomW] = useState('');
   const [customH, setCustomH] = useState('');
@@ -589,9 +592,7 @@ export default function CropPanel() {
   const getOverlayTooltip = () => {
     const current = OVERLAYS.find((o) => o.id === activeOverlay);
     if (!current) return t('editor.crop.tooltips.compositionOverlay');
-    const isRotatable = ['goldenSpiral', 'goldenTriangle'].includes(activeOverlay);
-    const rotateHint = isRotatable ? t('editor.crop.tooltips.rotateHint') : '';
-    return t('editor.crop.tooltips.overlayDetails', { name: current.name, rotateHint });
+    return t('editor.crop.tooltips.overlayName', { name: current.name });
   };
 
   const getOrientationTooltip = () => {
@@ -754,8 +755,7 @@ export default function CropPanel() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>{t('editor.crop.title')}</Text>
+      <PanelHeader title={t('editor.crop.title')}>
         <button
           className="p-2 rounded-full hover:bg-surface transition-colors"
           onClick={handleReset}
@@ -763,7 +763,7 @@ export default function CropPanel() {
         >
           <RotateCcw size={18} />
         </button>
-      </div>
+      </PanelHeader>
 
       <div className="grow overflow-y-auto p-3 space-y-6 custom-scrollbar">
         {selectedImage ? (
@@ -921,6 +921,7 @@ export default function CropPanel() {
                             : 'text-text-secondary hover:bg-card-active hover:text-text-primary',
                         )}
                         data-tooltip={t('editor.crop.tooltips.straighten')}
+                        {...shortcut('toggle_crop')}
                       >
                         <Ruler size={14} />
                       </button>
@@ -928,6 +929,7 @@ export default function CropPanel() {
                         onClick={handleAutoStraighten}
                         className="p-1.5 rounded-md text-text-secondary transition-colors cursor-pointer hover:bg-card-active hover:text-text-primary disabled:cursor-wait"
                         data-tooltip={t('editor.crop.tooltips.autoStraighten')}
+                        {...shortcut('auto_straighten')}
                         disabled={isAutoStraightening}
                       >
                         {isAutoStraightening ? <Loader size={14} className="animate-spin" /> : <ScanLine size={14} />}
@@ -964,6 +966,7 @@ export default function CropPanel() {
                   className="flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary"
                   onClick={() => handleRotate(-90)}
                   data-tooltip={t('editor.crop.tooltips.rotateLeft')}
+                  {...shortcut('rotate_left')}
                   whileTap={{ scale: 0.98 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >
@@ -974,6 +977,7 @@ export default function CropPanel() {
                   className="flex flex-col items-center justify-center p-3 cursor-pointer rounded-lg transition-colors bg-surface text-text-secondary hover:bg-card-active hover:text-text-primary"
                   onClick={() => handleRotate(90)}
                   data-tooltip={t('editor.crop.tooltips.rotateRight')}
+                  {...shortcut('rotate_right')}
                   whileTap={{ scale: 0.98 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 17 }}
                 >

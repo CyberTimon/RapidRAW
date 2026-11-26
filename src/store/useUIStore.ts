@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import i18n from 'i18next';
@@ -29,6 +30,8 @@ interface ConfirmModalState {
   isOpen: boolean;
   message?: string;
   onConfirm?(): void;
+  onSecondary?(): void;
+  secondaryText?: string;
   title?: string;
 }
 
@@ -69,7 +72,9 @@ interface CullingModalState {
   pathsToCull: Array<string>;
 }
 
-const ALL_PANELS: Panel[] = [
+export type WorkspaceMode = 'photo' | 'video';
+
+const PHOTO_PANELS: Panel[] = [
   Panel.Metadata,
   Panel.FolderTree,
   Panel.Export,
@@ -79,6 +84,30 @@ const ALL_PANELS: Panel[] = [
   Panel.Masks,
   Panel.Ai,
   Panel.Presets,
+];
+
+export const VIDEO_ONLY_PANELS: Panel[] = [
+  Panel.MediaPool,
+  Panel.Inspector,
+  Panel.Effects,
+  Panel.Captions,
+  Panel.Mixer,
+];
+
+const VIDEO_PANELS: Panel[] = [
+  Panel.MediaPool,
+  Panel.FolderTree,
+  Panel.Metadata,
+  Panel.Export,
+  Panel.Inspector,
+  Panel.Adjustments,
+  Panel.Crop,
+  Panel.Masks,
+  Panel.Ai,
+  Panel.Presets,
+  Panel.Effects,
+  Panel.Captions,
+  Panel.Mixer,
 ];
 
 const PANEL_REGIONS: PanelRegion[] = ['leftTop', 'leftBottom', 'rightTop', 'rightBottom'];
@@ -94,48 +123,86 @@ const DEFAULT_PANEL_DEFAULT_REGIONS: Partial<Record<Panel, PanelRegion>> = {
   [Panel.Metadata]: 'leftTop',
   [Panel.FolderTree]: 'leftTop',
   [Panel.Export]: 'leftTop',
+  [Panel.MediaPool]: 'leftTop',
+  [Panel.Captions]: 'leftTop',
   [Panel.Tethering]: 'leftTop',
   [Panel.Adjustments]: 'rightTop',
   [Panel.Crop]: 'rightTop',
   [Panel.Masks]: 'rightTop',
   [Panel.Ai]: 'rightTop',
   [Panel.Presets]: 'rightTop',
+  [Panel.Inspector]: 'rightTop',
+  [Panel.Effects]: 'rightTop',
+  [Panel.Mixer]: 'rightTop',
 };
 
 export const DEFAULT_PANEL_WIDTH = 350;
 export const DEFAULT_PANEL_SECTION_HEIGHT = 450;
 export const DEFAULT_BOTTOM_PANEL_HEIGHT = 144;
+const MAX_DEFAULT_TIMELINE_HEIGHT = 320;
+const DEFAULT_TIMELINE_SHARE = 0.38;
+export const MAX_TIMELINE_SHARE = 0.7;
 export const DEFAULT_FILMSTRIP_COLUMNS = 2;
 export const MAX_FILMSTRIP_COLUMNS = 6;
 const MIN_REOPENED_PANEL_WIDTH = 250;
 
+export const defaultTimelineHeight = () =>
+  Math.min(MAX_DEFAULT_TIMELINE_HEIGHT, Math.round(window.innerHeight * DEFAULT_TIMELINE_SHARE));
+
+const timelineLayout = (saved?: WorkspaceState) => ({
+  timelineHeight: saved?.timelineHeight || defaultTimelineHeight(),
+  timelineCollapsed: saved?.timelineCollapsed ?? false,
+});
+
 export const getReopenedPanelWidth = (width: number) =>
   width < MIN_REOPENED_PANEL_WIDTH ? DEFAULT_PANEL_WIDTH : width;
+
+const defaultLayout = (mode: WorkspaceMode, isTetheringSupported: boolean) =>
+  mode === 'video'
+    ? {
+        panelLayout: {
+          leftTop: [Panel.MediaPool, Panel.Captions, Panel.FolderTree, Panel.Metadata, Panel.Export],
+          leftBottom: [],
+          rightTop: [
+            Panel.Inspector,
+            Panel.Adjustments,
+            Panel.Crop,
+            Panel.Masks,
+            Panel.Ai,
+            Panel.Presets,
+            Panel.Effects,
+            Panel.Mixer,
+          ],
+          rightBottom: [],
+        },
+        activePanels: { leftTop: Panel.MediaPool, leftBottom: null, rightTop: Panel.Inspector, rightBottom: null },
+      }
+    : {
+        panelLayout: {
+          leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export, ...(isTetheringSupported ? [Panel.Tethering] : [])],
+          leftBottom: [],
+          rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
+          rightBottom: [],
+        },
+        activePanels: { leftTop: Panel.FolderTree, leftBottom: null, rightTop: Panel.Adjustments, rightBottom: null },
+      };
 
 export function reconcileWorkspace(
   savedWorkspace: WorkspaceState | undefined,
   isTetheringSupported: boolean,
+  mode: WorkspaceMode = 'photo',
 ): WorkspaceState {
-  const defaultPlacedPanels = ALL_PANELS.filter((p) => p !== Panel.Tethering || isTetheringSupported);
-  const allowedPanels = new Set([...defaultPlacedPanels, Panel.Filmstrip]);
+  const defaultPlacedPanels = (mode === 'video' ? VIDEO_PANELS : PHOTO_PANELS).filter(
+    (p) => p !== Panel.Tethering || isTetheringSupported,
+  );
+  const allowedPanels = new Set(mode === 'video' ? defaultPlacedPanels : [...defaultPlacedPanels, Panel.Filmstrip]);
 
   const defaultWorkspace: WorkspaceState = {
     leftPanelWidth: DEFAULT_PANEL_WIDTH,
     rightPanelWidth: DEFAULT_PANEL_WIDTH,
     leftTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
     rightTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
-    panelLayout: {
-      leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export, ...(isTetheringSupported ? [Panel.Tethering] : [])],
-      leftBottom: [],
-      rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
-      rightBottom: [],
-    },
-    activePanels: {
-      leftTop: Panel.FolderTree,
-      leftBottom: null,
-      rightTop: Panel.Adjustments,
-      rightBottom: null,
-    },
+    ...defaultLayout(mode, isTetheringSupported),
     panelSwitcherPlacement: {
       leftTop: 'bottom',
       leftBottom: 'bottom',
@@ -144,6 +211,7 @@ export function reconcileWorkspace(
     },
     filmstripColumns: DEFAULT_FILMSTRIP_COLUMNS,
     filmstripShowFileInfo: false,
+    ...(mode === 'video' ? timelineLayout() : {}),
   };
 
   if (!savedWorkspace || !savedWorkspace.panelLayout) {
@@ -208,6 +276,7 @@ export function reconcileWorkspace(
       Math.max(1, savedWorkspace.filmstripColumns || DEFAULT_FILMSTRIP_COLUMNS),
     ),
     filmstripShowFileInfo: savedWorkspace.filmstripShowFileInfo ?? false,
+    ...(mode === 'video' ? timelineLayout(savedWorkspace) : {}),
   };
 }
 
@@ -221,8 +290,61 @@ export const isPanelVisible = (state: UIState, panel: Panel) =>
 export const isFilmstripDocked = (state: UIState) =>
   PANEL_REGIONS.some((region) => state.panelLayout[region].includes(Panel.Filmstrip));
 
-export const isPanelAvailable = (state: UIState, panel: Panel) =>
-  panel !== Panel.Filmstrip || state.activeView === 'editor';
+export const isPanelAvailable = (state: UIState, panel: Panel) => {
+  if (panel === Panel.Filmstrip) return state.activeView === 'editor';
+  if (panel === Panel.FolderTree) return state.workspaceMode !== 'video';
+  if (VIDEO_ONLY_PANELS.includes(panel)) return state.workspaceMode === 'video';
+  return panel !== Panel.Ai || !state.isVideoMedia;
+};
+
+const WORKSPACE_KEYS = [
+  'leftTopHeight',
+  'rightTopHeight',
+  'panelLayout',
+  'activePanels',
+  'panelSwitcherPlacement',
+  'filmstripColumns',
+  'filmstripShowFileInfo',
+  'timelineHeight',
+  'timelineCollapsed',
+] as const;
+
+type WorkspaceLayout = Pick<WorkspaceState, (typeof WORKSPACE_KEYS)[number]>;
+
+const layoutOf = (source: WorkspaceLayout): WorkspaceLayout =>
+  Object.fromEntries(
+    WORKSPACE_KEYS.filter((key) => source[key] !== undefined).map((key) => [key, source[key]]),
+  ) as WorkspaceLayout;
+
+export const toggleSidePanel = (side: 'left' | 'right') =>
+  useUIStore.getState().setUI((state) => {
+    const visibility = side === 'left' ? 'leftPanel' : 'rightPanel';
+    const width = side === 'left' ? 'leftPanelWidth' : 'rightPanelWidth';
+    const isOpening = !state.uiVisibility[visibility];
+    return {
+      uiVisibility: { ...state.uiVisibility, [visibility]: isOpening },
+      [width]: isOpening ? getReopenedPanelWidth(state[width]) : state[width],
+    };
+  });
+
+export const toggleBottomPanel = () =>
+  useUIStore
+    .getState()
+    .setUI((state) => ({ uiVisibility: { ...state.uiVisibility, filmstrip: !state.uiVisibility.filmstrip } }));
+
+export const toggleTimeline = () =>
+  useUIStore.getState().setUI((state) => ({ timelineCollapsed: !state.timelineCollapsed }));
+
+export const workspaceSettingsKey = (mode: WorkspaceMode) => (mode === 'video' ? 'videoWorkspace' : 'workspace');
+
+const applyWorkspace = (workspace: WorkspaceLayout): Partial<UIState> => ({
+  ...layoutOf(workspace),
+  activePanel: workspace.activePanels.rightTop || null,
+  renderedPanel: workspace.activePanels.rightTop || null,
+});
+
+export const usableActivePanel = (state: UIState) =>
+  state.activePanel && isPanelAvailable(state, state.activePanel) ? state.activePanel : null;
 
 export const getRegionActivePanel = (state: UIState, region: PanelRegion) => {
   const panels = state.panelLayout[region];
@@ -230,7 +352,8 @@ export const getRegionActivePanel = (state: UIState, region: PanelRegion) => {
   const index = active ? panels.indexOf(active) : -1;
   if (active && index >= 0 && isPanelAvailable(state, active)) return active;
   const candidates = index < 0 ? panels : [...panels.slice(index + 1), ...panels.slice(0, index).reverse()];
-  return candidates.find((panel) => isPanelAvailable(state, panel)) ?? null;
+  const preferred = state.workspaceMode === 'video' && panels.includes(Panel.Inspector) ? [Panel.Inspector] : [];
+  return [...preferred, ...candidates].find((panel) => isPanelAvailable(state, panel)) ?? null;
 };
 
 const removePanelFromLayout = (state: UIState, panel: Panel) => {
@@ -303,10 +426,17 @@ export interface UIState {
   uiVisibility: UiVisibility;
   isLibraryExportPanelVisible: boolean;
   isSettingsOpen: boolean;
+  workspaceMode: WorkspaceMode;
+  storedWorkspaces: Record<WorkspaceMode, WorkspaceLayout | null>;
+  enterWorkspace: (mode: WorkspaceMode) => void;
+  loadWorkspaces: (workspaces: Record<WorkspaceMode, WorkspaceLayout | null>) => void;
+  isVideoMedia: boolean;
 
   leftPanelWidth: number;
   rightPanelWidth: number;
   bottomPanelHeight: number;
+  timelineHeight: number;
+  timelineCollapsed: boolean;
   leftTopHeight: number;
   rightTopHeight: number;
   filmstripColumns: number;
@@ -354,6 +484,7 @@ export interface UIState {
   mergeModalState: MergeModalState;
   cullingModalState: CullingModalState;
   collageModalState: CollageModalState;
+  openModals: number;
 
   setUI: (updater: Partial<UIState> | ((state: UIState) => Partial<UIState>)) => void;
   setPanel: (panel: Panel | null) => void;
@@ -361,6 +492,8 @@ export interface UIState {
   setCustomEscapeHandler: (handler: (() => void) | null) => void;
   imageSelectHandler: ((path: string, openInEditor?: boolean) => void) | null;
   setImageSelectHandler: (handler: ((path: string, openInEditor?: boolean) => void) | null) => void;
+  libraryRefreshHandler: (() => Promise<void>) | null;
+  setLibraryRefreshHandler: (handler: (() => Promise<void>) | null) => void;
   searchFocusRequest: number;
   requestSearchFocus: () => void;
   toggleFullScreen: () => void;
@@ -378,10 +511,15 @@ export const useUIStore = create<UIState>((set, get) => ({
   uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true, quickFilter: false },
   isLibraryExportPanelVisible: false,
   isSettingsOpen: false,
+  workspaceMode: 'photo',
+  storedWorkspaces: { photo: null, video: null },
+  isVideoMedia: false,
 
   leftPanelWidth: DEFAULT_PANEL_WIDTH,
   rightPanelWidth: DEFAULT_PANEL_WIDTH,
   bottomPanelHeight: DEFAULT_BOTTOM_PANEL_HEIGHT,
+  timelineHeight: defaultTimelineHeight(),
+  timelineCollapsed: false,
   leftTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
   rightTopHeight: DEFAULT_PANEL_SECTION_HEIGHT,
   filmstripColumns: DEFAULT_FILMSTRIP_COLUMNS,
@@ -435,6 +573,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   mergeModalState: CLOSED_MERGE_MODAL_STATE,
   cullingModalState: { isOpen: false, suggestions: null, progress: null, error: null, pathsToCull: [] },
   collageModalState: { isOpen: false, sourceImages: [] },
+  openModals: 0,
 
   setUI: (updater) => set((state) => (typeof updater === 'function' ? updater(state) : updater)),
 
@@ -540,8 +679,22 @@ export const useUIStore = create<UIState>((set, get) => ({
       .catch((err) => toast.error(i18n.t('editor.viewer.openFailed', { error: String(err) })));
   },
 
+  enterWorkspace: (mode) =>
+    set((state) => {
+      if (state.workspaceMode === mode) return state;
+      const storedWorkspaces = { ...state.storedWorkspaces, [state.workspaceMode]: layoutOf(state) };
+      const next = storedWorkspaces[mode] ?? reconcileWorkspace(undefined, false, mode);
+      return { ...applyWorkspace(next), workspaceMode: mode, storedWorkspaces };
+    }),
+
+  loadWorkspaces: (workspaces) =>
+    set((state) => {
+      const current = workspaces[state.workspaceMode];
+      return { storedWorkspaces: workspaces, ...(current ? layoutOf(current) : {}) };
+    }),
+
   resetWorkspaceLayout: (isTetheringSupported = false) => {
-    const defaultWorkspace = reconcileWorkspace(undefined, isTetheringSupported);
+    const defaultWorkspace = reconcileWorkspace(undefined, isTetheringSupported, get().workspaceMode);
     set({
       leftPanelWidth: defaultWorkspace.leftPanelWidth,
       rightPanelWidth: defaultWorkspace.rightPanelWidth,
@@ -552,6 +705,7 @@ export const useUIStore = create<UIState>((set, get) => ({
       panelSwitcherPlacement: defaultWorkspace.panelSwitcherPlacement,
       filmstripColumns: defaultWorkspace.filmstripColumns,
       filmstripShowFileInfo: defaultWorkspace.filmstripShowFileInfo,
+      ...(get().workspaceMode === 'video' ? timelineLayout() : {}),
       uiVisibility: { filmstrip: true, leftPanel: true, rightPanel: true, quickFilter: false },
       activePanel: defaultWorkspace.activePanels.rightTop || null,
       renderedPanel: defaultWorkspace.activePanels.rightTop || null,
@@ -563,6 +717,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   setCustomEscapeHandler: (handler) => set({ customEscapeHandler: handler }),
   imageSelectHandler: null,
   setImageSelectHandler: (handler) => set({ imageSelectHandler: handler }),
+  libraryRefreshHandler: null,
+  setLibraryRefreshHandler: (handler) => set({ libraryRefreshHandler: handler }),
   searchFocusRequest: 0,
   requestSearchFocus: () => set((state) => ({ searchFocusRequest: state.searchFocusRequest + 1 })),
 }));
@@ -595,3 +751,12 @@ export const closeMergeModal = () => {
   useUIStore.getState().setUI({ mergeModalState: CLOSED_MERGE_MODAL_STATE });
   invoke(Invokes.DiscardMerge).catch((err) => console.error('Failed to discard the merge:', err));
 };
+
+const countModal = (change: number) => useUIStore.setState((state) => ({ openModals: state.openModals + change }));
+
+export const useModalGate = (isOpen: boolean) =>
+  useEffect(() => {
+    if (!isOpen) return;
+    countModal(1);
+    return () => countModal(-1);
+  }, [isOpen]);

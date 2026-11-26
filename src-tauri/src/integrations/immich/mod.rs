@@ -2,6 +2,7 @@ mod client;
 pub mod commands;
 mod config;
 mod files;
+mod media;
 mod registry;
 mod resolve;
 mod secrets;
@@ -18,16 +19,17 @@ use tauri::AppHandle;
 use client::ImmichClient;
 
 pub use config::ImmichSettings;
-pub use files::ensure_local;
+pub use files::{ensure_local, ensure_media, project_originals_size};
 pub use thumbnails::placeholder_thumbnail;
 pub use trash::trash_remote;
-pub use uploads::{add_to_album, on_exported};
+pub use uploads::{VideoUpload, add_to_album, on_exported};
 
 const MIN_VERSION: (u32, u32, u32) = (2, 5, 0);
 
 struct Session {
     settings: ImmichSettings,
     client: Arc<ImmichClient>,
+    server: String,
     cache_dir: PathBuf,
 }
 
@@ -47,14 +49,16 @@ fn session(app_handle: &AppHandle) -> Result<Arc<Session>, String> {
         return Err("Immich is not set up yet. Add the server in Settings → Immich.".to_string());
     }
     let client = Arc::new(ImmichClient::new(&settings.server_url, &api_key)?);
-    let cache_dir = cache_dir(app_handle, &settings)?;
+    let server = server_id(&settings);
+    let cache_dir = config::default_cache_dir(app_handle)?.join(&server);
     let session = Arc::new(Session {
         settings,
         client,
+        server,
         cache_dir,
     });
     *SESSION.write().unwrap() = Some(session.clone());
-    files::prune_cache_later(&session);
+    files::prune_cache_later(app_handle, &session);
     sync::start(app_handle);
     Ok(session)
 }
@@ -105,18 +109,28 @@ pub fn apply_settings(settings: &ImmichSettings) {
     }
 }
 
-fn cache_dir(app_handle: &AppHandle, settings: &ImmichSettings) -> Result<PathBuf, String> {
+fn server_id(settings: &ImmichSettings) -> String {
     let server = settings
         .server_url
         .trim()
         .trim_end_matches('/')
         .to_lowercase();
-    let server_id = blake3::hash(server.as_bytes()).to_hex();
-    Ok(config::default_cache_dir(app_handle)?.join(&server_id[..16]))
+    blake3::hash(server.as_bytes()).to_hex()[..16].to_string()
 }
 
 pub fn clear_cache(app_handle: &AppHandle) -> Result<(), String> {
     files::clear_originals(&config::default_cache_dir(app_handle)?)
+}
+
+pub fn is_in_cache(app_handle: &AppHandle, path: &Path) -> bool {
+    let Ok(root) = config::default_cache_dir(app_handle) else {
+        return false;
+    };
+    path.starts_with(&root)
+        || std::fs::canonicalize(path)
+            .ok()
+            .zip(std::fs::canonicalize(&root).ok())
+            .is_some_and(|(path, root)| path.starts_with(root))
 }
 
 pub fn is_placeholder(path: &Path) -> bool {

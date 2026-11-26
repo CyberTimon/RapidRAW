@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
 import { Option as AppOption, OPTION_SEPARATOR } from '../types/ui';
 import clsx from 'clsx';
+import Shortcut from '../components/ui/Shortcut';
+import { useShortcut } from '../hooks/useShortcuts';
 
 interface ContextMenuProviderProps {
   children: any;
@@ -18,7 +20,10 @@ interface MenuItemProps {
   hideContextMenu(): void;
   path: number[];
   option: Option;
+  iconSlot: boolean;
 }
+
+const hasIcons = (options: Array<Option>) => options.some((option) => option.icon);
 
 interface SubMenuProps {
   cancelCloseSubmenu(): void;
@@ -109,6 +114,8 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
     }
   }, [parentRef, options, menuHeight]);
 
+  const iconSlot = hasIcons(options);
+
   const menuMarkup = (
     <>
       {safeAreaPath && (
@@ -152,7 +159,13 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
             <CustomComponent {...customOption.customProps} hideContextMenu={hideContextMenu} />
           ) : (
             options.map((option: any, index: number) => (
-              <MenuItem hideContextMenu={hideContextMenu} key={index} option={option} path={[...parentPath, index]} />
+              <MenuItem
+                hideContextMenu={hideContextMenu}
+                key={index}
+                option={option}
+                path={[...parentPath, index]}
+                iconSlot={iconSlot}
+              />
             ))
           )}
         </div>
@@ -163,11 +176,12 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
   return createPortal(menuMarkup, document.body);
 }
 
-function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
+function MenuItem({ option, path, hideContextMenu, iconSlot }: MenuItemProps) {
   const { activeSubmenu, openSubmenu, closeSubmenu, cancelCloseSubmenu } = useContextMenu();
   const itemRef = useRef(null);
   const hoverTimeoutRef = useRef<any>(null);
   const hasInteractiveSubmenu = Boolean(option.submenu?.length === 1 && option.submenu[0].customComponent);
+  const shortcut = useShortcut(option.submenu ? null : option.shortcut);
 
   const isSubmenuOpen =
     option.submenu &&
@@ -236,12 +250,15 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
         }}
         ref={itemRef}
         role="menuitem"
+        aria-keyshortcuts={shortcut['aria-keyshortcuts']}
+        data-tooltip={option.tooltip}
       >
         <div className="flex items-center gap-3">
           {option.color && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: option.color }}></div>}
-          {option.icon && <option.icon size={16} />}
+          {option.icon ? <option.icon size={16} /> : iconSlot && !option.color && <span className="w-4 shrink-0" />}
           <span>{option.label}</span>
         </div>
+        <Shortcut keys={shortcut['data-shortcut']} className="ms-3" />
         {option.submenu && <ChevronRight className="shrink-0" size={16} />}
       </button>
 
@@ -264,6 +281,7 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
 function ContextMenu() {
   const { menuState, hideContextMenu, menuRef, menuId } = useContextMenu();
   const { isVisible, x, y, options } = menuState;
+  const iconSlot = hasIcons(options);
 
   return (
     <AnimatePresence>
@@ -281,7 +299,13 @@ function ContextMenu() {
         >
           <div className="bg-surface/95 backdrop-blur-md rounded-lg shadow-xl p-2 w-max min-w-64 max-w-80" role="menu">
             {options.map((option: any, index: number) => (
-              <MenuItem hideContextMenu={hideContextMenu} key={index} option={option} path={[index]} />
+              <MenuItem
+                hideContextMenu={hideContextMenu}
+                key={index}
+                option={option}
+                path={[index]}
+                iconSlot={iconSlot}
+              />
             ))}
           </div>
         </motion.div>
@@ -352,6 +376,8 @@ export function ContextMenuProvider({ children }: ContextMenuProviderProps) {
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
         hideContextMenu();
       }
     };

@@ -144,3 +144,8 @@ export const useLibraryStore = create<LibraryState>((set) => ({
       return { navHistory: newHistory, navIndex: newHistory.length - 1 };
     }),
 }));
+
+export const selectionWith = (path: string) => {
+  const { multiSelectedPaths } = useLibraryStore.getState();
+  return multiSelectedPaths.includes(path) ? multiSelectedPaths : [path];
+};

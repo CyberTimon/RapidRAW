@@ -14,6 +14,8 @@ struct RadialMaskParameters {
     radius_y: f64,
     rotation: f32,
     feather: f32,
+    #[serde(default)]
+    inverse_plane: Option<[f64; 9]>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -29,6 +31,71 @@ struct LinearMaskParameters {
 
 fn default_range() -> f32 {
     50.0
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct RectangleMaskParameters {
+    center_x: f64,
+    center_y: f64,
+    width: f64,
+    height: f64,
+    rotation: f32,
+    roundness: f32,
+    feather: f32,
+    inverse_plane: Option<[f64; 9]>,
+}
+
+struct Unplane {
+    matrix: [f64; 9],
+    scale: f64,
+    crop: (f64, f64),
+}
+
+impl Unplane {
+    fn new(matrix: Option<[f64; 9]>, scale: f32, crop_offset: (f32, f32)) -> Option<Self> {
+        Some(Self {
+            matrix: matrix?,
+            scale: scale as f64,
+            crop: (crop_offset.0 as f64, crop_offset.1 as f64),
+        })
+    }
+
+    fn place(&self, x: f32, y: f32) -> Option<(f32, f32, f32)> {
+        let m = &self.matrix;
+        let fx = (x as f64 + self.crop.0) / self.scale;
+        let fy = (y as f64 + self.crop.1) / self.scale;
+        let depth = m[6] * fx + m[7] * fy + m[8];
+        if depth <= 1e-12 {
+            return None;
+        }
+        let rx = (m[0] * fx + m[1] * fy + m[2]) / depth;
+        let ry = (m[3] * fx + m[4] * fy + m[5]) / depth;
+        Some((
+            (rx * self.scale - self.crop.0) as f32,
+            (ry * self.scale - self.crop.1) as f32,
+            depth.powf(1.5) as f32,
+        ))
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct PenPoint {
+    x: f64,
+    y: f64,
+    in_x: f64,
+    in_y: f64,
+    out_x: f64,
+    out_y: f64,
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct PenMaskParameters {
+    points: Vec<PenPoint>,
+    closed: bool,
+    feather: f32,
 }
 
 impl Default for LinearMaskParameters {
@@ -310,11 +377,19 @@ pub fn generate_radial_bitmap(
     let cos_rot = rotation_rad.cos();
     let sin_rot = rotation_rad.sin();
     let inner_bound = 1.0 - params.feather.clamp(0.0, 1.0);
+    let unplane = Unplane::new(params.inverse_plane, scale, crop_offset);
 
     for_each_mask_row(&mut mask, |y, row| {
         for (x, value) in row.iter_mut().enumerate() {
-            let dx = x as f32 - center_x as f32;
-            let dy = y as f32 - center_y as f32;
+            let (px, py) = match &unplane {
+                None => (x as f32, y as f32),
+                Some(unplane) => match unplane.place(x as f32, y as f32) {
+                    Some((px, py, _)) => (px, py),
+                    None => continue,
+                },
+            };
+            let dx = px - center_x as f32;
+            let dy = py - center_y as f32;
 
             let rot_dx = dx * cos_rot + dy * sin_rot;
             let rot_dy = -dx * sin_rot + dy * cos_rot;
@@ -382,6 +457,336 @@ pub fn generate_linear_bitmap(
             let clamped_intensity = intensity.clamp(0.0, 1.0);
 
             *value = (clamped_intensity * 255.0) as u8;
+        }
+    });
+
+    mask
+}
+
+const CURVE_FLATNESS: f32 = 0.1;
+const MAX_CURVE_STEPS: usize = 256;
+const FEATHER_GRID_STEPS: f32 = 16.0;
+
+fn edge_coverage(signed_distance: f32, feather: f32) -> f32 {
+    let t = (0.5 - signed_distance / feather.max(1.0)).clamp(0.0, 1.0);
+    if feather > 1.0 {
+        t * t * (3.0 - 2.0 * t)
+    } else {
+        t
+    }
+}
+
+fn shape_bounds(
+    (min_x, min_y, max_x, max_y): (f32, f32, f32, f32),
+    width: u32,
+    height: u32,
+) -> Option<(usize, usize, usize, usize)> {
+    if width == 0
+        || height == 0
+        || max_x < 0.0
+        || max_y < 0.0
+        || min_x >= width as f32
+        || min_y >= height as f32
+    {
+        return None;
+    }
+    Some((
+        min_x.floor().max(0.0) as usize,
+        min_y.floor().max(0.0) as usize,
+        (max_x.ceil() as usize).min(width as usize - 1),
+        (max_y.ceil() as usize).min(height as usize - 1),
+    ))
+}
+
+fn fill_within(
+    mask: &mut GrayImage,
+    (x0, y0, x1, y1): (usize, usize, usize, usize),
+    fill_row: impl Fn(f32, usize, &mut [u8]) + Sync,
+) {
+    for_each_mask_row(mask, |y, row| {
+        let y = y as usize;
+        if (y0..=y1).contains(&y) {
+            fill_row(y as f32 + 0.5, x0, &mut row[x0..=x1]);
+        }
+    });
+}
+
+fn coverage_byte(coverage: f32) -> u8 {
+    (coverage * 255.0 + 0.5) as u8
+}
+
+pub fn generate_rectangle_bitmap(
+    params_value: &Value,
+    width: u32,
+    height: u32,
+    scale: f32,
+    crop_offset: (f32, f32),
+) -> GrayImage {
+    let params: RectangleMaskParameters =
+        serde_json::from_value(params_value.clone()).unwrap_or_default();
+    let mut mask = GrayImage::new(width, height);
+
+    let half_w = params.width.abs() as f32 * scale / 2.0;
+    let half_h = params.height.abs() as f32 * scale / 2.0;
+    if half_w <= 0.0 || half_h <= 0.0 {
+        return mask;
+    }
+    let center_x = params.center_x as f32 * scale - crop_offset.0;
+    let center_y = params.center_y as f32 * scale - crop_offset.1;
+    let short = half_w.min(half_h);
+    let radius = params.roundness.clamp(0.0, 1.0) * short;
+    let feather = params.feather.clamp(0.0, 1.0) * 2.0 * short;
+    let (sin, cos) = (params.rotation * PI / 180.0).sin_cos();
+    let reach = feather.max(1.0) / 2.0 + 1.0;
+    let extent_x = half_w * cos.abs() + half_h * sin.abs() + reach;
+    let extent_y = half_w * sin.abs() + half_h * cos.abs() + reach;
+    let unplane = Unplane::new(params.inverse_plane, scale, crop_offset);
+    let extent = if unplane.is_some() {
+        (0.0, 0.0, width as f32, height as f32)
+    } else {
+        (
+            center_x - extent_x,
+            center_y - extent_y,
+            center_x + extent_x,
+            center_y + extent_y,
+        )
+    };
+    let Some(bounds) = shape_bounds(extent, width, height) else {
+        return mask;
+    };
+    let (inner_w, inner_h) = (half_w - radius, half_h - radius);
+
+    fill_within(&mut mask, bounds, |py, x0, span| {
+        for (offset, value) in span.iter_mut().enumerate() {
+            let px = (x0 + offset) as f32 + 0.5;
+            let (sx, sy, stretch) = match &unplane {
+                None => (px, py, 1.0),
+                Some(unplane) => match unplane.place(px, py) {
+                    Some(placed) => placed,
+                    None => continue,
+                },
+            };
+            let (dx, dy) = (sx - center_x, sy - center_y);
+            let qx = (dx * cos + dy * sin).abs() - inner_w;
+            let qy = (dy * cos - dx * sin).abs() - inner_h;
+            let (outside_x, outside_y) = (qx.max(0.0), qy.max(0.0));
+            let distance = (outside_x * outside_x + outside_y * outside_y).sqrt()
+                + qx.max(qy).min(0.0)
+                - radius;
+            *value = coverage_byte(edge_coverage(distance * stretch, feather * stretch));
+        }
+    });
+
+    mask
+}
+
+struct Edge {
+    x0: f32,
+    y0: f32,
+    dx: f32,
+    dy: f32,
+    len_sq: f32,
+    x_range: (f32, f32),
+    y_range: (f32, f32),
+}
+
+impl Edge {
+    fn new((x0, y0): (f32, f32), (x1, y1): (f32, f32)) -> Self {
+        let (dx, dy) = (x1 - x0, y1 - y0);
+        Self {
+            x0,
+            y0,
+            dx,
+            dy,
+            len_sq: dx * dx + dy * dy,
+            x_range: (x0.min(x1), x0.max(x1)),
+            y_range: (y0.min(y1), y0.max(y1)),
+        }
+    }
+
+    fn crossing(&self, py: f32) -> Option<(f32, i32)> {
+        ((self.y0 <= py) != (self.y0 + self.dy <= py)).then(|| {
+            (
+                self.x0 + (py - self.y0) / self.dy * self.dx,
+                if self.dy > 0.0 { 1 } else { -1 },
+            )
+        })
+    }
+
+    fn distance_sq(&self, px: f32, py: f32) -> f32 {
+        let t = if self.len_sq > 0.0 {
+            (((px - self.x0) * self.dx + (py - self.y0) * self.dy) / self.len_sq).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let (ex, ey) = (px - self.x0 - t * self.dx, py - self.y0 - t * self.dy);
+        ex * ex + ey * ey
+    }
+}
+
+fn flatten_pen(points: &[PenPoint], scale: f32, crop_offset: (f32, f32)) -> Vec<(f32, f32)> {
+    let place = |x: f64, y: f64| {
+        (
+            x as f32 * scale - crop_offset.0,
+            y as f32 * scale - crop_offset.1,
+        )
+    };
+    let mut polygon = Vec::new();
+    for (index, from) in points.iter().enumerate() {
+        let to = &points[(index + 1) % points.len()];
+        let p0 = place(from.x, from.y);
+        let p1 = place(from.x + from.out_x, from.y + from.out_y);
+        let p2 = place(to.x + to.in_x, to.y + to.in_y);
+        let p3 = place(to.x, to.y);
+        let bend = (p0.0 - 2.0 * p1.0 + p2.0)
+            .hypot(p0.1 - 2.0 * p1.1 + p2.1)
+            .max((p1.0 - 2.0 * p2.0 + p3.0).hypot(p1.1 - 2.0 * p2.1 + p3.1));
+        let steps =
+            ((0.75 * bend / CURVE_FLATNESS).sqrt().ceil() as usize).clamp(1, MAX_CURVE_STEPS);
+        polygon.push(p0);
+        for step in 1..steps {
+            let t = step as f32 / steps as f32;
+            let u = 1.0 - t;
+            let (a, b, c, d) = (u * u * u, 3.0 * u * u * t, 3.0 * u * t * t, t * t * t);
+            polygon.push((
+                a * p0.0 + b * p1.0 + c * p2.0 + d * p3.0,
+                a * p0.1 + b * p1.1 + c * p2.1 + d * p3.1,
+            ));
+        }
+    }
+    polygon
+}
+
+fn row_distances(
+    edges: &[Edge],
+    py: f32,
+    xs: impl Iterator<Item = f32>,
+    reach: f32,
+    mut emit: impl FnMut(f32),
+) {
+    let mut crossings: Vec<(f32, i32)> =
+        edges.iter().filter_map(|edge| edge.crossing(py)).collect();
+    crossings.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut near: Vec<(f32, f32, &Edge)> = edges
+        .iter()
+        .filter(|edge| edge.y_range.0 - reach <= py && edge.y_range.1 + reach >= py)
+        .map(|edge| (edge.x_range.0 - reach, edge.x_range.1 + reach, edge))
+        .collect();
+    near.sort_by(|a, b| a.0.total_cmp(&b.0));
+
+    let (mut winding, mut crossed, mut entered) = (0, 0, 0);
+    let mut live: Vec<(f32, f32, &Edge)> = Vec::new();
+    for px in xs {
+        while crossed < crossings.len() && crossings[crossed].0 < px {
+            winding += crossings[crossed].1;
+            crossed += 1;
+        }
+        while entered < near.len() && near[entered].0 <= px {
+            live.push(near[entered]);
+            entered += 1;
+        }
+        live.retain(|entry| entry.1 >= px);
+        let nearest = live
+            .iter()
+            .map(|entry| entry.2.distance_sq(px, py))
+            .fold(reach * reach, f32::min)
+            .sqrt();
+        emit(if winding != 0 { -nearest } else { nearest });
+    }
+}
+
+pub fn generate_pen_bitmap(
+    params_value: &Value,
+    width: u32,
+    height: u32,
+    scale: f32,
+    crop_offset: (f32, f32),
+) -> GrayImage {
+    let params: PenMaskParameters =
+        serde_json::from_value(params_value.clone()).unwrap_or_default();
+    let mut mask = GrayImage::new(width, height);
+    if !params.closed || params.points.len() < 2 {
+        return mask;
+    }
+
+    let polygon = flatten_pen(&params.points, scale, crop_offset);
+    let edges: Vec<Edge> = polygon
+        .iter()
+        .zip(polygon.iter().cycle().skip(1))
+        .map(|(from, to)| Edge::new(*from, *to))
+        .collect();
+    let area = edges
+        .iter()
+        .map(|edge| edge.x0 * (edge.y0 + edge.dy) - (edge.x0 + edge.dx) * edge.y0)
+        .sum::<f32>()
+        .abs()
+        / 2.0;
+    let feather = params.feather.clamp(0.0, 1.0) * area.sqrt();
+    let step = feather / FEATHER_GRID_STEPS;
+    let reach = if step > 1.0 {
+        feather / 2.0 + 2.0 * step
+    } else {
+        feather.max(1.0) / 2.0 + 0.5
+    };
+    let extent = |axis: fn(&(f32, f32)) -> f32| {
+        polygon
+            .iter()
+            .map(axis)
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(low, high), value| {
+                (low.min(value), high.max(value))
+            })
+    };
+    let ((min_x, max_x), (min_y, max_y)) = (extent(|point| point.0), extent(|point| point.1));
+    let Some(bounds) = shape_bounds(
+        (min_x - reach, min_y - reach, max_x + reach, max_y + reach),
+        width,
+        height,
+    ) else {
+        return mask;
+    };
+
+    if step <= 1.0 {
+        fill_within(&mut mask, bounds, |py, x0, span| {
+            let mut values = span.iter_mut();
+            let centers = (x0..x0 + values.len()).map(|x| x as f32 + 0.5);
+            row_distances(&edges, py, centers, reach, |distance| {
+                if let Some(value) = values.next() {
+                    *value = coverage_byte(edge_coverage(distance, feather));
+                }
+            });
+        });
+        return mask;
+    }
+
+    let (x0, y0, x1, y1) = bounds;
+    let origin = (x0 as f32 + 0.5, y0 as f32 + 0.5);
+    let columns = ((x1 - x0) as f32 / step).ceil() as usize + 2;
+    let rows = ((y1 - y0) as f32 / step).ceil() as usize + 2;
+    let grid: Vec<Vec<f32>> = (0..rows)
+        .into_par_iter()
+        .map(|row| {
+            let mut line = Vec::with_capacity(columns);
+            let nodes = (0..columns).map(|column| origin.0 + column as f32 * step);
+            row_distances(
+                &edges,
+                origin.1 + row as f32 * step,
+                nodes,
+                reach,
+                |distance| line.push(distance),
+            );
+            line
+        })
+        .collect();
+    fill_within(&mut mask, bounds, |py, _, span| {
+        let fy = (py - origin.1) / step;
+        let (row, ty) = (fy as usize, fy.fract());
+        let (above, below) = (&grid[row], &grid[row + 1]);
+        for (offset, value) in span.iter_mut().enumerate() {
+            let fx = offset as f32 / step;
+            let (column, tx) = (fx as usize, fx.fract());
+            let top = above[column] + (above[column + 1] - above[column]) * tx;
+            let bottom = below[column] + (below[column + 1] - below[column]) * tx;
+            *value = coverage_byte(edge_coverage(top + (bottom - top) * ty, feather));
         }
     });
 

@@ -96,7 +96,7 @@ pub fn prepare_preview_source(
     let target_w = ((full_w_px as f64 * target_scale).round() as u32).max(1);
     let target_h = ((full_h_px as f64 * target_scale).round() as u32).max(1);
 
-    let geometry = get_geometry_params_from_json(&loaded_image.path, adjustments);
+    let geometry = get_geometry_params_from_json(loaded_image.lens_path(), adjustments);
     let warp = (!is_geometry_identity(&geometry)).then_some(geometry);
     let texture_scale =
         context.limits.max_texture_dimension_2d as f64 / full_w_px.max(full_h_px).max(1) as f64;
@@ -306,7 +306,7 @@ pub fn get_cached_full_warped_image_for_path(
     let warped_arc = Arc::new(build_ai_source_image(
         &loaded_image.image,
         loaded_image.is_raw,
-        &loaded_image.path,
+        loaded_image.lens_path(),
         js_adjustments,
     ));
     *state
@@ -369,7 +369,7 @@ impl EditorRender {
                 .as_str()
                 .and_then(|p| crate::adjustments::lut_processing::get_or_load_lut(state, p).ok()),
             motion_blur: crate::effects::motion_blur::MotionBlurs::new(
-                &loaded_image.path,
+                loaded_image.lens_path(),
                 adjustments,
                 (width, height),
                 crop_offset,

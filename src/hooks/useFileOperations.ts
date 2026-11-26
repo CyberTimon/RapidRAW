@@ -6,6 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
+import {
+  canOpenInEditor,
+  followProjectDelete,
+  followProjectMove,
+  followProjectRename,
+  photoEditorImage,
+} from '../store/videoIntegration';
 import { JobKind, useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { ImageFlag } from '../types/library';
@@ -16,7 +23,11 @@ export const transferFiles = (kind: JobKind.Copy | JobKind.Move, sourcePaths: st
   useProcessStore
     .getState()
     .runJob(kind, { progress: { total: sourcePaths.length }, detail: destinationFolder }, () =>
-      invoke(kind === JobKind.Copy ? Invokes.CopyFiles : Invokes.MoveFiles, { sourcePaths, destinationFolder }),
+      kind === JobKind.Copy
+        ? invoke(Invokes.CopyFiles, { sourcePaths, destinationFolder })
+        : followProjectMove(sourcePaths, () =>
+            invoke<Record<string, string>>(Invokes.MoveFiles, { sourcePaths, destinationFolder }),
+          ),
     );
 
 export function useFileOperations(
@@ -40,7 +51,7 @@ export function useFileOperations(
       if (!pathsToDelete || pathsToDelete.length === 0) return;
 
       const { libraryActivePath, setLibrary } = useLibraryStore.getState();
-      const { selectedImage } = useEditorStore.getState();
+      const selectedImage = photoEditorImage();
       const { activeView } = useUIStore.getState(); // <-- Check active view
 
       // Determine the active path based on the current view
@@ -48,6 +59,7 @@ export function useFileOperations(
       let nextImagePath: string | null = null;
       // Deleting an image also deletes its virtual copies.
       const isDeleted = (path: string) => pathsToDelete.includes(path) || pathsToDelete.includes(path.split('?vc=')[0]);
+      const isNextCandidate = (path: string) => !isDeleted(path) && (activeView !== 'editor' || canOpenInEditor(path));
 
       if (activePath) {
         const physicalPath = activePath.split('?vc=')[0];
@@ -56,7 +68,7 @@ export function useFileOperations(
         if (isActiveImageDeleted) {
           const currentIndex = sortedImageList.findIndex((img) => img.path === activePath);
           if (currentIndex !== -1) {
-            const nextCandidate = sortedImageList.slice(currentIndex + 1).find((img) => !isDeleted(img.path));
+            const nextCandidate = sortedImageList.slice(currentIndex + 1).find((img) => isNextCandidate(img.path));
 
             if (nextCandidate) {
               nextImagePath = nextCandidate.path;
@@ -64,7 +76,7 @@ export function useFileOperations(
               const prevCandidate = sortedImageList
                 .slice(0, currentIndex)
                 .reverse()
-                .find((img) => !isDeleted(img.path));
+                .find((img) => isNextCandidate(img.path));
 
               if (prevCandidate) {
                 nextImagePath = prevCandidate.path;
@@ -78,7 +90,7 @@ export function useFileOperations(
 
       try {
         const command = options.includeAssociated ? 'delete_files_with_associated' : 'delete_files_from_disk';
-        await invoke(command, { paths: pathsToDelete });
+        await followProjectDelete(pathsToDelete, () => invoke(command, { paths: pathsToDelete }));
         await refreshImageList();
 
         if (selectedImage && activeView === 'editor') {
@@ -215,12 +227,14 @@ export function useFileOperations(
         try {
           const oldPath = folderActionTarget;
           const trimmedNewName = newName.trim();
-
-          await invoke(Invokes.RenameFolder, { path: oldPath, newName: trimmedNewName });
-
           const parentDir = getParentDir(oldPath);
           const separator = oldPath.includes('/') ? '/' : '\\';
           const newPath = parentDir ? `${parentDir}${separator}${trimmedNewName}` : trimmedNewName;
+
+          await followProjectRename([oldPath], async () => {
+            await invoke(Invokes.RenameFolder, { path: oldPath, newName: trimmedNewName });
+            return [newPath];
+          });
 
           const isInRenamedFolder = (p: string) =>
             p === oldPath || p.startsWith(`${oldPath}/`) || p.startsWith(`${oldPath}\\`);
@@ -272,10 +286,9 @@ export function useFileOperations(
 
       if (renameTargetPaths.length > 0 && nameTemplate) {
         try {
-          const newPaths: Array<string> = await invoke(Invokes.RenameFiles, {
-            nameTemplate,
-            paths: renameTargetPaths,
-          });
+          const newPaths = await followProjectRename(renameTargetPaths, () =>
+            invoke<Array<string>>(Invokes.RenameFiles, { nameTemplate, paths: renameTargetPaths }),
+          );
 
           await refreshImageList();
 

@@ -1,8 +1,7 @@
-import { motion } from 'framer-motion';
-import clsx from 'clsx';
+import SegmentedControl from '../ui/SegmentedControl';
 import Slider from '../ui/Slider';
 import { Adjustments, BasicAdjustment } from '../../utils/adjustments';
-import { useEffect, useRef, useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { areSectionPropsEqual } from '../../utils/adjustments';
 
@@ -30,8 +29,6 @@ const ToneMapperSwitch = ({
   onDragStateChange,
 }: ToneMapperSwitchProps) => {
   const { t } = useTranslation();
-  const [bubbleStyle, setBubbleStyle] = useState({});
-  const isInitialAnimation = useRef(true);
   const [isLabelHovered, setIsLabelHovered] = useState(false);
 
   const toneMapperOptions = useMemo(
@@ -39,12 +36,12 @@ const ToneMapperSwitch = ({
       {
         id: 'basic',
         label: t('adjustments.basic.mappers.basic'),
-        title: t('adjustments.basic.mappers.basicDesc'),
+        tooltip: t('adjustments.basic.mappers.basicDesc'),
       },
       {
         id: 'agx',
         label: t('adjustments.basic.mappers.agx'),
-        title: t('adjustments.basic.mappers.agxDesc'),
+        tooltip: t('adjustments.basic.mappers.agxDesc'),
       },
     ],
     [t],
@@ -54,35 +51,6 @@ const ToneMapperSwitch = ({
     onMapperChange('basic');
     onExposureChange(0);
   };
-
-  useEffect(() => {
-    const selectedIndex = toneMapperOptions.findIndex((m) => m.id === selectedMapper);
-    const safeIndex = selectedIndex >= 0 ? selectedIndex : 0;
-
-    const widthPercent = 100 / toneMapperOptions.length;
-    const targetX = `${safeIndex * 100}%`;
-    const targetWidth = `${widthPercent}%`;
-
-    if (isInitialAnimation.current) {
-      let initialX;
-      if (selectedMapper === 'agx') {
-        initialX = `${toneMapperOptions.length * 100}%`;
-      } else {
-        initialX = '-25%';
-      }
-
-      setBubbleStyle({
-        x: [initialX, targetX],
-        width: targetWidth,
-      });
-      isInitialAnimation.current = false;
-    } else {
-      setBubbleStyle({
-        x: targetX,
-        width: targetWidth,
-      });
-    }
-  }, [selectedMapper, toneMapperOptions]);
 
   return (
     <div className="group mb-3">
@@ -113,31 +81,12 @@ const ToneMapperSwitch = ({
         </div>
       </div>
       <div className="w-full p-2 pb-1 bg-card-active rounded-md">
-        <div className="relative flex w-full">
-          <motion.div
-            className="absolute top-0 bottom-0 z-0 bg-accent"
-            style={{ borderRadius: 6 }}
-            animate={bubbleStyle}
-            transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-          />
-          {toneMapperOptions.map((mapper) => (
-            <button
-              key={mapper.id}
-              data-tooltip={mapper.title}
-              onClick={() => onMapperChange(mapper.id)}
-              className={clsx(
-                'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-md transition-colors',
-                {
-                  'text-text-primary hover:bg-surface': selectedMapper !== mapper.id,
-                  'text-button-text': selectedMapper === mapper.id,
-                },
-              )}
-              style={{ WebkitTapHighlightColor: 'transparent' }}
-            >
-              <span className="relative z-10 flex items-center">{mapper.label}</span>
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          variant="embedded"
+          options={toneMapperOptions}
+          value={selectedMapper}
+          onChange={onMapperChange}
+        />
         <div className="mt-2.5 px-1">
           <Slider
             label={t('adjustments.basic.exposure')}

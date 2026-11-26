@@ -68,7 +68,7 @@ fn calculate_resize_target(
     }
 }
 
-fn parse_hex_color(hex: &str) -> Option<[u8; 3]> {
+pub(crate) fn parse_hex_color(hex: &str) -> Option<[u8; 3]> {
     let raw = hex.trim().trim_start_matches('#');
     let normalized: String = match raw.len() {
         3 => raw.chars().flat_map(|c| [c, c]).collect(),
@@ -460,7 +460,7 @@ fn float_samples(image: &mut DynamicImage) -> Option<&mut [f32]> {
     }
 }
 
-fn resize_unclamped(
+pub(crate) fn resize_unclamped(
     mut image: DynamicImage,
     resize: impl Fn(&DynamicImage) -> DynamicImage,
 ) -> DynamicImage {

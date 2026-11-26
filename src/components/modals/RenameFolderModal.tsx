@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { useModalGate } from '../../store/useUIStore';
 
 interface RenameFolderModalProps {
   currentName: string;
@@ -25,6 +26,7 @@ export default function RenameFolderModal({
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  useModalGate(isOpen);
   const [show, setShow] = useState(false);
 
   useEffect(() => {

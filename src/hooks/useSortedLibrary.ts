@@ -1,7 +1,15 @@
 import { useMemo } from 'react';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { RawStatus, EditedStatus, FlagStatus, ImageFlag, SortDirection, ImageFile } from '../types/library';
+import {
+  RawStatus,
+  EditedStatus,
+  FlagStatus,
+  ImageFlag,
+  SortDirection,
+  ImageFile,
+  RatingOperator,
+} from '../types/library';
 import { GroupingMode } from '../types/settings';
 import { buildImageGroups, GroupBadgeInfo, GroupId } from '../utils/imageGrouping';
 
@@ -65,6 +73,30 @@ function usesExif(sortCriteria: { key: string }, searchCriteria: { tags: string[
   });
 }
 
+export const colorLabelOf = (tags: Array<string> | null | undefined) =>
+  tags?.find((tag) => tag.startsWith('color:'))?.substring(6);
+
+export const matchesRatingFilter = (rating: number, filter: number, operator: RatingOperator = 'gte') => {
+  if (filter === -1) return rating === 0;
+  if (filter <= 0) return true;
+  if (operator === 'eq') return rating === filter;
+  if (operator === 'lte') return rating <= filter;
+  return rating >= filter;
+};
+
+export const matchesFlagFilter = (flag: ImageFlag | null, status: FlagStatus | undefined) => {
+  if (status === FlagStatus.Picked) return flag === ImageFlag.Pick;
+  if (status === FlagStatus.ExcludeRejected) return flag !== ImageFlag.Reject;
+  if (status === FlagStatus.Rejected) return flag === ImageFlag.Reject;
+  return true;
+};
+
+export const matchesColorFilter = (tags: Array<string> | null | undefined, colors: Array<string> | undefined) => {
+  if (!colors || colors.length === 0) return true;
+  const color = colorLabelOf(tags);
+  return color ? colors.includes(color) : colors.includes('none');
+};
+
 export interface GroupedLibrary {
   displayList: ImageFile[];
   badges: Map<GroupId, GroupBadgeInfo> | null;
@@ -83,16 +115,8 @@ function computeGroupedLibrary(
   const isGroupingActive = groupingMode !== 'off';
 
   const matchesFilter = (image: ImageFile): boolean => {
-    if (filterCriteria.rating !== 0) {
-      const rating = imageRatings[image.path] || 0;
-      if (filterCriteria.rating === -1 && rating !== 0) return false;
-      if (filterCriteria.rating > 0) {
-        const op = filterCriteria.ratingOperator ?? 'gte';
-        if (op === 'eq' && rating !== filterCriteria.rating) return false;
-        if (op === 'gte' && rating < filterCriteria.rating) return false;
-        if (op === 'lte' && rating > filterCriteria.rating) return false;
-      }
-    }
+    if (!matchesRatingFilter(imageRatings[image.path] || 0, filterCriteria.rating, filterCriteria.ratingOperator))
+      return false;
 
     if (filterCriteria.rawStatus && filterCriteria.rawStatus !== RawStatus.All) {
       if (filterCriteria.rawStatus === RawStatus.RawOnly && !image.is_raw) return false;
@@ -104,21 +128,9 @@ function computeGroupedLibrary(
       if (filterCriteria.editedStatus === EditedStatus.UneditedOnly && image.is_edited) return false;
     }
 
-    if (filterCriteria.flagStatus && filterCriteria.flagStatus !== FlagStatus.All) {
-      if (filterCriteria.flagStatus === FlagStatus.Picked && image.flag !== ImageFlag.Pick) return false;
-      if (filterCriteria.flagStatus === FlagStatus.ExcludeRejected && image.flag === ImageFlag.Reject) return false;
-      if (filterCriteria.flagStatus === FlagStatus.Rejected && image.flag !== ImageFlag.Reject) return false;
-    }
+    if (!matchesFlagFilter(image.flag, filterCriteria.flagStatus)) return false;
 
-    if (filterCriteria.colors && filterCriteria.colors.length > 0) {
-      const imageColor = (image.tags || []).find((tag: string) => tag.startsWith('color:'))?.substring(6);
-      const hasMatchingColor = imageColor && filterCriteria.colors.includes(imageColor);
-      const matchesNone = !imageColor && filterCriteria.colors.includes('none');
-
-      if (!hasMatchingColor && !matchesNone) return false;
-    }
-
-    return true;
+    return matchesColorFilter(image.tags, filterCriteria.colors);
   };
 
   const { tags: searchTags, text: searchText, mode: searchMode } = searchCriteria;

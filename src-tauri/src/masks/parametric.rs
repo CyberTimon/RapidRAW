@@ -23,6 +23,8 @@ struct ParametricMaskParameters {
     flip_vertical: bool,
     #[serde(default)]
     orientation_steps: u8,
+    #[serde(default)]
+    reference: Option<[f32; 3]>,
 }
 
 fn default_tolerance() -> f32 {
@@ -41,8 +43,77 @@ impl Default for ParametricMaskParameters {
             flip_horizontal: false,
             flip_vertical: false,
             orientation_steps: 0,
+            reference: None,
         }
     }
+}
+
+fn color_tolerance_sq(tolerance: f32) -> f32 {
+    (tolerance * 2.55).max(1.0).powi(2) * 3.0
+}
+
+fn luminance_tolerance(tolerance: f32) -> f32 {
+    (tolerance * 2.55).max(1.0)
+}
+
+fn reference_pixel(
+    params: &ParametricMaskParameters,
+    warped: &image::DynamicImage,
+) -> Option<[f32; 3]> {
+    if params.reference.is_some() {
+        return params.reference;
+    }
+    let (full_w, full_h) = warped.dimensions();
+    let target_x = params.target_x.round() as i32;
+    let target_y = params.target_y.round() as i32;
+    if target_x < 0 || target_y < 0 || target_x >= full_w as i32 || target_y >= full_h as i32 {
+        return None;
+    }
+    let pixel = warped.get_pixel(target_x as u32, target_y as u32);
+    Some([pixel[0] as f32, pixel[1] as f32, pixel[2] as f32])
+}
+
+pub enum RangeReference {
+    Color([f32; 3]),
+    Target(f32, f32),
+}
+
+pub struct RangeMask {
+    pub luminance: bool,
+    pub reference: RangeReference,
+    pub tolerance: f32,
+    pub grow: f32,
+    pub feather: f32,
+}
+
+pub fn range_mask(mask_type: &str, params_value: &Value) -> Option<RangeMask> {
+    let luminance = match mask_type {
+        "color" => false,
+        "luminance" => true,
+        _ => return None,
+    };
+    let params: ParametricMaskParameters = serde_json::from_value(params_value.clone()).ok()?;
+    let reference = match params.reference {
+        Some(color) => RangeReference::Color(color),
+        None if params.target_x.round() >= 0.0 && params.target_y.round() >= 0.0 => {
+            RangeReference::Target(
+                params.target_x.round() as f32,
+                params.target_y.round() as f32,
+            )
+        }
+        None => return None,
+    };
+    Some(RangeMask {
+        luminance,
+        reference,
+        tolerance: if luminance {
+            luminance_tolerance(params.tolerance)
+        } else {
+            color_tolerance_sq(params.tolerance)
+        },
+        grow: params.grow,
+        feather: params.feather,
+    })
 }
 
 pub fn generate_color_bitmap(
@@ -57,16 +128,7 @@ pub fn generate_color_bitmap(
     let warped = warped_image?;
     let (full_w, full_h) = warped.dimensions();
 
-    let target_x = params.target_x.round() as i32;
-    let target_y = params.target_y.round() as i32;
-    if target_x < 0 || target_y < 0 || target_x >= full_w as i32 || target_y >= full_h as i32 {
-        return None;
-    }
-
-    let ref_pixel = warped.get_pixel(target_x as u32, target_y as u32);
-    let ref_r = ref_pixel[0] as f32;
-    let ref_g = ref_pixel[1] as f32;
-    let ref_b = ref_pixel[2] as f32;
+    let [ref_r, ref_g, ref_b] = reference_pixel(&params, warped)?;
 
     let mut mask = GrayImage::new(width, height);
 
@@ -85,7 +147,7 @@ pub fn generate_color_bitmap(
     let center_x = scaled_coarse_rotated_w / 2.0;
     let center_y = scaled_coarse_rotated_h / 2.0;
 
-    let tolerance_sq = (params.tolerance * 2.55).max(1.0).powi(2) * 3.0;
+    let tolerance_sq = color_tolerance_sq(params.tolerance);
     let inv_scale = 1.0 / scale;
 
     for_each_mask_row(&mut mask, |y_out, row| {
@@ -158,15 +220,8 @@ pub fn generate_luminance_bitmap(
     let warped = warped_image?;
     let (full_w, full_h) = warped.dimensions();
 
-    let target_x = params.target_x.round() as i32;
-    let target_y = params.target_y.round() as i32;
-    if target_x < 0 || target_y < 0 || target_x >= full_w as i32 || target_y >= full_h as i32 {
-        return None;
-    }
-
-    let ref_pixel = warped.get_pixel(target_x as u32, target_y as u32);
-    let ref_luma =
-        0.299 * ref_pixel[0] as f32 + 0.587 * ref_pixel[1] as f32 + 0.114 * ref_pixel[2] as f32;
+    let ref_pixel = reference_pixel(&params, warped)?;
+    let ref_luma = 0.299 * ref_pixel[0] + 0.587 * ref_pixel[1] + 0.114 * ref_pixel[2];
 
     let mut mask = GrayImage::new(width, height);
 
@@ -185,7 +240,7 @@ pub fn generate_luminance_bitmap(
     let center_x = scaled_coarse_rotated_w / 2.0;
     let center_y = scaled_coarse_rotated_h / 2.0;
 
-    let tolerance_val = (params.tolerance * 2.55).max(1.0);
+    let tolerance_val = luminance_tolerance(params.tolerance);
     let inv_scale = 1.0 / scale;
 
     for_each_mask_row(&mut mask, |y_out, row| {

@@ -1,10 +1,16 @@
 use glam::Vec3;
-use image::{DynamicImage, GenericImageView, Rgb32FImage, RgbImage};
+use image::{DynamicImage, GenericImageView, Rgb32FImage, RgbImage, Rgba32FImage};
 use rayon::prelude::*;
 use std::sync::OnceLock;
 
 use crate::render::agx::agx;
 use crate::render::color_space::{OutputTransform, srgb_transfer};
+
+#[inline]
+pub fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
+    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
+    t * t * (3.0 - 2.0 * t)
+}
 
 pub fn downscale_f32_image(image: &DynamicImage, nwidth: u32, nheight: u32) -> DynamicImage {
     downscale_f32_image_if_needed(image, nwidth, nheight).unwrap_or_else(|| image.clone())
@@ -45,116 +51,25 @@ pub fn downscale_f32_image_if_needed(
 ) -> Option<DynamicImage> {
     let start = std::time::Instant::now();
 
-    let (width, height) = image.dimensions();
-    let (new_w, new_h) = fitted_size((width, height), (nwidth, nheight))?;
-
-    let x_ratio = width as f32 / new_w as f32;
-    let y_ratio = height as f32 / new_h as f32;
-    let width_usize = width as usize;
-
-    let mut x_bounds = Vec::with_capacity(new_w as usize);
-    let mut x_weights = Vec::new();
-    for x_out in 0..new_w as usize {
-        let x_start = x_out as f32 * x_ratio;
-        let x_end = (x_out + 1) as f32 * x_ratio;
-        let x_in_start = x_start.floor() as usize;
-        let x_in_end = (x_end.ceil() as usize).min(width as usize);
-
-        let weight_start_idx = x_weights.len();
-        let mut w_sum = 0.0;
-        let mut tmp_w = Vec::with_capacity(x_in_end.saturating_sub(x_in_start));
-
-        let mut actual_start = x_in_end;
-        let mut actual_end = x_in_start;
-
-        for x_in in x_in_start..x_in_end {
-            let overlap_start = x_start.max(x_in as f32);
-            let overlap_end = x_end.min((x_in + 1) as f32);
-            let w = (overlap_end - overlap_start).max(0.0);
-            if w > 0.0 {
-                actual_start = actual_start.min(x_in);
-                actual_end = actual_end.max(x_in + 1);
-                tmp_w.push(w);
-                w_sum += w;
-            }
-        }
-
-        if w_sum > 0.0 {
-            let inv_w = 1.0 / w_sum;
-            for w in tmp_w {
-                x_weights.push(w * inv_w);
-            }
-            x_bounds.push((actual_start, actual_end, weight_start_idx));
-        } else {
-            x_bounds.push((0, 0, weight_start_idx));
-        }
-    }
-
-    let mut y_bounds = Vec::with_capacity(new_h as usize);
-    let mut y_weights = Vec::new();
-    for y_out in 0..new_h as usize {
-        let y_start = y_out as f32 * y_ratio;
-        let y_end = (y_out + 1) as f32 * y_ratio;
-        let y_in_start = y_start.floor() as usize;
-        let y_in_end = (y_end.ceil() as usize).min(height as usize);
-
-        let weight_start_idx = y_weights.len();
-        let mut w_sum = 0.0;
-        let mut tmp_w = Vec::with_capacity(y_in_end.saturating_sub(y_in_start));
-
-        let mut actual_start = y_in_end;
-        let mut actual_end = y_in_start;
-
-        for y_in in y_in_start..y_in_end {
-            let overlap_start = y_start.max(y_in as f32);
-            let overlap_end = y_end.min((y_in + 1) as f32);
-            let w = (overlap_end - overlap_start).max(0.0);
-            if w > 0.0 {
-                actual_start = actual_start.min(y_in);
-                actual_end = actual_end.max(y_in + 1);
-                tmp_w.push(w);
-                w_sum += w;
-            }
-        }
-
-        if w_sum > 0.0 {
-            let inv_w = 1.0 / w_sum;
-            for w in tmp_w {
-                y_weights.push(w * inv_w);
-            }
-            y_bounds.push((actual_start, actual_end, weight_start_idx));
-        } else {
-            y_bounds.push((0, 0, weight_start_idx));
-        }
-    }
-
-    let mut out_buf = vec![0.0f32; (new_w * new_h * 3) as usize];
-    let filter = BoxFilter {
-        width_usize,
-        new_w,
-        x_bounds: &x_bounds,
-        x_weights: &x_weights,
-        y_bounds: &y_bounds,
-        y_weights: &y_weights,
-    };
-
-    match image {
-        DynamicImage::ImageRgb32F(rgb) => filter.run::<3, f32>(rgb.as_raw(), |v| v, &mut out_buf),
+    let filter = BoxFilter::new(image.dimensions(), (nwidth, nheight))?;
+    let out_buf = match image {
+        DynamicImage::ImageRgb32F(rgb) => filter.run::<3, 3, f32>(rgb.as_raw(), |v| v),
         DynamicImage::ImageRgb8(rgb) => {
             let lut = u8_to_f32_lut();
-            filter.run::<3, u8>(rgb.as_raw(), |v| lut[v as usize], &mut out_buf)
+            filter.run::<3, 3, u8>(rgb.as_raw(), |v| lut[v as usize])
         }
         DynamicImage::ImageRgba8(rgba) => {
             let lut = u8_to_f32_lut();
-            filter.run::<4, u8>(rgba.as_raw(), |v| lut[v as usize], &mut out_buf)
+            filter.run::<4, 3, u8>(rgba.as_raw(), |v| lut[v as usize])
         }
         _ => {
             let converted = image.to_rgb32f();
-            filter.run::<3, f32>(converted.as_raw(), |v| v, &mut out_buf)
+            filter.run::<3, 3, f32>(converted.as_raw(), |v| v)
         }
-    }
+    };
 
-    let out = Rgb32FImage::from_raw(new_w, new_h, out_buf).expect("buffer size mismatch");
+    let out =
+        Rgb32FImage::from_raw(filter.new_w, filter.new_h, out_buf).expect("buffer size mismatch");
     let result = DynamicImage::ImageRgb32F(out);
 
     log::info!("downscale_f32_image took {:.2?}", start.elapsed());
@@ -162,44 +77,151 @@ pub fn downscale_f32_image_if_needed(
     Some(result)
 }
 
-struct BoxFilter<'a> {
-    width_usize: usize,
-    new_w: u32,
-    x_bounds: &'a [(usize, usize, usize)],
-    x_weights: &'a [f32],
-    y_bounds: &'a [(usize, usize, usize)],
-    y_weights: &'a [f32],
+const BAND_FLOATS: usize = 1 << 24;
+
+pub fn downscale_rgba32f(
+    size: (u32, u32),
+    target: (u32, u32),
+    fill_row: impl Fn(usize, &mut [f32]) + Sync,
+) -> Option<Rgba32FImage> {
+    let filter = BoxFilter::new(size, target)?;
+    let row_len = filter.width_usize * 4;
+    let out_len = filter.new_w as usize * 4;
+    let band_rows = (BAND_FLOATS / row_len).max(1);
+    let mut out_buf = vec![0.0f32; out_len * filter.new_h as usize];
+    let mut band = Vec::new();
+    let mut done = 0;
+    while done < filter.new_h as usize {
+        let start = filter.y_bounds[done].0;
+        let rows = filter.y_bounds[done..]
+            .iter()
+            .take_while(|bounds| bounds.1 <= start + band_rows)
+            .count()
+            .max(1);
+        let end = filter.y_bounds[done + rows - 1].1;
+        band.resize((end - start) * row_len, 0.0);
+        band.par_chunks_exact_mut(row_len)
+            .enumerate()
+            .for_each(|(offset, line)| fill_row(start + offset, line));
+        filter.run_rows::<4, 4, f32>(
+            &mut out_buf[done * out_len..(done + rows) * out_len],
+            done,
+            &band,
+            start,
+            |v| v,
+        );
+        done += rows;
+    }
+    Rgba32FImage::from_raw(filter.new_w, filter.new_h, out_buf)
 }
 
-impl BoxFilter<'_> {
-    fn run<const C: usize, T: Copy + Sync>(
+type AxisBounds = Vec<(usize, usize, usize)>;
+
+fn axis_weights(length: u32, new_length: u32) -> (AxisBounds, Vec<f32>) {
+    let ratio = length as f32 / new_length as f32;
+    let mut bounds = Vec::with_capacity(new_length as usize);
+    let mut weights = Vec::new();
+    for out in 0..new_length as usize {
+        let start = out as f32 * ratio;
+        let end = (out + 1) as f32 * ratio;
+        let in_start = start.floor() as usize;
+        let in_end = (end.ceil() as usize).min(length as usize);
+
+        let weight_start_idx = weights.len();
+        let mut w_sum = 0.0;
+        let mut tmp_w = Vec::with_capacity(in_end.saturating_sub(in_start));
+
+        let mut actual_start = in_end;
+        let mut actual_end = in_start;
+
+        for input in in_start..in_end {
+            let overlap_start = start.max(input as f32);
+            let overlap_end = end.min((input + 1) as f32);
+            let w = (overlap_end - overlap_start).max(0.0);
+            if w > 0.0 {
+                actual_start = actual_start.min(input);
+                actual_end = actual_end.max(input + 1);
+                tmp_w.push(w);
+                w_sum += w;
+            }
+        }
+
+        if w_sum > 0.0 {
+            let inv_w = 1.0 / w_sum;
+            for w in tmp_w {
+                weights.push(w * inv_w);
+            }
+            bounds.push((actual_start, actual_end, weight_start_idx));
+        } else {
+            bounds.push((0, 0, weight_start_idx));
+        }
+    }
+    (bounds, weights)
+}
+
+struct BoxFilter {
+    width_usize: usize,
+    new_w: u32,
+    new_h: u32,
+    x_bounds: AxisBounds,
+    x_weights: Vec<f32>,
+    y_bounds: AxisBounds,
+    y_weights: Vec<f32>,
+}
+
+impl BoxFilter {
+    fn new(size: (u32, u32), target: (u32, u32)) -> Option<Self> {
+        let (new_w, new_h) = fitted_size(size, target)?;
+        let (x_bounds, x_weights) = axis_weights(size.0, new_w);
+        let (y_bounds, y_weights) = axis_weights(size.1, new_h);
+        Some(Self {
+            width_usize: size.0 as usize,
+            new_w,
+            new_h,
+            x_bounds,
+            x_weights,
+            y_bounds,
+            y_weights,
+        })
+    }
+
+    fn run<const C: usize, const O: usize, T: Copy + Sync>(
         &self,
         src: &[T],
         to_f32: impl Fn(T) -> f32 + Sync,
-        out_buf: &mut [f32],
+    ) -> Vec<f32> {
+        let mut out_buf = vec![0.0f32; self.new_w as usize * self.new_h as usize * O];
+        self.run_rows::<C, O, T>(&mut out_buf, 0, src, 0, to_f32);
+        out_buf
+    }
+
+    fn run_rows<const C: usize, const O: usize, T: Copy + Sync>(
+        &self,
+        out: &mut [f32],
+        first_out: usize,
+        src: &[T],
+        first_in: usize,
+        to_f32: impl Fn(T) -> f32 + Sync,
     ) {
         let width_usize = self.width_usize;
-        out_buf
-            .par_chunks_exact_mut(self.new_w as usize * 3)
+        out.par_chunks_exact_mut(self.new_w as usize * O)
             .enumerate()
-            .for_each(|(y_out, row)| {
-                let (y_in_start, y_in_end, y_wt_offset) = self.y_bounds[y_out];
+            .for_each(|(index, row)| {
+                let (y_in_start, y_in_end, y_wt_offset) = self.y_bounds[first_out + index];
                 let y_len = y_in_end - y_in_start;
                 let y_wts = &self.y_weights[y_wt_offset..y_wt_offset + y_len];
 
                 for (x_out, &(x_in_start, x_in_end, x_wt_offset)) in
                     self.x_bounds.iter().enumerate()
                 {
-                    let mut r_sum = 0.0;
-                    let mut g_sum = 0.0;
-                    let mut b_sum = 0.0;
+                    let mut sums = [0.0f32; O];
 
                     let x_len = x_in_end - x_in_start;
                     let x_wts = &self.x_weights[x_wt_offset..x_wt_offset + x_len];
 
                     for (dy, &w_y) in y_wts.iter().enumerate() {
                         let y_in = y_in_start + dy;
-                        let row_offset = y_in * width_usize * C;
+                        let row_offset = (y_in - first_in) * width_usize * C;
 
                         let src_start = row_offset + x_in_start * C;
                         let src_end = row_offset + x_in_end * C;
@@ -207,22 +229,13 @@ impl BoxFilter<'_> {
 
                         for (&w_x, chunk) in x_wts.iter().zip(src_slice.as_chunks::<C>().0) {
                             let w = w_x * w_y;
-
-                            let r = to_f32(chunk[0]).max(0.0);
-                            let g = to_f32(chunk[1]).max(0.0);
-                            let b = to_f32(chunk[2]).max(0.0);
-
-                            r_sum += r * w;
-                            g_sum += g * w;
-                            b_sum += b * w;
+                            for (sum, &value) in sums.iter_mut().zip(chunk) {
+                                *sum += to_f32(value).max(0.0) * w;
+                            }
                         }
                     }
 
-                    let out_idx = x_out * 3;
-
-                    row[out_idx] = r_sum;
-                    row[out_idx + 1] = g_sum;
-                    row[out_idx + 2] = b_sum;
+                    row[x_out * O..(x_out + 1) * O].copy_from_slice(&sums);
                 }
             });
     }

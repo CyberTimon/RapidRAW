@@ -135,6 +135,9 @@
   ::-webkit-scrollbar-track {
     background: transparent;
   }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
   ::-webkit-scrollbar-thumb {
     background-color: var(--color-text-secondary);
     border-radius: 10px;

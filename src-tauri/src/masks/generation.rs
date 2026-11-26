@@ -15,8 +15,10 @@ use crate::masks::ai::{
 use crate::masks::match_brush::generate_match_brush_bitmap;
 use crate::masks::parametric::{generate_color_bitmap, generate_luminance_bitmap};
 use crate::masks::shapes::{
-    generate_brush_bitmap, generate_flow_bitmap, generate_linear_bitmap, generate_radial_bitmap,
+    generate_brush_bitmap, generate_flow_bitmap, generate_linear_bitmap, generate_pen_bitmap,
+    generate_radial_bitmap, generate_rectangle_bitmap,
 };
+use crate::masks::transform::{TransformParams, output_to_source};
 use crate::render::geometry::apply_geometry_warp;
 use crate::render::image_processing::{
     apply_cpu_default_raw_processing, working_display_image_to_srgb8,
@@ -104,7 +106,7 @@ fn generate_all_bitmap(width: u32, height: u32) -> GrayImage {
     GrayImage::from_pixel(width, height, Luma([255]))
 }
 
-fn generate_sub_mask_bitmap(
+pub fn generate_sub_mask_bitmap(
     sub_mask: &SubMask,
     width: u32,
     height: u32,
@@ -125,6 +127,20 @@ fn generate_sub_mask_bitmap(
             crop_offset,
         )),
         "linear" => Some(generate_linear_bitmap(
+            &sub_mask.parameters,
+            width,
+            height,
+            scale,
+            crop_offset,
+        )),
+        "rectangle" => Some(generate_rectangle_bitmap(
+            &sub_mask.parameters,
+            width,
+            height,
+            scale,
+            crop_offset,
+        )),
+        "pen" => Some(generate_pen_bitmap(
             &sub_mask.parameters,
             width,
             height,
@@ -246,7 +262,38 @@ pub fn generate_mask_bitmap(
     Some(final_mask)
 }
 
+#[derive(serde::Deserialize)]
+pub struct MaskFrame {
+    time: f64,
+    width: u32,
+    height: u32,
+}
+
+fn mask_at_frame(
+    app_handle: &tauri::AppHandle,
+    state: &AppState,
+    mask_def: Value,
+    orientation: Value,
+    frame: &MaskFrame,
+) -> Value {
+    let path = state
+        .original_image
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .as_ref()
+        .map(|loaded| loaded.lens_path().to_string())
+        .unwrap_or_default();
+    let mut look = serde_json::json!({ "orientationSteps": orientation });
+    look["masks"] = Value::Array(vec![mask_def]);
+    let size = (frame.width, frame.height);
+    match crate::video::engine::look::masks_at(app_handle, &path, &look, frame.time, size) {
+        Some(mut masks) => masks[0].take(),
+        None => look["masks"][0].take(),
+    }
+}
+
 #[tauri::command(async)]
+#[allow(clippy::too_many_arguments)]
 pub fn generate_mask_overlay(
     mut mask_def: serde_json::Value,
     width: u32,
@@ -254,7 +301,9 @@ pub fn generate_mask_overlay(
     scale: f32,
     crop_offset: (f32, f32),
     mut js_adjustments: Option<serde_json::Value>,
+    source_frame: Option<MaskFrame>,
     state: tauri::State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<Response, String> {
     if let Some(ref mut adj) = js_adjustments {
         crate::render::adjustment_utils::hydrate_adjustments(&state, adj);
@@ -263,6 +312,13 @@ pub fn generate_mask_overlay(
     if let Some(sub_masks) = mask_def.get_mut("subMasks").and_then(|v| v.as_array_mut()) {
         let mut cache = state.patch_cache.lock().unwrap_or_else(|e| e.into_inner());
         crate::render::adjustment_utils::hydrate_sub_masks(sub_masks, &mut cache);
+    }
+
+    if let Some(frame) = &source_frame {
+        let orientation = js_adjustments.as_ref().map_or(Value::Null, |adjustments| {
+            adjustments["orientationSteps"].clone()
+        });
+        mask_def = mask_at_frame(&app_handle, &state, mask_def, orientation, frame);
     }
 
     let parsed_mask_def: MaskDefinition = serde_json::from_value(mask_def)
@@ -305,6 +361,38 @@ pub fn generate_mask_overlay(
     } else {
         Ok(Response::new(Vec::new()))
     }
+}
+
+#[tauri::command(async)]
+pub fn sample_mask_reference(
+    mut js_adjustments: Value,
+    x: f32,
+    y: f32,
+    state: tauri::State<'_, AppState>,
+) -> Result<Option<[u8; 3]>, String> {
+    crate::render::adjustment_utils::hydrate_adjustments(&state, &mut js_adjustments);
+    let warped = get_cached_full_warped_image(&state, &js_adjustments)?;
+    let (width, height) = warped.dimensions();
+    let frame = crate::render::source::Frame::from_adjustments(&js_adjustments);
+    let transform = TransformParams {
+        rotation: frame.rotation,
+        flip_horizontal: frame.flip_horizontal,
+        flip_vertical: frame.flip_vertical,
+        orientation_steps: frame.orientation,
+        width,
+        height,
+        scale: 1.0,
+        crop_offset: (0.0, 0.0),
+    };
+    let (source_x, source_y) = output_to_source(&transform, width, height)(x, y);
+    let inside = source_x >= 0.0
+        && source_y >= 0.0
+        && (source_x as u32) < width
+        && (source_y as u32) < height;
+    Ok(inside.then(|| {
+        let pixel = warped.get_pixel(source_x as u32, source_y as u32);
+        [pixel[0], pixel[1], pixel[2]]
+    }))
 }
 
 pub fn resolve_warped_image_for_masks(

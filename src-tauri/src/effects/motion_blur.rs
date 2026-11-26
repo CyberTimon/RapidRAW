@@ -47,6 +47,11 @@ const SEGMENTED_TYPES: [&str; 6] = [
 ];
 const DEFAULT_HIGHLIGHTS: f64 = 30.0;
 const DEFAULT_DEPTH: f64 = 50.0;
+const DEFAULT_SHUTTER: f64 = 180.0;
+const MAX_SHUTTER: f32 = 720.0;
+const SHUTTER_TYPE: &str = "shutter";
+const FIELD_PASSES: u32 = 3;
+const LAYER_UNIFORM: u32 = 2;
 const AMOUNT_GAMMA: f32 = 1.5;
 const TAPS: f32 = 8.0;
 const AUTO_BORDER_SHARE: f32 = 0.5;
@@ -59,6 +64,7 @@ const GRAIN_PERCENTILE: f32 = 0.1;
 const GRAIN_RESIDUAL_GAIN: f32 = 1.118;
 const WORKGROUP: u32 = 8;
 const FILL_DIV: u32 = 4;
+const KIND_FLOW: u32 = 3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MotionKind {
@@ -115,9 +121,32 @@ fn percent(value: &Value, default: f64) -> f32 {
     (value.as_f64().unwrap_or(default) as f32 / 100.0).clamp(0.0, 1.0)
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Shutter {
+    pub angle: f32,
+    pub highlights: f32,
+    pub footage: bool,
+}
+
+pub fn shutter(adj: &Value) -> Option<Shutter> {
+    let angle =
+        (adj["motionBlurShutter"].as_f64().unwrap_or(DEFAULT_SHUTTER) as f32).min(MAX_SHUTTER);
+    (adj["motionBlurType"].as_str() == Some(SHUTTER_TYPE)
+        && angle > 0.0
+        && is_tool_active(adj, "motionBlur"))
+    .then(|| Shutter {
+        angle,
+        highlights: percent(&adj["motionBlurHighlights"], DEFAULT_HIGHLIGHTS),
+        footage: adj["motionBlurFootage"].as_bool().unwrap_or(true),
+    })
+}
+
 fn motion_blur(adj: &Value, mask: Option<usize>, segmented: bool) -> Option<MotionBlur> {
     let amount = percent(&adj["motionBlurAmount"], 0.0);
-    if amount <= 0.0 || !is_tool_active(adj, "motionBlur") {
+    if amount <= 0.0
+        || !is_tool_active(adj, "motionBlur")
+        || adj["motionBlurType"].as_str() == Some(SHUTTER_TYPE)
+    {
         return None;
     }
 
@@ -282,25 +311,10 @@ pub fn estimate_grain(
             .copy_buffer_to_buffer(&energies, 0, &readback, 0, bytes);
     })?;
 
-    let (tx, rx) = std::sync::mpsc::channel();
-    readback
-        .slice(..)
-        .map_async(wgpu::MapMode::Read, move |result| {
-            let _ = tx.send(result);
-        });
-    context
-        .device
-        .poll(wgpu::PollType::Wait {
-            submission_index: None,
-            timeout: Some(std::time::Duration::from_secs(10)),
-        })
-        .map_err(|e| e.to_string())?;
-    rx.recv()
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
     let mut energies: Vec<f32> =
-        bytemuck::cast_slice(&readback.slice(..).get_mapped_range()).to_vec();
-    readback.unmap();
+        crate::render::gpu::processor::read_buffer(context, &readback, |bytes| {
+            bytemuck::cast_slice(bytes).to_vec()
+        })?;
     Ok(grain_from_blocks(&mut energies))
 }
 
@@ -831,7 +845,9 @@ struct MotionParams {
     seed: u32,
     guard: f32,
     channel: u32,
-    _pad: [u32; 3],
+    zoom: f32,
+    turn: f32,
+    _pad: u32,
 }
 
 impl MotionParams {
@@ -861,7 +877,9 @@ impl MotionParams {
             seed: plan.mask.map_or(0, |index| index as u32 + 1),
             guard: plan.guard,
             channel: ALPHA_CHANNEL,
-            _pad: [0; 3],
+            zoom: 0.0,
+            turn: 0.0,
+            _pad: 0,
         }
     }
 }
@@ -875,11 +893,14 @@ pub struct MotionBlurPipelines {
     push: wgpu::ComputePipeline,
     source: wgpu::ComputePipeline,
     cascade: wgpu::ComputePipeline,
+    field: wgpu::ComputePipeline,
+    sweep: wgpu::ComputePipeline,
     composite: wgpu::ComputePipeline,
     pack: wgpu::ComputePipeline,
     mask_source: wgpu::ComputePipeline,
     sampler: wgpu::Sampler,
     dummy_view: wgpu::TextureView,
+    dummy_layers: wgpu::TextureView,
     dummy_storage_view: wgpu::TextureView,
     dummy_buffer: wgpu::Buffer,
     no_spins: wgpu::Buffer,
@@ -980,6 +1001,8 @@ impl MotionBlurPipelines {
             push: pipeline("mb_push"),
             source: pipeline("mb_source"),
             cascade: pipeline("mb_cascade"),
+            field: pipeline("mb_field"),
+            sweep: pipeline("mb_front"),
             composite: pipeline("mb_composite"),
             pack: pipeline("mb_pack"),
             mask_source: pipeline("mb_mask_source"),
@@ -995,6 +1018,12 @@ impl MotionBlurPipelines {
             dummy_view: device
                 .create_texture(&dummy_desc)
                 .create_view(&Default::default()),
+            dummy_layers: device.create_texture(&dummy_desc).create_view(
+                &wgpu::TextureViewDescriptor {
+                    dimension: Some(wgpu::TextureViewDimension::D2Array),
+                    ..Default::default()
+                },
+            ),
             dummy_storage_view: device
                 .create_texture(&wgpu::TextureDescriptor {
                     usage: wgpu::TextureUsages::STORAGE_BINDING,
@@ -1043,6 +1072,174 @@ impl MotionBlurPipelines {
             )
             .create_view(&Default::default())
     }
+
+    fn record(
+        &self,
+        device: &wgpu::Device,
+        encoder: &mut wgpu::CommandEncoder,
+        d: Dispatch,
+        masks: &wgpu::TextureView,
+        depth: &wgpu::TextureView,
+    ) {
+        let params = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Motion Blur Params"),
+            contents: bytemuck::bytes_of(&d.params),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
+        fn view(binding: u32, view: &wgpu::TextureView) -> wgpu::BindGroupEntry<'_> {
+            wgpu::BindGroupEntry {
+                binding,
+                resource: wgpu::BindingResource::TextureView(view),
+            }
+        }
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("Motion Blur BG"),
+            layout: &self.bgl,
+            entries: &[
+                view(0, d.src),
+                view(1, d.aux.unwrap_or(&self.dummy_view)),
+                view(2, d.mask.unwrap_or(masks)),
+                view(3, d.dst.unwrap_or(&self.dummy_storage_view)),
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: params.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: d.packed.unwrap_or(&self.dummy_buffer).as_entire_binding(),
+                },
+                view(7, d.fill.unwrap_or(&self.dummy_view)),
+                wgpu::BindGroupEntry {
+                    binding: 8,
+                    resource: d.spins.unwrap_or(&self.no_spins).as_entire_binding(),
+                },
+                view(9, depth),
+                view(10, d.front.unwrap_or(&self.dummy_view)),
+            ],
+        });
+        let mut pass = encoder.begin_compute_pass(&Default::default());
+        pass.set_pipeline(d.pipeline);
+        pass.set_bind_group(0, &bind_group, &[]);
+        pass.dispatch_workgroups(
+            d.size.0.div_ceil(WORKGROUP),
+            d.size.1.div_ceil(WORKGROUP),
+            1,
+        );
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Flow {
+    pub zoom: f32,
+    pub turn: f32,
+    pub drift: [f32; 2],
+    pub reach: f32,
+}
+
+pub fn flow_blur(
+    pipelines: &MotionBlurPipelines,
+    device: &wgpu::Device,
+    encoder: &mut wgpu::CommandEncoder,
+    flow: Flow,
+    views: [&wgpu::TextureView; 2],
+    size: (u32, u32),
+) -> usize {
+    let stroke = Stroke::new(flow.drift, 1.0, flow.reach);
+    let base = MotionParams {
+        kind: KIND_FLOW,
+        mask_layer: FULL_FRAME,
+        zoom: flow.zoom,
+        turn: flow.turn,
+        ..bytemuck::Zeroable::zeroed()
+    };
+    run_strokes(stroke.as_slice(), base, (0, 1), |params, from, to| {
+        pipelines.record(
+            device,
+            encoder,
+            Dispatch::new(&pipelines.cascade, params, views[from], size).to(views[to]),
+            &pipelines.dummy_layers,
+            &pipelines.dummy_view,
+        )
+    })
+    .0
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn shutter_blur(
+    pipelines: &MotionBlurPipelines,
+    device: &wgpu::Device,
+    encoder: &mut wgpu::CommandEncoder,
+    input: &wgpu::TextureView,
+    [field, front]: [&wgpu::TextureView; 2],
+    views: [&wgpu::TextureView; 3],
+    size: (u32, u32),
+    highlights: f32,
+) {
+    let base = MotionParams {
+        strength: 1.0,
+        scale: 1.0,
+        gain: highlights * MAX_HIGHLIGHT_GAIN,
+        layer: LAYER_UNIFORM,
+        mask_layer: FULL_FRAME,
+        ..bytemuck::Zeroable::zeroed()
+    };
+    let mut record = |pipeline: &wgpu::ComputePipeline,
+                      params: MotionParams,
+                      src: &wgpu::TextureView,
+                      aux: Option<&wgpu::TextureView>,
+                      dst: &wgpu::TextureView| {
+        pipelines.record(
+            device,
+            encoder,
+            Dispatch {
+                aux,
+                fill: Some(field),
+                front: Some(front),
+                ..Dispatch::new(pipeline, params, src, size).to(dst)
+            },
+            &pipelines.dummy_layers,
+            &pipelines.dummy_view,
+        )
+    };
+    record(&pipelines.source, base, input, None, views[0]);
+    let (mut from, mut to) = (0, 1);
+    for index in 0..FIELD_PASSES {
+        let params = MotionParams {
+            spacing: TAPS.powi((FIELD_PASSES - index) as i32).recip(),
+            ..base
+        };
+        record(&pipelines.field, params, views[from], None, views[to]);
+        std::mem::swap(&mut from, &mut to);
+    }
+    record(&pipelines.sweep, base, views[from], None, views[to]);
+    record(&pipelines.composite, base, input, Some(views[to]), views[2]);
+}
+
+fn run_strokes(
+    strokes: &[Stroke],
+    base: MotionParams,
+    (mut a, mut b): (usize, usize),
+    mut pass: impl FnMut(MotionParams, usize, usize),
+) -> (usize, usize) {
+    for stroke in strokes {
+        for index in 0..stroke.passes {
+            pass(
+                MotionParams {
+                    axis: stroke.axis,
+                    spacing: stroke.total / TAPS.powi((stroke.passes - index) as i32),
+                    ..base
+                },
+                a,
+                b,
+            );
+            std::mem::swap(&mut a, &mut b);
+        }
+    }
+    (a, b)
 }
 
 pub struct MotionBlurOutput {
@@ -1233,57 +1430,7 @@ pub fn render(
 
     let depth_view = depth.map_or(&pipelines.dummy_view, |(view, _)| view);
     let dispatch = |encoder: &mut wgpu::CommandEncoder, d: Dispatch| {
-        let params = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Motion Blur Params"),
-            contents: bytemuck::bytes_of(&d.params),
-            usage: wgpu::BufferUsages::UNIFORM,
-        });
-        fn view(binding: u32, view: &wgpu::TextureView) -> wgpu::BindGroupEntry<'_> {
-            wgpu::BindGroupEntry {
-                binding,
-                resource: wgpu::BindingResource::TextureView(view),
-            }
-        }
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Motion Blur BG"),
-            layout: &pipelines.bgl,
-            entries: &[
-                view(0, d.src),
-                view(1, d.aux.unwrap_or(&pipelines.dummy_view)),
-                view(2, d.mask.unwrap_or(mask_view)),
-                view(3, d.dst.unwrap_or(&pipelines.dummy_storage_view)),
-                wgpu::BindGroupEntry {
-                    binding: 4,
-                    resource: params.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 5,
-                    resource: wgpu::BindingResource::Sampler(&pipelines.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 6,
-                    resource: d
-                        .packed
-                        .unwrap_or(&pipelines.dummy_buffer)
-                        .as_entire_binding(),
-                },
-                view(7, d.fill.unwrap_or(&pipelines.dummy_view)),
-                wgpu::BindGroupEntry {
-                    binding: 8,
-                    resource: d.spins.unwrap_or(&pipelines.no_spins).as_entire_binding(),
-                },
-                view(9, depth_view),
-                view(10, d.front.unwrap_or(&pipelines.dummy_view)),
-            ],
-        });
-        let mut pass = encoder.begin_compute_pass(&Default::default());
-        pass.set_pipeline(d.pipeline);
-        pass.set_bind_group(0, &bind_group, &[]);
-        pass.dispatch_workgroups(
-            d.size.0.div_ceil(WORKGROUP),
-            d.size.1.div_ceil(WORKGROUP),
-            1,
-        );
+        pipelines.record(device, encoder, d, mask_view, depth_view)
     };
     let pack_into = |encoder: &mut wgpu::CommandEncoder,
                      params: MotionParams,
@@ -1433,26 +1580,17 @@ pub fn render(
             _ => (None, None),
         };
 
-        let cascade = |encoder: &mut wgpu::CommandEncoder, (mut a, mut b): (usize, usize)| {
-            for stroke in &plan.strokes {
-                for pass in 0..stroke.passes {
-                    let params = MotionParams {
-                        axis: stroke.axis,
-                        spacing: stroke.total / TAPS.powi((stroke.passes - pass) as i32),
-                        ..base
-                    };
-                    run(
-                        encoder,
-                        Dispatch {
-                            spins: spins.as_ref(),
-                            ..Dispatch::new(&pipelines.cascade, params, &pool[a].1, (width, height))
-                                .to(&pool[b].1)
-                        },
-                    );
-                    std::mem::swap(&mut a, &mut b);
-                }
-            }
-            (a, b)
+        let cascade = |encoder: &mut wgpu::CommandEncoder, pair: (usize, usize)| {
+            run_strokes(&plan.strokes, base, pair, |params, a, b| {
+                run(
+                    encoder,
+                    Dispatch {
+                        spins: spins.as_ref(),
+                        ..Dispatch::new(&pipelines.cascade, params, &pool[a].1, (width, height))
+                            .to(&pool[b].1)
+                    },
+                )
+            })
         };
 
         if let (None, Some(masks)) = (plan.mask, &blurred_mask_view) {

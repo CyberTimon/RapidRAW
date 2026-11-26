@@ -281,6 +281,13 @@ pub fn get_or_init_gpu_context(
     {
         required_features |= wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
     }
+    if adapter_info.device_type == wgpu::DeviceType::IntegratedGpu
+        && adapter
+            .features()
+            .contains(wgpu::Features::MAPPABLE_PRIMARY_BUFFERS)
+    {
+        required_features |= wgpu::Features::MAPPABLE_PRIMARY_BUFFERS;
+    }
 
     let limits = adapter.limits();
 
@@ -323,6 +330,7 @@ pub fn get_or_init_gpu_context(
         viewer_display: Arc::new(std::sync::Mutex::new(None)),
         pipelines: Arc::new(std::sync::OnceLock::new()),
         compute: Arc::new(std::sync::OnceLock::new()),
+        motion_blur: Arc::new(std::sync::OnceLock::new()),
     };
     if !new_context.shares_one_gl_context() {
         let warm = new_context.clone();
@@ -349,6 +357,7 @@ pub struct GpuContext {
     pub viewer_display: Arc<std::sync::Mutex<Option<WgpuDisplay>>>,
     pub pipelines: Arc<OnceLock<Arc<GpuPipelines>>>,
     pub compute: Arc<OnceLock<crate::render::gpu::compute::ComputePipelines>>,
+    pub motion_blur: Arc<OnceLock<crate::effects::motion_blur::MotionBlurPipelines>>,
 }
 
 impl GpuContext {

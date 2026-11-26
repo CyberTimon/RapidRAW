@@ -1,7 +1,7 @@
 use crate::app::settings::{AppSettings, load_settings};
 use crate::app::state::{AppState, ThumbnailSource};
 use crate::decode::as_shot::as_shot;
-use crate::decode::formats::is_raw_file;
+use crate::decode::formats::{is_raw_file, is_video_file, is_video_project_file, may_have_alpha};
 use crate::decode::image_loader;
 use crate::library::file_ops::{is_cloud_placeholder, read_file_mapped};
 use crate::library::listing::enqueue_metadata;
@@ -16,14 +16,18 @@ use crate::render::geometry::{
 use crate::render::gpu::context::{GpuContext, get_or_init_gpu_context};
 use crate::render::gpu::output::process_and_get_dynamic_image;
 use crate::render::gpu::processor::RenderRequest;
-use crate::render::image_processing::{apply_cpu_default_raw_processing, apply_exposure};
+use crate::render::image_processing::{
+    apply_cpu_default_raw_processing, apply_exposure, fitted_size,
+};
 use crate::render::options::{resolve_render_options, resolve_tonemapper_override};
 use crate::render::preview::cached_patched_image;
 use crate::render::source::{Frame, RenderSource, SourceTransform};
 use crate::render::uniforms::get_all_adjustments_from_json;
+use crate::video::engine::transparency::transparent_still;
 use anyhow::Result;
 use image::codecs::jpeg::JpegEncoder;
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, Rgb32FImage, Rgba32FImage};
+use rayon::prelude::*;
 use std::borrow::Cow;
 use std::fs;
 use std::io::Cursor;
@@ -105,7 +109,55 @@ fn compute_thumbnail_cache_hash(
     hasher.update(&img_mod_time.to_le_bytes());
     hasher.update(adjustments_bytes);
     hasher.update(render_key.as_bytes());
+    if may_have_alpha(&source_path) {
+        hasher.update(CHECKERBOARD_KEY);
+    }
     Some(hasher.finalize().to_hex().to_string())
+}
+
+const CHECKERBOARD_KEY: &[u8] = b"checkerboard";
+
+const CHECKERBOARD_TILES: usize = 32;
+
+const CHECKERBOARD_SHADES: [f32; 2] = [0.6, 0.4];
+
+fn over_checkerboard(image: &DynamicImage) -> DynamicImage {
+    let rgba = image.to_rgba32f();
+    let (width, height) = rgba.dimensions();
+    let row = width.max(1) as usize;
+    let tile = (row.max(height as usize) / CHECKERBOARD_TILES).max(1);
+    let mut rgb = Rgb32FImage::new(width, height);
+    rgb.par_chunks_exact_mut(row * 3)
+        .zip(rgba.par_chunks_exact(row * 4))
+        .enumerate()
+        .for_each(|(y, (out, pixels))| {
+            for (x, (out, pixel)) in out
+                .as_chunks_mut::<3>()
+                .0
+                .iter_mut()
+                .zip(pixels.as_chunks::<4>().0)
+                .enumerate()
+            {
+                let shade = CHECKERBOARD_SHADES[(x / tile + y / tile) % 2];
+                let alpha = pixel[3];
+                *out = [0, 1, 2].map(|c| pixel[c] * alpha + shade * (1.0 - alpha));
+            }
+        });
+    DynamicImage::ImageRgb32F(rgb)
+}
+
+fn with_alpha(image: &DynamicImage, source_path: &Path, longest: u32) -> Option<Rgba32FImage> {
+    let size = fitted_size(image.dimensions(), (longest, longest)).unwrap_or(image.dimensions());
+    may_have_alpha(source_path)
+        .then(|| transparent_still(image, source_path, size))
+        .flatten()
+}
+
+fn checkered(image: DynamicImage, source_path: &Path, longest: u32) -> DynamicImage {
+    match with_alpha(&image, source_path, longest) {
+        Some(rgba) => over_checkerboard(&DynamicImage::ImageRgba32F(rgba)),
+        None => image,
+    }
 }
 
 const THUMBNAIL_SOURCE_CACHE_ENTRIES: usize = 8;
@@ -274,6 +326,7 @@ fn generate_thumbnail_data_with_metadata(
         .and_then(|img| cached_patched_image(&app_handle.state::<AppState>(), img, adjustments));
 
     let always_decode_raw = settings.always_decode_raw_thumbnails.unwrap_or(false);
+    let thumbnail_size = settings.medium_thumbnail_resolution.unwrap_or(1280);
 
     let untouched = || {
         adjustments.is_null()
@@ -281,18 +334,19 @@ fn generate_thumbnail_data_with_metadata(
                 && is_default_adjustments(adjustments, &source_path))
     };
 
-    if is_raw && preloaded_image.is_none() && !always_decode_raw && untouched() {
-        let target_res = settings.medium_thumbnail_resolution.unwrap_or(1280);
-        if let Some(preview) = try_load_embedded_raw_preview(&source_path, target_res) {
-            return Ok(preview);
-        }
+    if is_raw
+        && preloaded_image.is_none()
+        && !always_decode_raw
+        && untouched()
+        && let Some(preview) = try_load_embedded_raw_preview(&source_path, thumbnail_size)
+    {
+        return Ok(preview);
     }
 
     if let (Some(context), Some(meta)) = (gpu_context, metadata)
         && !meta.adjustments.is_null()
     {
         let state = app_handle.state::<AppState>();
-        let target_res = settings.medium_thumbnail_resolution.unwrap_or(1280);
 
         let base_cache_hash = crate::render::cache_utils::calculate_thumbnail_source_hash(
             path_str,
@@ -331,7 +385,7 @@ fn generate_thumbnail_data_with_metadata(
                         .filter(|c| c.width > 0.0 && c.height > 0.0)
                         .is_none_or(|c| {
                             (c.width as f32 * scale).max(c.height as f32 * scale)
-                                >= target_res as f32 * 0.95
+                                >= thumbnail_size as f32 * 0.95
                         });
                     base.hash == base_cache_hash && sufficient_resolution
                 })
@@ -355,7 +409,8 @@ fn generate_thumbnail_data_with_metadata(
                 raw_scale_factor = crate::ai::upscale::scale_between(img, &prepared);
                 prepared
             } else {
-                if let Some(before_decode) = before_decode {
+                if let Some(before_decode) = before_decode.filter(|_| !is_video_file(&source_path))
+                {
                     before_decode();
                 }
                 let mmap_guard;
@@ -401,14 +456,14 @@ fn generate_thumbnail_data_with_metadata(
             let full_max_dim = composite_image.width().max(composite_image.height());
             let texture_limit = context.limits.max_texture_dimension_2d;
 
-            let mut processing_dim = target_res;
+            let mut processing_dim = thumbnail_size;
             if let Some(c) = &crop_data
                 && c.width > 0.0
                 && c.height > 0.0
             {
                 let crop_max_dim_loaded = c.width.max(c.height) * raw_scale_factor as f64;
                 if crop_max_dim_loaded > 0.0 {
-                    processing_dim = ((target_res as f64 * full_max_dim as f64
+                    processing_dim = ((thumbnail_size as f64 * full_max_dim as f64
                         / crop_max_dim_loaded)
                         .round() as u32)
                         .min(full_max_dim);
@@ -418,21 +473,25 @@ fn generate_thumbnail_data_with_metadata(
             let has_geometry =
                 !is_geometry_identity(&get_geometry_params_from_json(path_str, &meta.adjustments));
             let processing_dim = processing_dim.min(texture_limit);
-            let working_dim = if has_geometry {
-                processing_dim.saturating_mul(2).min(full_max_dim)
-            } else {
-                processing_dim
-            }
-            .min(texture_limit);
-
-            let working_image = if full_max_dim > working_dim {
-                crate::render::image_processing::downscale_f32_image(
-                    &composite_image,
-                    working_dim,
-                    working_dim,
-                )
-            } else {
-                composite_image.into_owned()
+            let working_image = match with_alpha(&composite_image, &source_path, processing_dim) {
+                Some(rgba) => DynamicImage::ImageRgba32F(rgba),
+                None => {
+                    let working_dim = if has_geometry {
+                        processing_dim.saturating_mul(2).min(full_max_dim)
+                    } else {
+                        processing_dim
+                    }
+                    .min(texture_limit);
+                    if full_max_dim > working_dim {
+                        crate::render::image_processing::downscale_f32_image(
+                            &composite_image,
+                            working_dim,
+                            working_dim,
+                        )
+                    } else {
+                        composite_image.into_owned()
+                    }
+                }
             };
 
             let base = Arc::new(ThumbnailSource {
@@ -525,7 +584,16 @@ fn generate_thumbnail_data_with_metadata(
             },
             "generate_thumbnail_data",
         );
-        return processed_image.map_err(|e| anyhow::anyhow!(e));
+        let transparent = base.image.color().has_alpha();
+        return processed_image
+            .map(|image| {
+                if transparent {
+                    over_checkerboard(&image)
+                } else {
+                    image
+                }
+            })
+            .map_err(|e| anyhow::anyhow!(e));
     }
 
     let _decode_reservation;
@@ -534,7 +602,14 @@ fn generate_thumbnail_data_with_metadata(
     } else if let Some(img) = preloaded_image {
         image_loader::prepare_base_image(img, &source_path_str, adjustments)?
     } else {
-        if let Some(before_decode) = before_decode {
+        let is_video = is_video_file(&source_path);
+        let display_only = adjustments.is_null()
+            && resolve_render_options(settings, is_raw).tonemapper_override != Some(1);
+        if is_video && display_only {
+            return crate::video::thumbnail_frame(&source_path, thumbnail_size)
+                .map_err(|e| anyhow::anyhow!(e));
+        }
+        if let Some(before_decode) = before_decode.filter(|_| !is_video) {
             before_decode();
         }
         let mmap_guard;
@@ -559,11 +634,9 @@ fn generate_thumbnail_data_with_metadata(
         if adjustments.is_null() {
             crate::decode::as_shot::as_shot_from_bytes(&source_path_str, file_slice);
         }
-        if !is_raw
-            && adjustments.is_null()
-            && resolve_render_options(settings, is_raw).tonemapper_override != Some(1)
-        {
-            return image_loader::load_display_image(file_slice, &source_path_str);
+        if !is_raw && display_only {
+            return image_loader::load_display_image(file_slice, &source_path_str)
+                .map(|image| checkered(image, &source_path, thumbnail_size));
         }
         Cow::Owned(
             image_loader::load_and_composite(
@@ -602,6 +675,7 @@ fn generate_thumbnail_data_with_metadata(
         }
     }
     crate::render::image_processing::apply_working_display_to_srgb(&mut owned_image, is_raw);
+    let owned_image = checkered(owned_image, &source_path, thumbnail_size);
 
     let fallback_orientation_steps = adjustments["orientationSteps"].as_u64().unwrap_or(0) as u8;
     Ok(apply_coarse_rotation(Cow::Owned(owned_image), fallback_orientation_steps).into_owned())
@@ -623,6 +697,46 @@ fn encode_thumbnail(image: &DynamicImage, target_width: u32) -> Result<Vec<u8>> 
     Ok(buf.into_inner())
 }
 
+fn generate_project_thumbnail(
+    path_str: &str,
+    thumb_cache_dir: &Path,
+    gpu_context: Option<&GpuContext>,
+    force_regenerate: bool,
+    app_handle: &AppHandle,
+    settings: &AppSettings,
+) -> Option<(String, String, u8, bool)> {
+    let cover = crate::video::project_files::project_cover(Path::new(path_str))
+        .filter(|cover| !is_video_project_file(cover))?;
+    let cover_hash = get_cache_key_hash(&cover, settings)?;
+    let cache_hash = compute_thumbnail_cache_hash(path_str, cover_hash.as_bytes(), settings)?;
+    let small_path = thumb_cache_dir.join(format!("{}_small.jpg", cache_hash));
+    let medium_path = thumb_cache_dir.join(format!("{}_medium.jpg", cache_hash));
+
+    if !force_regenerate && small_path.exists() && medium_path.exists() {
+        crate::app::storage::mark_used(&small_path);
+    } else {
+        let (cover_small, cover_medium, _, _) = generate_single_thumbnail_and_cache(
+            &cover,
+            thumb_cache_dir,
+            gpu_context,
+            None,
+            false,
+            app_handle,
+            settings,
+            None,
+        )?;
+        let written =
+            fs::copy(cover_small, &small_path).ok()? + fs::copy(cover_medium, &medium_path).ok()?;
+        crate::app::storage::record_thumbnail_write(written);
+    }
+    Some((
+        small_path.to_string_lossy().into_owned(),
+        medium_path.to_string_lossy().into_owned(),
+        0,
+        false,
+    ))
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn generate_single_thumbnail_and_cache(
     path_str: &str,
@@ -634,6 +748,17 @@ pub fn generate_single_thumbnail_and_cache(
     settings: &AppSettings,
     before_decode: Option<&dyn Fn()>,
 ) -> Option<(String, String, u8, bool)> {
+    if is_video_project_file(path_str) {
+        return generate_project_thumbnail(
+            path_str,
+            thumb_cache_dir,
+            gpu_context,
+            force_regenerate,
+            app_handle,
+            settings,
+        );
+    }
+
     let (source_path, sidecar_path) = parse_virtual_path(path_str);
     let sidecar_is_placeholder = is_cloud_placeholder(&sidecar_path);
 
@@ -739,7 +864,7 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let thread_count = settings.thumbnail_worker_threads.unwrap_or(4).clamp(1, 16);
 
-    for _ in 0..thread_count {
+    for worker in 0..thread_count {
         let app_clone = app_handle.clone();
         let manager_clone = manager.clone();
 
@@ -761,6 +886,9 @@ pub fn start_thumbnail_workers(app_handle: tauri::AppHandle) {
                     processing.insert(path.clone());
                     path
                 };
+                if worker > 0 {
+                    crate::video::wait_while_busy();
+                }
 
                 let state = app_clone.state::<AppState>();
                 let gpu_context = get_or_init_gpu_context(&state, &app_clone).ok();

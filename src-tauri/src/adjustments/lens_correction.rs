@@ -17,6 +17,7 @@ use walkdir::WalkDir;
 static LENS_DB_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/lensfun_db");
 
 const MAX_CACHED_PROFILES: usize = 1024;
+const MAX_CACHED_SHOTS: usize = 1 << 16;
 const DEFAULT_ASPECT_RATIO: f64 = 1.5;
 const DEFAULT_DISTANCE: f32 = 1000.0;
 const TCA_FOCAL_SCALED: [bool; 6] = [false, false, true, true, true, true];
@@ -170,10 +171,11 @@ struct ResolvedLens {
     profile: LensProfile,
 }
 
-type ProfileKey = (String, Option<(String, String)>);
+type ShotKey = (String, String, String, [Option<u32>; 3]);
+type ProfileKey = (ShotKey, Option<(String, String)>);
 
-#[derive(Default)]
-struct Shot {
+#[derive(Default, Clone, Serialize, Deserialize)]
+pub struct Shot {
     make: String,
     model: String,
     lens_model: String,
@@ -334,7 +336,7 @@ fn crop_score(lens_crop: f32, camera_crop: Option<f32>) -> Option<i64> {
 }
 
 impl Shot {
-    fn from_exif(exif: &HashMap<String, String>) -> Self {
+    pub fn from_exif(exif: &HashMap<String, String>) -> Self {
         let text = |key: &str| exif.get(key).map_or("", |v| clean_exif_text(v)).to_string();
         Self {
             make: text("Make"),
@@ -359,6 +361,15 @@ impl Shot {
             })
             .map(|exif| Self::from_exif(&exif))
             .unwrap_or_default()
+    }
+
+    fn key(&self) -> ShotKey {
+        (
+            self.make.clone(),
+            self.model.clone(),
+            self.lens_model.clone(),
+            [self.focal, self.aperture, self.distance].map(|value| value.map(f32::to_bits)),
+        )
     }
 }
 
@@ -700,8 +711,34 @@ fn profile_cache() -> &'static Mutex<HashMap<ProfileKey, Option<Arc<ResolvedLens
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+fn shot_cache() -> &'static Mutex<HashMap<String, Arc<Shot>>> {
+    static CACHE: OnceLock<Mutex<HashMap<String, Arc<Shot>>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 fn source_key(path: &str) -> String {
     parse_virtual_path(path).0.to_string_lossy().into_owned()
+}
+
+fn store_shot(source: String, shot: Arc<Shot>) {
+    let mut cache = shot_cache().lock().unwrap();
+    if cache.len() >= MAX_CACHED_SHOTS {
+        cache.clear();
+    }
+    cache.insert(source, shot);
+}
+
+fn shot_of(source: &str) -> Arc<Shot> {
+    if let Some(shot) = shot_cache().lock().unwrap().get(source) {
+        return Arc::clone(shot);
+    }
+    let shot = Arc::new(Shot::read(source));
+    store_shot(source.to_string(), Arc::clone(&shot));
+    shot
+}
+
+pub fn remember_shot(path: &str, shot: Shot) {
+    store_shot(source_key(path), Arc::new(shot));
 }
 
 fn lens_selection(adjustments: &Value) -> Option<Option<(String, String)>> {
@@ -724,12 +761,13 @@ fn lens_selection(adjustments: &Value) -> Option<Option<(String, String)>> {
 
 fn resolve(path: &str, adjustments: &Value) -> Option<Arc<ResolvedLens>> {
     let selection = lens_selection(adjustments)?;
-    let key = (source_key(path), selection);
+    let db = database()?;
+    let shot = shot_of(&source_key(path));
+    let key = (shot.key(), selection);
     if let Some(cached) = profile_cache().lock().unwrap().get(&key) {
         return cached.clone();
     }
-    let db = database()?;
-    let resolved = db.resolve(&Shot::read(&key.0), &key.1).map(Arc::new);
+    let resolved = db.resolve(&shot, &key.1).map(Arc::new);
     let mut cache = profile_cache().lock().unwrap();
     if cache.len() >= MAX_CACHED_PROFILES {
         cache.clear();
@@ -751,11 +789,7 @@ pub fn lens_profile(path: &str, adjustments: &Value) -> Option<LensProfile> {
 }
 
 pub fn forget_lens_profiles(path: &str) {
-    let source = source_key(path);
-    profile_cache()
-        .lock()
-        .unwrap()
-        .retain(|(cached, _), _| *cached != source);
+    shot_cache().lock().unwrap().remove(&source_key(path));
 }
 
 pub fn init_lensfun_db(app_handle: &tauri::AppHandle) {
@@ -862,5 +896,6 @@ pub fn get_lensfun_lenses_for_maker(maker: String) -> Result<Vec<String>, String
 
 #[tauri::command]
 pub fn get_lens_correction_info(path: String, selection: Value) -> Option<LensCorrectionInfo> {
-    resolve(&path, &selection).map(|r| r.info.clone())
+    let reference = crate::video::timelapse::frame_path(&parse_virtual_path(&path).0, None);
+    resolve(reference.as_deref().unwrap_or(&path), &selection).map(|r| r.info.clone())
 }

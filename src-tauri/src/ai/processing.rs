@@ -707,7 +707,7 @@ fn zoom_region(coarse: &GrayImage, width: u32, height: u32) -> Option<(u32, u32,
     Some((x, y, crop_width, crop_height))
 }
 
-fn run_birefnet_pass(image: &DynamicImage, session: &mut Session) -> Result<GrayImage> {
+pub fn run_birefnet_pass(image: &DynamicImage, session: &mut Session) -> Result<GrayImage> {
     let size = BIREFNET_INPUT_SIZE as usize;
     let resized_rgb = image
         .resize_exact(
@@ -743,6 +743,37 @@ pub fn run_depth_anything_model(
     image: &DynamicImage,
     depth_session: &Mutex<Session>,
 ) -> Result<GrayImage> {
+    let (width, height, values) =
+        run_depth_anything_raw(image, &mut depth_session.lock().unwrap())?;
+
+    let mut min_val = f32::MAX;
+    let mut max_val = f32::MIN;
+    for &val in &values {
+        min_val = min_val.min(val);
+        max_val = max_val.max(val);
+    }
+
+    let range = max_val - min_val;
+    let scale = if range > 1e-6 { 255.0 / range } else { 0.0 };
+    let depth_data = values
+        .iter()
+        .map(|&val| {
+            if range > 1e-6 {
+                ((val - min_val) * scale) as u8
+            } else {
+                0
+            }
+        })
+        .collect();
+
+    GrayImage::from_raw(width, height, depth_data)
+        .ok_or_else(|| anyhow::anyhow!("Failed to create mask from Depth output"))
+}
+
+pub fn run_depth_anything_raw(
+    image: &DynamicImage,
+    session: &mut Session,
+) -> Result<(u32, u32, Vec<f32>)> {
     let resized_image = image.resize(DEPTH_INPUT_SIZE, DEPTH_INPUT_SIZE, FilterType::Triangle);
     let (resized_w, resized_h) = resized_image.dimensions();
     let resized_rgb = resized_image.into_rgb8();
@@ -778,48 +809,18 @@ pub fn run_depth_anything_model(
     let input_tensor_dyn = input_tensor.into_dyn();
     let t_input = Tensor::from_array(input_tensor_dyn.as_standard_layout().into_owned())?;
 
-    let mut session = depth_session.lock().unwrap();
     let outputs = gpu_inference(session.run(ort::inputs![t_input]))?;
     let output_tensor = outputs[0].try_extract_array::<f32>()?.to_owned();
     let out_slice = output_tensor.as_slice().unwrap();
 
     let usize_size = DEPTH_INPUT_SIZE as usize;
-
-    let mut min_val = f32::MAX;
-    let mut max_val = f32::MIN;
+    let mut values = Vec::with_capacity(rw * rh);
     for y in 0..rh {
-        let src_y = y + paste_y;
-        for x in 0..rw {
-            let src_x = x + paste_x;
-            let val = out_slice[src_y * usize_size + src_x];
-            min_val = min_val.min(val);
-            max_val = max_val.max(val);
-        }
+        let row = (y + paste_y) * usize_size + paste_x;
+        values.extend_from_slice(&out_slice[row..row + rw]);
     }
 
-    let range = max_val - min_val;
-    let scale = if range > 1e-6 { 255.0 / range } else { 0.0 };
-
-    let mut cropped_depth_data = Vec::with_capacity(rw * rh);
-
-    for y in 0..rh {
-        let src_y = y + paste_y;
-        for x in 0..rw {
-            let src_x = x + paste_x;
-            let val = out_slice[src_y * usize_size + src_x];
-            let pixel = if range > 1e-6 {
-                ((val - min_val) * scale) as u8
-            } else {
-                0
-            };
-            cropped_depth_data.push(pixel);
-        }
-    }
-
-    let depth_map = GrayImage::from_raw(resized_w, resized_h, cropped_depth_data)
-        .ok_or_else(|| anyhow::anyhow!("Failed to create mask from Depth output"))?;
-
-    Ok(depth_map)
+    Ok((resized_w, resized_h, values))
 }
 
 fn build_normal_depth(points: &[f32], mask: &[f32]) -> Vec<u8> {
@@ -864,25 +865,56 @@ pub fn run_normal_model(
     image: &DynamicImage,
     normal_session: &Mutex<Session>,
 ) -> Result<RgbaImage> {
-    let resized_image = if image.width().max(image.height()) > NORMAL_MAX_SIZE {
-        image.resize(NORMAL_MAX_SIZE, NORMAL_MAX_SIZE, FilterType::Triangle)
-    } else {
-        image.clone()
-    };
-    let (resized_w, resized_h) = resized_image.dimensions();
-    let resized_rgb = resized_image.into_rgb8();
-    let raw_pixels = resized_rgb.as_raw();
+    run_normal_models(&[image], normal_session)?
+        .pop()
+        .ok_or_else(|| anyhow::anyhow!("The normal model returned no map"))
+}
 
+pub fn run_normal_models(
+    images: &[&DynamicImage],
+    normal_session: &Mutex<Session>,
+) -> Result<Vec<RgbaImage>> {
+    let resized: Vec<_> = images
+        .iter()
+        .map(|image| {
+            if image.width().max(image.height()) > NORMAL_MAX_SIZE {
+                image
+                    .resize(NORMAL_MAX_SIZE, NORMAL_MAX_SIZE, FilterType::Triangle)
+                    .into_rgb8()
+            } else {
+                image.to_rgb8()
+            }
+        })
+        .collect();
+    let (resized_w, resized_h) = resized
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("No images for the normal model"))?
+        .dimensions();
+    if resized
+        .iter()
+        .any(|rgb| rgb.dimensions() != (resized_w, resized_h))
+    {
+        return Err(anyhow::anyhow!(
+            "Normal model batches need equal image sizes"
+        ));
+    }
+
+    let count = resized.len();
     let rw = resized_w as usize;
     let rh = resized_h as usize;
+    let plane = rw * rh;
 
-    let mut input_tensor: Array<f32, _> = Array::zeros((1, 3, rh, rw));
-    for y in 0..rh {
-        for x in 0..rw {
-            let idx = (y * rw + x) * 3;
-            input_tensor[[0, 0, y, x]] = raw_pixels[idx] as f32 / 255.0;
-            input_tensor[[0, 1, y, x]] = raw_pixels[idx + 1] as f32 / 255.0;
-            input_tensor[[0, 2, y, x]] = raw_pixels[idx + 2] as f32 / 255.0;
+    let mut input_tensor: Array<f32, _> = Array::zeros((count, 3, rh, rw));
+    let input = input_tensor
+        .as_slice_mut()
+        .ok_or_else(|| anyhow::anyhow!("Normal model input is not contiguous"))?;
+    for (rgb, channels) in resized.iter().zip(input.chunks_exact_mut(3 * plane)) {
+        let (red, rest) = channels.split_at_mut(plane);
+        let (green, blue) = rest.split_at_mut(plane);
+        for (i, pixel) in rgb.as_raw().as_chunks::<3>().0.iter().enumerate() {
+            red[i] = pixel[0] as f32 / 255.0;
+            green[i] = pixel[1] as f32 / 255.0;
+            blue[i] = pixel[2] as f32 / 255.0;
         }
     }
 
@@ -899,9 +931,9 @@ pub fn run_normal_model(
     let mask_tensor = outputs["mask"].try_extract_array::<f32>()?;
     let points_tensor = outputs["points"].try_extract_array::<f32>()?;
 
-    if normal_tensor.shape() != [1, rh, rw, 3]
-        || mask_tensor.shape() != [1, rh, rw]
-        || points_tensor.shape() != [1, rh, rw, 3]
+    if normal_tensor.shape() != [count, rh, rw, 3]
+        || mask_tensor.shape() != [count, rh, rw]
+        || points_tensor.shape() != [count, rh, rw, 3]
     {
         return Err(anyhow::anyhow!(
             "Unexpected normal model output shape: {:?} / {:?} / {:?}",
@@ -916,24 +948,35 @@ pub fn run_normal_model(
     let mask = mask_tensor.as_standard_layout();
     let mask = mask.as_slice().unwrap();
     let points = points_tensor.as_standard_layout();
-    let depth = build_normal_depth(points.as_slice().unwrap(), mask);
+    let points = points.as_slice().unwrap();
 
     let pack = |v: f32| ((v * 0.5 + 0.5).clamp(0.0, 1.0) * 255.0).round() as u8;
 
-    let mut normal_data = Vec::with_capacity(rw * rh * 4);
-    for (n, d) in normals.as_chunks::<3>().0.iter().zip(depth) {
-        let (nx, ny, nz) = (n[0], -n[1], -n[2]);
-        let len = (nx * nx + ny * ny + nz * nz).sqrt();
-        if len.is_finite() && len > 1e-6 {
-            normal_data.extend_from_slice(&[pack(nx / len), pack(ny / len), pack(nz / len)]);
-        } else {
-            normal_data.extend_from_slice(&[128, 128, 255]);
-        }
-        normal_data.push(d);
-    }
-
-    RgbaImage::from_raw(resized_w, resized_h, normal_data)
-        .ok_or_else(|| anyhow::anyhow!("Failed to create normal map from model output"))
+    normals
+        .chunks_exact(plane * 3)
+        .zip(points.chunks_exact(plane * 3))
+        .zip(mask.chunks_exact(plane))
+        .map(|((normals, points), mask)| {
+            let depth = build_normal_depth(points, mask);
+            let mut normal_data = Vec::with_capacity(plane * 4);
+            for (n, d) in normals.as_chunks::<3>().0.iter().zip(depth) {
+                let (nx, ny, nz) = (n[0], -n[1], -n[2]);
+                let len = (nx * nx + ny * ny + nz * nz).sqrt();
+                if len.is_finite() && len > 1e-6 {
+                    normal_data.extend_from_slice(&[
+                        pack(nx / len),
+                        pack(ny / len),
+                        pack(nz / len),
+                    ]);
+                } else {
+                    normal_data.extend_from_slice(&[128, 128, 255]);
+                }
+                normal_data.push(d);
+            }
+            RgbaImage::from_raw(resized_w, resized_h, normal_data)
+                .ok_or_else(|| anyhow::anyhow!("Failed to create normal map from model output"))
+        })
+        .collect()
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]

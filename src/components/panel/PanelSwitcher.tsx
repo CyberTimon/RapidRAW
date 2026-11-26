@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { memo, useState, useRef, useCallback } from 'react';
 import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
@@ -14,11 +14,18 @@ import {
   Camera,
   Folder as FolderIcon,
   Film,
+  Blend,
+  Captions,
+  Clapperboard,
+  SquareMousePointer,
+  SlidersVertical,
   type LucideIcon,
 } from 'lucide-react';
 import { Panel, PanelRegion } from '../../types/ui';
 import { getRegionActivePanel, isPanelAvailable, SwitcherPlacement, useUIStore } from '../../store/useUIStore';
 import type { ParseKeys } from 'i18next';
+import { useShortcut } from '../../hooks/useShortcuts';
+import type { ShortcutAction } from '../../utils/keyboardUtils';
 
 export const PANEL_ICONS: Record<Panel, LucideIcon> = {
   [Panel.Metadata]: Info,
@@ -31,19 +38,45 @@ export const PANEL_ICONS: Record<Panel, LucideIcon> = {
   [Panel.FolderTree]: FolderIcon,
   [Panel.Tethering]: Camera,
   [Panel.Filmstrip]: Film,
+  [Panel.MediaPool]: Clapperboard,
+  [Panel.Inspector]: SquareMousePointer,
+  [Panel.Effects]: Blend,
+  [Panel.Captions]: Captions,
+  [Panel.Mixer]: SlidersVertical,
 };
 
 const PANEL_TITLES: Record<Panel, ParseKeys> = {
-  [Panel.Metadata]: 'editor.switcher.tooltips.info',
-  [Panel.Adjustments]: 'editor.switcher.tooltips.adjust',
-  [Panel.Crop]: 'editor.switcher.tooltips.crop',
-  [Panel.Masks]: 'editor.switcher.tooltips.masks',
-  [Panel.Ai]: 'editor.switcher.tooltips.inpaint',
-  [Panel.Presets]: 'editor.switcher.tooltips.presets',
-  [Panel.Export]: 'editor.switcher.tooltips.export',
+  [Panel.Metadata]: 'editor.metadata.title',
+  [Panel.Adjustments]: 'editor.adjustments.title',
+  [Panel.Crop]: 'editor.crop.title',
+  [Panel.Masks]: 'editor.masks.maskingTitle',
+  [Panel.Ai]: 'editor.ai.inpaintingTitle',
+  [Panel.Presets]: 'editor.presets.title',
+  [Panel.Export]: 'export.title',
   [Panel.FolderTree]: 'library.folders.sourcesTitle',
-  [Panel.Tethering]: 'editor.switcher.tooltips.tethering',
+  [Panel.Tethering]: 'tethering.title',
   [Panel.Filmstrip]: 'editor.switcher.tooltips.filmstrip',
+  [Panel.MediaPool]: 'editor.switcher.tooltips.mediaPool',
+  [Panel.Inspector]: 'video.inspector.title',
+  [Panel.Effects]: 'video.effectsPanel.title',
+  [Panel.Captions]: 'video.captions.title',
+  [Panel.Mixer]: 'video.mixer.title',
+};
+
+const PANEL_SHORTCUTS: Partial<Record<Panel, ShortcutAction>> = {
+  [Panel.Metadata]: 'toggle_metadata',
+  [Panel.Adjustments]: 'toggle_adjustments',
+  [Panel.Crop]: 'toggle_crop_panel',
+  [Panel.Masks]: 'toggle_masks',
+  [Panel.Ai]: 'toggle_ai',
+  [Panel.Presets]: 'toggle_presets',
+  [Panel.Export]: 'toggle_export',
+  [Panel.FolderTree]: 'toggle_folder_tree',
+  [Panel.MediaPool]: 'video_panel_project',
+  [Panel.Inspector]: 'video_panel_inspector',
+  [Panel.Effects]: 'video_panel_effects',
+  [Panel.Captions]: 'video_panel_captions',
+  [Panel.Mixer]: 'video_panel_mixer',
 };
 
 interface PanelTabButtonProps {
@@ -55,9 +88,10 @@ interface PanelTabButtonProps {
   isDisabled?: boolean;
   isCompact?: boolean;
   dragId?: string;
+  shortcut?: ShortcutAction;
 }
 
-export function PanelTabButton({
+export const PanelTabButton = memo(function PanelTabButton({
   panel,
   isActive,
   indicatorId,
@@ -66,9 +100,11 @@ export function PanelTabButton({
   isDisabled = false,
   isCompact = false,
   dragId = `layout-tab-${panel}`,
+  shortcut: action = PANEL_SHORTCUTS[panel],
 }: PanelTabButtonProps) {
   const { t } = useTranslation();
   const isInstantTransition = useUIStore((s) => s.isInstantTransition);
+  const shortcut = useShortcut(isDisabled ? null : action);
   const Icon = PANEL_ICONS[panel];
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -97,6 +133,7 @@ export function PanelTabButton({
       )}
       onClick={isDisabled ? undefined : onClick}
       data-tooltip={t(PANEL_TITLES[panel])}
+      {...shortcut}
       style={{ touchAction: 'none' }}
     >
       {isActive && (
@@ -109,17 +146,16 @@ export function PanelTabButton({
       <Icon size={isCompact ? 18 : 20} className="relative z-10 pointer-events-none" />
     </button>
   );
-}
+});
 
 function PanelTab({ panel, region, side }: { panel: Panel; region: PanelRegion; side: 'left' | 'right' }) {
   const isActive = useUIStore((s) => getRegionActivePanel(s, region) === panel);
   const isDisabled = useUIStore((s) => !isPanelAvailable(s, panel));
   const setActivePanel = useUIStore((s) => s.setActivePanel);
   const setUI = useUIStore((s) => s.setUI);
-  const leftPanelWidth = useUIStore((s) => s.leftPanelWidth);
-  const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
 
   const handleClick = () => {
+    const { leftPanelWidth, rightPanelWidth } = useUIStore.getState();
     setActivePanel(region, panel);
     if (side === 'left' && leftPanelWidth < 200) {
       setUI({ leftPanelWidth: 350 });
@@ -140,7 +176,7 @@ function PanelTab({ panel, region, side }: { panel: Panel; region: PanelRegion; 
   );
 }
 
-export default function PanelSwitcher({
+function PanelSwitcher({
   region,
   side,
   placement,
@@ -281,6 +317,8 @@ export default function PanelSwitcher({
     </div>
   );
 }
+
+export default memo(PanelSwitcher);
 
 export function MobilePanelSwitcher({
   activePanel,

@@ -1,4 +1,5 @@
 use crate::render::cache_utils::GEOMETRY_KEYS;
+use crate::render::gpu::compute::MapKey;
 
 use crate::render::adjustment_utils::is_effect_enabled;
 use crate::render::geometry::{
@@ -14,17 +15,19 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const SOURCE_SPACE_MAP_PREFIX: &str = "data:image/png;space=source;base64,";
 const MAP_REFERENCE_PREFIX: &str = "rrmap:";
+const FRAME_MAP_PREFIX: &str = "rrframe:";
 
 const MAP_CACHE_CAPACITY: usize = 4;
+const FRAME_MAP_STREAMS: usize = 16;
 
 static LUMA_MAP_CACHE: Mutex<Vec<(u64, Arc<GrayImage>)>> = Mutex::new(Vec::new());
 static RGBA_MAP_CACHE: Mutex<Vec<(u64, Arc<RgbaImage>)>> = Mutex::new(Vec::new());
 static MAP_CACHE_DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
 static MAP_DISK_CACHE_LIMIT_BYTES: AtomicU64 = AtomicU64::new(u64::MAX);
+static FRAME_MAPS: Mutex<Vec<(String, Arc<DynamicImage>)>> = Mutex::new(Vec::new());
 
 enum EffectMapOwner {
     Global {
@@ -177,31 +180,12 @@ pub fn is_map_valid_for(value: &serde_json::Value, kind: EffectMapKind, source_i
 }
 
 fn evict_map_disk_cache(dir: &Path, keep: Option<&Path>) {
-    let Ok(read_dir) = fs::read_dir(dir) else {
-        return;
-    };
-    let limit = MAP_DISK_CACHE_LIMIT_BYTES.load(Ordering::Relaxed);
-
-    let mut entries: Vec<(PathBuf, u64, SystemTime)> = read_dir
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().extension().is_some_and(|ext| ext == "png"))
-        .filter_map(|e| {
-            let meta = e.metadata().ok()?;
-            Some((e.path(), meta.len(), meta.modified().unwrap_or(UNIX_EPOCH)))
-        })
-        .collect();
-
-    let mut total: u64 = entries.iter().map(|(_, len, _)| len).sum();
-    entries.sort_by_key(|(_, _, modified)| *modified);
-
-    for (path, len, _) in entries {
-        if total <= limit {
-            break;
-        }
-        if Some(path.as_path()) != keep && fs::remove_file(&path).is_ok() {
-            total = total.saturating_sub(len);
-        }
-    }
+    crate::app::storage::evict_oldest(
+        dir,
+        "png",
+        MAP_DISK_CACHE_LIMIT_BYTES.load(Ordering::Relaxed),
+        |path| Some(path) == keep,
+    );
 }
 
 pub fn clear_disk_cache() -> Result<(), String> {
@@ -222,23 +206,48 @@ pub fn clear_disk_cache() -> Result<(), String> {
 }
 
 pub fn is_source_space_map(data_url: &str) -> bool {
-    data_url.starts_with(SOURCE_SPACE_MAP_PREFIX) || data_url.starts_with(MAP_REFERENCE_PREFIX)
+    data_url.starts_with(SOURCE_SPACE_MAP_PREFIX)
+        || data_url.starts_with(MAP_REFERENCE_PREFIX)
+        || data_url.starts_with(FRAME_MAP_PREFIX)
 }
 
-pub fn effect_map_key(data_url: &str, adjustments: &serde_json::Value) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    data_url.hash(&mut hasher);
+pub fn frame_map(stream: u64, version: u64, map: DynamicImage) -> String {
+    let reference = format!("{}{:016x}:{:016x}", FRAME_MAP_PREFIX, stream, version);
+    let mut maps = FRAME_MAPS.lock().unwrap_or_else(|e| e.into_inner());
+    maps.retain(|(existing, _)| frame_stream(existing) != frame_stream(&reference));
+    if maps.len() >= FRAME_MAP_STREAMS {
+        maps.remove(0);
+    }
+    maps.push((reference.clone(), Arc::new(map)));
+    reference
+}
 
-    if is_source_space_map(data_url) {
-        for key in GEOMETRY_KEYS {
-            if let Some(val) = adjustments.get(key) {
-                key.hash(&mut hasher);
-                val.to_string().hash(&mut hasher);
+fn frame_stream(data_url: &str) -> Option<&str> {
+    data_url
+        .strip_prefix(FRAME_MAP_PREFIX)?
+        .split_once(':')
+        .map(|(stream, _)| stream)
+}
+
+pub fn effect_map_key(data_url: &str, adjustments: &serde_json::Value) -> MapKey {
+    let key = |identity: &str| {
+        let mut hasher = DefaultHasher::new();
+        identity.hash(&mut hasher);
+        if is_source_space_map(data_url) {
+            for key in GEOMETRY_KEYS {
+                if let Some(val) = adjustments.get(key) {
+                    key.hash(&mut hasher);
+                    val.to_string().hash(&mut hasher);
+                }
             }
         }
+        hasher.finish()
+    };
+    let version = key(data_url);
+    MapKey {
+        slot: frame_stream(data_url).map_or(version, key),
+        version,
     }
-
-    hasher.finish()
 }
 
 pub fn resolve_luma_map(
@@ -449,6 +458,14 @@ fn rotate_normal(r: u8, g: u8, (cos, sin): (f32, f32)) -> (u8, u8) {
 }
 
 fn decode_data_url(data_url: &str) -> Option<DynamicImage> {
+    if data_url.starts_with(FRAME_MAP_PREFIX) {
+        return FRAME_MAPS
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .find(|(reference, _)| reference == data_url)
+            .map(|(_, map)| (**map).clone());
+    }
     if let Some(file_name) = data_url.strip_prefix(MAP_REFERENCE_PREFIX) {
         let path = map_file_path(file_name)?;
         let map = image::open(&path).ok()?;
@@ -466,9 +483,13 @@ fn decode_data_url(data_url: &str) -> Option<DynamicImage> {
 
 fn cached_map<T>(
     cache: &Mutex<Vec<(u64, Arc<T>)>>,
-    key: u64,
+    map_key: MapKey,
     build: impl FnOnce() -> Option<T>,
 ) -> Option<Arc<T>> {
+    if map_key.slot != map_key.version {
+        return build().map(Arc::new);
+    }
+    let key = map_key.version;
     if let Some((_, map)) = cache
         .lock()
         .unwrap_or_else(|e| e.into_inner())

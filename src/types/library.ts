@@ -83,6 +83,8 @@ export interface ImageFile {
   is_virtual_copy: boolean;
   is_cloud_placeholder: boolean;
   is_raw: boolean;
+  is_video: boolean;
+  is_video_project?: boolean;
   group_id: string | null;
   needs_ai: boolean;
 }
@@ -96,6 +98,9 @@ export interface SortCriteria {
 export interface SupportedTypes {
   nonRaw: Array<string>;
   raw: Array<string>;
+  video: Array<string>;
+  audio: Array<string>;
+  videoProject: Array<string>;
 }
 
 export interface Progress {
@@ -109,7 +114,7 @@ export type PanoramaProjection = 'perspective' | 'cylindrical' | 'spherical';
 
 export type PanoramaProjectionMode = 'auto' | PanoramaProjection;
 
-export type MergeKind = 'panorama' | 'hdr' | 'focusStack';
+export type MergeKind = 'panorama' | 'hdr' | 'focusStack' | 'burstDenoise' | 'longExposure';
 
 export interface PanoramaSettings {
   autoCrop: boolean;
@@ -129,10 +134,21 @@ export interface FocusStackSettings {
   method: FocusStackMethod;
 }
 
+export const MAX_BURST_FRAMES = 64;
+
+export type BurstDenoiseSettings = Record<string, never>;
+
+export interface LongExposureSettings {
+  autoCrop: boolean;
+  smoothMotion: boolean;
+}
+
 export interface MergeSettingsByKind {
   panorama: PanoramaSettings;
   hdr: HdrSettings;
   focusStack: FocusStackSettings;
+  burstDenoise: BurstDenoiseSettings;
+  longExposure: LongExposureSettings;
 }
 
 export type MergeSettings = MergeSettingsByKind[MergeKind];
@@ -150,6 +166,11 @@ export const DEFAULT_MERGE_SETTINGS: MergeSettingsByKind = {
   focusStack: {
     autoCrop: true,
     method: 'detail',
+  },
+  burstDenoise: {},
+  longExposure: {
+    autoCrop: true,
+    smoothMotion: true,
   },
 };
 

@@ -158,7 +158,6 @@ pub struct GpuPipelines {
     pub hz_max_h_pipeline: wgpu::ComputePipeline,
     pub hz_max_v_pipeline: wgpu::ComputePipeline,
     pub hz_coeffs_pipeline: wgpu::ComputePipeline,
-    pub motion_blur: std::sync::OnceLock<crate::effects::motion_blur::MotionBlurPipelines>,
 
     pub main_bgl: wgpu::BindGroupLayout,
     pub main_pipeline: wgpu::ComputePipeline,
@@ -584,7 +583,6 @@ impl GpuPipelines {
             hz_max_h_pipeline,
             hz_max_v_pipeline,
             hz_coeffs_pipeline,
-            motion_blur: std::sync::OnceLock::new(),
             main_bgl,
             main_pipeline,
             main_shader_module,

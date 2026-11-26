@@ -97,3 +97,13 @@ class ImageLRUCache {
 }
 
 export const globalImageCache = new ImageLRUCache(20);
+
+export const releasePreviewUrl = (url: string | null | undefined) => {
+  if (url && url.startsWith('blob:') && !globalImageCache.isProtected(url)) {
+    setTimeout(() => {
+      if (!globalImageCache.isProtected(url)) {
+        URL.revokeObjectURL(url);
+      }
+    }, 250);
+  }
+};

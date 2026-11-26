@@ -407,6 +407,7 @@ mod platform {
     use std::path::PathBuf;
     use std::sync::{LazyLock, Mutex};
     use std::time::{Duration, Instant};
+    use tauri::Manager;
     use zbus::blocking::{Connection, Proxy};
     use zbus::zvariant::OwnedObjectPath;
 
@@ -414,7 +415,6 @@ mod platform {
     const COLORD_PATH: &str = "/org/freedesktop/ColorManager";
     const COLORD_DEVICE: &str = "org.freedesktop.ColorManager.Device";
     const COLORD_PROFILE: &str = "org.freedesktop.ColorManager.Profile";
-    const LOOKUP_TIMEOUT: Duration = Duration::from_millis(500);
     const LOOKUP_INTERVAL: Duration = Duration::from_secs(5);
 
     fn colord_profile(model: Option<&str>) -> Option<PathBuf> {
@@ -455,29 +455,48 @@ mod platform {
         (!filename.is_empty()).then(|| PathBuf::from(filename))
     }
 
-    fn assigned_profile(window: &tauri::WebviewWindow) -> Option<PathBuf> {
-        type Lookups = HashMap<String, (Instant, Option<PathBuf>)>;
-        static LATEST: LazyLock<Mutex<Lookups>> = LazyLock::new(Default::default);
-        let mut latest = LATEST.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some((checked_at, profile)) = latest.get(window.label())
-            && checked_at.elapsed() < LOOKUP_INTERVAL
-        {
-            return profile.clone();
+    #[derive(Default)]
+    struct Lookup {
+        checked_at: Option<Instant>,
+        running: bool,
+        profile: Option<PathBuf>,
+    }
+
+    static LOOKUPS: LazyLock<Mutex<HashMap<String, Lookup>>> = LazyLock::new(Default::default);
+
+    fn finish_lookup(window: &tauri::WebviewWindow, profile: Option<PathBuf>) {
+        let mut lookups = LOOKUPS.lock().unwrap_or_else(|e| e.into_inner());
+        let lookup = lookups.entry(window.label().to_string()).or_default();
+        lookup.running = false;
+        lookup.checked_at = Some(Instant::now());
+        let changed = lookup.profile != profile;
+        lookup.profile = profile;
+        drop(lookups);
+        if changed {
+            crate::render::gpu::display::request_display_refresh(window.app_handle());
         }
-        let label = window.label().to_string();
-        let (tx, rx) = std::sync::mpsc::channel();
-        let window = window.clone();
-        std::thread::spawn(move || {
-            let model = window
-                .current_monitor()
-                .ok()
-                .flatten()
-                .and_then(|monitor| monitor.name().cloned());
-            let _ = tx.send(colord_profile(model.as_deref()));
-        });
-        let profile = rx.recv_timeout(LOOKUP_TIMEOUT).ok().flatten();
-        latest.insert(label, (Instant::now(), profile.clone()));
-        profile
+    }
+
+    fn assigned_profile(window: &tauri::WebviewWindow) -> Option<PathBuf> {
+        let mut lookups = LOOKUPS.lock().unwrap_or_else(|e| e.into_inner());
+        let lookup = lookups.entry(window.label().to_string()).or_default();
+        if !lookup.running
+            && lookup
+                .checked_at
+                .is_none_or(|checked_at| checked_at.elapsed() >= LOOKUP_INTERVAL)
+        {
+            lookup.running = true;
+            let window = window.clone();
+            std::thread::spawn(move || {
+                let model = window
+                    .current_monitor()
+                    .ok()
+                    .flatten()
+                    .and_then(|monitor| monitor.name().cloned());
+                finish_lookup(&window, colord_profile(model.as_deref()));
+            });
+        }
+        lookup.profile.clone()
     }
 
     pub fn query(

@@ -1,19 +1,35 @@
 import { useEffect, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ask } from '@tauri-apps/plugin-dialog';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import { useLibraryStore } from '../store/useLibraryStore';
+import { JobKind, JobStatus, useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { flushImmichEdits, ImmichSyncStatus } from '../utils/immichApi';
 import { useImmichStore } from '../store/useImmichStore';
+import { guardWindowClose } from '../utils/windowClose';
+import { Progress } from '../types/library';
 
-interface DownloadEvent {
-  path: string;
-  state: 'started' | 'done' | 'error';
-  error?: string;
+type DownloadEvent = { path: string } & (
+  | { state: 'queued'; video: boolean }
+  | { state: 'done' | 'cancelled' }
+  | { state: 'progress'; current: number; total: number | null }
+  | { state: 'error'; error: string }
+);
+
+interface DownloadJob {
+  jobId: string | null;
+  progress?: Progress;
+  timer?: ReturnType<typeof setTimeout>;
 }
+
+const QUIET_PHOTO_DOWNLOAD_MS = 2000;
+
+const FINISHED_DOWNLOADS = {
+  done: { status: JobStatus.Success },
+  cancelled: { status: JobStatus.Cancelled },
+};
 
 type TransferEvent =
   | { state: 'progress'; current: number; total: number }
@@ -34,6 +50,7 @@ export function useImmichEvents(refreshLibrary: () => void) {
   refreshRef.current = refreshLibrary;
   const refreshTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const uploaded = useRef(0);
+  const downloads = useRef<Record<string, DownloadJob>>({});
   const isConfigured = useImmichStore((state) => state.isConfigured);
   const serverUrl = useSettingsStore((state) => state.appSettings?.immich?.serverUrl);
 
@@ -44,6 +61,37 @@ export function useImmichEvents(refreshLibrary: () => void) {
   useEffect(() => {
     const unlisteners = [
       listen<DownloadEvent>('immich-download', ({ payload }) => {
+        const { startJob, updateJob } = useProcessStore.getState();
+        const download = downloads.current[payload.path];
+        if (payload.state === 'queued') {
+          const job: DownloadJob = { jobId: null };
+          const show = () => {
+            job.jobId = startJob(JobKind.ImmichDownload, {
+              detail: payload.path,
+              ...(job.progress && { progress: job.progress }),
+            });
+          };
+          downloads.current[payload.path] = job;
+          if (payload.video) show();
+          else job.timer = setTimeout(show, QUIET_PHOTO_DOWNLOAD_MS);
+          return;
+        }
+        if (payload.state === 'progress') {
+          if (!download) return;
+          download.progress = { current: payload.current, total: payload.total ?? 0 };
+          if (download.jobId) updateJob(download.jobId, { progress: download.progress });
+          return;
+        }
+        delete downloads.current[payload.path];
+        clearTimeout(download?.timer);
+        if (download?.jobId) {
+          updateJob(
+            download.jobId,
+            payload.state === 'error'
+              ? { status: JobStatus.Error, error: payload.error }
+              : FINISHED_DOWNLOADS[payload.state],
+          );
+        }
         if (payload.state === 'done') {
           useLibraryStore.getState().setLibrary((state) => ({
             imageList: state.imageList.map((image) =>
@@ -120,23 +168,20 @@ export function useImmichEvents(refreshLibrary: () => void) {
   }, [t]);
   useEffect(() => {
     if (!isConfigured) return;
-    const unlisten = getCurrentWindow().onCloseRequested(async (event) => {
+    return guardWindowClose(async () => {
       try {
         const status = await flushImmichEdits();
-        if (status.pending === 0) return;
-        const closeAnyway = await ask(t('immich.close.message', { number: status.pending }), {
+        if (status.pending === 0) return true;
+        return await ask(t('immich.close.message', { number: status.pending }), {
           title: t('immich.close.title'),
           kind: 'warning',
           okLabel: t('immich.close.closeAnyway'),
           cancelLabel: t('immich.close.cancel'),
         });
-        if (!closeAnyway) event.preventDefault();
       } catch (err) {
         console.error('Failed to send Immich edits before closing:', err);
+        return true;
       }
     });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
   }, [t, isConfigured]);
 }

@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use super::client::{Asset, ImmichClient, Stack};
-use super::registry::{self, RemoteImage};
+use super::registry::{self, AssetDetails, RemoteImage};
 
 #[derive(Debug, Clone)]
 pub struct Resolved {
@@ -24,7 +24,7 @@ pub struct Filter {
 
 impl Filter {
     fn to_query(&self) -> Value {
-        let mut query = json!({ "type": "IMAGE" });
+        let mut query = json!({});
         if let Some(album) = &self.album_id {
             query["albumIds"] = json!([album]);
         }
@@ -127,6 +127,14 @@ fn instant(time: &Option<String>) -> Option<chrono::DateTime<chrono::FixedOffset
     chrono::DateTime::parse_from_rfc3339(time.as_deref()?).ok()
 }
 
+fn is_listed(asset: &Asset) -> bool {
+    match asset.kind.as_str() {
+        "IMAGE" => true,
+        "VIDEO" => asset.visibility.as_deref() != Some("hidden"),
+        _ => false,
+    }
+}
+
 fn is_raw(asset: &Asset) -> bool {
     crate::decode::formats::is_raw_file(&asset.original_file_name)
 }
@@ -142,7 +150,7 @@ pub async fn listing(
         .search(query)
         .await?
         .into_iter()
-        .filter(|asset| asset.kind == "IMAGE" && !registry::is_trashing(&asset.id))
+        .filter(|asset| is_listed(asset) && !registry::is_trashing(&asset.id))
         .collect();
     let stacks = StackIndex::new(client.stacks().await?);
     let assets = if filter.not_in_album {
@@ -153,6 +161,7 @@ pub async fn listing(
 
     let listed_ids: HashSet<&str> = assets.iter().map(|a| a.id.as_str()).collect();
     let mut seen = HashSet::new();
+    let videos_supported = std::cell::LazyCell::new(|| crate::video::libav::get().is_some());
     let mut resolved = Vec::with_capacity(assets.len());
     for listed in &assets {
         if stacks
@@ -163,9 +172,18 @@ pub async fn listing(
         }
         let source = stacks.source(listed, cache_dir);
         let path = cache_path(source, cache_dir);
-        if !crate::decode::formats::is_supported_image_file(&path) || !seen.insert(path.clone()) {
+        if !crate::decode::formats::is_supported_media_file(&path, || *videos_supported)
+            || !seen.insert(path.clone())
+        {
             continue;
         }
+        registry::set_details(
+            &source.id,
+            AssetDetails {
+                modified: source.file_modified_at.clone(),
+                checksum: source.checksum.clone(),
+            },
+        );
         resolved.push(Resolved {
             path,
             file_modified_at: source.file_modified_at.clone(),

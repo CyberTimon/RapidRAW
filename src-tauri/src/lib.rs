@@ -33,6 +33,7 @@ mod metadata;
 mod platform;
 mod render;
 mod retouch;
+mod video;
 
 use std::collections::HashMap;
 #[cfg(target_os = "macos")]
@@ -211,6 +212,9 @@ pub fn run() {
             tauri::WindowEvent::Destroyed if window.label() == platform::viewer_window::VIEWER_LABEL => {
                 platform::viewer_window::handle_viewer_destroyed(window.app_handle())
             }
+            tauri::WindowEvent::Destroyed if window.label() == "main" => {
+                platform::viewer_window::close_viewer_later(window.app_handle())
+            }
             _ => {}
         })
         .setup(move |app| {
@@ -265,7 +269,7 @@ pub fn run() {
                 crate::ai::upscale::initialize_cache_dir(&cache_dir);
                 crate::effects::maps::initialize_cache_dir(cache_dir.clone());
                 crate::metadata::exif_cache::initialize_cache_dir(cache_dir.clone());
-                crate::app::storage::initialize_thumbnail_cache(cache_dir);
+                crate::app::storage::initialize_caches(cache_dir);
             }
 
             {
@@ -311,6 +315,8 @@ pub fn run() {
                         std::env::set_var("NODEVICE_SELECT", "1");
                     }
                 }
+
+                std::env::set_var("ORT_DISABLE_TELEMETRY", "1");
 
                 #[cfg(not(target_os = "android"))]
                 {
@@ -607,6 +613,7 @@ pub fn run() {
             uncropped_source_cache: Mutex::new(HashMap::new()),
             thumbnail_source_cache: Mutex::new(HashMap::new()),
             load_image_generation: Arc::new(AtomicUsize::new(0)),
+            image_load_epoch: AtomicUsize::new(0),
             full_warped_cache: Mutex::new(None),
             full_warped_build_lock: Mutex::new(()),
             wgpu_presented_generation: AtomicUsize::new(usize::MAX),
@@ -627,6 +634,8 @@ pub fn run() {
                 session: ViewerSession::default(),
             }),
         })
+        .manage(video::VideoState::default())
+        .manage(crate::video::jobs::JobManager::default())
         .invoke_handler(tauri::generate_handler![
             render::gpu::fallback::get_gpu_fallbacks,
             render::gpu::fallback::reset_gpu_fallback,
@@ -652,6 +661,7 @@ pub fn run() {
             library::file_ops::save_temp_file,
             render::commands::get_image_dimensions,
             platform::main_window::frontend_ready,
+            platform::haptics::haptic,
             library::thumbnails::cancel_thumbnail_generation,
             render::commands::update_wgpu_transform,
             render::commands::release_original_preview,
@@ -660,6 +670,7 @@ pub fn run() {
             platform::viewer_window::set_viewer_view,
             platform::viewer_window::get_viewer_info,
             platform::viewer_window::get_viewer_frame,
+            platform::viewer_window::release_viewer_video,
             render::commands::sample_hsl_mixer_area,
             platform::android::resolve_android_content_uri_name,
             render::cache_utils::clear_session_caches,
@@ -703,6 +714,9 @@ pub fn run() {
             export::resolve_export_file_stem,
             export::tasks::cancel_export,
             export::size_estimate::estimate_export_sizes,
+            export::watermark::load_watermark_preview,
+            render::text::system_fonts,
+            render::text::font_weights,
             integrations::edit_in::edit_in_app,
             integrations::edit_in::cancel_edit_in_app,
             adjustments::auto_adjust::calculate_auto_adjustments,
@@ -710,6 +724,7 @@ pub fn run() {
             adjustments::auto_straighten::calculate_auto_straighten,
             library::sidecars::apply_auto_straighten_to_paths,
             masks::generation::generate_mask_overlay,
+            masks::generation::sample_mask_reference,
             library::listing::update_exif_fields,
             library::listing::get_supported_file_types,
             library::listing::read_exif_for_paths,
@@ -788,6 +803,68 @@ pub fn run() {
             integrations::immich::commands::immich_prepare_export,
             integrations::immich::commands::immich_remove_from_album,
             integrations::immich::commands::immich_timeline,
+            integrations::immich::commands::immich_media_refs,
+            integrations::immich::commands::immich_link_media,
+            integrations::immich::commands::immich_cancel_download,
+            video::commands::video_ffmpeg_version,
+            video::encoders::video_encoders,
+            video::commands::video_probe,
+            video::commands::video_seek,
+            video::commands::video_filmstrip,
+            video::commands::video_waveform,
+            video::commands::video_cancel_strip,
+            video::beats::video_beats,
+            video::audio::video_audio_chunk,
+            video::audio::video_duck_curves,
+            video::captions::video_transcribe,
+            video::captions::video_cancel_transcription,
+            video::captions::video_speech_model_ready,
+            video::captions::video_read_subtitles,
+            video::captions::video_write_subtitles,
+            video::project_files::video_save_project,
+            video::project_files::video_project_saved,
+            video::project_files::video_load_project,
+            video::project_files::video_recent_projects,
+            video::project_files::video_remove_recent_project,
+            video::project_files::video_new_project_path,
+            video::project_files::video_rename_project,
+            video::revisions::video_set_project,
+            video::playback::video_play,
+            video::playback::video_stop,
+            video::playback::video_release,
+            video::playback::video_update_playback,
+            video::playback::video_render_frame,
+            video::playback::video_prepare,
+            video::playback::video_install_frame,
+            video::playback::video_export_frame,
+            video::playback::video_sequence_filmstrip,
+            video::engine::titles::video_upload_title,
+            video::engine::titles::video_missing_titles,
+            video::export::video_export,
+            video::export::video_cancel_export,
+            video::jobs::video_jobs,
+            video::jobs::video_cancel_job,
+            video::proxy::video_proxy_status,
+            video::proxy::video_create_proxies,
+            video::proxy::video_clear_cache,
+            video::stabilization::video_stabilize,
+            video::stabilization::video_stabilize_status,
+            video::reframe::video_reframe_analyze,
+            video::reframe::video_reframe_status,
+            video::reframe::video_reframe_path,
+            video::reverse::video_reverse,
+            video::reverse::video_reverse_status,
+            video::timelapse::video_timelapse_prepare,
+            video::timelapse::video_timelapse_status,
+            video::tracking::video_track,
+            video::tracking::video_track_corners,
+            video::geometry::video_geometry,
+            video::tracking::video_cancel_track,
+            video::ai_masks::video_ai_mask_sequence,
+            video::ai_masks::video_ai_masks_ready,
+            video::ai_maps::video_clip_maps,
+            video::ai_maps::video_clip_maps_stop,
+            video::ai_maps::video_depth_preview,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -830,6 +907,8 @@ pub fn run() {
 				}
                 tauri::RunEvent::ExitRequested { api, code, .. } => {
                     api.prevent_exit();
+                    video::export::cancel_for_exit(app_handle);
+                    video::project_files::finish_writes();
                     let code = resolve_exit_code(code, process_exit_code());
                     render::gpu::fallback::abandon_attempt();
 
@@ -840,6 +919,8 @@ pub fn run() {
                     std::process::exit(code);
                 }
                 tauri::RunEvent::Exit => {
+                    video::export::cancel_for_exit(app_handle);
+                    video::project_files::finish_writes();
                     let code = process_exit_code();
                     render::gpu::fallback::abandon_attempt();
 

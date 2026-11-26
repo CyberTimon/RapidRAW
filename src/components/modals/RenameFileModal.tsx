@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { FILENAME_VARIABLES, isUniqueFilenameTemplate } from '../../types/export';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { isPhotoFile } from '../../store/videoIntegration';
+import { useModalGate } from '../../store/useUIStore';
 
 interface RenameFileModalProps {
   filesToRename: Array<string>;
@@ -15,6 +17,7 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
   const { t } = useTranslation();
   const [nameTemplate, setNameTemplate] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  useModalGate(isOpen);
   const [show, setShow] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
@@ -106,9 +109,11 @@ export default function RenameFileModal({ filesToRename, isOpen, onClose, onSave
         onKeyDown={handleKeyDown}
       >
         <Text variant={TextVariants.title} className="mb-4">
-          {isSingleFile
-            ? t('modals.renameFile.titleSingle')
-            : t('modals.renameFile.titleMultiple', { count: fileCount })}
+          {filesToRename.every(isPhotoFile)
+            ? isSingleFile
+              ? t('modals.renameFile.titleSingle')
+              : t('modals.renameFile.titleMultiple', { count: fileCount })
+            : t('modals.renameFile.titleFiles', { count: fileCount })}
         </Text>
 
         <div className="space-y-8 text-sm">

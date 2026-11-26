@@ -1,9 +1,10 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, FileLock, Lock, Wifi, WifiOff } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Text from '../ui/Text';
+import SettingItem, { SettingsSection, TooltipLabel } from '../panel/settings/SettingItem';
 import { TextColors, TextVariants } from '../../types/typography';
 import {
   DEFAULT_IMMICH_SETTINGS,
@@ -23,22 +24,6 @@ type Status =
   | { kind: 'connected'; info: ImmichConnectionInfo }
   | { kind: 'saved' }
   | { kind: 'error'; message: string };
-
-function Item({ label, description, children }: { label: string; description?: string; children: ReactNode }) {
-  return (
-    <div>
-      <Text variant={TextVariants.heading} className="block mb-2">
-        {label}
-      </Text>
-      {children}
-      {description && (
-        <Text variant={TextVariants.small} className="mt-2">
-          {description}
-        </Text>
-      )}
-    </div>
-  );
-}
 
 export default function ImmichSettings() {
   const { t } = useTranslation();
@@ -102,14 +87,13 @@ export default function ImmichSettings() {
   const connectionChanged = serverUrl.trim() !== saved.serverUrl || apiKey.trim() !== keyInfo.apiKey;
 
   return (
-    <div className="p-6 bg-surface rounded-xl shadow-md">
-      <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-        {t('immich.settings.title')}
-      </Text>
-      <Text className="mb-6">{t('immich.settings.description')}</Text>
-
+    <SettingsSection
+      title={t('immich.settings.title')}
+      description={t('immich.settings.description')}
+      tooltip={t('immich.settings.tooltip')}
+    >
       <div className="space-y-8">
-        <Item label={t('immich.settings.serverUrl')} description={t('immich.settings.serverUrlDesc')}>
+        <SettingItem label={t('immich.settings.serverUrl')} tooltip={t('immich.settings.serverUrlDesc')}>
           <Input
             value={serverUrl}
             placeholder="https://photos.example.com"
@@ -119,9 +103,9 @@ export default function ImmichSettings() {
             }}
             bgClassName="bg-bg-primary"
           />
-        </Item>
+        </SettingItem>
 
-        <Item label={t('immich.settings.apiKey')} description={t('immich.settings.apiKeyDesc')}>
+        <SettingItem label={t('immich.settings.apiKey')} tooltip={t('immich.settings.apiKeyDesc')}>
           <Input
             type="password"
             value={apiKey}
@@ -134,10 +118,16 @@ export default function ImmichSettings() {
           {keyInfo.apiKey && !connectionChanged && (
             <Text variant={TextVariants.small} className="mt-2 flex items-center gap-1.5">
               {keyInfo.inCredentialStore ? <Lock size={12} /> : <FileLock size={12} />}
-              {keyInfo.inCredentialStore ? t('immich.settings.keyInStore') : t('immich.settings.keyInFile')}
+              {keyInfo.inCredentialStore ? (
+                t('immich.settings.keyInStore')
+              ) : (
+                <TooltipLabel tooltip={t('immich.settings.keyInFileTooltip')}>
+                  {t('immich.settings.keyInFile')}
+                </TooltipLabel>
+              )}
             </Text>
           )}
-        </Item>
+        </SettingItem>
 
         <div>
           <div className="flex flex-wrap items-center gap-2">
@@ -151,7 +141,7 @@ export default function ImmichSettings() {
           <StatusLine status={status} />
         </div>
       </div>
-    </div>
+    </SettingsSection>
   );
 }
 

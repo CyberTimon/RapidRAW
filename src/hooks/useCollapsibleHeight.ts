@@ -1,5 +1,17 @@
 import { useEffect, useRef } from 'react';
 
+const sections = new WeakMap<Element, { wrapper: HTMLDivElement; isOpen: boolean }>();
+
+const observer = new ResizeObserver((entries) => {
+  const heights = entries.flatMap((entry) => {
+    const section = sections.get(entry.target);
+    return section?.isOpen ? [[section.wrapper, (entry.target as HTMLElement).scrollHeight] as const] : [];
+  });
+  heights.forEach(([wrapper, height]) => {
+    wrapper.style.height = `${height}px`;
+  });
+});
+
 export function useCollapsibleHeight(isOpen: boolean) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -11,21 +23,16 @@ export function useCollapsibleHeight(isOpen: boolean) {
       return;
     }
 
-    const updateHeight = () => {
-      if (isOpen) {
-        const contentHeight = content.scrollHeight;
-        wrapper.style.height = `${contentHeight}px`;
-      } else {
-        wrapper.style.height = '0px';
-      }
+    sections.set(content, { wrapper, isOpen });
+    if (!isOpen) {
+      wrapper.style.height = '0px';
+    }
+    observer.observe(content);
+
+    return () => {
+      observer.unobserve(content);
+      sections.delete(content);
     };
-
-    updateHeight();
-
-    const resizeObserver = new ResizeObserver(updateHeight);
-    resizeObserver.observe(content);
-
-    return () => resizeObserver.disconnect();
   }, [isOpen]);
 
   return { contentRef, wrapperRef };

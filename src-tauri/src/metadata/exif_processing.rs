@@ -213,106 +213,127 @@ fn insert_missing_lens_fields(map: &mut HashMap<String, String>, lens: &LensDesc
     }
 }
 
-pub fn read_exposure_time_secs(path: &str, file_bytes: &[u8]) -> Option<f32> {
-    if let Some(map) = read_rrexif_sidecar(Path::new(path))
-        && let Some(val_str) = map.get("ExposureTime").or(map.get("ShutterSpeedValue"))
-    {
-        let cleaned = val_str.replace(" s", "");
-        if cleaned.contains('/') {
-            let parts: Vec<&str> = cleaned.split('/').collect();
-            if parts.len() == 2
-                && let (Ok(num), Ok(den)) = (parts[0].parse::<f32>(), parts[1].parse::<f32>())
-                && den != 0.0
-            {
-                return Some(num / den);
-            }
-        } else if let Ok(val) = cleaned.parse::<f32>() {
-            return Some(val);
-        }
-    }
-
-    if is_raw_file(path)
-        && let Some(meta) = read_raw_metadata(file_bytes)
-    {
-        if let Some(r) = meta.exif.exposure_time {
-            return if r.d == 0 {
-                None
-            } else {
-                Some(r.n as f32 / r.d as f32)
-            };
-        } else if let Some(r) = meta.exif.shutter_speed_value {
-            return if r.d == 0 {
-                None
-            } else {
-                Some(r.n as f32 / r.d as f32)
-            };
-        }
-    }
-
-    if let Some(exif) = read_exif(file_bytes) {
-        if let Some(exposure) = exif.get_field(exif::Tag::ExposureTime, In::PRIMARY) {
-            if let Value::Rational(ref r) = exposure.value {
-                if r.is_empty() {
-                    return None;
-                }
-
-                let val = r.first()?;
-
-                return if val.denom == 0 {
-                    None
-                } else {
-                    Some(val.num as f32 / val.denom as f32)
-                };
-            }
-        } else if let Some(shutter_speed) =
-            exif.get_field(exif::Tag::ShutterSpeedValue, In::PRIMARY)
-            && let Value::Rational(ref r) = shutter_speed.value
-        {
-            if r.is_empty() {
-                return None;
-            }
-
-            let val = r.first()?;
-
-            return if val.denom == 0 {
-                None
-            } else {
-                Some(val.num as f32 / val.denom as f32)
-            };
-        }
-    }
-    None
+fn apex_seconds(shutter_speed_value: f32) -> f32 {
+    2f32.powf(-shutter_speed_value)
 }
 
-pub fn read_iso(path: &str, file_bytes: &[u8]) -> Option<u32> {
-    if let Some(map) = read_rrexif_sidecar(Path::new(path))
-        && let Some(val_str) = map
-            .get("ISOSpeed")
-            .or(map.get("PhotographicSensitivity"))
-            .or(map.get("ISOSpeedRatings"))
-        && let Ok(val) = val_str.parse::<u32>()
-    {
-        return Some(val);
-    }
+fn apex_f_number(aperture_value: f32) -> f32 {
+    2f32.powf(aperture_value / 2.0)
+}
 
-    if is_raw_file(path)
-        && let Some(meta) = read_raw_metadata(file_bytes)
-    {
-        if let Some(r) = meta.exif.iso_speed {
-            return Some(r);
-        } else if let Some(r) = meta.exif.iso_speed_ratings {
-            return Some(r as u32);
+fn exposure_time_in(map: &HashMap<String, String>) -> Option<f32> {
+    let Some(text) = map.get("ExposureTime") else {
+        return map
+            .get("ShutterSpeedValue")?
+            .trim_end_matches("EV")
+            .trim()
+            .parse::<f32>()
+            .ok()
+            .map(apex_seconds);
+    };
+    let cleaned = text.replace(" s", "");
+    match cleaned.split_once('/') {
+        Some((num, den)) => {
+            let (num, den) = (num.parse::<f32>().ok()?, den.parse::<f32>().ok()?);
+            (den != 0.0).then(|| num / den)
+        }
+        None => cleaned.parse::<f32>().ok(),
+    }
+}
+
+fn iso_in(map: &HashMap<String, String>) -> Option<u32> {
+    map.get("ISOSpeed")
+        .or(map.get("PhotographicSensitivity"))
+        .or(map.get("ISOSpeedRatings"))?
+        .parse::<u32>()
+        .ok()
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct ExposureSettings {
+    pub seconds: Option<f32>,
+    pub iso: Option<u32>,
+    pub f_number: Option<f32>,
+}
+
+impl ExposureSettings {
+    fn from_map(map: &HashMap<String, String>) -> Self {
+        Self {
+            seconds: exposure_time_in(map),
+            iso: iso_in(map),
+            f_number: None,
         }
     }
 
-    if let Some(exif) = read_exif(file_bytes) {
-        if let Some(r) = exif.get_field(exif::Tag::ISOSpeed, In::PRIMARY) {
-            return r.value.get_uint(0);
-        } else if let Some(r) = exif.get_field(exif::Tag::PhotographicSensitivity, In::PRIMARY) {
-            return r.value.get_uint(0);
+    fn from_raw(exif: &rawler::exif::Exif) -> Self {
+        let rational = |value: &Option<rawler::formats::tiff::Rational>| {
+            value.as_ref().and_then(rawler_rational_to_f32_checked)
+        };
+        Self {
+            seconds: rational(&exif.exposure_time).or_else(|| {
+                exif.shutter_speed_value
+                    .filter(|speed| speed.d != 0)
+                    .map(|speed| apex_seconds(speed.n as f32 / speed.d as f32))
+            }),
+            iso: exif.iso_speed.or(exif.iso_speed_ratings.map(u32::from)),
+            f_number: rational(&exif.fnumber)
+                .or_else(|| rational(&exif.aperture_value).map(apex_f_number)),
         }
     }
-    None
+
+    fn from_exif(exif: &Exif) -> Self {
+        let field = |tag| exif.get_field(tag, In::PRIMARY);
+        let rational = |tag| match &field(tag)?.value {
+            Value::Rational(values) => values.first().and_then(rational_to_f32_checked),
+            Value::SRational(values) => values
+                .first()
+                .filter(|value| value.denom != 0)
+                .map(|value| value.num as f32 / value.denom as f32),
+            _ => None,
+        };
+        Self {
+            seconds: rational(exif::Tag::ExposureTime)
+                .or_else(|| rational(exif::Tag::ShutterSpeedValue).map(apex_seconds)),
+            iso: field(exif::Tag::ISOSpeed)
+                .or_else(|| field(exif::Tag::PhotographicSensitivity))
+                .and_then(|field| field.value.get_uint(0)),
+            f_number: rational(exif::Tag::FNumber)
+                .or_else(|| rational(exif::Tag::ApertureValue).map(apex_f_number)),
+        }
+    }
+
+    fn or_else(self, fallback: impl FnOnce() -> Option<Self>) -> Self {
+        if self.seconds.is_some() && self.iso.is_some() && self.f_number.is_some() {
+            return self;
+        }
+        let Some(other) = fallback() else {
+            return self;
+        };
+        Self {
+            seconds: self.seconds.or(other.seconds),
+            iso: self.iso.or(other.iso),
+            f_number: self.f_number.or(other.f_number),
+        }
+    }
+}
+
+pub fn read_exposure_settings(path: &str, file_bytes: &[u8]) -> ExposureSettings {
+    let file = is_raw_file(path)
+        .then(|| read_raw_metadata(file_bytes))
+        .flatten()
+        .map_or_else(ExposureSettings::default, |meta| {
+            ExposureSettings::from_raw(&meta.exif)
+        })
+        .or_else(|| read_exif(file_bytes).map(|exif| ExposureSettings::from_exif(&exif)));
+    let Some(sidecar) = read_rrexif_sidecar(Path::new(path)) else {
+        return file;
+    };
+    let formatted = read_exif_data_from_bytes(path, file_bytes);
+    let edits: HashMap<String, String> = sidecar
+        .into_iter()
+        .filter(|(key, value)| formatted.get(key) != Some(value))
+        .collect();
+    ExposureSettings::from_map(&edits).or_else(|| Some(file))
 }
 
 pub fn read_focal_length_35mm(file_bytes: &[u8]) -> Option<f32> {

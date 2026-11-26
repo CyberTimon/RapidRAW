@@ -1,3 +1,4 @@
+import type { ClipSettings } from '../types/video';
 import { Crop } from 'react-image-crop';
 import { v4 as uuidv4 } from 'uuid';
 import { SubMask, SubMaskMode } from '../types/masks';
@@ -168,15 +169,18 @@ export enum Effect {
   FogTemperature = 'fogTemperature',
   FogTint = 'fogTint',
   MotionBlurAmount = 'motionBlurAmount',
+  PixelateAmount = 'pixelateAmount',
   MotionBlurAngle = 'motionBlurAngle',
   MotionBlurDepth = 'motionBlurDepth',
   MotionBlurDepthEnabled = 'motionBlurDepthEnabled',
+  MotionBlurFootage = 'motionBlurFootage',
   MotionBlurHighlights = 'motionBlurHighlights',
   MotionBlurLayer = 'motionBlurLayer',
+  MotionBlurShutter = 'motionBlurShutter',
   MotionBlurType = 'motionBlurType',
 }
 
-export type MotionBlurType = 'linear' | 'zoom' | 'spin' | 'smooth';
+export type MotionBlurType = 'linear' | 'zoom' | 'spin' | 'smooth' | 'shutter';
 export type MotionBlurLayer = 'auto' | 'subject' | 'panning' | 'uniform';
 
 export interface RelightLight {
@@ -329,6 +333,7 @@ export interface Adjustments {
   parametricCurve?: ParametricCurve;
   curveMode?: 'point' | 'parametric';
   crop: Crop | null;
+  video?: ClipSettings | null;
   dehaze: number;
   exposure: number;
   flipHorizontal: boolean;
@@ -367,8 +372,11 @@ export interface Adjustments {
   motionBlurDepth: number;
   motionBlurDepthEnabled: boolean;
   motionBlurDepthMap: string | null;
+  pixelateAmount: number;
+  motionBlurFootage: boolean;
   motionBlurHighlights: number;
   motionBlurLayer: MotionBlurLayer;
+  motionBlurShutter: number;
   motionBlurType: MotionBlurType;
   fogAmount: number;
   fogStart: number;
@@ -552,6 +560,7 @@ export interface MaskAdjustments {
   motionBlurDepth: number;
   motionBlurDepthEnabled: boolean;
   motionBlurHighlights: number;
+  pixelateAmount: number;
   motionBlurLayer: MotionBlurLayer;
   motionBlurType: MotionBlurType;
   saturation: number;
@@ -678,6 +687,7 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
   motionBlurDepth: 50,
   motionBlurDepthEnabled: false,
   motionBlurHighlights: 30,
+  pixelateAmount: 0,
   motionBlurLayer: 'auto',
   motionBlurType: 'linear',
   saturation: 0,
@@ -857,6 +867,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     motionBlurDepthMap: loadedAdjustments.motionBlurDepthMap ?? INITIAL_ADJUSTMENTS.motionBlurDepthMap,
     motionBlurHighlights: loadedAdjustments.motionBlurHighlights ?? INITIAL_ADJUSTMENTS.motionBlurHighlights,
     motionBlurLayer: loadedAdjustments.motionBlurLayer ?? INITIAL_ADJUSTMENTS.motionBlurLayer,
+    motionBlurShutter: loadedAdjustments.motionBlurShutter ?? INITIAL_ADJUSTMENTS.motionBlurShutter,
     motionBlurType: loadedAdjustments.motionBlurType ?? INITIAL_ADJUSTMENTS.motionBlurType,
     fogAmount: loadedAdjustments.fogAmount ?? INITIAL_ADJUSTMENTS.fogAmount,
     fogStart: loadedAdjustments.fogStart ?? INITIAL_ADJUSTMENTS.fogStart,
@@ -1059,12 +1070,15 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
         Effect.MotionBlurAmount,
         Effect.MotionBlurAngle,
         Effect.MotionBlurType,
+        Effect.MotionBlurShutter,
+        Effect.MotionBlurFootage,
         Effect.MotionBlurLayer,
         Effect.MotionBlurHighlights,
         Effect.MotionBlurDepthEnabled,
         Effect.MotionBlurDepth,
       ],
     },
+    { label: 'modals.copyPaste.groups.pixelate', keys: [Effect.PixelateAmount] },
     {
       label: 'modals.copyPaste.groups.relight',
       keys: [
@@ -1151,6 +1165,48 @@ export const DEFAULT_SPEED_EDIT_ADJUSTMENTS: string[] = [
 export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)
   .flat()
   .flatMap((group) => group.keys);
+
+export const withNewGroupKeys = (included: Array<string>): Array<string> => {
+  const chosen = new Set(included);
+  return [
+    ...included,
+    ...Object.values(ADJUSTMENT_GROUPS)
+      .flat()
+      .filter((group) => group.keys.some((key) => chosen.has(key)))
+      .flatMap((group) => group.keys.filter((key) => !chosen.has(key))),
+  ];
+};
+
+const hasKey = (adjustments: Adjustments, key: string) => Object.prototype.hasOwnProperty.call(adjustments, key);
+
+export const copyableAdjustments = (source: Adjustments): Adjustments =>
+  Object.fromEntries(
+    COPYABLE_ADJUSTMENT_KEYS.filter((key) => hasKey(source, key)).map((key) => [
+      key,
+      structuredClone(source[key as keyof Adjustments]),
+    ]),
+  ) as Adjustments;
+
+export const pastePatch = (
+  copied: Adjustments,
+  defaults: Adjustments | null,
+  settings?: Pick<CopyPasteSettings, 'mode' | 'includedAdjustments'>,
+): Partial<Adjustments> => {
+  const { mode, includedAdjustments } = settings ?? {
+    mode: PasteMode.Merge,
+    includedAdjustments: COPYABLE_ADJUSTMENT_KEYS,
+  };
+  const base = defaults ?? INITIAL_ADJUSTMENTS;
+  return Object.fromEntries(
+    includedAdjustments
+      .filter((key) => hasKey(copied, key))
+      .map((key) => [key, copied[key as keyof Adjustments]] as const)
+      .filter(
+        ([key, value]) =>
+          mode !== PasteMode.Merge || JSON.stringify(value) !== JSON.stringify(base[key as keyof Adjustments]),
+      ),
+  ) as Partial<Adjustments>;
+};
 
 export const ADJUSTMENT_SECTIONS: Sections = {
   basic: [
@@ -1251,9 +1307,12 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     Effect.MotionBlurAngle,
     Effect.MotionBlurDepth,
     Effect.MotionBlurDepthEnabled,
+    Effect.MotionBlurFootage,
     Effect.MotionBlurHighlights,
     Effect.MotionBlurLayer,
+    Effect.MotionBlurShutter,
     Effect.MotionBlurType,
+    Effect.PixelateAmount,
   ],
 };
 
@@ -1357,6 +1416,7 @@ export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionToo
     { id: 'lut', label: 'adjustments.effects.lut' },
     { id: 'vignette', label: 'adjustments.effects.vignette' },
     { id: 'motionBlur', label: 'adjustments.effects.motionBlur' },
+    { id: 'pixelate', label: 'adjustments.effects.pixelate' },
     { id: 'grain', label: 'adjustments.effects.grain' },
   ],
 };

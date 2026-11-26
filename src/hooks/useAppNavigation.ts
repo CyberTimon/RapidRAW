@@ -3,15 +3,17 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { dirname, homeDir } from '@tauri-apps/api/path';
 import { toast } from 'react-toastify';
-import { useLibraryStore } from '../store/useLibraryStore';
+import { selectionWith, useLibraryStore } from '../store/useLibraryStore';
 import { canvasToolState, useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { confirmProjectLeave, enterLibrary, routeLibraryOpen } from '../store/videoIntegration';
 import { Invokes } from '../types/invokes';
 import { LibraryViewMode } from '../types/settings';
 import { ImageFile } from '../types/library';
 import { INITIAL_ADJUSTMENTS } from '../utils/adjustments';
+import { loadImage } from '../utils/backendPayload';
 import { adjustmentsFromMetadata } from '../utils/developDefaults';
 import { isSameValue } from '../utils/editHistory';
 import { globalImageCache } from '../utils/ImageLRUCache';
@@ -121,7 +123,8 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     prevAdjustmentsRef,
   } = refs;
 
-  const handleGoHome = useCallback(() => {
+  const goHome = useCallback(() => {
+    enterLibrary();
     useLibraryStore.getState().setLibrary({
       rootPaths: [],
       currentFolderPath: null,
@@ -136,12 +139,19 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     useUIStore.getState().setUI({ isLibraryExportPanelVisible: false });
   }, []);
 
-  const handleBackToLibrary = useCallback(() => {
+  const handleGoHome = useCallback(() => {
+    void confirmProjectLeave().then((confirmed) => {
+      if (confirmed) goHome();
+    });
+  }, [goHome]);
+
+  const backToLibrary = useCallback(() => {
+    const projectPath = enterLibrary();
     const { selectedImage } = useEditorStore.getState();
     const { setLibrary } = useLibraryStore.getState();
     const { setUI } = useUIStore.getState();
 
-    if (selectedImage?.path && cachedEditStateRef.current) {
+    if (!projectPath && selectedImage?.path && cachedEditStateRef.current) {
       globalImageCache.set(selectedImage.path, cachedEditStateRef.current);
     }
     if (transformWrapperRef.current) {
@@ -156,7 +166,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
     debouncedSave.flush();
     debouncedSetHistory.flush();
 
-    const lastActivePath = selectedImage?.path ?? null;
+    const lastActivePath = projectPath ?? selectedImage?.path ?? null;
     const isStillVisible =
       lastActivePath !== null &&
       computeSortedLibrary(useLibraryStore.getState(), useSettingsStore.getState()).some(
@@ -165,14 +175,21 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
     if (isStillVisible) {
       setLibrary({ libraryActivePath: lastActivePath });
-    } else {
+    } else if (!projectPath) {
       clearLibrarySelection();
     }
     setUI({ activeView: 'library', slideDirection: 1 });
   }, [refs]);
 
+  const handleBackToLibrary = useCallback(() => {
+    void confirmProjectLeave().then((confirmed) => {
+      if (confirmed) backToLibrary();
+    });
+  }, [backToLibrary]);
+
   const handleImageSelect = useCallback(
     async (path: string, openInEditor: boolean = true) => {
+      if (routeLibraryOpen(path, openInEditor)) return;
       const generation = ++imageSelectGeneration;
       const { selectedImage, isSliderDragging, resetHistory, stashHistory, setEditor } = useEditorStore.getState();
       const { setLibrary } = useLibraryStore.getState();
@@ -185,7 +202,6 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
       if (selectedImage?.path === path) return;
 
-      useEditorStore.getState().patchesSentToBackend.clear();
       debouncedSave.flush();
 
       if (selectedImage?.path && cachedEditStateRef.current) {
@@ -218,11 +234,8 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       stashHistory();
       selectedImagePathRef.current = path;
 
-      const { multiSelectedPaths } = useLibraryStore.getState();
-      const newMultiSelectedPaths = multiSelectedPaths.includes(path) ? multiSelectedPaths : [path];
-
       setLibrary({
-        multiSelectedPaths: newMultiSelectedPaths,
+        multiSelectedPaths: selectionWith(path),
         libraryActivePath: path,
         selectionAnchorPath: path,
       });
@@ -266,7 +279,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
         isBackendReadyRef.current = false;
         currentResRef.current = Infinity;
 
-        invoke(Invokes.LoadImage, { path })
+        loadImage(path)
           .then((_result: any) => {
             if (selectedImagePathRef.current !== path) return;
             isBackendReadyRef.current = true;
@@ -275,8 +288,8 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
             notifyEmbeddedPreview(_result);
           })
           .catch((err: any) => {
-            if (String(err).includes('cancelled')) return;
-            console.error('Background load_image failed on cache hit:', err);
+            if (selectedImagePathRef.current !== path) return;
+            if (!String(err).includes('cancelled')) console.error('Background load_image failed on cache hit:', err);
             isBackendReadyRef.current = true;
             currentResRef.current = 0;
           });
@@ -349,6 +362,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       preserveEditor = false,
       skipHistory = false,
     ) => {
+      if (!preserveEditor && !(await confirmProjectLeave())) return;
       const { appSettings, handleSettingsChange } = useSettingsStore.getState();
       const { pinnedFolders } = appSettings || { pinnedFolders: [] };
       const { setLibrary, sortCriteria } = useLibraryStore.getState();
@@ -360,6 +374,8 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       if (!skipHistory && path) {
         useLibraryStore.getState().pushNavHistory({ type: 'folder', path });
       }
+
+      const projectPath = preserveEditor ? null : enterLibrary();
 
       if (!preserveEditor) {
         await invoke('cancel_thumbnail_generation');
@@ -412,13 +428,12 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
           ...(preserveEditor ? {} : { imageList: [], multiSelectedPaths: [], libraryActivePath: null }),
         });
 
-        if (!preserveEditor && selectedImage) {
+        if (!preserveEditor && !projectPath && selectedImage) {
           debouncedSave.flush();
           stashHistory();
           setEditor({ selectedImage: null, finalPreviewUrl: null, uncroppedAdjustedPreviewUrl: null, histogram: null });
           setEditor({ adjustments: INITIAL_ADJUSTMENTS });
           resetHistory(INITIAL_ADJUSTMENTS, null);
-          useEditorStore.getState().patchesSentToBackend.clear();
         }
 
         const command =
@@ -461,6 +476,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
 
   const handleSelectAlbum = useCallback(
     async (albumId: string, albumName: string, imagePaths: string[], preserveEditor = false, skipHistory = false) => {
+      if (!preserveEditor && !(await confirmProjectLeave())) return;
       const { setLibrary, sortCriteria } = useLibraryStore.getState();
       const { setUI } = useUIStore.getState();
 
@@ -469,6 +485,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
       }
 
       if (!preserveEditor) {
+        enterLibrary();
         await invoke('cancel_thumbnail_generation');
         clearThumbnailQueue();
         setLibrary({ libraryScrollTop: 0 });

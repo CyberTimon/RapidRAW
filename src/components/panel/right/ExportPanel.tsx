@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { save, open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
-import { FileInput, CheckCircle, XCircle, Loader, Ban, ChevronDown, ChevronRight, Settings, X } from 'lucide-react';
+import { FileInput, ChevronDown, ChevronLeft, ChevronRight, Film, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import debounce from 'lodash.debounce';
 import Switch from '../../ui/Switch';
-import Button from '../../ui/Button';
+import ExportButton from '../../ui/ExportButton';
 import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
-import ImagePicker from '../../ui/ImagePicker';
-import ColorField, { normalizeHexColor, ParsedTextField, useParsedTextField } from '../../ui/ColorField';
+import SegmentedControl from '../../ui/SegmentedControl';
+import PanelSection from '../../ui/PanelSection';
+import ColorField, { normalizeHexColor, useParsedTextField } from '../../ui/ColorField';
+import ValidatedNumberInput from '../../ui/ValidatedNumberInput';
 import {
   BorderBasis,
   ConflictAction,
@@ -24,7 +26,6 @@ import {
   FileFormats,
   MAX_EXPORT_DPI,
   TiffBitDepth,
-  WatermarkAnchor,
   COLOR_SPACE_FILE_FORMATS,
   DEFAULT_HDR_HEADROOM,
   HDR_FILE_FORMATS,
@@ -36,16 +37,22 @@ import { SelectedImage } from '../../../types/editor';
 import { AppSettings } from '../../../types/settings';
 import { Panel } from '../../../types/ui';
 import ExportPresetsList from './ExportPresetsList';
+import VideoExportSection from './VideoExportSection';
+import WatermarkSection from './WatermarkSection';
 import { useExportSettings } from '../../../hooks/useExportSettings';
 import { useOsPlatform } from '../../../hooks/useOsPlatform';
 import { useDisplayStatus } from '../../../hooks/useDisplayStatus';
 import Text from '../../ui/Text';
+import PanelHeader from '../../ui/PanelHeader';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useUIStore } from '../../../store/useUIStore';
+import { isVideoPath, photoEditorImage, useVideoKind } from '../../../store/videoIntegration';
+import { VideoExportTarget, isVideoExportBusy, useVideoExportStore } from '../../../store/videoExport';
 import ImmichExportOptions, { useImmichExportAvailable, useImmichExportChoice } from '../../immich/ImmichExportOptions';
 import { prepareImmichExport } from '../../../utils/immichApi';
 import { formatBytes } from '../../../utils/formatBytes';
+import { watermarkExportSettings } from '../../../utils/watermark';
 
 interface ExportPanelProps {
   exportState: ExportState;
@@ -76,157 +83,6 @@ function parsePercent(value: string): number | null {
 function parseDpi(value: string): number | null {
   const parsed = Number(value.trim());
   return Number.isInteger(parsed) && parsed > 0 && parsed <= MAX_EXPORT_DPI ? parsed : null;
-}
-
-interface ValidatedNumberInputProps {
-  ariaLabel: string;
-  disabled: boolean;
-  field: ParsedTextField<number>;
-  max?: number;
-  background?: string;
-}
-
-function ValidatedNumberInput({
-  ariaLabel,
-  disabled,
-  field,
-  max,
-  background = 'bg-surface',
-}: ValidatedNumberInputProps) {
-  return (
-    <input
-      aria-label={ariaLabel}
-      className={`w-20 ${background} text-center rounded-md p-2 border focus:ring-accent text-text-secondary focus:text-text-primary ${
-        field.parsed === null ? 'border-red-500' : 'border-surface focus:border-accent'
-      }`}
-      disabled={disabled}
-      max={max}
-      min="0"
-      onChange={(e) => field.handleChange(e.target.value)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') e.currentTarget.blur();
-      }}
-      step="any"
-      type="number"
-      value={field.text}
-    />
-  );
-}
-
-interface SectionProps {
-  children: any;
-  title: string;
-}
-
-function Section({ title, children }: SectionProps) {
-  return (
-    <div>
-      <Text variant={TextVariants.heading} className="mb-2">
-        {title}
-      </Text>
-      <div className="space-y-2">{children}</div>
-    </div>
-  );
-}
-
-function WatermarkPreview({
-  anchor,
-  scale,
-  spacing,
-  opacity,
-  watermarkPath,
-  imageAspectRatio,
-  watermarkImageAspectRatio,
-}: {
-  anchor: WatermarkAnchor;
-  scale: number;
-  spacing: number;
-  opacity: number;
-  watermarkPath: string | null;
-  imageAspectRatio: number;
-  watermarkImageAspectRatio: number;
-}) {
-  const { t } = useTranslation();
-
-  const getPositionStyles = () => {
-    const minDimPercent = imageAspectRatio > 1 ? 100 / imageAspectRatio : 100;
-    const watermarkSizePercent = minDimPercent * (scale / 100);
-    const spacingPercent = minDimPercent * (spacing / 100);
-
-    const styles: React.CSSProperties = {
-      width: `${watermarkSizePercent}%`,
-      opacity: opacity / 100,
-      position: 'absolute',
-    };
-
-    const spacingString = `${spacingPercent}%`;
-
-    switch (anchor) {
-      case WatermarkAnchor.TopLeft:
-        styles.top = spacingString;
-        styles.left = spacingString;
-        break;
-      case WatermarkAnchor.TopCenter:
-        styles.top = spacingString;
-        styles.left = '50%';
-        styles.transform = 'translateX(-50%)';
-        break;
-      case WatermarkAnchor.TopRight:
-        styles.top = spacingString;
-        styles.right = spacingString;
-        break;
-      case WatermarkAnchor.CenterLeft:
-        styles.top = '50%';
-        styles.left = spacingString;
-        styles.transform = 'translateY(-50%)';
-        break;
-      case WatermarkAnchor.Center:
-        styles.top = '50%';
-        styles.left = '50%';
-        styles.transform = 'translate(-50%, -50%)';
-        break;
-      case WatermarkAnchor.CenterRight:
-        styles.top = '50%';
-        styles.right = spacingString;
-        styles.transform = 'translateY(-50%)';
-        break;
-      case WatermarkAnchor.BottomLeft:
-        styles.bottom = spacingString;
-        styles.left = spacingString;
-        break;
-      case WatermarkAnchor.BottomCenter:
-        styles.bottom = spacingString;
-        styles.left = '50%';
-        styles.transform = 'translateX(-50%)';
-        break;
-      case WatermarkAnchor.BottomRight:
-        styles.bottom = spacingString;
-        styles.right = spacingString;
-        break;
-    }
-    return styles;
-  };
-
-  return (
-    <div
-      className="w-full bg-surface rounded-md relative overflow-hidden border border-surface"
-      style={{ aspectRatio: imageAspectRatio }}
-    >
-      <div className="absolute inset-0 flex items-center justify-center">
-        <Text variant={TextVariants.label}>{t('export.watermark.previewText')}</Text>
-      </div>
-      {watermarkPath && (
-        <div style={getPositionStyles()}>
-          <div
-            className="w-full bg-accent/50 border-2 border-dashed border-accent rounded-xs flex items-center justify-center"
-            style={{ aspectRatio: watermarkImageAspectRatio }}
-          >
-            <span className="text-white text-[8px] font-bold">{t('export.watermark.logoText')}</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function ExportPanel({
@@ -280,6 +136,7 @@ export default function ExportPanel({
   );
 
   const {
+    restored,
     fileFormat,
     setFileFormat,
     jpegQuality,
@@ -336,18 +193,7 @@ export default function ExportPanel({
     setOriginalKeepExposure,
     filenameTemplate,
     setFilenameTemplate,
-    enableWatermark,
-    setEnableWatermark,
-    watermarkPath,
-    setWatermarkPath,
-    watermarkAnchor,
-    setWatermarkAnchor,
-    watermarkScale,
-    setWatermarkScale,
-    watermarkSpacing,
-    setWatermarkSpacing,
-    watermarkOpacity,
-    setWatermarkOpacity,
+    watermark,
     preserveFolders,
     setPreserveFolders,
     handleApplyPreset,
@@ -366,13 +212,13 @@ export default function ExportPanel({
   const initDone = useRef(false);
 
   useEffect(() => {
-    if (initDone.current || appSettings === null || !isVisible) return;
+    if (initDone.current || restored || appSettings === null || !isVisible) return;
     initDone.current = true;
     const lastUsed = appSettings.exportPresets?.find((p) => p.id === '__last_used__');
     if (lastUsed) {
       handleApplyPreset(lastUsed);
     }
-  }, [appSettings, handleApplyPreset, isVisible]);
+  }, [appSettings, handleApplyPreset, isVisible, restored]);
 
   const saveLastUsedPreset = useCallback(
     (exportPath: string) => {
@@ -426,8 +272,6 @@ export default function ExportPanel({
   const [estimatedSize, setEstimatedSize] = useState<number | null>(null);
   const [isEstimating, setIsEstimating] = useState<boolean>(false);
   const estimateRequestIdRef = useRef(0);
-  const [watermarkImageAspectRatio, setWatermarkImageAspectRatio] = useState(1);
-  const [imageAspectRatio, setImageAspectRatio] = useState(16 / 9);
   const filenameInputRef = useRef<HTMLInputElement>(null);
   const osPlatform = useOsPlatform();
   const displayStatus = useDisplayStatus();
@@ -447,10 +291,9 @@ export default function ExportPanel({
 
   const { status, progress, errorMessage, exportedCount, skippedCount } = exportState;
   const isExporting = [Status.Exporting, Status.Cancelling].includes(status);
-  const isCancelling = status === Status.Cancelling;
   const isLibraryContext = !!onClose;
 
-  const pathsToExport = useMemo(() => {
+  const selectionPaths = useMemo(() => {
     return isLibraryContext
       ? multiSelectedPaths
       : multiSelectedPaths.length > 0
@@ -460,57 +303,26 @@ export default function ExportPanel({
           : [];
   }, [isLibraryContext, multiSelectedPaths, selectedImage?.path]);
 
-  const numImages = pathsToExport.length;
+  const isEditorView = useUIStore((state) => state.activeView === 'editor');
+  const isVideoProject = useVideoKind() === 'project' && isEditorView;
+  const isVideoExporting = useVideoExportStore((state) => isVideoExportBusy(state.status));
+  const [videoChoice, setVideoChoice] = useState<Array<string> | null>(null);
+  const videoPaths = useMemo(() => selectionPaths.filter(isVideoPath), [selectionPaths]);
 
-  useEffect(() => {
-    const fetchDims = async () => {
-      if (!enableWatermark || numImages === 0 || !isVisible || !isPanelReallyActive) return;
-      if (!isLibraryContext && selectedImage && selectedImage.width && selectedImage.height) {
-        setImageAspectRatio(selectedImage.width / selectedImage.height);
-        return;
-      }
-      try {
-        const dims: any = await invoke('get_image_dimensions', { path: pathsToExport[0] });
-        if (dims.width > 0 && dims.height > 0) setImageAspectRatio(dims.width / dims.height);
-      } catch {
-        setImageAspectRatio(3 / 2);
-      }
-    };
-    fetchDims();
-  }, [pathsToExport, isLibraryContext, selectedImage, enableWatermark, numImages, isVisible]);
+  const videoTarget = useMemo<VideoExportTarget | null>(() => {
+    if (isVideoProject) return { kind: 'project' };
+    const onlyVideos = videoPaths.length === selectionPaths.length;
+    return videoPaths.length > 0 && (onlyVideos || videoChoice === selectionPaths)
+      ? { kind: 'videos', paths: videoPaths }
+      : null;
+  }, [isVideoProject, videoPaths, selectionPaths, videoChoice]);
 
-  useEffect(() => {
-    const fetchWatermarkDimensions = async () => {
-      if (!watermarkPath) {
-        setWatermarkImageAspectRatio(1);
-        return;
-      }
-      try {
-        const dimensions: { width: number; height: number } = await invoke('get_image_dimensions', {
-          path: watermarkPath,
-        });
-        setWatermarkImageAspectRatio(dimensions.height > 0 ? dimensions.width / dimensions.height : 1);
-      } catch {
-        setWatermarkImageAspectRatio(1);
-      }
-    };
-    fetchWatermarkDimensions();
-  }, [watermarkPath]);
-
-  const anchorOptions = useMemo(
-    () => [
-      { label: t('export.watermark.anchors.topLeft'), value: WatermarkAnchor.TopLeft },
-      { label: t('export.watermark.anchors.topCenter'), value: WatermarkAnchor.TopCenter },
-      { label: t('export.watermark.anchors.topRight'), value: WatermarkAnchor.TopRight },
-      { label: t('export.watermark.anchors.centerLeft'), value: WatermarkAnchor.CenterLeft },
-      { label: t('export.watermark.anchors.center'), value: WatermarkAnchor.Center },
-      { label: t('export.watermark.anchors.centerRight'), value: WatermarkAnchor.CenterRight },
-      { label: t('export.watermark.anchors.bottomLeft'), value: WatermarkAnchor.BottomLeft },
-      { label: t('export.watermark.anchors.bottomCenter'), value: WatermarkAnchor.BottomCenter },
-      { label: t('export.watermark.anchors.bottomRight'), value: WatermarkAnchor.BottomRight },
-    ],
-    [t],
+  const pathsToExport = useMemo(
+    () => (videoTarget ? [] : selectionPaths.filter((path) => !videoPaths.includes(path))),
+    [videoTarget, selectionPaths, videoPaths],
   );
+
+  const numImages = pathsToExport.length;
 
   const debouncedEstimateSize = useMemo(
     () =>
@@ -561,16 +373,7 @@ export default function ExportPanel({
       pad: padSettings,
       stripGps,
       exportMasks: exportMasks,
-      watermark:
-        enableWatermark && watermarkPath
-          ? {
-              path: watermarkPath,
-              anchor: watermarkAnchor,
-              scale: watermarkScale,
-              spacing: watermarkSpacing,
-              opacity: watermarkOpacity,
-            }
-          : null,
+      watermark: watermarkExportSettings(watermark),
     };
     const format = FILE_FORMATS.find((f: FileFormat) => f.id === fileFormat)?.extensions[0] || 'jpeg';
     const runEstimate = () =>
@@ -578,7 +381,7 @@ export default function ExportPanel({
         ++estimateRequestIdRef.current,
         pathsToExport,
         adjustmentsRef.current,
-        selectedImage?.path,
+        photoEditorImage()?.path,
         exportSettings,
         format,
       );
@@ -625,12 +428,7 @@ export default function ExportPanel({
     preserveTimestamps,
     stripGps,
     filenameTemplate,
-    enableWatermark,
-    watermarkPath,
-    watermarkAnchor,
-    watermarkScale,
-    watermarkSpacing,
-    watermarkOpacity,
+    watermark,
     debouncedEstimateSize,
     exportMasks,
     preserveFolders,
@@ -650,6 +448,73 @@ export default function ExportPanel({
       input.setSelectionRange(start + variable.length, start + variable.length);
     }, 0);
   };
+
+  const renderOutputSections = (target: string, disabled: boolean, source: 'photos' | VideoExportTarget['kind']) => (
+    <>
+      {(source !== 'project' || canExportToImmich) && (
+        <PanelSection title={t('export.sections.destination')}>
+          <div className="space-y-3">
+            <Dropdown
+              options={[
+                { label: t('export.destination.customFolder'), value: 'customFolder' },
+                ...(source !== 'project'
+                  ? [{ label: t('export.destination.originalFolder'), value: 'originalFolder' }]
+                  : []),
+                ...(canExportToImmich ? [{ label: t('immich.export.destination'), value: 'immich' }] : []),
+              ]}
+              value={target || 'customFolder'}
+              onChange={(val) => setDestinationType(val as string)}
+              disabled={disabled}
+              className="w-full"
+            />
+
+            {target === 'immich' && <ImmichExportOptions disabled={disabled} showOriginal={source === 'photos'} />}
+
+            {target === 'originalFolder' && (
+              <div className="flex items-center gap-3 pl-2 border-l-2 border-surface">
+                <Text variant={TextVariants.label} className="whitespace-nowrap min-w-[70px]">
+                  {t('export.destination.subfolder')}
+                </Text>
+                <input
+                  className="w-full bg-surface border border-transparent rounded-md px-3 py-2 text-sm text-text-primary focus:outline-hidden truncate"
+                  disabled={disabled}
+                  onChange={(e) => setSubfolder(e.target.value)}
+                  type="text"
+                  value={subfolder || ''}
+                  placeholder={t('export.destination.subfolderPlaceholder')}
+                />
+              </div>
+            )}
+          </div>
+        </PanelSection>
+      )}
+
+      {source !== 'project' && (
+        <PanelSection title={t('export.sections.fileNaming')}>
+          <input
+            className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
+            disabled={disabled}
+            onChange={(e) => setFilenameTemplate(e.target.value)}
+            ref={filenameInputRef}
+            type="text"
+            value={filenameTemplate}
+          />
+          <div className="flex flex-wrap gap-2 mt-2">
+            {FILENAME_VARIABLES.map((variable: string) => (
+              <button
+                className="px-2 py-1 bg-surface text-text-secondary text-xs rounded-md hover:bg-card-active transition-colors disabled:opacity-50"
+                disabled={disabled}
+                key={variable}
+                onClick={() => handleVariableClick(variable)}
+              >
+                {variable}
+              </button>
+            ))}
+          </div>
+        </PanelSection>
+      )}
+    </>
+  );
 
   const handleExport = async () => {
     if (numImages === 0 || isExporting) return;
@@ -673,16 +538,7 @@ export default function ExportPanel({
       stripGps,
       exportMasks: exportMasks,
       exportOriginal: exportOriginal ? { crop: originalCrop, keepExposure: originalKeepExposure } : null,
-      watermark:
-        enableWatermark && watermarkPath
-          ? {
-              path: watermarkPath,
-              anchor: watermarkAnchor,
-              scale: watermarkScale,
-              spacing: watermarkSpacing,
-              opacity: watermarkOpacity,
-            }
-          : null,
+      watermark: watermarkExportSettings(watermark),
       dpi,
     };
 
@@ -766,7 +622,7 @@ export default function ExportPanel({
           baseOriginFolders: rootPaths,
           exportSettings,
           outputFormat: selectedFormat.extensions[0],
-          currentEditPath: selectedImage?.path || null,
+          currentEditPath: photoEditorImage()?.path || null,
           currentEditAdjustments: adjustmentsRef.current || null,
         });
       }
@@ -797,15 +653,68 @@ export default function ExportPanel({
   const isLut = fileFormat === FileFormats.Cube;
   const itemLabel = isLut ? t('export.labels.lut') : t('export.labels.image');
   const itemLabelPlural = isLut ? t('export.labels.lut_plural') : t('export.labels.image_plural');
+  const panelClassName = onClose ? 'h-full bg-bg-secondary rounded-lg flex flex-col' : 'flex flex-col h-full';
+  const panelHeader = <PanelHeader title={t('export.title')} />;
+
+  if (videoTarget) {
+    const lastExportPath = appSettings?.exportPresets?.find((p) => p.id === '__last_used__')?.lastExportPath ?? null;
+    const videoDestination =
+      destination === 'immich' || (destination === 'originalFolder' && videoTarget.kind === 'videos')
+        ? destination
+        : 'customFolder';
+    return (
+      <div className={panelClassName}>
+        {panelHeader}
+        <VideoExportSection
+          target={videoTarget}
+          output={{
+            destination: videoDestination,
+            subfolder: subfolder || '',
+            filenameTemplate,
+            lastExportPath,
+            immichAlbum: immichExport.album,
+          }}
+          onExportStarted={(folder) => saveLastUsedPreset(folder ?? lastExportPath ?? '')}
+          notice={
+            videoTarget.kind === 'videos' &&
+            videoPaths.length < selectionPaths.length && (
+              <button
+                className="flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
+                disabled={isVideoExporting}
+                onClick={() => setVideoChoice(null)}
+              >
+                <ChevronLeft size={16} />
+                {t('video.export.backToPhotos')}
+              </button>
+            )
+          }
+        >
+          {renderOutputSections(videoDestination, isVideoExporting, videoTarget.kind)}
+        </VideoExportSection>
+      </div>
+    );
+  }
 
   return (
-    <div className={onClose ? 'h-full bg-bg-secondary rounded-lg flex flex-col' : 'flex flex-col h-full'}>
-      <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>{t('export.title')}</Text>
-      </div>
+    <div className={panelClassName}>
+      {panelHeader}
       <div className="grow overflow-y-auto p-3 space-y-8">
         {numImages > 0 ? (
           <>
+            {videoPaths.length > 0 && (
+              <div className="flex items-center gap-3 p-3 rounded-md bg-surface">
+                <Film size={16} className="shrink-0 text-text-secondary" />
+                <Text variant={TextVariants.small} className="flex-1 min-w-0">
+                  {t('video.export.mixedNote', { count: videoPaths.length })}
+                </Text>
+                <button
+                  className="shrink-0 px-2 py-1 rounded-md text-xs font-medium bg-bg-secondary text-text-primary hover:bg-card-active transition-colors"
+                  onClick={() => setVideoChoice(selectionPaths)}
+                >
+                  {t('video.export.exportVideos')}
+                </button>
+              </div>
+            )}
             <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
               <ExportPresetsList
                 appSettings={appSettings}
@@ -815,21 +724,13 @@ export default function ExportPanel({
               />
             </div>
 
-            <Section title={t('export.sections.fileSettings')}>
-              <div className="grid grid-cols-3 gap-2">
-                {FILE_FORMATS.map((format: FileFormat) => (
-                  <button
-                    className={`px-2 py-1.5 rounded-md transition-colors ${fileFormat === format.id ? 'bg-accent' : 'bg-surface hover:bg-card-active'} disabled:opacity-50`}
-                    disabled={isExporting}
-                    key={format.id}
-                    onClick={() => setFileFormat(format.id)}
-                  >
-                    <Text color={fileFormat === format.id ? TextColors.button : TextColors.secondary}>
-                      {format.name}
-                    </Text>
-                  </button>
-                ))}
-              </div>
+            <PanelSection title={t('export.sections.fileSettings')}>
+              <SegmentedControl<string>
+                options={FILE_FORMATS.map((format: FileFormat) => ({ id: format.id, label: format.name }))}
+                value={fileFormat}
+                onChange={setFileFormat}
+                disabled={isExporting}
+              />
               {[FileFormats.Jpeg, FileFormats.Webp, FileFormats.Jxl].includes(fileFormat as FileFormats) && (
                 <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
                   <Slider
@@ -862,68 +763,13 @@ export default function ExportPanel({
                   />
                 </div>
               )}
-            </Section>
+            </PanelSection>
 
-            <Section title={t('export.sections.destination')}>
-              <div className="space-y-3">
-                <Dropdown
-                  options={[
-                    { label: t('export.destination.customFolder'), value: 'customFolder' },
-                    { label: t('export.destination.originalFolder'), value: 'originalFolder' },
-                    ...(canExportToImmich ? [{ label: t('immich.export.destination'), value: 'immich' }] : []),
-                  ]}
-                  value={destination || 'customFolder'}
-                  onChange={(val) => setDestinationType(val as string)}
-                  disabled={isExporting}
-                  className="w-full"
-                />
-
-                {destination === 'immich' && <ImmichExportOptions disabled={isExporting} />}
-
-                {destination === 'originalFolder' && (
-                  <div className="flex items-center gap-3 pl-2 border-l-2 border-surface">
-                    <Text variant={TextVariants.label} className="whitespace-nowrap min-w-[70px]">
-                      {t('export.destination.subfolder')}
-                    </Text>
-                    <input
-                      className="w-full bg-surface border border-transparent rounded-md px-3 py-2 text-sm text-text-primary focus:outline-hidden truncate"
-                      disabled={isExporting}
-                      onChange={(e) => setSubfolder(e.target.value)}
-                      type="text"
-                      value={subfolder || ''}
-                      placeholder={t('export.destination.subfolderPlaceholder')}
-                    />
-                  </div>
-                )}
-              </div>
-            </Section>
-
-            <Section title={t('export.sections.fileNaming')}>
-              <input
-                className="w-full bg-surface border border-surface rounded-md p-2 text-sm text-text-primary focus:ring-accent focus:border-accent"
-                disabled={isExporting}
-                onChange={(e) => setFilenameTemplate(e.target.value)}
-                ref={filenameInputRef}
-                type="text"
-                value={filenameTemplate}
-              />
-              <div className="flex flex-wrap gap-2 mt-2">
-                {FILENAME_VARIABLES.map((variable: string) => (
-                  <button
-                    className="px-2 py-1 bg-surface text-text-secondary text-xs rounded-md hover:bg-card-active transition-colors disabled:opacity-50"
-                    disabled={isExporting}
-                    key={variable}
-                    onClick={() => handleVariableClick(variable)}
-                  >
-                    {variable}
-                  </button>
-                ))}
-              </div>
-            </Section>
+            {renderOutputSections(destination, isExporting, 'photos')}
 
             {fileFormat !== FileFormats.Cube && (
               <>
-                <Section title={t('export.sections.imageSizing')}>
+                <PanelSection title={t('export.sections.imageSizing')}>
                   <Switch
                     label={t('export.border.addBorder')}
                     checked={enableBorder}
@@ -1058,12 +904,12 @@ export default function ExportPanel({
                       />
                     </div>
                   )}
-                </Section>
+                </PanelSection>
 
                 {[FileFormats.Jpeg, FileFormats.Png, FileFormats.Tiff, FileFormats.Webp, FileFormats.Jxl].includes(
                   fileFormat as FileFormats,
                 ) && (
-                  <Section title={t('export.sections.metadata')}>
+                  <PanelSection title={t('export.sections.metadata')}>
                     <Switch
                       checked={keepMetadata}
                       disabled={isExporting}
@@ -1082,82 +928,14 @@ export default function ExportPanel({
                         />
                       </div>
                     )}
-                  </Section>
+                  </PanelSection>
                 )}
 
-                <Section title={t('export.sections.watermark')}>
-                  <Switch
-                    label={t('export.watermark.addWatermark')}
-                    checked={enableWatermark}
-                    onChange={setEnableWatermark}
-                    disabled={isExporting}
-                    trackClassName="bg-surface"
-                  />
-                  {enableWatermark && (
-                    <div className="space-y-4 pl-2 border-l-2 border-surface">
-                      <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>
-                        <ImagePicker
-                          label={t('export.watermark.watermarkImage')}
-                          imageName={watermarkPath ? watermarkPath.split(/[\\/]/).pop() || null : null}
-                          onImageSelect={setWatermarkPath}
-                          onClear={() => setWatermarkPath(null)}
-                        />
-                      </div>
-                      {watermarkPath && (
-                        <>
-                          <Dropdown
-                            options={anchorOptions}
-                            value={watermarkAnchor}
-                            onChange={(val) => setWatermarkAnchor(val as WatermarkAnchor)}
-                            disabled={isExporting}
-                            className="w-full"
-                          />
-                          <div>
-                            <Slider
-                              label={t('export.watermark.scale')}
-                              min={1}
-                              max={100}
-                              step={1}
-                              value={watermarkScale}
-                              onChange={(e) => setWatermarkScale(Number(e.target.value))}
-                              disabled={isExporting}
-                              defaultValue={10}
-                            />
-                            <Slider
-                              label={t('export.watermark.spacing')}
-                              min={0}
-                              max={25}
-                              step={1}
-                              value={watermarkSpacing}
-                              onChange={(e) => setWatermarkSpacing(Number(e.target.value))}
-                              disabled={isExporting}
-                              defaultValue={5}
-                            />
-                            <Slider
-                              label={t('export.watermark.opacity')}
-                              min={0}
-                              max={100}
-                              step={1}
-                              value={watermarkOpacity}
-                              onChange={(e) => setWatermarkOpacity(Number(e.target.value))}
-                              disabled={isExporting}
-                              defaultValue={75}
-                            />
-                          </div>
-                          <WatermarkPreview
-                            imageAspectRatio={imageAspectRatio}
-                            watermarkImageAspectRatio={watermarkImageAspectRatio}
-                            watermarkPath={watermarkPath}
-                            anchor={watermarkAnchor as WatermarkAnchor}
-                            scale={watermarkScale}
-                            spacing={watermarkSpacing}
-                            opacity={watermarkOpacity}
-                          />
-                        </>
-                      )}
-                    </div>
-                  )}
-                </Section>
+                <WatermarkSection
+                  disabled={isExporting}
+                  layout={{ border: borderSettings, pad: padSettings }}
+                  previewPaths={isEditorView ? null : pathsToExport}
+                />
               </>
             )}
 
@@ -1356,75 +1134,33 @@ export default function ExportPanel({
             </span>
           ) : null}
         </Text>
-        <motion.div
-          whileTap={!(isCancelling || (status !== Status.Exporting && !canExport)) ? { scale: 0.98 } : undefined}
-          transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-          className="w-full"
-        >
-          <Button
-            className={`group rounded-md h-11 w-full flex items-center text-md font-bold! justify-center transition-colors ${
-              status === Status.Exporting
-                ? 'bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 shadow-none'
-                : status === Status.Cancelling
-                  ? 'bg-yellow-500/20 text-yellow-400 shadow-none'
-                  : status === Status.Success
-                    ? skippedCount && !exportedCount
-                      ? 'bg-amber-500/80 text-white shadow-none'
-                      : 'bg-green-500/70 text-white shadow-none'
-                    : status === Status.Error
-                      ? 'bg-red-500/20 text-red-400 shadow-none'
-                      : status === Status.Cancelled
-                        ? 'bg-yellow-500/20 text-yellow-400 shadow-none'
-                        : ''
-            }`}
-            disabled={isCancelling || (status !== Status.Exporting && !canExport)}
-            onClick={status === Status.Exporting ? handleCancel : handleExport}
-            size="lg"
-          >
-            {status === Status.Exporting ? (
-              <>
-                <span className="flex items-center group-hover:hidden">
-                  <Loader size={18} className="animate-spin mr-2" />
-                  {progress.total > 1
-                    ? t('export.status.exportingProgress', { current: progress.current, total: progress.total })
-                    : t('export.status.exporting')}
-                </span>
-                <span className="hidden items-center group-hover:flex">
-                  <X size={18} className="mr-2" />
-                  {t('export.status.cancelExport')}
-                </span>
-              </>
-            ) : status === Status.Cancelling ? (
-              <>
-                <Loader size={18} className="animate-spin mr-2" /> {t('export.status.cancelling')}
-              </>
-            ) : status === Status.Success ? (
-              <>
-                <CheckCircle size={18} className="mr-2" />
-                {!skippedCount
-                  ? t('export.status.success')
-                  : exportedCount
-                    ? t('export.status.successWithSkipped', { exported: exportedCount, skipped: skippedCount })
-                    : t('export.status.allSkipped')}
-              </>
-            ) : status === Status.Error ? (
-              <>
-                <XCircle size={18} className="mr-2" /> {errorMessage || t('export.status.failed')}
-              </>
-            ) : status === Status.Cancelled ? (
-              <>
-                <Ban size={18} className="mr-2" /> {t('export.status.cancelled')}
-              </>
-            ) : (
-              <>
-                <FileInput size={18} className="mr-2" />{' '}
-                {numImages > 1
-                  ? t('export.status.exportMultiple', { count: numImages, label: itemLabelPlural })
-                  : t('export.status.exportSingle', { label: itemLabel })}
-              </>
-            )}
-          </Button>
-        </motion.div>
+        <ExportButton
+          status={status}
+          progress={isExporting && progress.total > 1 ? (progress.current ?? 0) / progress.total : null}
+          canExport={canExport}
+          icon={FileInput}
+          label={
+            numImages > 1
+              ? t('export.status.exportMultiple', { count: numImages, label: itemLabelPlural })
+              : t('export.status.exportSingle', { label: itemLabel })
+          }
+          progressLabel={
+            progress.total > 1
+              ? t('export.status.exportingProgress', { current: progress.current, total: progress.total })
+              : t('export.status.exporting')
+          }
+          successLabel={
+            !skippedCount
+              ? undefined
+              : exportedCount
+                ? t('export.status.successWithSkipped', { exported: exportedCount, skipped: skippedCount })
+                : t('export.status.allSkipped')
+          }
+          errorLabel={errorMessage || undefined}
+          warning={!!skippedCount && !exportedCount}
+          onExport={handleExport}
+          onCancel={handleCancel}
+        />
       </div>
     </div>
   );

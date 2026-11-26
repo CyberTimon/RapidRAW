@@ -1,6 +1,9 @@
 import { RefObject } from 'react';
 import { create } from 'zustand';
 import debounce from 'lodash.debounce';
+import { invoke } from '@tauri-apps/api/core';
+import { toast } from 'react-toastify';
+import { Invokes } from '../types/invokes';
 import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, CropGeometry, pickCropGeometry } from '../utils/adjustments';
 import {
   SelectedImage,
@@ -123,7 +126,11 @@ interface EditorState {
   goToHistoryIndex: (index: number) => void;
 }
 
-export const getZoomContentSize = (state: Pick<EditorState, 'originalSize' | 'adjustments'>): ImageDimensions =>
+export const getZoomContentSize = (
+  state: Pick<EditorState, 'originalSize' | 'adjustments'>,
+  canvas: ImageDimensions | null = null,
+): ImageDimensions =>
+  canvas ??
   getCroppedDimensions(
     state.originalSize.width,
     state.originalSize.height,
@@ -131,8 +138,11 @@ export const getZoomContentSize = (state: Pick<EditorState, 'originalSize' | 'ad
     state.adjustments.crop,
   );
 
-export const getZoomPercent = (state: Pick<EditorState, 'originalSize' | 'adjustments' | 'displaySize'>): number => {
-  const contentWidth = getZoomContentSize(state).width;
+export const getZoomPercent = (
+  state: Pick<EditorState, 'originalSize' | 'adjustments' | 'displaySize'>,
+  canvas: ImageDimensions | null = null,
+): number => {
+  const contentWidth = getZoomContentSize(state, canvas).width;
   return contentWidth > 0 && state.displaySize.width > 0
     ? (state.displaySize.width * getDevicePixelRatio()) / contentWidth
     : 1.0;
@@ -156,6 +166,13 @@ const restoreStoredHistory = (path: string, initialState: Adjustments): StoredHi
 export const debouncedSetHistory = debounce((newAdj: Adjustments, label?: string) => {
   useEditorStore.getState().pushHistory(newAdj, label);
 }, 500);
+
+export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustments) => {
+  invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments: adjustmentsToSave }).catch((err) => {
+    console.error('Auto-save failed:', err);
+    toast.error(`Failed to save changes: ${err}`);
+  });
+}, 300);
 
 type CanvasToolState = Pick<
   EditorState,

@@ -42,11 +42,13 @@ import {
 import CollapsibleSection from '../../ui/CollapsibleSection';
 import Switch from '../../ui/Switch';
 import Slider from '../../ui/Slider';
+import SegmentedControl from '../../ui/SegmentedControl';
 import Input from '../../ui/Input';
 import Button from '../../ui/Button';
 import AdjustmentSection from '../../adjustments/AdjustmentSection';
 import ConnectedWaveform from '../editor/ConnectedWaveform';
 import Resizer from '../../ui/Resizer';
+import PanelHeader from '../../ui/PanelHeader';
 import { DepthRangePicker } from '../../adjustments/DepthRangePicker';
 import DepthScope from '../../adjustments/depthScope/DepthScope';
 import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
@@ -78,17 +80,22 @@ import {
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import { OPTION_SEPARATOR, Orientation, Panel } from '../../../types/ui';
-import { createSubMask } from '../../../utils/maskUtils';
+import { createSubMask, initialDrawParameters } from '../../../utils/maskUtils';
 import { usePresets } from '../../../hooks/usePresets';
 import Text from '../../ui/Text';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { useMaskTypes } from '../../../store/videoIntegration';
+import ToolTile from '../../ui/ToolTile';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../../store/useProcessStore';
 import { useAiMasking } from '../../../hooks/useAiMasking';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
+import { useShortcut } from '../../../hooks/useShortcuts';
+import MaskTrackingControls, { MaskCutoutControls } from '../../video/MaskTracking';
+import LookSliderKeyframes from '../../video/inspector/LookSliderKeyframes';
 import type { ParseKeys } from 'i18next';
 
 interface DragData {
@@ -111,6 +118,15 @@ const SUB_MASK_CONFIG: Record<Mask, any> = {
     parameters: [{ key: 'tolerance', min: 1, max: 100, step: 1, defaultValue: 30 }],
   },
   [Mask.Linear]: { parameters: [] },
+  [Mask.Rectangle]: {
+    parameters: [
+      { key: 'roundness', min: 0, max: 100, step: 1, multiplier: 100, defaultValue: 0 },
+      { key: 'feather', min: 0, max: 100, step: 1, multiplier: 100, defaultValue: 10 },
+    ],
+  },
+  [Mask.Pen]: {
+    parameters: [{ key: 'feather', min: 0, max: 100, step: 1, multiplier: 100, defaultValue: 2 }],
+  },
   [Mask.Color]: {
     parameters: [
       { key: 'tolerance', min: 1, max: 100, step: 1, defaultValue: 20 },
@@ -201,20 +217,15 @@ const BrushTools = ({
         fillOrigin="min"
         onDragStateChange={onDragStateChange}
       />
-      <div className="grid grid-cols-2 gap-2 pt-2">
-        <button
-          className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${settings.tool === ToolType.Brush ? 'text-primary bg-surface' : 'bg-surface text-text-secondary hover:bg-card-active'}`}
-          onClick={() => onSettingsChange((s: any) => ({ ...s, tool: ToolType.Brush }))}
-        >
-          {t('editor.masks.brush.brush')}
-        </button>
-        <button
-          className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${settings.tool === ToolType.Eraser ? 'text-primary bg-surface' : 'bg-surface text-text-secondary hover:bg-card-active'}`}
-          onClick={() => onSettingsChange((s: any) => ({ ...s, tool: ToolType.Eraser }))}
-        >
-          {t('editor.masks.brush.eraser')}
-        </button>
-      </div>
+      <SegmentedControl
+        className="mt-2"
+        options={[
+          { id: ToolType.Brush, label: t('editor.masks.brush.brush') },
+          { id: ToolType.Eraser, label: t('editor.masks.brush.eraser') },
+        ]}
+        value={settings.tool}
+        onChange={(tool) => onSettingsChange((s: any) => ({ ...s, tool }))}
+      />
     </div>
   );
 };
@@ -276,6 +287,11 @@ export default function MasksPanel() {
   const { setAdjustments } = useEditorActions();
   const isAiFree = useSettingsStore((s) => s.appSettings?.aiProvider === 'ai-free');
   const {
+    ai: aiMaskTypes,
+    basic: basicMaskTypes,
+    range: rangeMaskTypes,
+  } = useMaskTypes(isAiFree ? [] : MASK_AI_TYPES, MASK_BASIC_TYPES, MASK_RANGE_TYPES);
+  const {
     handleGenerateAiDepthMask,
     handleGenerateAiForegroundMask,
     handleGenerateAiSkyMask,
@@ -330,6 +346,7 @@ export default function MasksPanel() {
 
   const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
     useWaveformControls();
+  const analyticsShortcut = useShortcut(isAdjustmentsPanelVisible ? null : 'toggle_analytics');
 
   const setBrushSettings = useCallback(
     (updater: any) => {
@@ -474,24 +491,18 @@ export default function MasksPanel() {
       subMask.parameters.range = Math.min(imgW, imgH) * 0.1;
     }
 
-    if (type === Mask.Linear || type === Mask.Radial || type === Mask.Color || type === Mask.Luminance) {
-      if (!subMask.parameters) subMask.parameters = {};
-      subMask.parameters.isInitialDraw = true;
-      if (type === Mask.Linear || type === Mask.Radial) {
-        subMask.parameters.startX = -10000;
-        subMask.parameters.startY = -10000;
-        subMask.parameters.endX = -10000;
-        subMask.parameters.endY = -10000;
-        subMask.parameters.centerX = -10000;
-        subMask.parameters.centerY = -10000;
-        subMask.parameters.radiusX = 0;
-        subMask.parameters.radiusY = 0;
-      } else {
-        subMask.parameters.targetX = -10000;
-        subMask.parameters.targetY = -10000;
-        subMask.parameters.tolerance = 20;
-        subMask.parameters.feather = 35;
-      }
+    const drawn = initialDrawParameters(type);
+    if (drawn) {
+      subMask.parameters = { ...subMask.parameters, ...drawn };
+    } else if (type === Mask.Color || type === Mask.Luminance) {
+      subMask.parameters = {
+        ...subMask.parameters,
+        isInitialDraw: true,
+        targetX: -10000,
+        targetY: -10000,
+        tolerance: 20,
+        feather: 35,
+      };
     }
 
     if (type === Mask.MatchBrush && subMask.parameters) {
@@ -600,10 +611,10 @@ export default function MasksPanel() {
     const hasComponents = container && container.subMasks.length > 0;
 
     const buildFlatMenu = (mode: SubMaskMode) => [
-      ...(isAiFree ? [] : [...buildMenu(MASK_AI_TYPES, mode), { type: OPTION_SEPARATOR }]),
-      ...buildMenu(MASK_BASIC_TYPES, mode),
+      ...(aiMaskTypes.length === 0 ? [] : [...buildMenu(aiMaskTypes, mode), { type: OPTION_SEPARATOR }]),
+      ...buildMenu(basicMaskTypes, mode),
       { type: OPTION_SEPARATOR },
-      ...buildMenu(MASK_RANGE_TYPES, mode),
+      ...buildMenu(rangeMaskTypes, mode),
     ];
 
     let options: any[];
@@ -969,10 +980,10 @@ export default function MasksPanel() {
       }));
 
     const newMaskSubMenu = [
-      ...(isAiFree ? [] : [...buildMenu(MASK_AI_TYPES), { type: OPTION_SEPARATOR }]),
-      ...buildMenu(MASK_BASIC_TYPES),
+      ...(aiMaskTypes.length === 0 ? [] : [...buildMenu(aiMaskTypes), { type: OPTION_SEPARATOR }]),
+      ...buildMenu(basicMaskTypes),
       { type: OPTION_SEPARATOR },
-      ...buildMenu(MASK_RANGE_TYPES),
+      ...buildMenu(rangeMaskTypes),
     ];
 
     showContextMenu(e.clientX, e.clientY, [
@@ -995,40 +1006,38 @@ export default function MasksPanel() {
       collisionDetection={pointerWithin}
     >
       <div className="flex flex-col h-full select-none overflow-hidden" onContextMenu={handlePanelContextMenu}>
-        <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-          <Text variant={TextVariants.title}>{t('editor.masks.maskingTitle')}</Text>
-          <div className="flex items-center gap-1">
-            <button
-              className={clsx(
-                'p-2 rounded-full transition-colors',
-                isAdjustmentsPanelVisible
-                  ? 'opacity-50 cursor-not-allowed text-text-secondary'
-                  : isWaveformVisible
-                    ? 'bg-surface hover:bg-card-active'
-                    : 'hover:bg-surface',
-              )}
-              onClick={onToggleWaveform}
-              disabled={isAdjustmentsPanelVisible}
-              data-tooltip={
-                isAdjustmentsPanelVisible
-                  ? t('editor.masks.toggleAnalyticsInAdjustments')
-                  : t('editor.masks.toggleAnalyticsTooltip')
-              }
-            >
-              <ChartArea size={18} />
-            </button>
-            <button
-              className="p-2 rounded-full hover:bg-surface transition-colors"
-              onClick={handleResetAllMasks}
-              data-tooltip={t('editor.masks.resetMaskingTooltip')}
-            >
-              <RotateCcw size={18} />
-            </button>
-          </div>
-        </div>
+        <PanelHeader title={t('editor.masks.maskingTitle')}>
+          <button
+            className={clsx(
+              'p-2 rounded-full transition-colors',
+              isAdjustmentsPanelVisible
+                ? 'opacity-50 cursor-not-allowed text-text-secondary'
+                : isWaveformVisible
+                  ? 'bg-surface hover:bg-card-active'
+                  : 'hover:bg-surface',
+            )}
+            onClick={onToggleWaveform}
+            disabled={isAdjustmentsPanelVisible}
+            data-tooltip={
+              isAdjustmentsPanelVisible
+                ? t('editor.masks.toggleAnalyticsInAdjustments')
+                : t('editor.masks.toggleAnalyticsTooltip')
+            }
+            {...analyticsShortcut}
+          >
+            <ChartArea size={18} />
+          </button>
+          <button
+            className="p-2 rounded-full hover:bg-surface transition-colors"
+            onClick={handleResetAllMasks}
+            data-tooltip={t('editor.masks.resetMaskingTooltip')}
+          >
+            <RotateCcw size={18} />
+          </button>
+        </PanelHeader>
 
         <AnimatePresence initial={false}>
-          {isWaveformVisible && !isAdjustmentsPanelVisible && (
+          {isWaveformVisible && !isAdjustmentsPanelVisible && selectedImage && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: waveformHeight || 256, opacity: 1 }}
@@ -1058,13 +1067,13 @@ export default function MasksPanel() {
                     className="z-10 shrink-0"
                     onClick={handleDeselect}
                   >
-                    {!isAiFree && (
+                    {aiMaskTypes.length > 0 && (
                       <>
                         <Text variant={TextVariants.heading} className="mb-2">
                           {t('editor.masks.aiTitle', 'AI Selections')}
                         </Text>
                         <div className="grid grid-cols-3 gap-2 mb-6" onClick={(e) => e.stopPropagation()}>
-                          {MASK_AI_TYPES.map((maskType) => (
+                          {aiMaskTypes.map((maskType) => (
                             <DraggableGridItem
                               key={maskType.type}
                               maskType={maskType}
@@ -1080,7 +1089,7 @@ export default function MasksPanel() {
                       {t('editor.masks.basicTitle', 'Basic Tools')}
                     </Text>
                     <div className="grid grid-cols-3 gap-2 mb-6" onClick={(e) => e.stopPropagation()}>
-                      {MASK_BASIC_TYPES.map((maskType) => (
+                      {basicMaskTypes.map((maskType) => (
                         <DraggableGridItem
                           key={maskType.type}
                           maskType={maskType}
@@ -1094,7 +1103,7 @@ export default function MasksPanel() {
                       {t('editor.masks.rangeTitle', 'Ranges & Global')}
                     </Text>
                     <div className="grid grid-cols-3 gap-2" onClick={(e) => e.stopPropagation()}>
-                      {MASK_RANGE_TYPES.map((maskType) => (
+                      {rangeMaskTypes.map((maskType) => (
                         <DraggableGridItem
                           key={maskType.type}
                           maskType={maskType}
@@ -1200,30 +1209,32 @@ export default function MasksPanel() {
                     <Text variant={TextVariants.heading} className="mb-2">
                       {t('editor.masks.maskAdjustmentsTitle')}
                     </Text>
-                    <SettingsPanel
-                      container={activeContainer}
-                      activeSubMask={activeSubMaskData || null}
-                      aiModelDownloadStatus={aiModelDownloadStatus}
-                      brushSettings={brushSettings}
-                      setBrushSettings={setBrushSettings}
-                      updateContainer={updateContainer}
-                      updateSubMask={updateSubMask}
-                      setAdjustments={setAdjustments}
-                      appSettings={appSettings}
-                      setIsMaskControlHovered={setIsMaskControlHovered}
-                      collapsibleState={collapsibleState}
-                      setCollapsibleState={setCollapsibleState}
-                      copiedSectionAdjustments={copiedSectionAdjustments}
-                      setCopiedSectionAdjustments={setCopiedSectionAdjustments}
-                      onDragStateChange={onDragStateChange}
-                      isSettingsSectionOpen={isSettingsSectionOpen}
-                      setSettingsSectionOpen={setSettingsSectionOpen}
-                      presets={presets}
-                      handleGenerateAiTextMask={handleGenerateAiTextMask}
-                      handleGenerateAiFaceMask={handleGenerateAiFaceMask}
-                      handleCancelAiTask={handleCancelAiTask}
-                      activeAiTasks={activeAiTasks}
-                    />
+                    <LookSliderKeyframes prefix={`masks.#${activeContainer?.id}.`}>
+                      <SettingsPanel
+                        container={activeContainer}
+                        activeSubMask={activeSubMaskData || null}
+                        aiModelDownloadStatus={aiModelDownloadStatus}
+                        brushSettings={brushSettings}
+                        setBrushSettings={setBrushSettings}
+                        updateContainer={updateContainer}
+                        updateSubMask={updateSubMask}
+                        setAdjustments={setAdjustments}
+                        appSettings={appSettings}
+                        setIsMaskControlHovered={setIsMaskControlHovered}
+                        collapsibleState={collapsibleState}
+                        setCollapsibleState={setCollapsibleState}
+                        copiedSectionAdjustments={copiedSectionAdjustments}
+                        setCopiedSectionAdjustments={setCopiedSectionAdjustments}
+                        onDragStateChange={onDragStateChange}
+                        isSettingsSectionOpen={isSettingsSectionOpen}
+                        setSettingsSectionOpen={setSettingsSectionOpen}
+                        presets={presets}
+                        handleGenerateAiTextMask={handleGenerateAiTextMask}
+                        handleGenerateAiFaceMask={handleGenerateAiFaceMask}
+                        handleCancelAiTask={handleCancelAiTask}
+                        activeAiTasks={activeAiTasks}
+                      />
+                    </LookSliderKeyframes>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1317,10 +1328,14 @@ function DraggableGridItem({ maskType, onClick, onRightClick, activeMaskContaine
       : t('editor.masks.tooltips.createNew', { name: getMaskTypeName(maskType) });
 
   return (
-    <motion.div
+    <ToolTile
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      icon={maskType.icon}
+      label={getMaskTypeName(maskType)}
+      disabled={maskType.disabled}
+      dragging={isDragging}
       onClick={onClick}
       onContextMenu={(event) => {
         event.preventDefault();
@@ -1330,23 +1345,8 @@ function DraggableGridItem({ maskType, onClick, onRightClick, activeMaskContaine
         if (event.button !== 2) return;
         onRightClick(event);
       }}
-      className={`bg-surface text-text-primary rounded-lg p-2 flex flex-col items-center justify-center gap-2 aspect-square transition-colors
-        ${maskType.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-card-active active:bg-accent/20'}
-        ${isDragging ? 'opacity-50' : ''}`}
       data-tooltip={tooltip}
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-    >
-      <maskType.icon size={24} />
-      <Text
-        as="span"
-        variant={TextVariants.small}
-        color={TextColors.primary}
-        className="text-center w-full leading-tight"
-      >
-        {getMaskTypeName(maskType)}
-      </Text>
-    </motion.div>
+    />
   );
 }
 
@@ -2025,6 +2025,7 @@ function SettingsPanel({
       activeSubMask.type,
     );
   const isComponentMode = !!activeSubMask;
+  const subMaskKey = isComponentMode ? `subMasks.#${activeSubMask.id}.` : '';
   const isTextMask = activeSubMask?.type === Mask.AiText;
   const isFaceMask = activeSubMask?.type === Mask.AiFace;
   const isTextMaskRunning = isTextMask && Boolean(activeAiTasks?.[activeSubMask.id]);
@@ -2175,6 +2176,7 @@ function SettingsPanel({
       className={`space-y-2 transition-opacity duration-300 ${!isActive ? 'opacity-50 pointer-events-none' : ''}`}
       onClick={(e) => e.stopPropagation()}
     >
+      <MaskTrackingControls container={container} updateContainer={updateContainer} />
       <CollapsibleSection
         title={
           isComponentMode
@@ -2275,6 +2277,8 @@ function SettingsPanel({
             }
           />
 
+          {!isComponentMode && <MaskCutoutControls container={displayContainer} onChange={handleMaskPropertyChange} />}
+
           {!isComponentMode && (
             <div className="flex justify-between items-center">
               <Text variant={TextVariants.label} className="select-none">
@@ -2294,6 +2298,7 @@ function SettingsPanel({
           <Slider
             defaultValue={100}
             label={t('editor.masks.settings.opacity')}
+            resetKey={`${subMaskKey}opacity`}
             max={100}
             min={0}
             value={(isComponentMode ? activeSubMask.opacity : displayContainer.opacity) ?? 100}
@@ -2367,6 +2372,8 @@ function SettingsPanel({
                   max={param.max}
                   step={param.step}
                   defaultValue={param.defaultValue}
+                  resetKey={`${subMaskKey}parameters.${param.key}`}
+                  liveScale={param.multiplier || 1}
                   value={(activeSubMask.parameters[param.key] || 0) * (param.multiplier || 1)}
                   onChange={(e: any) =>
                     handleSubMaskParametersChange({ [param.key]: parseFloat(e.target.value) / (param.multiplier || 1) })
@@ -2403,31 +2410,33 @@ function SettingsPanel({
         onMouseLeave={() => setIsMaskControlHovered(false)}
         className="flex flex-col gap-2"
       >
-        {visibleSections.map((sectionName) => {
-          const title = t(`editor.adjustments.sections.${sectionName}` as ParseKeys);
-          return (
-            <CollapsibleSection
-              key={sectionName}
-              title={title}
-              isOpen={collapsibleState[sectionName]}
-              isContentVisible={isToolActive(activeTools, sectionName)}
-              onToggle={() => handleToggleSection(sectionName)}
-              onToggleVisibility={() => handleToggleVisibility(sectionName)}
-              onContextMenu={(e: any) => handleSectionContextMenu(e, sectionName)}
-            >
-              <AdjustmentSection
-                sectionName={sectionName}
-                activeTools={activeTools}
-                onToggleTool={handleToggleVisibility}
-                adjustments={displayContainer.adjustments}
-                setAdjustments={setMaskContainerAdjustments}
-                isForMask={true}
-                appSettings={appSettings}
-                onDragStateChange={onDragStateChange}
-              />
-            </CollapsibleSection>
-          );
-        })}
+        <LookSliderKeyframes prefix={`masks.#${displayContainer.id}.adjustments.`}>
+          {visibleSections.map((sectionName) => {
+            const title = t(`editor.adjustments.sections.${sectionName}` as ParseKeys);
+            return (
+              <CollapsibleSection
+                key={sectionName}
+                title={title}
+                isOpen={collapsibleState[sectionName]}
+                isContentVisible={isToolActive(activeTools, sectionName)}
+                onToggle={() => handleToggleSection(sectionName)}
+                onToggleVisibility={() => handleToggleVisibility(sectionName)}
+                onContextMenu={(e: any) => handleSectionContextMenu(e, sectionName)}
+              >
+                <AdjustmentSection
+                  sectionName={sectionName}
+                  activeTools={activeTools}
+                  onToggleTool={handleToggleVisibility}
+                  adjustments={displayContainer.adjustments}
+                  setAdjustments={setMaskContainerAdjustments}
+                  isForMask={true}
+                  appSettings={appSettings}
+                  onDragStateChange={onDragStateChange}
+                />
+              </CollapsibleSection>
+            );
+          })}
+        </LookSliderKeyframes>
       </div>
     </div>
   );

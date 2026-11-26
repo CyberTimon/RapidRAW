@@ -116,6 +116,9 @@ pub fn is_image_edited(
     if is_tool_active(adj, "motionBlur") && adj["motionBlurAmount"].as_f64().unwrap_or(0.0) > 0.0 {
         return true;
     }
+    if is_tool_active(adj, "pixelate") && adj["pixelateAmount"].as_f64().unwrap_or(0.0) > 0.0 {
+        return true;
+    }
 
     if let Some(crop_val) = adj.get("crop")
         && !crop_val.is_null()
@@ -337,6 +340,12 @@ pub fn update_sidecar(
     source_path: &Path,
     update: impl FnOnce(&mut ImageMetadata),
 ) -> std::io::Result<ImageMetadata> {
+    if crate::decode::formats::is_video_project_file(source_path) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "video projects have no sidecar",
+        ));
+    }
     let _guard = lock_sidecar(sidecar_path);
     let (mut metadata, _) = read_sidecar(sidecar_path)?;
     let previous_adjustments = metadata.adjustments.clone();

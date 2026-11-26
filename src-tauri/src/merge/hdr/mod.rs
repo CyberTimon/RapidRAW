@@ -2,18 +2,20 @@ mod exposure_fusion;
 mod radiance;
 
 use crate::decode::formats::is_raw_file;
-use crate::merge::align::{
-    AlignmentFeatures, downscaled, estimate_transform, max_displacement, warp,
-};
+use crate::merge::align::{AlignmentFeatures, estimate_transform, max_displacement, scaled, warp};
+use crate::merge::flow::{FlowEstimator, FlowField, align, warp_along};
 use crate::merge::output::{MergeOutput, MergePreview, Rendition, encode_jpeg_base64};
-use crate::merge::raster::{Raster, Rect, crop, crop_rects, fit_size, map_pixels, resize_area};
+use crate::merge::raster::{
+    Interpolation, Raster, Rect, crop, crop_rects, fit_size, map_pixels, median, percentile,
+    resize_area, tone_gray,
+};
 use crate::merge::source::{SourceLoader, ensure_same_size, file_name};
 use crate::merge::{MergeContext, MergeSession, parse_settings};
-use crate::metadata::exif_processing::{read_exposure_time_secs, read_iso};
-use crate::render::color_space::{luminance, srgb_encode};
+use crate::metadata::exif_processing::read_exposure_settings;
+use crate::render::color_space::luminance;
 use exposure_fusion::ExposureFusion;
 use nalgebra::Matrix3;
-use radiance::{Accumulator, FrameRole, PreviewFrame, exposure_ratio, ghost_masks};
+use radiance::{Accumulator, FrameRole, PreviewFrame, exposure_ratio, ghost_masks, mix_selected};
 use rayon::prelude::*;
 use serde::Deserialize;
 use serde_json::Value;
@@ -24,6 +26,8 @@ const DETECTION_MAX_DIMENSION: usize = 2000;
 const IDENTITY_DISPLACEMENT: f64 = 0.3;
 const CLIP_PERCENTILE: f64 = 0.999;
 const MAX_RATIO_CORRECTION: f64 = 2.0;
+const MIDTONE: f32 = 0.36;
+const FLOW_HEADROOM: f32 = 0.9;
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -41,6 +45,7 @@ struct Frame {
     path: String,
     exposure: f64,
     transform: Matrix3<f64>,
+    flow: Option<FlowField>,
     preview: Raster,
     valid: Vec<f32>,
 }
@@ -49,8 +54,14 @@ enum Merge {
     Radiance {
         clip: f32,
         masks: Vec<Option<Raster>>,
+        selections: Vec<Option<Raster>>,
     },
     Fusion,
+}
+
+struct Source {
+    preview: Raster,
+    detection: Raster,
 }
 
 pub struct HdrSession {
@@ -75,37 +86,10 @@ struct Loaded {
 }
 
 fn exif_exposure(path: &str, bytes: &[u8]) -> Option<f64> {
-    let time = read_exposure_time_secs(path, bytes)? as f64;
-    let iso = read_iso(path, bytes).unwrap_or(100) as f64;
+    let settings = read_exposure_settings(path, bytes);
+    let time = settings.seconds? as f64;
+    let iso = settings.iso.unwrap_or(100) as f64;
     (time > 0.0 && iso > 0.0).then_some(time * iso)
-}
-
-fn median(mut values: Vec<f32>) -> f32 {
-    if values.is_empty() {
-        return 0.0;
-    }
-    let middle = values.len() / 2;
-    *values
-        .select_nth_unstable_by(middle, |a, b| a.total_cmp(b))
-        .1
-}
-
-fn percentile(mut values: Vec<f32>, fraction: f64) -> f32 {
-    if values.is_empty() {
-        return 1.0;
-    }
-    let index = ((values.len() - 1) as f64 * fraction) as usize;
-    *values
-        .select_nth_unstable_by(index, |a, b| a.total_cmp(b))
-        .1
-}
-
-fn detection_image(detection: &Raster, relative_exposure: f64, scale: f32) -> Raster {
-    let gain = scale / relative_exposure as f32;
-    map_pixels(detection, 1, |p, o| {
-        let x = p[0].max(0.0) * gain;
-        o[0] = srgb_encode(x / (1.0 + x));
-    })
 }
 
 fn frame_role(frames: &[Frame], reference: usize, index: usize) -> FrameRole {
@@ -144,7 +128,48 @@ fn load_frames(
     Ok(loaded)
 }
 
-fn align_frames(loaded: Vec<Loaded>, mut exposures: Vec<f64>) -> (Vec<Frame>, usize, usize) {
+fn local_flow(
+    estimator: &FlowEstimator,
+    frames: &[Frame],
+    sources: &[Source],
+    reference: usize,
+    index: usize,
+    width: usize,
+) -> Option<FlowField> {
+    let target = &sources[reference].detection;
+    let detection = &sources[index].detection;
+    let (dw, dh) = (target.width, target.height);
+    let factor = width as f64 / dw as f64;
+    let transform = &frames[index].transform;
+    let warped = if *transform == Matrix3::identity() {
+        detection.clone()
+    } else {
+        warp(
+            detection,
+            &scaled(transform, factor),
+            dw,
+            dh,
+            Interpolation::Bilinear,
+        )
+        .0
+    };
+    let clip = |image: &Raster| percentile(image.data.clone(), CLIP_PERCENTILE);
+    let scale = (frames[reference].exposure / frames[index].exposure) as f32;
+    let cap = FLOW_HEADROOM * (clip(detection) * scale).min(clip(target));
+    let radiance =
+        |image: &Raster, gain: f32| map_pixels(image, 1, |p, o| o[0] = (p[0] * gain).min(cap));
+    let anchor = radiance(target, 1.0);
+    let gain = MIDTONE / median(anchor.data.clone()).max(1e-6);
+    estimator.estimate(
+        &tone_gray(&anchor, gain),
+        &tone_gray(&radiance(&warped, scale), gain),
+    )
+}
+
+fn align_frames(
+    loaded: Vec<Loaded>,
+    mut exposures: Vec<f64>,
+) -> (Vec<Frame>, Vec<Source>, usize, usize) {
     let medians: Vec<f32> = loaded
         .iter()
         .map(|l| median(l.detection.data.clone()))
@@ -169,7 +194,7 @@ fn align_frames(loaded: Vec<Loaded>, mut exposures: Vec<f64>) -> (Vec<Frame>, us
         .zip(&exposures)
         .map(|(l, &e)| {
             AlignmentFeatures::detect(
-                &detection_image(&l.detection, e, detection_scale),
+                &tone_gray(&l.detection, detection_scale / e as f32),
                 width,
                 height,
             )
@@ -196,28 +221,29 @@ fn align_frames(loaded: Vec<Loaded>, mut exposures: Vec<f64>) -> (Vec<Frame>, us
     }
 
     let preview_scale = width as f64 / loaded[0].preview.width as f64;
-    let frames = loaded
+    let (frames, sources) = loaded
         .into_par_iter()
         .zip(transforms.into_par_iter())
         .zip(exposures.into_par_iter())
         .map(|((l, transform), exposure)| {
-            let (preview, valid) = if transform == Matrix3::identity() {
-                let valid = vec![1.0; l.preview.width * l.preview.height];
-                (l.preview, valid)
-            } else {
-                let local = downscaled(&transform, preview_scale);
-                warp(&l.preview, &local, l.preview.width, l.preview.height, false)
-            };
-            Frame {
+            let local = scaled(&transform, preview_scale);
+            let (preview, valid) = align(l.preview.clone(), &local, None, Interpolation::Bilinear);
+            let frame = Frame {
                 path: l.path,
                 exposure,
                 transform,
+                flow: None,
                 preview,
                 valid,
-            }
+            };
+            let source = Source {
+                preview: l.preview,
+                detection: l.detection,
+            };
+            (frame, source)
         })
-        .collect();
-    (frames, reference, unaligned)
+        .unzip();
+    (frames, sources, reference, unaligned)
 }
 
 fn refine_exposures(clip: f32, frames: &mut [Frame], reference: usize) {
@@ -247,7 +273,12 @@ fn refine_exposures(clip: f32, frames: &mut [Frame], reference: usize) {
     }
 }
 
-fn merge_radiance(frames: &mut [Frame], reference: usize) -> (Merge, Raster) {
+fn merge_radiance(
+    frames: &mut [Frame],
+    sources: &[Source],
+    reference: usize,
+    width: usize,
+) -> (Merge, Raster) {
     let clip = frames
         .iter()
         .map(|f| {
@@ -264,20 +295,60 @@ fn merge_radiance(frames: &mut [Frame], reference: usize) -> (Merge, Raster) {
         .fold(0.0f32, f32::max)
         .max(1e-3);
     refine_exposures(clip, frames, reference);
-    let previews: Vec<PreviewFrame> = (0..frames.len())
-        .map(|i| PreviewFrame {
-            image: &frames[i].preview,
-            valid: &frames[i].valid,
-            role: frame_role(frames, reference, i),
-        })
-        .collect();
-    let masks = ghost_masks(clip, &previews, reference);
+    let estimator = FlowEstimator::new();
+    let mut flows: Vec<Option<FlowField>> = frames.iter().map(|_| None).collect();
+    let (masks, refined) = {
+        let previews: Vec<PreviewFrame> = (0..frames.len())
+            .map(|i| PreviewFrame {
+                image: &frames[i].preview,
+                valid: &frames[i].valid,
+                role: frame_role(frames, reference, i),
+            })
+            .collect();
+        let mut refine = |index: usize| {
+            let flow = local_flow(
+                estimator.as_ref()?,
+                frames,
+                sources,
+                reference,
+                index,
+                width,
+            )?;
+            let preview = &sources[index].preview;
+            let local = scaled(
+                &frames[index].transform,
+                width as f64 / preview.width as f64,
+            );
+            let aligned = warp_along(preview, &local, &flow, Interpolation::Bilinear);
+            flows[index] = Some(flow);
+            Some(aligned)
+        };
+        ghost_masks(clip, &previews, reference, &mut refine)
+    };
+    let mut selections: Vec<Option<Raster>> = Vec::with_capacity(frames.len());
+    for ((frame, flow), refined) in frames.iter_mut().zip(flows).zip(refined) {
+        selections.push(refined.map(|refined| {
+            frame.flow = flow;
+            frame.preview = refined.image;
+            frame.valid = refined.valid;
+            refined.selection
+        }));
+    }
     let (pw, ph) = (frames[0].preview.width, frames[0].preview.height);
     let mut accumulator = Accumulator::new(pw, ph);
-    for (frame, mask) in previews.iter().zip(&masks) {
-        accumulator.add(clip, frame.role, frame.image, frame.valid, mask.as_ref());
+    for (i, mask) in masks.iter().enumerate() {
+        let frame = &frames[i];
+        let role = frame_role(frames, reference, i);
+        accumulator.add(clip, role, &frame.preview, &frame.valid, mask.as_ref());
     }
-    (Merge::Radiance { clip, masks }, accumulator.finish())
+    (
+        Merge::Radiance {
+            clip,
+            masks,
+            selections,
+        },
+        accumulator.finish(),
+    )
 }
 
 fn fuse_previews(frames: &[Frame]) -> Raster {
@@ -325,11 +396,11 @@ pub fn build_session(paths: &[String], context: &MergeContext) -> Result<HdrSess
     let (width, height) = (loaded[0].width, loaded[0].height);
 
     context.report("Aligning images...");
-    let (mut frames, reference, unaligned) = align_frames(loaded, exposures);
+    let (mut frames, sources, reference, unaligned) = align_frames(loaded, exposures);
 
     context.report("Merging exposures...");
     let (merge, merged_preview) = if scene {
-        merge_radiance(&mut frames, reference)
+        merge_radiance(&mut frames, &sources, reference, width)
     } else {
         (Merge::Fusion, fuse_previews(&frames))
     };
@@ -365,13 +436,22 @@ impl HdrSession {
         loader: &SourceLoader,
         index: usize,
     ) -> Result<(Raster, Vec<f32>), String> {
-        let decoded = loader.decode(&self.frames[index].path)?;
-        let transform = self.frames[index].transform;
-        Ok(if transform == Matrix3::identity() {
-            let valid = vec![1.0; self.width * self.height];
-            (decoded.image, valid)
-        } else {
-            warp(&decoded.image, &transform, self.width, self.height, true)
+        let frame = &self.frames[index];
+        let image = loader.decode(&frame.path)?.image;
+        let selection = match &self.merge {
+            Merge::Radiance { selections, .. } => selections[index].as_ref(),
+            Merge::Fusion => None,
+        };
+        Ok(match (&frame.flow, selection) {
+            (Some(flow), Some(selection)) => {
+                let (local, local_valid) =
+                    warp_along(&image, &frame.transform, flow, Interpolation::Bicubic);
+                let (mut aligned, mut valid) =
+                    align(image, &frame.transform, None, Interpolation::Bicubic);
+                mix_selected(&mut aligned, &mut valid, &local, &local_valid, selection);
+                (aligned, valid)
+            }
+            _ => align(image, &frame.transform, None, Interpolation::Bicubic),
         })
     }
 
@@ -452,14 +532,14 @@ impl MergeSession for HdrSession {
     fn render(&mut self, settings: &Value, context: &MergeContext) -> Result<MergeOutput, String> {
         let settings: HdrSettings = parse_settings(settings)?;
         let merged = match &self.merge {
-            Merge::Radiance { clip, masks } => {
+            Merge::Radiance { clip, masks, .. } => {
                 self.render_radiance(*clip, masks, &context.loader(true), context)?
             }
             Merge::Fusion => self.render_fusion(&context.loader(false), context)?,
         };
         let (_, rect) = self.crop_rects(&settings);
         Ok(MergeOutput {
-            image: crop(&merged, &rect),
+            image: crop(merged, &rect).into_owned(),
             rendition: self.rendition,
             suffix: "HDR",
             name_source: self.name_source.clone(),

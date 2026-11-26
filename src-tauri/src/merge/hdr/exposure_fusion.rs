@@ -65,9 +65,6 @@ impl ExposureFusion {
     }
 
     pub fn finish(self) -> Raster {
-        srgb_decoded(crop(
-            &self.blender.finish(),
-            &Rect::full(self.width, self.height),
-        ))
+        srgb_decoded(crop(self.blender.finish(), &Rect::full(self.width, self.height)).into_owned())
     }
 }

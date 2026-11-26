@@ -14,6 +14,7 @@ pub struct SourceLoader<'a> {
     settings: Cow<'a, AppSettings>,
     memory_budget: &'a Arc<MemoryBudget>,
     linear_raw: bool,
+    cancelled: &'a (dyn Fn() -> bool + Sync),
 }
 
 pub struct DecodedSource {
@@ -26,6 +27,7 @@ impl<'a> SourceLoader<'a> {
         settings: &'a AppSettings,
         memory_budget: &'a Arc<MemoryBudget>,
         linear_raw: bool,
+        cancelled: &'a (dyn Fn() -> bool + Sync),
     ) -> Self {
         let settings = if linear_raw {
             let mut unprocessed = settings.clone();
@@ -39,6 +41,7 @@ impl<'a> SourceLoader<'a> {
             settings,
             memory_budget,
             linear_raw,
+            cancelled,
         }
     }
 
@@ -48,6 +51,7 @@ impl<'a> SourceLoader<'a> {
         load: impl Fn(usize, &str) -> Result<T, String> + Sync,
     ) -> Result<Vec<T>, String> {
         let load = &load;
+        let cancelled = self.cancelled;
         std::thread::scope(|scope| {
             let workers: Vec<_> = paths
                 .iter()
@@ -65,6 +69,9 @@ impl<'a> SourceLoader<'a> {
                     let reservation = self.memory_budget.reserve(estimate, None);
                     scope.spawn(move || {
                         let _reservation = reservation;
+                        if cancelled() {
+                            return Err(crate::merge::CANCELLED.to_string());
+                        }
                         load(index, path)
                     })
                 })
@@ -127,6 +134,26 @@ pub fn file_name(path: &str) -> String {
         .unwrap_or_default()
         .to_string_lossy()
         .into_owned()
+}
+
+pub fn natural_key(path: &str) -> Vec<(String, u64)> {
+    let name = file_name(path).to_lowercase();
+    let mut key = Vec::new();
+    let mut text = String::new();
+    let mut digits = String::new();
+    for c in name.chars() {
+        if c.is_ascii_digit() {
+            digits.push(c);
+        } else {
+            if !digits.is_empty() {
+                key.push((std::mem::take(&mut text), digits.parse().unwrap_or(0)));
+                digits.clear();
+            }
+            text.push(c);
+        }
+    }
+    key.push((text, digits.parse().unwrap_or(0)));
+    key
 }
 
 pub fn ensure_same_size<'a>(

@@ -13,6 +13,7 @@ import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import { libraryName } from '../../store/videoIntegration';
 import { useDraggable } from '@dnd-kit/core';
 import { useCtrlClickMenuGuard } from '../../hooks/useCtrlClickMenuGuard';
 
@@ -104,8 +105,7 @@ const FilmstripThumbnail = memo(
     const hasOtherBadge = hasEditIcon || hasColorLabel || hasRating || !!flag;
     const hasAnyOverlay = hasOtherBadge || isAiPending;
 
-    const cleanPath = path.split('?')[0];
-    const filename = cleanPath.split(/[\\/]/).pop() || '';
+    const filename = libraryName(path);
 
     const truncatedTitle =
       filename.length > 40 ? filename.substring(0, 20) + '...' + filename.substring(filename.length - 17) : filename;

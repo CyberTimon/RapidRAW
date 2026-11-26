@@ -204,7 +204,7 @@ pub(crate) enum ExportAdjustmentsMode {
     GlobalOverride(Value),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub enum WatermarkAnchor {
     TopLeft,
@@ -218,13 +218,54 @@ pub enum WatermarkAnchor {
     BottomRight,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WatermarkAlign {
+    Start,
+    Center,
+    End,
+}
+
+impl WatermarkAnchor {
+    pub fn alignment(self) -> (WatermarkAlign, WatermarkAlign) {
+        use WatermarkAlign::{Center, End, Start};
+        match self {
+            Self::TopLeft => (Start, Start),
+            Self::TopCenter => (Center, Start),
+            Self::TopRight => (End, Start),
+            Self::CenterLeft => (Start, Center),
+            Self::Center => (Center, Center),
+            Self::CenterRight => (End, Center),
+            Self::BottomLeft => (Start, End),
+            Self::BottomCenter => (Center, End),
+            Self::BottomRight => (End, End),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct TextWatermark {
+    pub text: String,
+    pub font: Option<String>,
+    pub weight: u16,
+    pub color: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum WatermarkSource {
+    Image { path: String },
+    Text(TextWatermark),
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WatermarkSettings {
-    pub path: String,
+    pub source: WatermarkSource,
     pub anchor: WatermarkAnchor,
     pub scale: f32,
-    pub spacing: f32,
+    pub offset_x: f32,
+    pub offset_y: f32,
     pub opacity: f32,
 }
 

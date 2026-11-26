@@ -15,6 +15,8 @@ import {
   Bandage,
   Spline,
   MopSparkles,
+  PenTool,
+  Square,
   TextSearch,
   ScanFace,
   Magnet,
@@ -40,8 +42,10 @@ export const MASK_ICON_MAP: Record<Mask, any> = {
   [Mask.Color]: Droplet,
   [Mask.Linear]: TriangleRight,
   [Mask.Luminance]: Sun,
+  [Mask.Pen]: PenTool,
   [Mask.QuickEraser]: Eraser,
   [Mask.Radial]: Circle,
+  [Mask.Rectangle]: Square,
   [Mask.Clone]: Stamp,
   [Mask.Heal]: Bandage,
   [Mask.Liquify]: Spline,
@@ -74,6 +78,8 @@ export const MASK_BASIC_TYPES: Array<MaskType> = [
   { disabled: false, icon: Brush, name: 'Brush', type: Mask.Brush },
   { disabled: false, icon: TriangleRight, name: 'Linear', type: Mask.Linear },
   { disabled: false, icon: Circle, name: 'Radial', type: Mask.Radial },
+  { disabled: false, icon: Square, name: 'Rectangle', type: Mask.Rectangle },
+  { disabled: false, icon: PenTool, name: 'Pen', type: Mask.Pen },
   { disabled: false, icon: Droplets, name: 'Flow', type: Mask.Flow },
   { disabled: false, icon: Magnet, name: 'Match Brush', type: Mask.MatchBrush },
 ];
@@ -152,6 +158,18 @@ export const AI_GENERATIVE_CREATION_TYPES: Array<MaskType> = [
     icon: Circle,
     name: 'Radial',
     type: Mask.Radial,
+  },
+  {
+    disabled: false,
+    icon: Square,
+    name: 'Rectangle',
+    type: Mask.Rectangle,
+  },
+  {
+    disabled: false,
+    icon: PenTool,
+    name: 'Pen',
+    type: Mask.Pen,
   },
 ];
 

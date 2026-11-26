@@ -75,6 +75,7 @@ fn tf_warp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = params.grid.dst;
     let h = params.inverse_x * f32(id.x) + params.inverse_y * f32(id.y) + params.inverse_z;
     var rgb = vec3<f32>(0.0);
+    var alpha = 1.0;
     if (abs(h.z) > 1e-6) {
         let flags = params.warp_flags;
         let c = params.center;
@@ -101,6 +102,7 @@ fn tf_warp(@builtin(global_invocation_id) id: vec3<u32>) {
         } else {
             rgb = sample_inside(p, size);
         }
+        alpha = sample_channel(p, size, 3u);
         if ((flags & WARP_VIGNETTE) != 0u) {
             let r = length(p - c) * params.vignette_scale;
             let r2 = r * r;
@@ -111,7 +113,7 @@ fn tf_warp(@builtin(global_invocation_id) id: vec3<u32>) {
             }
         }
     }
-    textureStore(out_f16, id.xy, vec4<f32>(rgb, 1.0));
+    textureStore(out_f16, id.xy, vec4<f32>(rgb, alpha));
 }
 
 fn oriented(p: vec2<i32>) -> vec4<f32> {

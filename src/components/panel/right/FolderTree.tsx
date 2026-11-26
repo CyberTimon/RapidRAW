@@ -4,8 +4,6 @@ import {
   ChevronRight,
   ChevronUp,
   ChevronDown,
-  Search,
-  X,
   Album as AlbumIcon,
   Plus,
   Plane,
@@ -26,14 +24,17 @@ import {
   FolderPlus,
   RefreshCw,
   Menu,
+  Clapperboard,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { memo, useState, useMemo, useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { useDroppable } from '@dnd-kit/core';
 import Text from '../../ui/Text';
+import PanelHeader from '../../ui/PanelHeader';
+import SearchField from '../../ui/SearchField';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useShallow } from 'zustand/react/shallow';
 import { useLibraryStore } from '../../../store/useLibraryStore';
@@ -43,6 +44,21 @@ import { AlbumItem, AlbumGroup, Album, SortDirection, type FolderNode } from '..
 import { Invokes } from '../../../types/invokes';
 import { FolderTreeSort } from '../../../types/settings';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
+import { useShortcut } from '../../../hooks/useShortcuts';
+import { useContextMenu } from '../../../context/ContextMenuContext';
+import type { ShortcutAction } from '../../../utils/keyboardUtils';
+import {
+  folderOf,
+  newVideoProject,
+  openProjectFile,
+  openProjectSwitcher,
+  prefetchRecentProjects,
+  projectDropMedia,
+  recentProjectMenu,
+  useCurrentProjectPath,
+  useRecentProjects,
+  useVideoAvailable,
+} from '../../../store/videoIntegration';
 import ImmichSection from '../../immich/ImmichSection';
 
 interface FolderTreeProps {
@@ -93,6 +109,13 @@ const ALBUM_ICONS: Record<string, React.ElementType> = {
   car: Car,
   briefcase: Briefcase,
 };
+
+const NO_PINNED_FOLDERS: string[] = [];
+const NO_FOLDER_ICONS: Record<string, string> = {};
+const DEFAULT_OPEN_SECTIONS = ['current'];
+const PROJECTS_SECTION = 'recentProjects';
+const PROJECTS_SHOWN = 8;
+const DEFAULT_FOLDER_TREE_SORT: FolderTreeSort = { key: 'name', order: SortDirection.Ascending };
 
 const filterTree = (node: FolderNode | null, query: string): FolderNode | null => {
   if (!node) {
@@ -313,7 +336,17 @@ function FolderOptionsMenu({
   );
 }
 
-function SectionHeader({ title, isOpen, onToggle }: { title: string; isOpen: boolean; onToggle: () => void }) {
+function SectionHeader({
+  title,
+  isOpen,
+  onToggle,
+  action,
+}: {
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  action?: ReactNode;
+}) {
   return (
     <div
       className="flex items-center justify-between w-full px-1 py-1.5 cursor-pointer group rounded-md hover:bg-surface/30 transition-colors"
@@ -325,7 +358,50 @@ function SectionHeader({ title, isOpen, onToggle }: { title: string; isOpen: boo
         </div>
         <span className="ml-1 uppercase tracking-wider select-none truncate">{title}</span>
       </Text>
+      {action}
     </div>
+  );
+}
+
+function SectionAction({ label, onClick, shortcut }: { label: string; onClick(): void; shortcut?: ShortcutAction }) {
+  const shortcutProps = useShortcut(shortcut);
+  return (
+    <button
+      className="p-0.5 rounded-md text-text-secondary hover:text-text-primary hover:bg-surface transition-colors"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      data-tooltip={label}
+      aria-label={label}
+      {...shortcutProps}
+    >
+      <Plus size={14} />
+    </button>
+  );
+}
+
+const rowClassName = (isSelected: boolean, isDropTarget: boolean) =>
+  clsx('flex items-center gap-2 p-1.5 rounded-md transition-colors cursor-pointer', {
+    'bg-surface': isSelected && !isDropTarget,
+    'hover:bg-card-active': !isSelected && !isDropTarget,
+    'bg-accent/20': isDropTarget,
+  });
+
+function RowIcon({ icon: Icon, iconKey }: { icon: React.ElementType; iconKey: string }) {
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={iconKey}
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.5 }}
+        transition={{ duration: 0.15 }}
+        className="absolute flex items-center justify-center"
+      >
+        <Icon size={16} />
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -390,27 +466,12 @@ function AlbumTreeNode({
     <Text as="div" color={TextColors.primary} weight={TextWeights.medium}>
       <div
         ref={setNodeRef}
-        className={clsx('flex items-center gap-2 p-1.5 rounded-md transition-colors cursor-pointer', {
-          'bg-surface': isSelected && !isDropTarget,
-          'hover:bg-card-active': !isSelected && !isDropTarget,
-          'bg-accent/20': isDropTarget,
-        })}
+        className={rowClassName(isSelected, isDropTarget)}
         onClick={() => (isGroup ? onToggle(item.id) : onSelectAlbum(item.id, item.name, (item as Album).images))}
         onContextMenu={(e) => onContextMenu(e, item)}
       >
         <div className="relative w-5 h-5 flex items-center justify-center p-0.5 rounded-sm text-text-secondary shrink-0">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={iconKey}
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-              transition={{ duration: 0.15 }}
-              className="absolute flex items-center justify-center"
-            >
-              <ItemIcon size={16} />
-            </motion.div>
-          </AnimatePresence>
+          <RowIcon icon={ItemIcon} iconKey={iconKey} />
         </div>
 
         <span onDoubleClick={() => isGroup && onToggle(item.id)} className="min-w-0 flex-1 select-none">
@@ -485,7 +546,71 @@ function AlbumTreeNode({
   );
 }
 
-function TreeNode({
+function ProjectRow({
+  path,
+  name,
+  isActive,
+  isLayoutDragging,
+}: {
+  path: string;
+  name: string;
+  isActive: boolean;
+  isLayoutDragging: boolean;
+}) {
+  const { showContextMenu } = useContextMenu();
+  const { setNodeRef, isOver, active } = useDroppable({
+    id: `project-${path}`,
+    data: { type: 'video-project', path },
+    disabled: isLayoutDragging,
+  });
+  const isDropTarget = isOver && projectDropMedia(active).length > 0;
+
+  return (
+    <Text as="div" color={TextColors.primary} weight={TextWeights.medium}>
+      <div
+        ref={setNodeRef}
+        className={rowClassName(isActive, isDropTarget)}
+        onClick={() => void openProjectFile(path)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          showContextMenu(e.clientX, e.clientY, recentProjectMenu(path));
+        }}
+        data-tooltip={folderOf(path)}
+      >
+        <div className="relative w-5 h-5 flex items-center justify-center p-0.5 rounded-sm text-text-secondary shrink-0">
+          <RowIcon icon={isDropTarget ? MoveRight : Clapperboard} iconKey={isDropTarget ? 'drop-target' : 'project'} />
+        </div>
+        <span className="min-w-0 flex-1 select-none">
+          <span className="block truncate">{name}</span>
+        </span>
+        <div className="w-5 h-5 shrink-0" aria-hidden="true" />
+      </div>
+    </Text>
+  );
+}
+
+function MoreProjectsRow() {
+  const { t } = useTranslation();
+  const shortcut = useShortcut('open_recent_project');
+  return (
+    <Text as="div" color={TextColors.secondary} weight={TextWeights.medium}>
+      <div
+        className={rowClassName(false, false)}
+        onClick={openProjectSwitcher}
+        data-tooltip={t('video.project.openRecent')}
+        {...shortcut}
+      >
+        <div className="w-5 h-5 shrink-0" aria-hidden="true" />
+        <span className="min-w-0 flex-1 select-none">
+          <span className="block truncate">{t('video.project.more')}</span>
+        </span>
+      </div>
+    </Text>
+  );
+}
+
+const TreeNode = memo(function TreeNode({
   sectionId,
   expandedFolders,
   isExpanded,
@@ -566,11 +691,7 @@ function TreeNode({
     <Text as="div" color={TextColors.primary} weight={TextWeights.medium}>
       <div
         ref={setNodeRef}
-        className={clsx('flex items-center gap-2 p-1.5 rounded-md transition-colors cursor-pointer', {
-          'bg-surface': isSelected && !isDropTarget,
-          'hover:bg-card-active': !isSelected && !isDropTarget,
-          'bg-accent/20': isDropTarget,
-        })}
+        className={rowClassName(isSelected, isDropTarget)}
         onClick={handleNameClick}
         onContextMenu={(e: any) => onContextMenu(e, node.path, isPinned)}
       >
@@ -583,18 +704,7 @@ function TreeNode({
           )}
           onClick={handleFolderIconClick}
         >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={iconKey}
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-              transition={{ duration: 0.15 }}
-              className="absolute flex items-center justify-center"
-            >
-              <ResolvedIcon size={16} />
-            </motion.div>
-          </AnimatePresence>
+          <RowIcon icon={ResolvedIcon} iconKey={iconKey} />
         </div>
 
         <span onDoubleClick={handleNameDoubleClick} className="min-w-0 flex-1 select-none">
@@ -674,9 +784,9 @@ function TreeNode({
       </AnimatePresence>
     </Text>
   );
-}
+});
 
-export default function FolderTree({
+function FolderTree({
   isResizing,
   onContextMenu,
   onAlbumContextMenu,
@@ -698,6 +808,9 @@ export default function FolderTree({
   );
 
   const isLayoutDragging = useUIStore((state) => !!state.activeLayoutDragItem);
+  const isVideoAvailable = useVideoAvailable();
+  const recentProjects = useRecentProjects();
+  const openProjectPath = useCurrentProjectPath();
 
   const {
     folderTrees,
@@ -727,17 +840,21 @@ export default function FolderTree({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isHovering, setIsHovering] = useState(false);
-  const pinnedFolders = appSettings?.pinnedFolders || [];
-  const openSections = appSettings?.openTreeSections ?? ['current'];
+  const pinnedFolders = appSettings?.pinnedFolders || NO_PINNED_FOLDERS;
+  const openSections = appSettings?.openTreeSections ?? DEFAULT_OPEN_SECTIONS;
   const showImageCounts = appSettings?.enableFolderImageCounts ?? false;
-  const folderIcons = appSettings?.folderIcons || {};
-  const folderTreeSort: FolderTreeSort = appSettings?.folderTreeSort || { key: 'name', order: SortDirection.Ascending };
+  const folderIcons = appSettings?.folderIcons || NO_FOLDER_ICONS;
+  const folderTreeSort: FolderTreeSort = appSettings?.folderTreeSort || DEFAULT_FOLDER_TREE_SORT;
 
   const { refreshAllFolderTrees } = useLibraryActions();
 
   useEffect(() => {
     invoke(Invokes.GetAlbums).then((res: any) => useLibraryStore.getState().setLibrary({ albumTree: res }));
   }, []);
+
+  useEffect(() => {
+    if (isVideoAvailable) prefetchRecentProjects();
+  }, [isVideoAvailable]);
 
   const toggleSection = (section: string) => {
     if (appSettings) {
@@ -815,11 +932,19 @@ export default function FolderTree({
     return new Set([...expandedAlbumGroups, ...searchAutoExpandedAlbumGroups]);
   }, [expandedAlbumGroups, searchAutoExpandedAlbumGroups]);
 
+  const visibleProjects = useMemo(() => {
+    if (!isVideoAvailable) return [];
+    if (!isSearching) return recentProjects;
+    const query = trimmedQuery.toLowerCase();
+    return recentProjects.filter((project) => project.name.toLowerCase().includes(query));
+  }, [isVideoAvailable, recentProjects, isSearching, trimmedQuery]);
+
   useEffect(() => {
     if (isSearching && appSettings) {
       const hasPinnedResults = filteredPinnedTrees && filteredPinnedTrees.length > 0;
       const hasBaseResults = filteredTrees && filteredTrees.length > 0;
       const hasAlbumResults = filteredAlbumTree && filteredAlbumTree.length > 0;
+      const hasProjectResults = visibleProjects.length > 0;
 
       const newSections = [...openSections];
       let changed = false;
@@ -836,6 +961,10 @@ export default function FolderTree({
         newSections.push('albums');
         changed = true;
       }
+      if (hasProjectResults && !newSections.includes(PROJECTS_SECTION)) {
+        newSections.push(PROJECTS_SECTION);
+        changed = true;
+      }
 
       if (changed) {
         handleSettingsChange({ ...appSettings, openTreeSections: newSections });
@@ -846,6 +975,7 @@ export default function FolderTree({
     filteredTrees,
     filteredPinnedTrees,
     filteredAlbumTree,
+    visibleProjects,
     openSections,
     handleSettingsChange,
     appSettings,
@@ -854,10 +984,12 @@ export default function FolderTree({
   const isPinnedOpen = openSections.includes('pinned');
   const isCurrentOpen = openSections.includes('current');
   const isAlbumsOpen = openSections.includes('albums');
+  const isProjectsOpen = openSections.includes(PROJECTS_SECTION);
 
   const hasVisiblePinnedTrees = filteredPinnedTrees && filteredPinnedTrees.length > 0;
   const hasVisibleAlbums = filteredAlbumTree && filteredAlbumTree.length > 0;
   const showAlbumsSection = hasVisibleAlbums || (!isSearching && albumTree.length === 0);
+  const hasVisibleProjects = visibleProjects.length > 0;
 
   return (
     <div
@@ -866,50 +998,38 @@ export default function FolderTree({
         !isResizing && 'transition-[width] duration-300 ease-in-out',
       )}
       style={style}
-      onMouseEnter={() => setIsHovering(true)}
+      onMouseEnter={() => {
+        setIsHovering(true);
+        if (isVideoAvailable) prefetchRecentProjects();
+      }}
       onMouseLeave={() => setIsHovering(false)}
     >
-      <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>{t('library.folders.sourcesTitle')}</Text>
-        <div className="flex items-center gap-1">
-          <button
-            className="p-1.5 rounded-full hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary hover:text-text-primary"
-            disabled={navIndex <= 0}
-            onClick={onNavBack}
-            data-tooltip={t('library.folders.tooltips.navBack')}
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <button
-            className="p-1.5 rounded-full hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary hover:text-text-primary"
-            disabled={navIndex >= navHistory.length - 1}
-            onClick={onNavForward}
-            data-tooltip={t('library.folders.tooltips.navForward')}
-          >
-            <ArrowRight size={16} />
-          </button>
-        </div>
-      </div>
+      <PanelHeader title={t('library.folders.sourcesTitle')}>
+        <button
+          className="p-1.5 rounded-full hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary hover:text-text-primary"
+          disabled={navIndex <= 0}
+          onClick={onNavBack}
+          data-tooltip={t('library.folders.tooltips.navBack')}
+        >
+          <ArrowLeft size={16} />
+        </button>
+        <button
+          className="p-1.5 rounded-full hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-text-secondary hover:text-text-primary"
+          disabled={navIndex >= navHistory.length - 1}
+          onClick={onNavForward}
+          data-tooltip={t('library.folders.tooltips.navForward')}
+        >
+          <ArrowRight size={16} />
+        </button>
+      </PanelHeader>
       <div className="p-2 flex flex-col flex-1 min-h-0">
         <div className="pt-1 pb-2 flex items-center gap-1">
-          <div className="relative flex-1 min-w-0">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" />
-            <input
-              type="text"
-              placeholder={t('library.folders.searchPlaceholder')}
+          <div className="flex-1 min-w-0">
+            <SearchField
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-9 bg-surface border border-transparent rounded-md pl-9 pr-8 py-2 text-sm focus:outline-hidden truncate"
+              onChange={setSearchQuery}
+              placeholder={t('library.folders.searchPlaceholder')}
             />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-card-active"
-                data-tooltip={t('library.folders.tooltips.clearSearch')}
-              >
-                <X size={16} className="text-text-secondary" />
-              </button>
-            )}
           </div>
 
           <FolderOptionsMenu
@@ -994,6 +1114,14 @@ export default function FolderTree({
                     title={t('library.folders.sections.albums')}
                     isOpen={isAlbumsOpen}
                     onToggle={() => toggleSection('albums')}
+                    action={
+                      <SectionAction
+                        label={t('contextMenus.albums.newAlbum')}
+                        onClick={() =>
+                          useUIStore.getState().setUI({ albumActionTarget: null, isCreateAlbumModalOpen: true })
+                        }
+                      />
+                    }
                   />
                 </div>
                 <AnimatePresence>
@@ -1037,8 +1165,64 @@ export default function FolderTree({
                         {albumTree.length === 0 && !isSearching && (
                           <motion.div layout="position">
                             <Text variant={TextVariants.small} className="p-2 text-center">
-                              {t('library.folders.albumsEmpty')}
+                              {t('library.folders.noAlbums')}
                             </Text>
+                          </motion.div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
+
+            {hasVisibleProjects && (
+              <>
+                <div>
+                  <SectionHeader
+                    title={t('library.folders.sections.recentProjects')}
+                    isOpen={isProjectsOpen}
+                    onToggle={() => toggleSection(PROJECTS_SECTION)}
+                    action={
+                      <SectionAction
+                        label={t('contextMenus.library.newVideoProject')}
+                        onClick={newVideoProject}
+                        shortcut="new_video_project"
+                      />
+                    }
+                  />
+                </div>
+                <AnimatePresence>
+                  {isProjectsOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="pt-1 pb-2">
+                        <AnimatePresence>
+                          {visibleProjects.slice(0, PROJECTS_SHOWN).map((project) => (
+                            <motion.div
+                              key={`projects-${project.path}`}
+                              initial={{ opacity: 0, height: 0, x: -15 }}
+                              animate={{ opacity: 1, height: 'auto', x: 0 }}
+                              exit={{ opacity: 0, height: 0, x: -15, overflow: 'hidden' }}
+                              transition={{ duration: 0.2 }}
+                              layout="position"
+                            >
+                              <ProjectRow
+                                path={project.path}
+                                name={project.name}
+                                isActive={project.path === openProjectPath}
+                                isLayoutDragging={isLayoutDragging}
+                              />
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                        {visibleProjects.length > PROJECTS_SHOWN && (
+                          <motion.div layout="position">
+                            <MoreProjectsRow />
                           </motion.div>
                         )}
                       </div>
@@ -1153,9 +1337,11 @@ export default function FolderTree({
               </>
             )}
 
-            {!filteredTrees?.length && !hasVisiblePinnedTrees && !hasVisibleAlbums && isSearching && (
-              <Text className="p-2 text-center">{t('library.folders.noFoldersFound')}</Text>
-            )}
+            {!filteredTrees?.length &&
+              !hasVisiblePinnedTrees &&
+              !hasVisibleAlbums &&
+              !hasVisibleProjects &&
+              isSearching && <Text className="p-2 text-center">{t('library.folders.noFoldersFound')}</Text>}
 
             {folderTrees.length === 0 && pinnedFolderTrees.length === 0 && !isSearching && (
               <div className="pt-1">
@@ -1172,3 +1358,5 @@ export default function FolderTree({
     </div>
   );
 }
+
+export default memo(FolderTree);

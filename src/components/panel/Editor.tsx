@@ -32,6 +32,7 @@ import {
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas, { ImageRegion, MaskOverlayImage } from './editor/ImageCanvas';
 import SpeedEditOverlay from './editor/overlays/SpeedEditOverlay';
+import WatermarkCanvasOverlay, { useWatermarkFitFrame } from './editor/overlays/WatermarkPlacer';
 import { Mask, SubMask } from '../../types/masks';
 import { CompareView } from '../../types/settings';
 import { Panel } from '../../types/ui';
@@ -39,8 +40,16 @@ import { TransformState } from '../../types/editor';
 import { Invokes } from '../../types/invokes';
 import { cancelCanvasTool, useEditorStore, WgpuPhase } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { useUIStore } from '../../store/useUIStore';
+import { usableActivePanel, useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
+import {
+  useEditHistory,
+  useMaskFrameRevision,
+  useMaskFrameTime,
+  useProgramCanvas,
+  useVideoPlaying,
+} from '../../store/videoIntegration';
+import ViewerModePill from '../video/ViewerModePill';
 import { useAiMasking } from '../../hooks/useAiMasking';
 import { useEditorActions, withRotation } from '../../hooks/useEditorActions';
 import { clickZoomTarget, interpretWheel, movedBeyondClick } from '../../utils/canvasControls';
@@ -184,14 +193,11 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const appSettings = useSettingsStore((s) => s.appSettings);
   const osPlatform = useSettingsStore((s) => s.osPlatform);
   const isFullScreen = useUIStore((s) => s.isFullScreen);
-  const activePanel = useUIStore((s) => s.activePanel);
+  const activePanel = useUIStore(usableActivePanel);
   const isInstantTransition = useUIStore((s) => s.isInstantTransition);
   const isLoading = useLibraryStore((s) => s.isViewLoading);
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore(useShallow((s) => omitTonalAdjustments(s.adjustments)));
-  const adjustmentsHistory = useEditorStore((s) => s.history);
-  const adjustmentsHistoryLabels = useEditorStore((s) => s.historyLabels);
-  const adjustmentsHistoryIndex = useEditorStore((s) => s.historyIndex);
   const finalPreviewUrl = useEditorStore((s) => s.finalPreviewUrl);
   const uncroppedAdjustedPreviewUrl = useEditorStore((s) => s.uncroppedAdjustedPreviewUrl);
   const showOriginal = useEditorStore((s) => s.showOriginal);
@@ -219,16 +225,12 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   const setEditor = useEditorStore((s) => s.setEditor);
   const toggleFullScreen = useUIStore((s) => s.toggleFullScreen);
-  const undo = useEditorStore((s) => s.undo);
-  const redo = useEditorStore((s) => s.redo);
-  const goToHistoryIndex = useEditorStore((s) => s.goToHistoryIndex);
-  const canUndo = adjustmentsHistoryIndex > 0;
-  const canRedo = adjustmentsHistoryIndex < adjustmentsHistory.length - 1;
+  const editHistory = useEditHistory();
 
   const isAndroid = osPlatform === 'android';
 
   const { handleGenerateAiMask, handleQuickErase, handleDirectPatch } = useAiMasking();
-  const { setAdjustments, toggleCompare, selectCompareMode } = useEditorActions();
+  const { setAdjustments, toggleCompare, selectCompareMode, handleZoomChange } = useEditorActions();
 
   const [crop, setCrop] = useState<Crop | null>(null);
   const prevCropParams = useRef<any>(null);
@@ -463,6 +465,17 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const isCropping = activePanel === Panel.Crop;
   const isMasking = activePanel === Panel.Masks;
   const isAiEditing = activePanel === Panel.Ai;
+  const isVideoPlaying = useVideoPlaying();
+  const activeMaskContainer = isMasking
+    ? adjustments.masks?.find((c: MaskContainer) => c.id === activeMaskContainerId)
+    : null;
+  const maskFrameTime = useMaskFrameTime(activeMaskContainer);
+  const maskFrameRevision = useMaskFrameRevision(activeMaskContainer);
+  const maskFrameRef = useRef<{ time: number; width: number; height: number } | null>(null);
+  maskFrameRef.current =
+    maskFrameTime === null || !selectedImage
+      ? null
+      : { time: maskFrameTime, width: selectedImage.width, height: selectedImage.height };
   const isSideBySide = compareView === 'sideBySide' && !isCropping;
 
   const getOriginalPaneShift = useCallback(
@@ -479,6 +492,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     [getOriginalPaneShift],
   );
 
+  const programCanvas = useProgramCanvas();
   const croppedDimensions = useMemo<ImageDimensions | null>(() => {
     if (!selectedImage?.width || !selectedImage?.height) {
       return null;
@@ -491,7 +505,11 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     );
   }, [selectedImage, adjustments.crop, adjustments.orientationSteps]);
 
-  const imageRenderSize = useImageRenderSize(imageContainerRef, croppedDimensions);
+  const watermarkFitFrame = useWatermarkFitFrame(
+    programCanvas ? null : croppedDimensions,
+    isCropping || isMasking || isAiEditing,
+  );
+  const imageRenderSize = useImageRenderSize(imageContainerRef, programCanvas ?? croppedDimensions, watermarkFitFrame);
   const imageRenderSizeRef = useRef(imageRenderSize);
   imageRenderSizeRef.current = imageRenderSize;
 
@@ -1560,7 +1578,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const processOverlayQueue = useCallback(async () => {
     if (isGeneratingOverlayRef.current || !pendingOverlayRequestRef.current) return;
 
-    const { maskDef, jsAdjustments, isLive } = pendingOverlayRequestRef.current;
+    const { maskDef, jsAdjustments, isLive, sourceFrame } = pendingOverlayRequestRef.current;
     pendingOverlayRequestRef.current = null;
 
     const overlayView = getMaskOverlayView(isLive ? 0 : MASK_OVERLAY_MARGIN);
@@ -1601,6 +1619,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         scale: overlayView.scale,
         width: overlayView.width,
         jsAdjustments: strippedAdjustments,
+        sourceFrame,
       });
       markSent();
 
@@ -1638,7 +1657,12 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const requestMaskOverlay = useCallback(
     (maskDef: any, currentAdjustments: any, isLive = false) => {
       lastOverlayRequestRef.current = maskDef;
-      pendingOverlayRequestRef.current = { maskDef, jsAdjustments: currentAdjustments, isLive };
+      pendingOverlayRequestRef.current = {
+        maskDef,
+        jsAdjustments: currentAdjustments,
+        isLive,
+        sourceFrame: maskFrameRef.current,
+      };
       processOverlayQueue();
     },
     [processOverlayQueue],
@@ -2033,6 +2057,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       subMasks,
       geometry,
       renderSize: { w: imageRenderSize.width, h: imageRenderSize.height },
+      track: 'track' in activeMaskDef ? activeMaskDef.track : null,
+      frameTime: maskFrameTime,
+      frameRevision: maskFrameRevision,
     });
   }, [
     activePanel,
@@ -2041,6 +2068,8 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     adjustments,
     imageRenderSize.width,
     imageRenderSize.height,
+    maskFrameTime,
+    maskFrameRevision,
   ]);
 
   useEffect(() => {
@@ -2065,7 +2094,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       }
     }
 
-    requestMaskOverlay(maskDefForOverlay, useEditorStore.getState().adjustments);
+    requestMaskOverlay(isVideoPlaying ? null : maskDefForOverlay, useEditorStore.getState().adjustments);
   }, [
     overlayTriggerHash,
     requestMaskOverlay,
@@ -2073,6 +2102,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     activeMaskContainerId,
     activeAiPatchContainerId,
     imageRenderSize,
+    isVideoPlaying,
   ]);
 
   useEffect(() => {
@@ -2705,25 +2735,23 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         )}
       >
         <EditorToolbar
-          canRedo={canRedo}
-          canUndo={canUndo}
+          canRedo={editHistory.canRedo}
+          canUndo={editHistory.canUndo}
           isAndroid={isAndroid}
           isLoading={isLoading}
           onBackToLibrary={onBackToLibrary}
           onImageSelect={onImageSelect}
-          onRedo={redo}
+          onRedo={editHistory.redo}
           onToggleFullScreen={toggleFullScreen}
           onToggleCompare={toggleCompare}
           onSelectCompareMode={selectCompareMode}
-          onUndo={undo}
+          onUndo={editHistory.undo}
           selectedImage={selectedImage}
           isComparing={showOriginal || compareView !== 'off'}
           compareMode={appSettings?.compareMode ?? 'toggle'}
           showDateView={showExifDateView}
           onToggleDateView={() => setShowExifDateView((prev) => !prev)}
-          adjustmentsHistoryLabels={adjustmentsHistoryLabels}
-          adjustmentsHistoryIndex={adjustmentsHistoryIndex}
-          goToAdjustmentsHistoryIndex={goToHistoryIndex}
+          onZoomChange={handleZoomChange}
         />
       </div>
 
@@ -2845,7 +2873,14 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
           )}
           {straightenOverlay}
         </div>
+        <WatermarkCanvasOverlay
+          imageRenderSize={imageRenderSize}
+          subscribeViewTransform={subscribeViewTransform}
+          containerRef={imageContainerRef}
+          hidden={isCropping || isMasking || isAiEditing || showOriginal || activeCompareView !== 'off'}
+        />
         <SpeedEditOverlay />
+        <ViewerModePill />
       </div>
     </div>
   );

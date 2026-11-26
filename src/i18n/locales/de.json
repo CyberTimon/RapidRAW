@@ -198,6 +198,7 @@
       "lut": "LUT",
       "midpoint": "Mittelpunkt",
       "motionBlur": "Bewegungsunschärfe",
+      "pixelate": "Verpixeln",
       "motionBlurAngle": "Winkel",
       "motionBlurDepth": "Tiefe",
       "motionBlurHighlights": "Lichter",
@@ -213,7 +214,8 @@
         "linear": "Linear",
         "smooth": "Weich",
         "spin": "Drehung",
-        "zoom": "Zoom"
+        "zoom": "Zoom",
+        "shutter": "Verschluss"
       },
       "relight": "Neu beleuchten",
       "relightAddLight": "Licht hinzufügen",
@@ -225,7 +227,6 @@
       "relightDuplicateLight": "Licht duplizieren",
       "relightElevation": "Höhe",
       "relightFalloff": "Abfall",
-      "relightHint": "Füge ein Licht hinzu oder wähle eines aus und klicke oder ziehe im Bild, um es zu platzieren.",
       "relightIntensity": "Intensität",
       "relightLight": "Licht {{index}}",
       "relightRemoveLight": "Licht entfernen",
@@ -243,7 +244,12 @@
       "roundness": "Rundheit",
       "size": "Größe",
       "spatial": "Räumlich",
-      "vignette": "Vignettierung"
+      "vignette": "Vignettierung",
+      "motionBlurShutter": "Verschlusswinkel",
+      "analyzingClip": "Clip wird analysiert",
+      "relightPosition": "Position",
+      "motionBlurFootage": "Bewegung im Material",
+      "motionBlurFootageTooltip": "Bewegung im Filmmaterial weichzeichnen, nicht nur die Clip-Animation"
     }
   },
   "contextMenus": {
@@ -359,11 +365,14 @@
       "addCopiedToAlbum_one": "Kopiertes Bild zum Album hinzufügen",
       "addCopiedToAlbum_other": "{{count}} kopierte Bilder zum Album hinzufügen",
       "deleteRejected": "Abgelehnte Bilder löschen",
+      "newVideoProject": "Neues Videoprojekt",
       "refreshView": "Ansicht aktualisieren"
     },
     "merge": {
       "focusStack": "Fokus-Stacking",
-      "title": "Zusammenfügen"
+      "title": "Zusammenfügen",
+      "burstDenoise": "Serien-Entrauschen",
+      "longExposure": "Langzeitbelichtung"
     },
     "tagging": {
       "addTagTooltip": "Tag hinzufügen",
@@ -412,7 +421,12 @@
       "showExplorer": "Im Explorer anzeigen",
       "superResolution_one": "RapidRes (2x)",
       "superResolution_other": "RapidRes (2x)",
-      "virtualCopy": "Virtuelle Kopie"
+      "openVideoProject": "Projekt öffnen",
+      "videoProject": "Videoprojekt",
+      "virtualCopy": "Virtuelle Kopie",
+      "addToNamedProject": "Zu {{name}} hinzufügen",
+      "renameFile_one": "Umbenennen",
+      "renameFile_other": "{{count}} Dateien umbenennen"
     },
     "toasts": {
       "couldNotShowExplorer": "Datei konnte nicht im Explorer angezeigt werden: {{err}}",
@@ -432,6 +446,58 @@
       "failedMoveError": "Verschieben fehlgeschlagen: {{err}}",
       "failedMoveInvalid": "Verschieben fehlgeschlagen: Zielgruppe nicht gefunden oder ungültig.",
       "failedRemoveImages": "Bilder entfernen fehlgeschlagen: {{err}}"
+    },
+    "videos": {
+      "copy_one": "Video kopieren",
+      "copy_other": "{{count}} Videos kopieren",
+      "delete_one": "Video löschen",
+      "delete_other": "{{count}} Videos löschen",
+      "export_one": "Video exportieren",
+      "export_other": "{{count}} Videos exportieren",
+      "rename_one": "Video umbenennen",
+      "rename_other": "{{count}} Videos umbenennen",
+      "pasteAdjustments_one": "Einstellungen einfügen",
+      "pasteAdjustments_other": "Einstellungen in {{count}} Videos einfügen",
+      "resetAdjustments_one": "Einstellungen zurücksetzen",
+      "resetAdjustments_other": "Einstellungen bei {{count}} Videos zurücksetzen",
+      "removeFromAlbum_one": "Aus Album entfernen",
+      "removeFromAlbum_other": "{{count}} Videos aus Album entfernen",
+      "copyHere_one": "Video hierher kopieren",
+      "copyHere_other": "{{count}} Videos hierher kopieren",
+      "moveHere_one": "Video hierher verschieben",
+      "moveHere_other": "{{count}} Videos hierher verschieben",
+      "addCopiedToAlbum_one": "Kopiertes Video zum Album hinzufügen",
+      "addCopiedToAlbum_other": "{{count}} kopierte Videos zum Album hinzufügen",
+      "edit": "Video bearbeiten",
+      "duplicate": "Video duplizieren"
+    },
+    "files": {
+      "copy_one": "Datei kopieren",
+      "copy_other": "{{count}} Dateien kopieren",
+      "delete_one": "Datei löschen",
+      "delete_other": "{{count}} Dateien löschen",
+      "export_one": "Datei exportieren",
+      "export_other": "{{count}} Dateien exportieren",
+      "pasteAdjustments_one": "Einstellungen einfügen",
+      "pasteAdjustments_other": "Einstellungen in {{count}} Dateien einfügen",
+      "resetAdjustments_one": "Einstellungen zurücksetzen",
+      "resetAdjustments_other": "Einstellungen bei {{count}} Dateien zurücksetzen",
+      "removeFromAlbum_one": "Aus Album entfernen",
+      "removeFromAlbum_other": "{{count}} Dateien aus Album entfernen",
+      "copyHere_one": "Datei hierher kopieren",
+      "copyHere_other": "{{count}} Dateien hierher kopieren",
+      "moveHere_one": "Datei hierher verschieben",
+      "moveHere_other": "{{count}} Dateien hierher verschieben",
+      "addCopiedToAlbum_one": "Kopierte Datei zum Album hinzufügen",
+      "addCopiedToAlbum_other": "{{count}} kopierte Dateien zum Album hinzufügen"
+    },
+    "projects": {
+      "copy_one": "Projekt kopieren",
+      "copy_other": "{{count}} Projekte kopieren",
+      "rename_one": "Projekt umbenennen",
+      "rename_other": "{{count}} Projekte umbenennen",
+      "delete_one": "Projekt löschen",
+      "delete_other": "{{count}} Projekte löschen"
     }
   },
   "editor": {
@@ -494,8 +560,6 @@
         "cloneTooltip": "Kopiert die Quelle exakt, inklusive Helligkeit und Farbe",
         "dragSource": "Ziehen, um die Quelle zu verschieben",
         "healTooltip": "Kopiert die Struktur der Quelle und passt sie an Helligkeit und Farbe der Umgebung an",
-        "hintActive": "Ziehe den Quellumriss, um festzulegen, woher die Pixel kommen. Jeder neue Strich wird zu einem eigenen Bereich. Halte Shift gedrückt, um diesen zu erweitern.",
-        "hintEmpty": "Male über einen Fleck, ein Kabel oder eine Störung. Eine passende Quelle wird automatisch gefunden.",
         "mode": "Modus",
         "newSource": "Andere Quelle suchen"
       },
@@ -572,16 +636,13 @@
         "cancelGeneration": "Generierung abbrechen",
         "componentPropertiesTitle": "{{name}}-Eigenschaften",
         "downloading": "Wird heruntergeladen: ",
-        "fastInpaintDesc": "Auswahl basierend auf umliegenden Pixeln füllen.",
         "generateWithAiButton": "Mit KI generieren",
         "generating": "Wird generiert...",
-        "generativeDesc": "Beschreiben Sie, was im ausgewählten Bereich generiert werden soll.",
         "generativeReplaceTitle": "Generatives Ersetzen",
         "inpaintSelectionButton": "Auswahl füllen (Inpaint)",
         "invertComponent": "Komponente umkehren",
         "invertSelection": "Auswahl umkehren",
         "placeholder": "z. B. ein Blumenfeld",
-        "quickEraseDesc": "Auswahl füllen, um das Objekt zu entfernen.",
         "selectionPropertiesTitle": "Auswahleigenschaften",
         "useBasicInpaint": "Einfaches Reparieren verwenden"
       },
@@ -698,21 +759,20 @@
       "rotationHeading": "Drehung",
       "title": "Zuschnitt & Form",
       "tooltips": {
-        "autoStraighten": "Automatisch ausrichten (Shift+S)",
+        "autoStraighten": "Automatisch ausrichten",
         "compositionOverlay": "Kompositions-Überlagerung",
         "flipHoriz": "Bild horizontal spiegeln",
         "flipVert": "Bild vertikal spiegeln",
         "lens": "Objektivverzerrung korrigieren",
-        "overlayDetails": "Überlagerung: {{name}}{{rotateHint}}",
         "resetFineRotation": "Feinrotation zurücksetzen",
-        "rotateHint": " (Shift+O zum Drehen)",
         "rotateLeft": "90° gegen den Uhrzeigersinn drehen",
         "rotateRight": "90° im Uhrzeigersinn drehen",
-        "straighten": "Gerade ausrichten (S)",
+        "straighten": "Gerade ausrichten",
         "switchOrientation": "Ausrichtung wechseln",
         "switchToLandscape": "Zum Querformat wechseln",
         "switchToPortrait": "Zum Hochformat wechseln",
-        "transform": "Perspektiv- und Trapezkorrektur"
+        "transform": "Perspektiv- und Trapezkorrektur",
+        "overlayName": "Überlagerung: {{name}}"
       }
     },
     "externalEdit": {
@@ -788,7 +848,9 @@
         "feather": "Weiche Kante",
         "globalFeather": "Globale weiche Kante",
         "grow": "Erweitern",
-        "tolerance": "Toleranz"
+        "tolerance": "Toleranz",
+        "roundness": "Rundheit",
+        "points": "Pfad"
       },
       "patches": {
         "copyName": "{{name}} Kopie",
@@ -833,6 +895,11 @@
       "tooltips": {
         "addToCurrent": "{{name}} zur aktuellen Maske hinzufügen oder neu erstellen (Rechtsklick)",
         "createNew": "Neue {{name}}-Maske erstellen"
+      },
+      "pen": {
+        "makeCorner": "Zu Eckpunkt machen",
+        "makeSmooth": "Zu Kurvenpunkt machen",
+        "deletePoint": "Punkt löschen"
       }
     },
     "metadata": {
@@ -919,7 +986,7 @@
         "unsetDefaultForCamera": "Nicht mehr als Standard für {{camera}} verwenden"
       },
       "status": {
-        "empty": "Noch keine Vorgaben gespeichert. Eigene erstellen, importieren oder Community-Vorgaben entdecken.",
+        "empty": "Noch keine Vorgaben.",
         "getCommunity": "Community-Vorgaben holen",
         "loading": "Vorgaben laden..."
       },
@@ -951,15 +1018,8 @@
     },
     "switcher": {
       "tooltips": {
-        "adjust": "Anpassen",
-        "crop": "Zuschnitt",
-        "export": "Exportieren",
         "filmstrip": "Filmstreifen",
-        "info": "Info",
-        "inpaint": "Reparieren",
-        "masks": "Masken",
-        "presets": "Vorgaben",
-        "tethering": "Tethering"
+        "mediaPool": "Projekt"
       }
     },
     "toasts": {
@@ -971,14 +1031,14 @@
       "tooltips": {
         "aperture": "Blende",
         "backToLibrary": "Zurück zur Bibliothek",
-        "compare": "Vorher / Nachher (B) oder Modi (Rechtsklick)",
+        "compare": "Vorher / Nachher oder Modi (Rechtsklick)",
         "focalLength": "Brennweite",
-        "fullscreen": "Vollbild umschalten (F)",
+        "fullscreen": "Vollbild umschalten",
         "hdr": "HDR auf diesem Bildschirm zeigen, Exporte bleiben gleich, außer HDR-Ausgabe ist an",
         "iso": "ISO",
-        "redo": "Wiederholen (Strg+Y) oder Verlauf (Rechtsklick)",
+        "redo": "Wiederholen oder Verlauf (Rechtsklick)",
         "shutterSpeed": "Verschlusszeit",
-        "undo": "Rückgängig (Strg+Z) oder Verlauf (Rechtsklick)"
+        "undo": "Rückgängig oder Verlauf (Rechtsklick)"
       },
       "vc": "VK"
     },
@@ -1116,23 +1176,20 @@
     "title": "Export",
     "watermark": {
       "addWatermark": "Wasserzeichen hinzufügen",
-      "anchors": {
-        "bottomCenter": "Unten Mitte",
-        "bottomLeft": "Unten Links",
-        "bottomRight": "Unten Rechts",
-        "center": "Mitte",
-        "centerLeft": "Mitte Links",
-        "centerRight": "Mitte Rechts",
-        "topCenter": "Oben Mitte",
-        "topLeft": "Oben Links",
-        "topRight": "Oben Rechts"
-      },
-      "logoText": "Logo",
       "opacity": "Deckkraft",
-      "previewText": "Vorschau",
-      "scale": "Skalierung",
-      "spacing": "Abstand",
-      "watermarkImage": "Wasserzeichen-Bild"
+      "watermarkImage": "Wasserzeichen-Bild",
+      "size": "Größe",
+      "margin": "Rand",
+      "resetPlacement": "Platzierung zurücksetzen",
+      "unreadable": "Dieses Bild kann nicht gelesen werden.",
+      "sources": {
+        "image": "Bild",
+        "text": "Text"
+      },
+      "textPlaceholder": "Wasserzeichentext",
+      "font": "Schriftart",
+      "weight": "Schriftstärke",
+      "color": "Farbe"
     }
   },
   "immich": {
@@ -1169,8 +1226,8 @@
       "apiKey": "API-Schlüssel",
       "apiKeyDesc": "In Immich unter Kontoeinstellungen → API-Schlüssel anlegen, mit diesen Berechtigungen: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create und user.read.",
       "connected": "Verbunden als {{user}} (Immich {{version}})",
-      "description": "Zeigt die Fotos deines Immich-Servers in der Bibliothek, damit du sie direkt bearbeiten kannst. Originale werden beim Öffnen heruntergeladen, und deine Bearbeitungen werden in Immich gespeichert – so sehen sie auf jedem Rechner gleich aus.",
-      "keyInFile": "In einer Datei gespeichert, die nur du lesen kannst: Es ist kein Schlüsselbund erreichbar. Unter KDE in den Einstellungen der KDE-Brieftasche die Secret-Service-Schnittstelle einschalten und erneut speichern.",
+      "description": "Durchsuche und bearbeite die Fotos auf deinem Immich-Server.",
+      "keyInFile": "In einer Datei gespeichert, die nur du lesen kannst, da kein Schlüsselbund verfügbar ist.",
       "keyInStore": "Im Schlüsselbund des Systems gespeichert.",
       "save": "Speichern",
       "saved": "Gespeichert.",
@@ -1178,7 +1235,9 @@
       "serverUrlDesc": "Die Adresse, unter der du Immich im Browser öffnest.",
       "test": "Verbindung testen",
       "title": "Immich",
-      "working": "Einen Moment…"
+      "working": "Einen Moment…",
+      "tooltip": "Originale werden beim Öffnen heruntergeladen. Bearbeitungen werden in Immich gespeichert und sind so auf jedem Rechner gleich.",
+      "keyInFileTooltip": "Unter KDE in den Einstellungen der KDE-Brieftasche die Secret-Service-Schnittstelle einschalten und erneut speichern."
     },
     "sync": {
       "offline": "Offline",
@@ -1255,10 +1314,8 @@
       "altThumbnailLoading": "Miniaturansicht wird geladen",
       "aperture": "Blende",
       "cameraSettings": "Kameraeinstellungen",
-      "clickThumbnailsHint": "Klicken Sie auf Miniaturansichten in der rechten Seitenleiste, um sie zur Vergleichsansicht hinzuzufügen.",
       "colorLabel": "Farbmarkierung",
       "dimensions": "Abmessungen",
-      "doubleClickToEditHint": "Doppelklicken Sie auf eine Miniaturansicht, um sie im Editor zu öffnen.",
       "focalLength": "Brennweite",
       "iso": "ISO",
       "metadata": "Metadaten",
@@ -1313,7 +1370,6 @@
     },
     "folders": {
       "addFolder": "Ordner hinzufügen",
-      "albumsEmpty": "Rechtsklick, um ein Album zu erstellen.",
       "collapseSection": "{{section}} minimieren",
       "expandSection": "{{section}} erweitern",
       "loading": "Ordner werden geladen...",
@@ -1323,7 +1379,8 @@
       "sections": {
         "albums": "Alben",
         "folders": "Ordner",
-        "pinned": "Angeheftet"
+        "pinned": "Angeheftet",
+        "recentProjects": "Letzte Projekte"
       },
       "sort": {
         "created": "Erstellungsdatum",
@@ -1340,7 +1397,8 @@
         "navBack": "Zurück",
         "navForward": "Vorwärts",
         "sortFolders": "Ordner sortieren"
-      }
+      },
+      "noAlbums": "Keine Alben"
     },
     "grid": {
       "columns": {
@@ -1352,7 +1410,9 @@
         "name": "Name",
         "rating": "Bewertung",
         "shutter": "Verschluss"
-      }
+      },
+      "emptyFolder": "Keine Bilder in diesem Ordner.",
+      "emptyAlbum": "Keine Bilder in diesem Album."
     },
     "header": {
       "cancel": "Abbrechen",
@@ -1427,7 +1487,6 @@
       "clear": "Leeren",
       "copyError": "Zum Kopieren klicken",
       "empty": "Keine aktiven Aufgaben",
-      "emptyHint": "Exporte, Importe, Dateiübertragungen und KI-Aufgaben erscheinen hier.",
       "errorCopied": "Fehler in die Zwischenablage kopiert",
       "images_one": "{{count}} Bild",
       "images_other": "{{count}} Bilder",
@@ -1437,13 +1496,18 @@
         "export": "Export",
         "import": "Import",
         "modelDownload": "KI-Modell-Download",
-        "move": "Dateien verschieben"
+        "move": "Dateien verschieben",
+        "immichDownload": "Immich-Download"
       },
       "openInLibrary": "In der Bibliothek öffnen",
       "recent": "Zuletzt",
       "skipped_one": "{{count}} übersprungen",
       "skipped_other": "{{count}} übersprungen",
-      "title": "Aufgaben"
+      "title": "Aufgaben",
+      "transferred": "{{current}} von {{total}}",
+      "rate": "{{size}}/s",
+      "remaining": "noch {{time}}",
+      "cancelDownload": "Download abbrechen"
     },
     "reject": {
       "deleteConfirm": "Abgelehnte löschen",
@@ -1539,7 +1603,9 @@
       "retouch": "Retuschieren",
       "sky": "Himmel",
       "subject": "Motiv",
-      "text": "Text"
+      "text": "Text",
+      "rectangle": "Rechteck",
+      "pen": "Zeichenstift"
     }
   },
   "menus": {
@@ -1588,9 +1654,8 @@
       "confirm": "Bestätigen"
     },
     "copyPaste": {
-      "autoSyncDesc": "Wendet Anpassungen automatisch auf alle ausgewählten Bilder an.",
-      "autoSyncLabel": "Auto-Sync aktivieren",
-      "autoSyncTitle": "Anpassungen automatisch synchronisieren",
+      "autoSyncLabel": "Auf alle ausgewählten Bilder anwenden",
+      "autoSyncTitle": "Auto-Sync",
       "cancel": "Abbrechen",
       "descMerge": "Fügt Ihre kopierten Änderungen hinzu und lässt andere Einstellungen unberührt.",
       "descReplace": "Überschreibt alle ausgewählten Einstellungen und setzt den Rest auf Standardwerte zurück.",
@@ -1617,6 +1682,7 @@
         "motionBlur": "Bewegungsunschärfe",
         "negativeConversion": "Negativumwandlung",
         "noiseReduction": "Rauschreduzierung",
+        "pixelate": "Verpixeln",
         "presence": "Präsenz",
         "relight": "Neu beleuchten",
         "sharpness": "Schärfe",
@@ -1649,12 +1715,12 @@
       "actionDelete": "In den Papierkorb verschieben",
       "actionRateZero": "Bewertung auf 1 Stern setzen",
       "actionReject": "Als abgelehnt markieren",
-      "applyButton_one": "Auf 1 Bild anwenden",
+      "applyButton_one": "Auf {{count}} Bild anwenden",
       "applyButton_other": "Auf {{count}} Bilder anwenden",
       "bestImage": "Bestes Bild",
       "blurryImagesTab": "Unscharfe Bilder",
       "blurThreshold": "Unschärfe-Schwellenwert",
-      "blurThresholdDesc": "Bilder mit einem Schärfewert unter diesem Wert werden markiert. Höher ist strenger.",
+      "blurThresholdDesc": "Markiert Bilder mit einem Schärfewert unter dem Schwellenwert",
       "cancel": "Abbrechen",
       "close": "Schließen",
       "cullingFailed": "Aussortieren fehlgeschlagen",
@@ -1672,7 +1738,7 @@
       "sharpness": "Schärfe: {{sharpness}}",
       "similarGroupsTab": "Ähnliche Gruppen",
       "similarityThreshold": "Ähnlichkeits-Schwellenwert",
-      "similarityThresholdDesc": "Niedriger ist strenger (exakte Duplikate). Höher ist lockerer. 24-32 wird empfohlen.",
+      "similarityThresholdDesc": "Ein niedriger Schwellenwert gruppiert nur exakte Duplikate, ein hoher auch nahezu identische Bilder",
       "startCulling": "Aussortieren starten",
       "starting": "Wird gestartet...",
       "title": "Bilder aussortieren"
@@ -1685,11 +1751,12 @@
       "failed": "Fokus-Stacking fehlgeschlagen",
       "method": "Methode",
       "methodDetail": "Detail",
-      "methodHint": "Detail bewahrt feinste Strukturen wie Haare und Borsten. Weich sorgt für sanftere Übergänge und weniger Rauschen.",
       "methodSmooth": "Weich",
       "processing": "Fokus wird gestapelt",
       "savedSuccess": "Fokus-Stack erfolgreich gespeichert!",
-      "title": "Fokus-Stacking"
+      "title": "Fokus-Stacking",
+      "methodDetailHint": "Erhält feinste Strukturen wie Haare und Borsten",
+      "methodSmoothHint": "Weichere Übergänge und weniger Rauschen"
     },
     "hdr": {
       "description": "Kombinieren Sie Ihre Belichtungsreihen zu einem einzigen High Dynamic Range Bild.",
@@ -1769,7 +1836,6 @@
     "panorama": {
       "autoProjectionUsed": "Verwendet: {{projection}}",
       "boundaryWarp": "Begrenzungsverkrümmung",
-      "boundaryWarpHint": "Dehnt die Ränder, um das Bild zu füllen, statt sie wegzuschneiden.",
       "description": "Kombinieren Sie Ihre überlappenden Bilder zu einem nahtlosen Panorama.",
       "descriptionWithCount": "Kombinieren Sie {{count}} überlappende Bilder zu einem nahtlosen Panorama.",
       "descriptionWithCount_one": "Kombinieren Sie {{count}} überlappendes Bild zu einem nahtlosen Panorama.",
@@ -1799,7 +1865,9 @@
       "titleMultiple": "{{count}} Bilder umbenennen",
       "titleMultiple_one": "{{count}} Bild umbenennen",
       "titleMultiple_other": "{{count}} Bilder umbenennen",
-      "titleSingle": "Bild umbenennen"
+      "titleSingle": "Bild umbenennen",
+      "titleFiles_one": "Datei umbenennen",
+      "titleFiles_other": "{{count}} Dateien umbenennen"
     },
     "renameFolder": {
       "cancel": "Abbrechen",
@@ -1837,6 +1905,26 @@
       "yAxis": "Y-Achse",
       "zoomInTooltip": "Vergrößern",
       "zoomOutTooltip": "Verkleinern"
+    },
+    "burstDenoise": {
+      "title": "Serien-Entrauschen",
+      "description": "Fügt eine Serie gleicher Belichtungen zu einem rauschärmeren Bild zusammen.",
+      "descriptionWithCount_one": "Fügt {{count}} Serienbild zu einem rauschärmeren Bild zusammen.",
+      "descriptionWithCount_other": "Fügt {{count}} Serienbilder zu einem rauschärmeren Bild zusammen.",
+      "failed": "Serien-Entrauschen fehlgeschlagen",
+      "processing": "Serie wird zusammengefügt",
+      "savedSuccess": "Serie erfolgreich gespeichert!"
+    },
+    "longExposure": {
+      "title": "Langzeitbelichtung",
+      "description": "Verschmilzt eine Serie zu einer Langzeitbelichtung, in der Wasser, Wolken und Verkehr fließen, während die Szene scharf bleibt.",
+      "descriptionWithCount_one": "Verschmilzt {{count}} Serienbild zu einer Langzeitbelichtung.",
+      "descriptionWithCount_other": "Verschmilzt {{count}} Serienbilder zu einer Langzeitbelichtung.",
+      "failed": "Langzeitbelichtung fehlgeschlagen",
+      "processing": "Langzeitbelichtung wird erstellt",
+      "savedSuccess": "Langzeitbelichtung erfolgreich gespeichert!",
+      "smoothMotion": "Fließende Bewegung",
+      "smoothMotionHint": "Füllt die Zeit zwischen den Bildern, damit bewegte Objekte durchgehende Spuren ziehen."
     }
   },
   "settings": {
@@ -1853,7 +1941,7 @@
       },
       "notAssigned": "Nicht zugewiesen",
       "optimization": "Eingabegeräte-Optimierung",
-      "optimizationDesc": "Wählen Sie das primäre Eingabegerät zum Schwenken und Zoomen.",
+      "optimizationDesc": "Optimiert Schwenken und Zoomen der Arbeitsfläche für Maus oder Touchpad.",
       "pressKey": "Taste drücken... (Esc zum Löschen)",
       "resetDefaults": "Alles auf Standard zurücksetzen",
       "speed": "Geschwindigkeit",
@@ -1881,19 +1969,19 @@
       "title": "Maussteuerung",
       "zoom": "Zoom-Geschwindigkeitsfaktor",
       "zoomClick": "Foto auf 100% zoomen",
-      "zoomClickDesc": "Foto im Editor bei Mausklick auf 100% zoomen",
-      "zoomClickInfo": "Klicken Sie auf das Foto, um sofort auf 100% (1:1 Pixel) zu zoomen, um Schärfe und Rauschen zu beurteilen. Wenn deaktiviert, wird beim Klicken stufenweise herangezoomt.",
-      "zoomDesc": "Passen Sie an, wie schnell das Bild beim Scrollen oder Kneifen zoomt."
+      "zoomClickDesc": "Bei Klick auf 100% zoomen",
+      "zoomClickInfo": "Ein Klick auf das Foto zoomt direkt auf 100%, um Schärfe und Rauschen zu prüfen. Wenn deaktiviert, zoomt ein Klick stufenweise hinein.",
+      "zoomDesc": "Wie schnell die Arbeitsfläche mit dem Mausrad oder per Fingergeste zoomt."
     },
     "data": {
       "aiTags": "KI-Tags löschen",
-      "aiTagsDesc": "Entfernt KI-generierte Tags von allen Bildern in deinen Stammordnern. Eigene Tags bleiben erhalten.",
+      "aiTagsDesc": "Entfernt KI-Tags von Fotos in deinen Stammordnern. Eigene Tags bleiben erhalten.",
       "allTags": "Alle Tags löschen",
-      "allTagsDesc": "Entfernt KI-generierte und eigene Tags von allen Bildern in deinen Stammordnern. Farbmarkierungen bleiben erhalten.",
+      "allTagsDesc": "Entfernt alle Tags von Fotos in deinen Stammordnern. Farbmarkierungen bleiben erhalten.",
       "clear": "Leeren",
       "delete": "Löschen",
       "deleteEdits": "Alle Bearbeitungen löschen",
-      "deleteEditsDesc": "Entfernt alle .rrdata-Begleitdateien (deine Bearbeitungen) in allen Stammordnern. Dies kann nicht rückgängig gemacht werden.",
+      "deleteEditsDesc": "Entfernt alle .rrdata-Begleitdateien in deinen Stammordnern. Kann nicht rückgängig gemacht werden.",
       "libraryAndWorkspace": "Bibliothek & Arbeitsbereich",
       "limit": "Limit",
       "modals": {
@@ -1916,12 +2004,16 @@
         "metadataMessage": "Möchtest du den Metadaten-Cache wirklich leeren?\n\nMetadaten werden beim Durchsuchen erneut aus deinen Dateien gelesen.",
         "modelsMessage": "Möchtest du die heruntergeladenen KI-Modelle wirklich entfernen?\n\nSie werden bei der nächsten Nutzung einer KI-Funktion erneut heruntergeladen.",
         "resetLayoutMessage": "Möchten Sie das Layout des Arbeitsbereichs wirklich zurücksetzen? Alle angedockten Panels, Breiten und Umschalter-Positionen werden auf ihre Standardwerte zurückgesetzt.",
-        "sidecarMessage": "Sind Sie sicher, dass Sie alle Filialdateien löschen möchten?\n\nDies entfernt dauerhaft alle Ihre Bearbeitungen für alle Bilder in allen aktiven Stammordnern."
+        "sidecarMessage": "Sind Sie sicher, dass Sie alle Filialdateien löschen möchten?\n\nDies entfernt dauerhaft alle Ihre Bearbeitungen für alle Bilder in allen aktiven Stammordnern.",
+        "videoProxiesMessage": "Möchtest du die Video-Proxys wirklich leeren?\n\nSie werden neu erstellt, sobald Proxys verwendet werden.",
+        "videoReversedMessage": "Möchtest du die Rückwärts-Clips wirklich leeren?\n\nRückwärts-Clips werden bei der nächsten Verwendung neu vorbereitet.",
+        "videoAnalysisMessage": "Möchtest du die Videoanalyse wirklich leeren?\n\nStabilisierung, KI-Masken, die jedem Frame folgen, Beats und Filmstreifen müssen erneut analysiert werden.",
+        "videoTimelapsesMessage": "Möchtest du die Zeitraffer wirklich leeren?\n\nZeitraffer werden bei der nächsten Verwendung erneut aus ihren Fotos gerendert."
       },
       "noFolders": "Keine Ordner ausgewählt",
       "refresh": "Aktualisieren",
       "reset": "Zurücksetzen",
-      "resetLayoutDesc": "Setzt Panel-Docks, seitliche Teiler, Höhen und Panel-Umschalter auf das Standard-Layout zurück.",
+      "resetLayoutDesc": "Setzt Panel-Docks, Größen und Umschalter auf das Standard-Layout zurück.",
       "resetLayoutTitle": "Arbeitsbereich-Layout zurücksetzen",
       "show": "Anzeigen",
       "statuses": {
@@ -1948,7 +2040,7 @@
         "aiUpscale": "RapidRes",
         "aiUpscaleDesc": "Zwischengespeicherte 2x-Hochskalierungen von RapidRes.",
         "immich": "Immich",
-        "immichDesc": "Heruntergeladene Originale. Die am längsten nicht genutzten werden entfernt, sobald das Limit erreicht ist. Deine Bearbeitungen bleiben erhalten.",
+        "immichDesc": "Heruntergeladene Originale. Beim Limit werden die ältesten zuerst entfernt; Bearbeitungen bleiben erhalten.",
         "logs": "Protokolle",
         "logsDesc": "Protokolldateien der Anwendung zur Fehlersuche. Werden bei jedem Start geleert.",
         "metadata": "Metadaten",
@@ -1956,7 +2048,17 @@
         "models": "KI-Modelle",
         "modelsDesc": "Werden bei der ersten Nutzung einer KI-Funktion heruntergeladen.",
         "thumbnails": "Miniaturansichten",
-        "thumbnailsDesc": "Werden beim Durchsuchen automatisch neu erstellt."
+        "thumbnailsDesc": "Werden beim Durchsuchen automatisch neu erstellt.",
+        "videoProxies": "Video-Proxys",
+        "videoProxiesDesc": "Leichtere Kopien für flüssige Wiedergabe. Werden bei Bedarf neu erstellt.",
+        "videoReversed": "Rückwärts-Clips",
+        "videoReversedDesc": "Rückwärts gerenderte Kopien der Rückwärts-Clips.",
+        "videoAnalysis": "Videoanalyse",
+        "videoAnalysisDesc": "Stabilisierung, KI-Masken, Beats, Filmstreifen und verschachteltes Audio.",
+        "videoTimelapses": "Zeitraffer",
+        "videoTimelapsesDesc": "Für Zeitraffer entwickelte Fotoserien. Werden bei Bedarf neu gerendert.",
+        "video": "Video-Cache",
+        "immichProjects": "Davon bleiben {{size}} für Videoprojekte erhalten."
       },
       "storageTitle": "Speicher",
       "title": "Datenverwaltung",
@@ -1964,42 +2066,39 @@
     },
     "general": {
       "createXmp": "Fehlende XMP-Dateien erstellen",
-      "createXmpDesc": "Erstellt automatisch eine neue XMP-Filialdatei, falls noch keine für ein Bild existiert.",
       "createXmpMissing": "XMP erstellen, falls fehlend",
       "displayEditIcon": "Bearbeitungssymbol anzeigen",
-      "displayEditIconDesc": "Zeigt ein kleines Schieberegler-Symbol auf Miniaturbildern an, die bearbeitet wurden.",
       "enableFocusMode": "Fokusmodus aktivieren",
       "enableNeutralGreyCanvas": "Neutralgrauen Hintergrund aktivieren",
       "enableOsTitlebar": "OS-Titelleiste aktivieren",
       "enableToolFocusMode": "Werkzeug-Fokusmodus aktivieren",
       "enableXmpSync": "XMP-Sync aktivieren",
       "focusMode": "Fokusmodus",
-      "focusModeDesc": "Hilft beim Fokussieren, indem andere Panels automatisch geschlossen werden, wenn Sie ein neues öffnen.",
+      "focusModeDesc": "Schließt andere Panels, wenn du eines öffnest.",
       "folderImageCounts": "Bildanzahl im Ordner",
-      "folderImageCountsDesc": "Zeigt die Anzahl der Bilder in Ordnern an, wenn Sie mit der Maus über die Ordnerstruktur fahren.",
+      "folderImageCountsDesc": "Wird angezeigt, wenn du in der Ordnerstruktur auf einen Ordner zeigst.",
       "font": "Schriftart",
-      "fontDesc": "Ändern Sie die Schriftart der Anwendung.",
       "hideCollapsedPanels": "Eingeklappte Panels ausblenden",
-      "hideCollapsedPanelsDesc": "Eingeklappte Seitenpanels werden vollständig ausgeblendet, statt einen schmalen Streifen zu hinterlassen. Öffnen Sie sie über die untere Leiste oder mit ihren Tastenkürzeln wieder.",
+      "hideCollapsedPanelsDesc": "Eingeklappte Seitenpanels verschwinden, statt einen schmalen Streifen zu hinterlassen. Öffne sie wieder über die untere Leiste oder mit ihren Tastenkürzeln.",
       "nativeTitlebar": "Native Titelleiste",
-      "nativeTitlebarDesc": "Verwenden Sie die Standard-Fenstertitelleiste Ihres Systems anstelle der benutzerdefinierten von RapidRAW.",
+      "nativeTitlebarDesc": "Verwendet die Fenstertitelleiste des Systems statt der eigenen von RapidRAW.",
       "neutralGreyCanvas": "Neutralgraue Arbeitsfläche",
-      "neutralGreyCanvasDesc": "Verwenden Sie eine neutralgraue Arbeitsfläche für eine genauere Farb- und Belichtungskorrektur, ohne das App-Design zu ändern.",
+      "neutralGreyCanvasDesc": "Zeigt Fotos unabhängig vom Design auf neutralem Grau, um Farbe und Belichtung zu beurteilen.",
       "poppins": "Poppins",
       "showImageCounts": "Bildanzahl anzeigen",
       "system": "Systemstandard",
       "theme": "Design",
-      "themeDesc": "Ändern Sie das Aussehen und Gefühl der Anwendung.",
       "title": "Allgemeine Einstellungen",
       "toolFocusMode": "Werkzeug-Fokusmodus",
-      "toolFocusModeDesc": "Klappt automatisch die anderen Werkzeuge eines Panels ein, wenn Sie eines aufklappen.",
+      "toolFocusModeDesc": "Klappt die anderen Werkzeuge eines Panels ein, wenn du eines aufklappst.",
       "uiScale": "Oberflächenskalierung",
       "uiScaleCompact": "Kompakt",
       "uiScaleDefault": "Standard",
-      "uiScaleDesc": "Die Oberfläche unabhängig von der Anzeigeskalierung des Systems verkleinern oder vergrößern. Kompakte Größen passen besser auf kleine Laptop-Bildschirme.",
+      "uiScaleDesc": "Unabhängig von der Anzeigeskalierung des Systems. Kompakt bietet mehr Platz auf kleinen Bildschirmen.",
       "uiScaleLarge": "Groß",
       "xmpSync": "XMP-Metadaten-Sync",
-      "xmpSyncDesc": "Synchronisieren Sie Bewertungen, Farbmarkierungen und Tags in Standard-XMP-Filialdateien für Kompatibilität mit anderen Foto-Editoren."
+      "xmpSyncDesc": "Synchronisiert Bewertungen, Farbmarkierungen und Tags mit XMP-Begleitdateien.",
+      "showEditIcon": "Auf bearbeiteten Miniaturen anzeigen"
     },
     "keybinds": {
       "actions": {
@@ -2057,27 +2156,98 @@
         "toggle_viewer_window": "Zweites Fenster umschalten",
         "undo": "Bearbeitung rückgängig machen",
         "unflag": "Markierung entfernen",
+        "video_add_marker": "Marke hinzufügen oder entfernen",
+        "video_back_second": "1 Sekunde zurück",
+        "video_back_second_alt": "1 Sekunde zurück (Alternative)",
+        "video_clear_range": "In und Out löschen",
+        "video_copy": "Auswahl kopieren",
+        "video_delete": "Auswahl löschen",
+        "video_delete_alt": "Auswahl löschen (Alternative)",
+        "video_duplicate": "Auswahl duplizieren",
+        "video_forward_second": "1 Sekunde vor",
+        "video_forward_second_alt": "1 Sekunde vor (Alternative)",
+        "video_go_end": "Zum Ende",
+        "video_go_start": "Zum Anfang",
+        "video_jump_back": "Zurückspringen und abspielen",
+        "video_loop": "Schleife umschalten",
+        "video_nest": "Auswahl verschachteln",
+        "video_next_edit": "Nächster Schnittpunkt",
+        "video_next_frame": "Nächster Frame",
+        "video_next_frame_alt": "Nächster Frame (Alternative)",
+        "video_next_marker": "Nächste Marke",
+        "video_nudge_left": "1 Frame nach links verschieben",
+        "video_nudge_left_more": "5 Frames nach links verschieben",
+        "video_nudge_right": "1 Frame nach rechts verschieben",
+        "video_nudge_right_more": "5 Frames nach rechts verschieben",
+        "video_paste": "An Abspielposition einfügen",
+        "video_pause": "Pause",
+        "video_play": "Wiedergabe",
+        "video_play_in_out": "Von In bis Out abspielen",
+        "video_play_pause": "Wiedergabe / Pause",
+        "video_prev_edit": "Vorheriger Schnittpunkt",
+        "video_prev_frame": "Vorheriger Frame",
+        "video_prev_frame_alt": "Vorheriger Frame (Alternative)",
+        "video_prev_marker": "Vorherige Marke",
+        "video_redo": "Wiederholen",
+        "video_redo_alt": "Wiederholen (Alternative)",
+        "video_ripple_delete": "Löschen und Lücke schließen",
+        "video_ripple_delete_alt": "Löschen und Lücke schließen (Alternative)",
+        "video_select_all": "Alle Clips auswählen",
+        "video_set_in": "In-Punkt setzen",
+        "video_set_out": "Out-Punkt setzen",
+        "video_split": "An Abspielposition teilen",
+        "video_split_all": "Alle Spuren an Abspielposition teilen",
+        "video_toggle_snapping": "Einrasten umschalten",
+        "video_trim_end": "Clip-Ende bis Abspielposition trimmen",
+        "video_trim_start": "Clip-Anfang bis Abspielposition trimmen",
+        "video_undo": "Rückgängig",
+        "video_unnest": "Verschachtelung aufheben",
+        "video_zoom_fit": "Zeitleiste einpassen",
+        "video_zoom_in": "Zeitleiste vergrößern",
+        "video_zoom_out": "Zeitleiste verkleinern",
         "zoom_100": "Auf 100% zoomen",
         "zoom_fit": "Auf Fenstergröße einpassen",
         "zoom_in": "Vergrößern",
         "zoom_in_step": "Vergrößern (schrittweise)",
         "zoom_out": "Verkleinern",
-        "zoom_out_step": "Verkleinern (schrittweise)"
+        "zoom_out_step": "Verkleinern (schrittweise)",
+        "video_export_frame": "Frame exportieren",
+        "video_copy_adjustments": "Anpassungen kopieren",
+        "video_paste_adjustments": "Anpassungen in Auswahl einfügen",
+        "video_freeze_frame": "Standbild an Abspielposition",
+        "video_insert": "Fokussiertes Medium an Abspielposition einfügen",
+        "video_overwrite": "An Abspielposition mit fokussiertem Medium überschreiben",
+        "video_save_project": "Projekt speichern",
+        "video_prev_keyframe": "Vorheriger Keyframe",
+        "video_next_keyframe": "Nächster Keyframe",
+        "video_select_at_playhead": "Clip an Abspielposition auswählen",
+        "video_add_title": "Titel hinzufügen",
+        "video_toggle_keyframe": "Keyframe hinzufügen oder entfernen",
+        "video_record_keyframes": "Keyframes aufzeichnen",
+        "video_panel_project": "Projekt-Panel ein-/ausblenden",
+        "video_panel_inspector": "Inspektor-Panel ein-/ausblenden",
+        "video_panel_effects": "Panel „Titel & Übergänge“ ein-/ausblenden",
+        "video_panel_captions": "Untertitel-Panel ein-/ausblenden",
+        "video_panel_mixer": "Audiomixer-Panel ein-/ausblenden"
       },
       "sections": {
         "editing": "Bearbeitung",
         "library": "Bibliothek",
         "panels": "Panels",
         "rating": "Bewertungen & Markierungen",
-        "view": "Ansicht"
-      }
+        "videoEditing": "Videobearbeitung",
+        "videoPlayback": "Videowiedergabe",
+        "videoTimeline": "Video-Zeitleiste",
+        "view": "Ansicht",
+        "videoPanels": "Video-Panels"
+      },
+      "videoHint": "In Videoprojekten haben diese Tasten Vorrang vor den Foto-Tastenkürzeln oben."
     },
     "language": "Sprache",
-    "languageDesc": "Ändern Sie die Sprache der Anwendung.",
     "lenses": {
       "addButton": "Zu meinen Objektiven hinzufügen",
       "addNew": "Neues Objektiv hinzufügen",
-      "description": "Erstellen Sie eine Liste Ihrer häufig verwendeten Objektive, um im Objektivkorrektur-Panel schnell darauf zuzugreifen.",
+      "description": "Schnellauswahl für die manuelle Objektivkorrektur.",
       "manufacturerPlaceholder": "Hersteller auswählen",
       "modelPlaceholder": "Objektivmodell auswählen",
       "noLenses": "Noch keine Objektive hinzugefügt.",
@@ -2089,26 +2259,20 @@
       "advanced": {
         "auto": "Automatisch",
         "exportMemoryLimit": "Speicherlimit für Exporte",
-        "exportMemoryLimitDesc": "Anteil des freien Arbeitsspeichers, den Stapelexporte nutzen dürfen. Verringere ihn, damit andere Apps bei großen Exporten flüssig bleiben.",
+        "exportMemoryLimitDesc": "Anteil des freien Arbeitsspeichers, den Stapelexporte nutzen dürfen. Verringere ihn, damit andere Apps flüssig bleiben.",
         "exportThreads": "Parallele Exporte",
-        "exportThreadsDesc": "Anzahl der gleichzeitig exportierten Bilder. Automatisch wählt einen Wert passend zu deiner CPU. Verringere ihn, wenn große Exporte fehlschlagen oder deine GPU wenig Speicher hat.",
+        "exportThreadsDesc": "Gleichzeitig exportierte Bilder. Automatisch passt sich der CPU an; verringere den Wert, wenn große Exporte fehlschlagen oder die GPU wenig Speicher hat.",
         "heading": "Erweitert",
-        "headingDesc": "Leistungsoptimierung für Vorschaubilder, Cache und Exporte. Die Standardwerte passen für die meisten Nutzer.",
+        "headingDesc": "Leistungsoptimierung für Vorschaubilder, Cache und Exporte. Die Standardwerte passen für die meisten Systeme.",
         "title": "Erweiterte Einstellungen"
       },
       "ai": {
         "aiFree": {
-          "description": "Schaltet alle KI-Funktionen aus. Sämtliche KI-Bedienelemente werden ausgeblendet, sodass RapidRAW als rein klassischer RAW-Editor arbeitet.",
-          "feature1": "Keine KI-Masken, Linsenunschärfe oder generativen Edits in der Oberfläche",
-          "feature2": "Vorhandene KI-Bearbeitungen werden weiterhin normal dargestellt",
-          "feature3": "Eine aufgeräumtere, fokussiertere Oberfläche",
+          "description": "Blendet alle KI-Bedienelemente aus. Vorhandene KI-Bearbeitungen werden weiterhin gerendert.",
           "title": "KI-frei"
         },
         "cloud": {
-          "description": "Für diejenigen, die eine einfachere Lösung wünschen, bietet ein optionales Abonnement die gleichen hochwertigen Ergebnisse wie das Selbst-Hosting ohne den Aufwand. Dies ist die bequemste Option und der beste Weg, das Projekt zu unterstützen.",
-          "feature1": "Maximaler Komfort, keine Einrichtung",
-          "feature2": "Gleiche Ergebnisse wie beim Selbst-Hosting",
-          "feature3": "Keine leistungsstarke Hardware erforderlich",
+          "description": "Führt generative Bearbeitungen per Abonnement auf RapidRAW-Servern aus.",
           "signedIn": {
             "active": "Cloud-Abonnement Aktiv",
             "inactive": "Kein aktives Abonnement",
@@ -2128,32 +2292,28 @@
             "retry": "Verbindung erneut versuchen",
             "unsupported": "Die Cloud-Anmeldung ist derzeit nur auf dem Desktop verfügbar."
           },
-          "title": "Cloud-Dienst"
+          "title": "Cloud-Dienst",
+          "tooltip": "Gleiche Ergebnisse wie beim Selbst-Hosting, ohne Einrichtung oder starke GPU. Außerdem unterstützt es das Projekt."
         },
         "connector": {
           "address": "AI Connector Adresse",
-          "addressDesc": "Geben Sie die Adresse und den Port Ihrer laufenden AI Connector Instanz ein. Erforderlich für generative KI-Funktionen.",
-          "description": "Für Benutzer mit einer fähigen GPU, die maximale Kontrolle wünschen. Verbinden Sie RapidRAW mit Ihrem eigenen Connector-Server.",
+          "addressDesc": "Adresse und Port deines laufenden AI Connector.",
+          "description": "Nutzt deinen eigenen ComfyUI-Server für generative Bearbeitungen und eigene Workflows.",
           "failed": "Verbindung fehlgeschlagen.",
-          "feature1": "Verwenden Sie Ihre eigene ComfyUI Instanz",
-          "feature2": "Kostenlose erweiterte generative Bearbeitungen",
-          "feature3": "Benutzerdefinierte Workflow-Auswahl",
           "success": "Verbindung erfolgreich!",
           "test": "Testen",
           "testing": "Wird getestet...",
-          "title": "Selbstgehostet (RapidRAW AI Connector)"
+          "title": "Selbstgehostet (RapidRAW AI Connector)",
+          "tooltip": "Kostenlos, erfordert aber eine leistungsfähige GPU und ein laufendes ComfyUI."
         },
         "cpu": {
-          "description": "Diese Funktionen sind direkt in RapidRAW integriert und laufen vollständig auf Ihrem Computer. Sie sind schnell, kostenlos und erfordern keine Einrichtung.",
-          "feature1": "KI-Maskierung (Motiv, Himmel, Vordergrund)",
-          "feature2": "Automatisches Bild-Tagging",
-          "feature3": "Einfaches generatives Ersetzen auf dem Gerät",
+          "description": "Führt Masken, Tagging und einfaches generatives Ersetzen auf diesem Computer aus.",
           "gpuAcceleration": "GPU-Beschleunigung",
-          "gpuAccelerationDesc": "Führt integrierte KI-Funktionen wie Rauschentfernung, Masken, Tiefen- und Normalenkarten sowie Verschlagwortung auf der Grafikkarte aus, um deutlich schnellere Ergebnisse zu erzielen. Deaktiviere diese Option, wenn Abstürze oder fehlerhafte KI-Ergebnisse auftreten.",
+          "gpuAccelerationDesc": "Führt Entrauschen, Masken, Tiefenkarten und Tagging auf der Grafikkarte aus. Deaktiviere es, wenn KI-Funktionen abstürzen oder falsch aussehen.",
           "gpuAccelerationLabel": "GPU für KI-Modelle verwenden",
           "title": "Integrierte KI"
         },
-        "description": "Die KI von RapidRAW ist auf Flexibilität ausgelegt. Wählen Sie Ihren idealen Workflow.",
+        "description": "Wähle, wo KI-Funktionen ausgeführt werden.",
         "providers": {
           "aiConnector": "AI Connector",
           "aiFree": "KI-frei",
@@ -2163,10 +2323,10 @@
         "title": "Generative KI"
       },
       "alwaysDecodeRaw": "RAW immer decodieren",
-      "alwaysDecodeRawDesc": "Erzwingt die vollständige RAW-Decodierung für Vorschaubilder, anstatt eingebettete JPEG-Vorschauen zu verwenden. Aktiviere diese Option, wenn sich die Vorschaubilder farblich oder im Kontrast vom geöffneten Bild unterscheiden.",
+      "alwaysDecodeRawDesc": "Decodiert RAW-Dateien für Vorschaubilder, statt das eingebettete JPEG zu verwenden. Aktiviere es, wenn Vorschaubilder vom geöffneten Foto abweichen.",
       "alwaysDecodeRawLabel": "RAW für Vorschaubilder immer decodieren",
       "backend": "Verarbeitungs-Backend",
-      "backendDesc": "Wählen Sie die Grafik-API. 'Auto' wird empfohlen. Kann Abstürze auf einigen Systemen beheben.",
+      "backendDesc": "Die Grafik-API für die Verarbeitung. Belasse sie auf Auto, außer eine andere behebt Abstürze.",
       "backendFallback": "{{failed}} ist beim Start auf dieser GPU abgestürzt, daher wird vorerst {{using}} verwendet.",
       "backendFallbackRetry": "{{failed}} erneut versuchen",
       "backendFallbackRetryPending": "{{failed}} wird beim nächsten Start erneut versucht.",
@@ -2183,12 +2343,12 @@
         "modeCustom": "Eigenes ICC-Profil",
         "modeOff": "Aus",
         "previewGamut": "Vorschau-Farbraum",
-        "previewGamutDesc": "Wähle hier den Farbraum, in dem du exportierst. sRGB zeigt, wie ein sRGB- oder Web-Export aussieht. Großer Farbraum zeigt zusätzlich die Farben jenseits von sRGB, die dein Monitor darstellen kann, wie bei Exporten in Display P3 oder Adobe RGB.",
+        "previewGamutDesc": "Wähle den Farbraum, in dem du exportierst: sRGB für Web-Exporte, Großer Farbraum für Display P3 oder Adobe RGB.",
         "previewGamutSrgb": "sRGB",
         "previewGamutWide": "Großer Farbraum",
         "previewGamutWideSpace": "Großer Farbraum ({{space}})",
         "profile": "Monitorprofil",
-        "profileDesc": "Wandelt die Editor-Vorschau in das Farbprofil deines Monitors um, damit Farben auf kalibrierten und Wide-Gamut-Displays stimmen. Exporte sind nicht betroffen.",
+        "profileDesc": "Wandelt die Vorschau in das Farbprofil deines Monitors um. Exporte sind nicht betroffen.",
         "statusInvalid": "Dieses Profil konnte nicht geladen werden.",
         "statusNone": "Kein Monitorprofil gefunden. Die Vorschau wird als sRGB angezeigt.",
         "statusProfile": "Verwendet {{name}}.",
@@ -2198,33 +2358,34 @@
       },
       "defaultAdjustments": {
         "addCamera": "Kamera hinzufügen…",
-        "applyToNonRaw": "Auch auf JPEG, TIFF, PNG und andere Nicht-RAW-Dateien anwenden",
-        "applyToNonRawDesc": "Wenn deaktiviert, verwenden nur RAW-Dateien diese Standardwerte. Kamera-JPEGs sind meist schon bearbeitet und objektivkorrigiert, eine erneute Anwendung kann zu viel des Guten sein.",
+        "applyToNonRaw": "Auch auf Nicht-RAW-Dateien anwenden",
+        "applyToNonRawDesc": "Gilt für JPEG, TIFF und PNG. Kamera-JPEGs sind meist schon bearbeitet, daher können die Standardwerte zu viel des Guten sein.",
         "autoLensCorrection": "Automatische Objektivkorrektur",
-        "autoLensCorrectionDesc": "Korrigiert Verzeichnung, chromatische Aberration und Vignettierung anhand des aus den Metadaten jedes Bildes erkannten Objektivprofils.",
+        "autoLensCorrectionDesc": "Korrigiert Verzeichnung, chromatische Aberration und Vignettierung anhand des Objektivprofils in den Metadaten jedes Fotos.",
         "cameraDefaults": "Kameraspezifische Standardwerte",
-        "cameraDefaultsDesc": "Geben Sie Bildern bestimmter Kameras ein eigenes Preset. Nicht aufgeführte Kameras verwenden das Standard-Preset oben, die Objektivkorrektur gilt für alle Kameras.",
-        "cameraPresetMissing": "Das gewählte Preset wurde gelöscht, daher verwenden Bilder dieser Kamera wieder das Preset für alle Kameras.",
-        "description": "Legt fest, womit unbearbeitete Bilder starten und wohin „Anpassungen zurücksetzen“ zurückkehrt; bearbeitete Bilder behalten ihre Einstellungen. Mit Standardwerten werden RAW-Miniaturen berechnet statt die eingebettete Kameravorschau zu nutzen und laden anfangs langsamer.",
+        "cameraDefaultsDesc": "Fotos dieser Kameras erhalten ein eigenes Preset; andere Kameras verwenden das Standard-Preset.",
+        "cameraPresetMissing": "Das gewählte Preset wurde gelöscht, daher verwendet diese Kamera das Standard-Preset.",
+        "description": "Mit Standardwerten werden RAW-Miniaturen berechnet, statt eingebettete Vorschauen zu nutzen, und laden anfangs langsamer.",
         "lensCorrection": "Objektivkorrektur",
-        "noCamerasFound": "Keine weiteren Kameras gefunden. Öffnen Sie einen Ordner mit Bildern einer Kamera oder klicken Sie beim Bearbeiten eines ihrer Bilder mit rechts auf ein Preset.",
+        "noCamerasFound": "Keine weiteren Kameras im geöffneten Ordner gefunden.",
         "noPreset": "Keins (neutral)",
         "preset": "Standard-Preset",
-        "presetDesc": "Gilt für jedes unbearbeitete Bild. Masken, Zuschnitte und Transformationen werden ausgelassen, da sie nur zum Bild passen, auf dem sie erstellt wurden.",
-        "presetMissing": "Das gewählte Preset wurde gelöscht, daher verwenden unbearbeitete Bilder wieder neutrale Werte.",
+        "presetDesc": "Gilt für unbearbeitete Fotos und wird von „Anpassungen zurücksetzen“ verwendet.",
+        "presetMissing": "Das gewählte Preset wurde gelöscht, daher verwenden unbearbeitete Fotos neutrale Werte.",
         "removeCamera": "Kamera entfernen",
         "sameAsAllCameras": "Wie alle Kameras",
         "scope": "Anwenden auf",
         "sliderReset": "Regler zurücksetzen",
         "sliderResetDefaults": "Standardanpassungen",
-        "sliderResetDesc": "Worauf ein einzelner Regler beim Zurücksetzen zurückkehrt, etwa per Doppelklick oder in der Schnellbearbeitung. Maskenregler werden immer auf ihren neutralen Wert zurückgesetzt.",
+        "sliderResetDesc": "Worauf ein Regler per Doppelklick oder in der Schnellbearbeitung zurückkehrt. Maskenregler werden immer auf neutral zurückgesetzt.",
         "sliderResetNeutral": "Neutraler Wert",
-        "title": "Standardanpassungen"
+        "title": "Standardanpassungen",
+        "presetTooltip": "Masken, Zuschnitte und Transformationen werden ausgelassen, da sie nur zum Foto passen, auf dem sie erstellt wurden."
       },
       "display": {
         "title": "Anzeige"
       },
-      "dynamicDesc": "Der Editor rendert die Vorschau passend zur tatsächlichen Pixeldichte Ihres Displays. Dies sorgt für 1:1 Pixelgenauigkeit und maximale Klarheit beim Zoomen.",
+      "dynamicDesc": "Passt sich der Pixeldichte deines Displays an, für 1:1-Details beim Zoomen.",
       "editIn": {
         "add": "Programm hinzufügen",
         "args": "Argumente ({file} = Bildpfad)",
@@ -2241,30 +2402,33 @@
         "title": "Bearbeiten in"
       },
       "enableLivePreviews": "Live-Vorschauen aktivieren",
+      "ffmpeg": "FFmpeg",
+      "ffmpegBundledDesc": "Videos verwenden das integrierte FFmpeg {{version}}.",
+      "ffmpegMissing": "Die FFmpeg-Bibliotheken konnten nicht geladen werden, daher bleiben Videos ausgeblendet.",
       "hdr": {
         "gainMaps": "HDR-Fotos",
         "gainMapsAuto": "Automatisch",
-        "gainMapsDesc": "Fotos mit einer HDR-Gain-Map, etwa von aktuellen Handys, zeigen ihre HDR-Lichter so weit, wie dein Bildschirm es zulässt. HDR-Exporte nutzen den Spielraum aus den Exporteinstellungen, andere Exporte zeigen das normale Foto. Immer als SDR ignoriert die HDR-Daten.",
+        "gainMapsDesc": "Zeigt die HDR-Lichter von Fotos mit Gain-Map, etwa von aktuellen Handys, so weit, wie dein Bildschirm es zulässt. Exporte folgen den Exporteinstellungen.",
         "gainMapsNever": "Immer als SDR",
         "statusActive": "Dieser Bildschirm ist im HDR-Modus. Für die Vorschau HDR in der Werkzeugleiste des Editors einschalten.",
-        "statusInactive": "Dieser Bildschirm ist nicht im HDR-Modus. Aktiviere HDR in den Anzeigeeinstellungen des Systems, um den Effekt zu sehen.",
+        "statusInactive": "Dieser Bildschirm ist nicht im HDR-Modus. Aktiviere HDR in den Anzeigeeinstellungen des Systems.",
         "statusUnsupported": "HDR benötigt WGPU Direkt-Rendering und unter Linux eine Wayland-Sitzung mit HDR-Unterstützung."
       },
       "highDpi": "High-DPI Rendering",
-      "highDpiDesc": "Rendern Sie Vorschauen in der nativen {{dpr}}x Auflösung Ihres Bildschirms. Erzeugt die schärfste Vorschau, verbraucht aber mehr Speicher.",
-      "highDpiDescStandard": "Diese Einstellung betrifft nur High-DPI-Displays. Ihr aktuelles Display hat Standardauflösung.",
+      "highDpiDesc": "Rendert in der nativen {{dpr}}x-Pixeldichte deines Bildschirms. Am schärfsten, braucht aber deutlich mehr Speicher.",
+      "highDpiDescStandard": "Betrifft nur High-DPI-Displays. Dieses Display hat Standardauflösung.",
       "imageCache": "Dekodierter Bild-Cache",
-      "imageCacheDesc": "Maximale Anzahl der im RAM gehaltenen Bilder in voller Auflösung. Höhere Werte machen das Wechseln blitzschnell, nutzen aber mehr Speicher.",
+      "imageCacheDesc": "Bilder in voller Auflösung, die im RAM gehalten werden. Mehr macht den Wechsel zwischen den letzten Bildern verzögerungsfrei, braucht aber mehr Speicher.",
       "images": "Bilder",
       "linuxCompat": "Linux Kompatibilitätsmodus",
-      "linuxCompatDesc": "Leitet die Webansicht über gemeinsamen Speicher statt über GPU-Puffer-Sharing, um GPU-Treiberprobleme wie ein leeres Fenster zu umgehen. Nvidia-GPUs unter X11 erhalten dies bereits automatisch, daher nur aktivieren, wenn das Fenster weiterhin leer oder fehlerhaft ist.",
+      "linuxCompatDesc": "Umgeht GPU-Treiberfehler, die das Fenster leer lassen. Nvidia unter X11 erhält dies bereits automatisch.",
       "linuxCompatLabel": "Kompatibilitätsmodus aktivieren",
       "livePreviewQuality": "Qualität der Live-Vorschau",
-      "livePreviewQualityDesc": "Steuert die Auflösung beim Ziehen von Reglern. Niedrigere Qualität verbessert die Reaktionsfähigkeit erheblich.",
+      "livePreviewQualityDesc": "Auflösung und Kompression beim Ziehen von Reglern. Die Bedienung reagiert schneller.",
       "livePreviews": "Interaktive Live-Vorschauen",
-      "livePreviewsDesc": "Aktualisiert die Vorschau sofort beim Ziehen von Reglern. Deaktivieren, wenn die Oberfläche beim Anpassen träge ist.",
+      "livePreviewsDesc": "Aktualisiert die Vorschau beim Ziehen von Reglern. Deaktiviere es, wenn das Anpassen träge wirkt.",
       "mediumThumbnailRes": "Editor-Miniaturbild-Auflösung",
-      "mediumThumbnailResDesc": "Auflösung der Vorschau, die während des Ladens von vollständigen Bildern im Editor angezeigt wird.",
+      "mediumThumbnailResDesc": "Die Vorschau, die im Editor angezeigt wird, während das volle Bild lädt.",
       "modes": {
         "dynamic": "Dynamisch",
         "static": "Feste Auflösung"
@@ -2272,19 +2436,17 @@
       "nativeDpi": "In nativer DPI rendern",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9 Engine",
-        "appleRaw9Desc": "Entwickelt RAW-Dateien mit Apples Core-Image-Decoder RAW 9, der Demosaicing und Entrauschen in einem Schritt auf der Neural Engine ausführt. Erfordert macOS 27 oder neuer und eine unterstützte Kamera; nicht unterstützte Dateien verwenden automatisch den integrierten Decoder. Langsamer als der Standard-Decoder. Vorschaubilder sind nicht betroffen.",
+        "appleRaw9Desc": "Decodiert mit Apples Core Image, das auf der Neural Engine entrauscht, aber langsamer ist. Erfordert macOS 27 und eine unterstützte Kamera; andere Dateien nutzen den integrierten Decoder.",
         "applyPreprocessing": "Vorverarbeitung auf Nicht-RAWs anwenden",
-        "applyPreprocessingDesc": "Wenn aktiviert, wird die Rauschreduzierung und Vorschärfung auch auf Standardformate angewendet.",
+        "applyPreprocessingDesc": "Wendet die Basis-Rauschreduzierung und Vorschärfung auch auf JPEG, PNG und andere Nicht-RAW-Dateien an.",
         "baselineExposure": "Basisbelichtung",
         "baselineExposureAmount": "Basiswert",
         "baselineExposureAmountDesc": "Belichtung, die zu RAW-Dateien addiert wird. darktable verwendet +0,7 LW.",
-        "baselineExposureDesc": "Hellt RAW-Dateien um einen festen Wert auf, oder stattdessen um den Wert des DNG-Tags BaselineExposure, falls vorhanden.",
+        "baselineExposureDesc": "Hellt RAW-Dateien um einen festen Wert auf, oder um den Wert des DNG-Tags BaselineExposure, falls vorhanden.",
         "colorNr": "Basis-Farbrauschreduzierung",
-        "colorNrDesc": "Wendet früh in der Pipeline einen Filter an, um Farbrauschen zu entfernen. Höherer Wert = Stärkere Reduzierung.",
+        "colorNrDesc": "Entfernt Farbrauschen früh in der RAW-Pipeline.",
         "defaultNonRawTonemapper": "Standard-Tonemapper (Nicht-RAW)",
-        "defaultNonRawTonemapperDesc": "Der Tonemapper für Nicht-RAW-Bilder (z. B. JPEG, PNG).",
         "defaultRawTonemapper": "Standard-Tonemapper (RAW)",
-        "defaultRawTonemapperDesc": "Der Tonemapper für RAW-Bilder.",
         "enableAppleRaw9": "Apple RAW 9 für RAW-Dateien verwenden",
         "enableBaselineExposure": "Basisbelichtung auf RAW-Dateien anwenden",
         "enableHighlightPreservation": "Lichterschutz-Modi der Kamera ausgleichen",
@@ -2292,11 +2454,11 @@
         "enablePreprocessingNonRaws": "Für Nicht-RAWs aktivieren",
         "enableTonemapperOverride": "Tonemapper-Override aktivieren",
         "highlightPreservation": "Ausgleich der Lichterschutz-Modi",
-        "highlightPreservationDesc": "Gleicht die Belichtung aus, die Lichterschutz-Modi der Kamera zurückhalten, z. B. Fujifilm DR200/DR400 oder Nikon Active D-Lighting.",
+        "highlightPreservationDesc": "Gleicht die Belichtung aus, die Modi wie Fujifilm DR200/DR400 oder Nikon Active D-Lighting zurückhalten.",
         "highlightRecovery": "RAW-Lichterwiederherstellung",
         "highlightRecoveryDesc": "Steuert, wie viele Details aus beschnittenen Lichtern wiederhergestellt werden. Höhere Werte stellen mehr her, können aber rosa Artefakte einführen.",
         "hotPixels": "Hotpixel-Entfernung",
-        "hotPixelsDesc": "Repariert beim Dekodieren von RAW-Dateien automatisch heiße, hängende und tote Sensorpixel. Nur einzelne, isolierte Pixel werden ersetzt, Sterne und feine Lichter bleiben erhalten.",
+        "hotPixelsDesc": "Repariert heiße, hängende und tote Sensorpixel in RAW-Dateien. Nur isolierte Pixel werden ersetzt, Sterne bleiben erhalten.",
         "linearOptions": {
           "auto": "Auto",
           "gamma": "Gamma anwenden",
@@ -2304,26 +2466,26 @@
           "skip_calib": "Kalibrierung überspringen"
         },
         "linearRaw": "Lineare RAW-Verarbeitung",
-        "linearRawDesc": "Behebt Farbstiche in einigen DNG-Dateien. Steuert, wie bereits verarbeitete lineare RAW-Daten interpretiert werden.",
+        "linearRawDesc": "Behebt Farbstiche oder einen Rosastich in einigen DNG-Dateien.",
         "sharpening": "Basis-Vorschärfung",
-        "sharpeningDesc": "Wendet eine sanfte Detailverbesserung früh in der Pipeline an. Höherer Wert = Mehr Schärfung.",
+        "sharpeningDesc": "Sanfte Schärfung früh in der RAW-Pipeline.",
         "title": "Bildvorverarbeitung",
         "tonemapperOptions": {
           "agx": "AgX",
           "basic": "Standard"
         },
         "tonemapperOverride": "Globaler Tonemapper-Override",
-        "tonemapperOverrideDesc": "Erzwingt einen spezifischen Tonemapper global für alle Bilder."
+        "tonemapperOverrideDesc": "Verwendet einen Tonemapper für alle Bilder und blendet den Tonemapper-Schalter im Anpassungen-Panel aus."
       },
       "previewRes": "Vorschauauflösung",
-      "previewResDesc": "Bestimmt die maximale Auflösung der Vorschau. Niedrigere Werte verbessern die Leistung deutlich.",
+      "previewResDesc": "Maximale Vorschaugröße. Niedrigere Werte sind schneller.",
       "previewStrategy": "Strategie für Vorschau-Rendering",
       "qualities": {
         "high": "Hohe Qualität",
         "performance": "Leistung"
       },
       "rawDecoding": "RAW-Decodierung",
-      "rawDecodingDesc": "Wählen Sie, wo RAW-Dateien decodiert werden. 'Auto' verwendet die GPU und wechselt zur CPU, wenn sie Ihre Bilder nicht verarbeiten kann. 'GPU' versucht es immer zuerst mit der GPU. 'CPU' ist langsamer, funktioniert aber auf jedem System.",
+      "rawDecodingDesc": "Auto nutzt die GPU und weicht auf die CPU aus, wenn die GPU eine Datei nicht verarbeiten kann. CPU ist langsamer, funktioniert aber überall.",
       "rawDecodingFallback": "Die GPU ist bei großen RAW-Dateien gescheitert, daher werden Dateien ab {{megapixels}} MP vorerst auf der CPU entwickelt.",
       "rawDecodingFallbackRetry": "GPU erneut versuchen",
       "rawDecodingOptions": {
@@ -2333,24 +2495,21 @@
       },
       "rawDecodingUnavailable": "Diese GPU kann die RAW-Decodierung nicht ausführen, daher werden RAW-Dateien auf der CPU decodiert.",
       "renderScale": "Render-Auflösungsskalierung",
-      "renderScaleDesc": "Skaliert die Renderauflösung relativ zu Ihrem Display. Niedrigere Werte verbessern die Leistung auf hochauflösenden Bildschirmen.",
-      "restartRequired": "Änderungen an der Verarbeitungs-Engine erfordern einen Neustart der Anwendung.",
+      "renderScaleDesc": "Relativ zu deinem Display. Niedrigere Werte sind auf hochauflösenden Bildschirmen schneller, aber weniger scharf.",
+      "restartRequired": "Starte RapidRAW neu, um diese Änderungen zu übernehmen.",
       "saveRelaunch": "Speichern & Neu starten",
       "smallThumbnailRes": "Raster-Miniaturbild-Auflösung",
-      "smallThumbnailResDesc": "Auflösung der Miniaturbilder, die im Bibliotheksraster angezeigt werden.",
-      "staticDesc": "Der Editor rendert das Bild in einer festen Auflösung. Dieser Modus ist am schnellsten und am besten für schwächere Hardware geeignet.",
+      "staticDesc": "Rendert in fester Größe. Am schnellsten und ideal für schwächere Hardware.",
       "threads": "Threads",
-      "thumbnailRes": "Miniaturbild-Auflösung",
-      "thumbnailResDesc": "Bestimmt die Auflösung der generierten Bibliothek-Miniaturbilder. Höhere Werte erzeugen schärfere Bilder.",
       "title": "Verarbeitungs-Engine",
       "wgpu": "WGPU Direkt-Rendering",
-      "wgpuDescAndroid": "Umgeht die Browser-Kodierung für sofort reagierende Live-Vorschauen. (Auf Android deaktiviert: Native WGPU-Erstellung wird neben dem mobilen Webview nicht unterstützt.)",
+      "wgpuDescAndroid": "Unter Android nicht verfügbar.",
       "wgpuDescLinuxExperimental": "Experimentell unter Linux und möglicherweise instabil.",
       "wgpuDescLinuxX11": "Unter X11 nicht verfügbar.",
-      "wgpuDescRecommended": "Umgeht die Browser-Kodierung für sofort reagierende Live-Vorschauen. Sehr empfehlenswert für die Leistung.",
       "wgpuLabel": "Direktes WGPU-Rendern aktivieren",
       "workerThreads": "Miniaturbild-Worker-Threads",
-      "workerThreadsDesc": "Anzahl der parallelen Threads zur Generierung von Miniaturbildern. Höhere Werte beschleunigen das Laden der Bibliothek, nutzen aber mehr CPU & RAM."
+      "workerThreadsDesc": "Mehr Threads laden Ordner schneller, nutzen aber mehr CPU und RAM.",
+      "wgpuDesc": "Zeichnet die Vorschau direkt auf der GPU statt über die Webansicht, für schnellere Live-Vorschauen."
     },
     "tagging": {
       "addCustomPlaceholder": "Benutzerdefinierte KI-Tags hinzufügen (kommagetrennt)...",
@@ -2358,21 +2517,20 @@
       "addShortcutsPlaceholder": "Shortcuts hinzufügen (kommagetrennt)...",
       "addShortcutTooltip": "Shortcut hinzufügen",
       "aiTagging": "KI-Tagging",
-      "aiTaggingDesc": "Aktiviert automatisches Bild-Tagging mit einem KI-Modell (CLIP). Dies lädt ein zusätzliches Modell herunter und beeinträchtigt die Leistung beim Durchsuchen.",
+      "aiTaggingDesc": "Taggt Fotos für die Suche mit einem lokalen CLIP-Modell. Das Modell wird heruntergeladen und das Durchsuchen von Ordnern wird langsamer.",
       "amount": "Betrag",
       "automaticAiTagging": "Automatisches KI-Tagging",
       "clearCustomTooltip": "KI-Tag-Liste löschen",
-      "clearShortcutsTooltip": "Shortcut-Tag-Liste löschen",
+      "clearShortcutsTooltip": "Tagging-Shortcuts löschen",
       "customList": "Benutzerdefinierte KI-Tag-Liste",
-      "customListDesc": "Falls angegeben, verwendet die KI NUR Tags aus dieser Liste. Tagging funktioniert nur auf Englisch.",
+      "customListDesc": "Wenn gesetzt, verwendet das KI-Tagging nur diese Tags statt der integrierten Liste. Nur Englisch.",
       "maxAiTags": "Maximale KI-Tags",
-      "maxAiTagsDesc": "Die maximale Anzahl an Tags, die pro Bild generiert werden.",
-      "noCustomTags": "Keine benutzerdefinierten KI-Tags (Interne Liste wird verwendet)",
+      "noCustomTags": "Keine eigenen KI-Tags, integrierte Liste wird verwendet",
       "noShortcuts": "Keine Shortcuts hinzugefügt",
       "removeCustomTooltip": "Tag \"{{tag}}\" entfernen",
       "removeShortcutTooltip": "Shortcut \"{{shortcut}}\" entfernen",
       "shortcuts": "Tagging-Shortcuts",
-      "shortcutsDesc": "Eine Liste von Tags, die als Shortcuts im Kontextmenü erscheinen.",
+      "shortcutsDesc": "Tags, die im Tagging-Kontextmenü angeboten werden.",
       "title": "Tagging"
     },
     "thanks": {
@@ -2382,12 +2540,14 @@
         "darktable": "Für Referenzimplementierungen, die Teile dieser Arbeit leiteten.",
         "depth": "Für das Modell zur monokularen Tiefenschätzung (Tiefenmasken).",
         "efficientsam3": "Für das effiziente, aus SAM 3 destillierte Segmentierungsmodell der KI-Himmel- und Textmasken.",
+        "ffmpeg": "Für die Bibliotheken, die Video und Audio decodieren, abspielen und exportieren (LGPL).",
         "lama": "Für das leistungsstarke Bild-Inpainting-Modell.",
         "lensfun": "Für die unschätzbare Open-Source-Bibliothek für Objektivkorrektur.",
         "libgphoto2": "Für die umfassende Kamera-Kommunikationsbibliothek, die RapidRAWs Tethering und Fernauslösung ermöglicht.",
         "mediapipe": "Für die schnellen Gesichtslandmarken- und Segmentierungsmodelle, die die KI-Gesichtsmasken ermöglichen.",
         "negpy": "Für die Inspiration hinter der Negativumwandlungslogik.",
         "nind": "Für die Bereitstellung von KI-Modellen für die Rauschreduzierung.",
+        "parakeet": "Für das Spracherkennungsmodell, das automatische Video-Untertitel erstellt (CC BY 4.0, ONNX-Export von istupakov).",
         "rawler": "Für die hervorragende Rust-Crate zur RAW-Bildverarbeitung.",
         "sam2": "Für das grundlegende Modell der KI-Motiverkennung.",
         "span": "Für das KI-Basismodell von RapidRes, der 2x-KI-Hochskalierung in RapidRAW, von RapidRAW auf die eigene RAW-Pipeline feinabgestimmt (von Philip Hofmann, CC BY 4.0).",
@@ -2549,6 +2709,836 @@
         "showClipping": "Clipping-Warnungen anzeigen",
         "vectorscope": "Vektorskop"
       }
+    },
+    "fontPicker": {
+      "default": "Standard",
+      "system": "System",
+      "search": "Schriften durchsuchen",
+      "weights": {
+        "100": "Dünn",
+        "200": "Extraleicht",
+        "300": "Leicht",
+        "400": "Normal",
+        "500": "Mittel",
+        "600": "Halbfett",
+        "700": "Fett",
+        "800": "Extrafett",
+        "900": "Schwarz"
+      }
+    },
+    "errors": {
+      "retry": "Erneut versuchen",
+      "causes": {
+        "gpuMemory": "GPU-Speicher erschöpft.",
+        "permission": "Zugriff verweigert.",
+        "missingFile": "Die Datei fehlt.",
+        "diskFull": "Der Datenträger ist voll.",
+        "offline": "Keine Internetverbindung.",
+        "missingFolder": "Der Ordner fehlt."
+      }
+    }
+  },
+  "video": {
+    "captions": {
+      "add": "Hinzufügen",
+      "backdrop": "Texthintergrund",
+      "bold": "Fett",
+      "color": "Farbe",
+      "delete": "Untertitel löschen",
+      "downloading": "Modell wird heruntergeladen… {{percent}}%",
+      "editText": "Text bearbeiten",
+      "empty": "Noch keine Untertitel.",
+      "exportSrt": "SRT exportieren",
+      "exportVtt": "VTT exportieren",
+      "failed": "Untertitel konnten nicht erstellt werden.",
+      "generate": "Aus Audio erzeugen",
+      "generateHint": "Läuft offline in 25 europäischen Sprachen.",
+      "import": "Importieren…",
+      "importEmpty": "Keine Untertitel in dieser Datei.",
+      "mergeWithNext": "Mit nächstem zusammenführen",
+      "modelHint": "Beim ersten Mal werden 670 MB heruntergeladen.",
+      "newCaption": "Untertitel",
+      "noSpeech": "Keine Sprache gefunden.",
+      "position": "Position",
+      "show": "Anzeigen",
+      "size": "Größe",
+      "style": "Stil",
+      "subtitles": "Untertitel",
+      "title": "Untertitel",
+      "transcribing": "Transkribieren… {{percent}}%",
+      "importFailed": "Untertitel konnten nicht importiert werden.",
+      "exportFailed": "Untertitel konnten nicht exportiert werden.",
+      "replaceTitle": "Untertitel ersetzen",
+      "replaceMessage_one": "Der vorhandene Untertitel wird ersetzt.",
+      "replaceMessage_other": "Die {{count}} vorhandenen Untertitel werden ersetzt.",
+      "replace": "Ersetzen",
+      "append": "Anhängen",
+      "files": "Untertiteldateien"
+    },
+    "clip": {
+      "mute": "Stummschalten",
+      "speed": "Geschwindigkeit",
+      "unmute": "Ton einschalten"
+    },
+    "clipBar": {
+      "history": {
+        "trim": "Trimmen"
+      },
+      "mute": "Stummschalten",
+      "openInTimeline": "In Zeitleiste öffnen",
+      "position": "Position",
+      "setThumbnail": "Als Miniatur festlegen",
+      "thumbnailFrame": "Miniatur",
+      "trimEnd": "Ende trimmen, Doppelklick zum Zurücksetzen",
+      "trimStart": "Anfang trimmen, Doppelklick zum Zurücksetzen",
+      "unmute": "Ton einschalten",
+      "thumbnailSet": "Miniatur aktualisiert"
+    },
+    "effectsPanel": {
+      "add": "Hinzufügen",
+      "title": "Titel & Übergänge",
+      "transitions": "Übergänge"
+    },
+    "export": {
+      "backToPhotos": "Zurück zu Fotos",
+      "button": "Video exportieren",
+      "codecNoHdr": "Keine HDR-Unterstützung",
+      "codecUnavailable": "Auf diesem Computer nicht verfügbar",
+      "dynamicRange": {
+        "hlg": "HDR",
+        "pq": "HDR10",
+        "sdr": "SDR"
+      },
+      "dynamicRangeHint": {
+        "hlg": "Ideal für Smartphones und Fernseher.",
+        "pq": "Für YouTube und HDR-Fernseher.",
+        "sdr": "Wird überall gleich wiedergegeben."
+      },
+      "emptyTimeline": "Die Zeitleiste ist leer.",
+      "exportVideos": "Videos exportieren",
+      "exported_one": "{{count}} Video exportiert",
+      "exported_other": "{{count}} Videos exportiert",
+      "hardwareEncoding": "GPU-Kodierung",
+      "mixedNote_one": "{{count}} Video wird separat exportiert.",
+      "mixedNote_other": "{{count}} Videos werden separat exportiert.",
+      "original": "Original",
+      "progress": "Exportieren… {{percent}}%",
+      "progressBatch": "Exportiere {{current}} von {{total}} · {{percent}}%",
+      "quality": {
+        "high": "Hoch",
+        "low": "Klein",
+        "medium": "Mittel"
+      },
+      "saveTitle": "Video speichern",
+      "sections": {
+        "dynamicRange": "Dynamikumfang",
+        "format": "Format",
+        "quality": "Qualität",
+        "resolution": "Auflösung",
+        "span": "Bereich",
+        "preset": "Vorgabe",
+        "loudness": "Lautheit",
+        "frameRate": "Bildrate",
+        "audio": "Audio"
+      },
+      "selectFolder_one": "Ordner für den Export von {{count}} Video wählen",
+      "selectFolder_other": "Ordner für den Export von {{count}} Videos wählen",
+      "span": {
+        "all": "Gesamte Zeitleiste",
+        "range": "In bis Out ({{from}} – {{to}})"
+      },
+      "unreadable": "Dieses Video konnte nicht gelesen werden.",
+      "videoCount_one": "{{count}} Video",
+      "videoCount_other": "{{count}} Videos",
+      "videoFile": "Video",
+      "preset": {
+        "custom": "Benutzerdefiniert",
+        "youtube": "YouTube",
+        "youtubeShorts": "YouTube Shorts",
+        "instagramReels": "Instagram Reels",
+        "instagramPost": "Instagram-Beitrag",
+        "tiktok": "TikTok",
+        "archive": "Archiv (ProRes)"
+      },
+      "presetHint": "Für {{aspect}}, bis {{fps}} fps.",
+      "archiveHint": "Beliebiges Seitenverhältnis und Bildrate, unkomprimiertes Audio.",
+      "aspectMismatch": "Deine Arbeitsfläche ist nicht {{aspect}}.",
+      "useAspect": "{{aspect}} verwenden",
+      "loudness": {
+        "off": "Aus"
+      },
+      "loudnessHint": {
+        "off": "Behält den Pegel der Mischung bei.",
+        "streaming": "Streaming-Standard. Spitzen bleiben unter −1 dBTP.",
+        "podcast": "Podcasts und Apple Music. Spitzen bleiben unter −1 dBTP.",
+        "broadcast": "Rundfunk nach EBU R128. Spitzen bleiben unter −1 dBTP."
+      },
+      "measuring": "Lautheit wird gemessen… {{percent}}%",
+      "container": "Container",
+      "containers": {
+        "mp4": "MP4 (.mp4)",
+        "mov": "QuickTime (.mov)",
+        "mkv": "Matroska (.mkv)",
+        "webm": "WebM (.webm)"
+      },
+      "rateControl": {
+        "quality": "Konstante Qualität",
+        "bitrate": "Ziel-Bitrate"
+      },
+      "rateControlHint": {
+        "quality": "Gleichmäßige Qualität. Die Dateigröße hängt vom Material ab.",
+        "bitrate": "Vorhersehbare Dateigröße. Die Qualität hängt vom Material ab."
+      },
+      "bitrate": "Bitrate",
+      "mbps": "Mbit/s",
+      "kbps": "{{value}} kbit/s",
+      "fps": "{{fps}} fps",
+      "originalRate": "Original ({{fps}} fps)",
+      "proResQuality": {
+        "high": "422 HQ",
+        "medium": "422",
+        "low": "422 LT"
+      },
+      "size": "Größe",
+      "width": "Breite",
+      "height": "Höhe",
+      "lockAspect": "Seitenverhältnis sperren",
+      "audioCodec": "Codec",
+      "audioCodecs": {
+        "aac": "AAC",
+        "opus": "Opus",
+        "pcm": "PCM"
+      },
+      "buttonMultiple_one": "{{count}} Video exportieren",
+      "buttonMultiple_other": "{{count}} Videos exportieren",
+      "uploading": "Wird zu Immich hochgeladen… {{percent}}%",
+      "keptLocally": "Nicht zu Immich hochgeladen ({{reason}}). Gespeichert in {{folder}}."
+    },
+    "inspector": {
+      "addKeyframe": "Keyframe hinzufügen",
+      "align": {
+        "center": "Zentrieren",
+        "left": "Linksbündig",
+        "right": "Rechtsbündig"
+      },
+      "animIn": "Einblenden",
+      "animOut": "Ausblenden",
+      "animation": "Animation",
+      "audio": "Audio",
+      "backdrop": "Texthintergrund",
+      "background": "Hintergrund",
+      "blendMode": "Mischmodus",
+      "blendModes": {
+        "add": "Addieren",
+        "darken": "Abdunkeln",
+        "difference": "Differenz",
+        "lighten": "Aufhellen",
+        "multiply": "Multiplizieren",
+        "normal": "Normal",
+        "overlay": "Ineinanderkopieren",
+        "screen": "Negativ multiplizieren",
+        "softLight": "Weiches Licht"
+      },
+      "bold": "Fett",
+      "cameraLog": "Kamera-Log",
+      "cameraLogs": {
+        "none": "Keines",
+        "sLog3Cine": "Sony S-Log3 / S-Gamut3.Cine",
+        "sLog3": "Sony S-Log3 / S-Gamut3",
+        "vLog": "Panasonic V-Log",
+        "cLog3": "Canon Log 3",
+        "logC3": "ARRI LogC3",
+        "logC4": "ARRI LogC4",
+        "fLog2": "Fujifilm F-Log2",
+        "nLog": "Nikon N-Log",
+        "appleLog": "Apple Log",
+        "sLog2": "Sony S-Log2 / S-Gamut",
+        "dLog": "DJI D-Log / D-Gamut",
+        "dLogM": "DJI D-Log M"
+      },
+      "canvas": "Arbeitsfläche",
+      "color": "Farbe",
+      "compress": "Lautstärke angleichen",
+      "curves": {
+        "bullet": "Kugel",
+        "flashIn": "Blitz ein",
+        "flashOut": "Blitz aus",
+        "hero": "Held",
+        "jumpCut": "Jump Cut",
+        "glide": "Gleiten",
+        "none": "Keine",
+        "custom": "Benutzerdefiniert"
+      },
+      "denoise": "Rauschen reduzieren",
+      "detachAudio": "Audio trennen",
+      "direction": "Richtung",
+      "directions": {
+        "down": "Nach unten",
+        "left": "Nach links",
+        "right": "Nach rechts",
+        "up": "Nach oben"
+      },
+      "duration": "Dauer",
+      "editLook": "Anpassungen bearbeiten",
+      "eq": {
+        "high": "Höhen",
+        "low": "Tiefen",
+        "mid": "Mitten"
+      },
+      "fade": "Blende",
+      "fadeIn": "Einblenden",
+      "fadeOut": "Ausblenden",
+      "crossfade": "Überblendung",
+      "fill": "Füllen",
+      "fit": "Einpassen",
+      "flipHorizontal": "Horizontal spiegeln",
+      "flipVertical": "Vertikal spiegeln",
+      "font": "Schriftart",
+      "frameRate": "Bildrate",
+      "highCut": "High Cut",
+      "interpolation": {
+        "blend": "Frame-Überblendung",
+        "flow": "Optischer Fluss",
+        "none": "Aus"
+      },
+      "italic": "Kursiv",
+      "look": "Anpassungen",
+      "lowCut": "Low Cut",
+      "makeUnique": "Anpassungen entkoppeln",
+      "mute": "Stummschalten",
+      "nextKeyframe": "Nächster Keyframe",
+      "opacity": "Deckkraft",
+      "original": "Original",
+      "positionX": "Position X",
+      "positionY": "Position Y",
+      "previousKeyframe": "Vorheriger Keyframe",
+      "removeKeyframe": "Keyframe entfernen",
+      "resolution": "Auflösung",
+      "rotation": "Drehung",
+      "scale": "Skalierung",
+      "selectedCount_one": "{{count}} Clip ausgewählt",
+      "selectedCount_other": "{{count}} Clips ausgewählt",
+      "sharedLook_one": "Mit {{count}} weiteren Clip geteilt",
+      "sharedLook_other": "Mit {{count}} weiteren Clips geteilt",
+      "size": "Größe",
+      "solid": "Farbfläche",
+      "speed": "Geschwindigkeit",
+      "speedCurve": "Geschwindigkeitskurve",
+      "text": "Text",
+      "textPlaceholder": "Text",
+      "timing": "Timing",
+      "title": "Inspektor",
+      "transform": "Transformieren",
+      "transition": "Übergang",
+      "types": {
+        "adjustment": "Einstellungsebene",
+        "audio": "Audio",
+        "clip": "Clip",
+        "solid": "Farbfläche",
+        "title": "Titel"
+      },
+      "volume": "Lautstärke",
+      "lineHeight": "Zeilenhöhe",
+      "letterSpacing": "Zeichenabstand",
+      "outline": "Kontur",
+      "outlineColor": "Konturfarbe",
+      "shadow": "Schatten",
+      "blurFill": "Unschärfe",
+      "reverse": "Rückwärts",
+      "reversePreparing": "Wird umgekehrt… {{percent}}%",
+      "reverseFailed": "Dieser Clip konnte nicht umgekehrt werden",
+      "sameShape": "Der Clip hat bereits die Form der Arbeitsfläche, daher sehen Einpassen und Füllen gleich aus.",
+      "noSelection": "Kein Clip ausgewählt",
+      "trackMatte": "Spurmaske",
+      "mattes": {
+        "none": "Keine",
+        "alpha": "Alpha",
+        "luma": "Luma"
+      },
+      "invertMatte": "Umkehren",
+      "motionBlur": "Bewegungsunschärfe",
+      "shutter": "Verschluss",
+      "duck": "Unter Dialog absenken",
+      "duckAmount": "Absenkung",
+      "resetCurve": "Kurve zurücksetzen",
+      "matteNoSource": "Nichts auf der Spur darüber.",
+      "frameInterpolation": "Frame-Interpolation",
+      "cameraLogDetected": "{{name}} (erkannt)",
+      "cornerPin": "Eckpunkte",
+      "views": {
+        "video": "Video",
+        "audio": "Audio"
+      },
+      "speedPreset": "Vorgabe",
+      "type": "Typ",
+      "start": "Anfang",
+      "end": "Ende",
+      "cornerRadius": "Eckenradius",
+      "captionCount_one": "{{count}} Untertitel ausgewählt",
+      "captionCount_other": "{{count}} Untertitel ausgewählt"
+    },
+    "jobs": {
+      "cancel": "Abbrechen",
+      "kinds": {
+        "proxy": "Proxy",
+        "stabilize": "Stabilisieren",
+        "reverse": "Rückwärts",
+        "timelapse": "Zeitraffer",
+        "depth": "Tiefe",
+        "surfaces": "Oberflächen",
+        "tracking": "Tracking",
+        "aiMasks": "KI-Masken",
+        "reframe": "Automatisch reframen",
+        "export": "Videoexport",
+        "loudness": "Lautheit",
+        "captions": "Transkription",
+        "beats": "Beat-Erkennung",
+        "upload": "Immich-Upload"
+      }
+    },
+    "keyframes": {
+      "record": "Keyframes aufzeichnen",
+      "shape": "Form-Keyframes",
+      "stop": "Animation beenden",
+      "title": "Keyframes",
+      "recording": "Aufnahme",
+      "stopRecording": "Keyframe-Aufzeichnung beenden",
+      "delete": "Keyframe löschen",
+      "deleteAll": "Alle Keyframes löschen",
+      "allValues": "Alle Werte",
+      "transform": "Transformations-Keyframes",
+      "ease": {
+        "linear": "Linear",
+        "easeIn": "Ease-In",
+        "easeOut": "Ease-Out",
+        "easeInOut": "Ease-In-Out",
+        "hold": "Halten",
+        "custom": "Benutzerdefiniert"
+      },
+      "easing": "Interpolation",
+      "editCurve": "Kurve bearbeiten",
+      "keyframe": "Keyframe",
+      "value": "Wert"
+    },
+    "markers": {
+      "add": "Marke hinzufügen",
+      "addHere": "Marke hier hinzufügen",
+      "color": "Farbe",
+      "colors": {
+        "blue": "Blau",
+        "green": "Grün",
+        "orange": "Orange",
+        "purple": "Lila",
+        "red": "Rot",
+        "yellow": "Gelb"
+      },
+      "delete": "Marke löschen",
+      "marker": "Marke",
+      "rename": "Umbenennen",
+      "remove": "Marke entfernen"
+    },
+    "maskTracking": {
+      "aiFollow": "Jedem Frame folgen",
+      "aiFollowing": "Folgt jedem Frame.",
+      "lost": "Objekt verloren. Versuche einen Bereich mit mehr Details.",
+      "noShape": "Zeichne zuerst eine Form- oder Pinselmaske.",
+      "title": "Maske tracken",
+      "aiFollowPartial": "Folgt einem Teil des Clips.",
+      "mask": "Maske",
+      "custom": "Benutzerdefiniert",
+      "maskArea": "Den Bereich unter der Maske tracken",
+      "customArea": "Einen Bereich tracken, den du auf dem Video platzierst"
+    },
+    "mediaPool": {
+      "addToProject": "Zum Projekt hinzufügen",
+      "addToTimeline": "Zur Zeitleiste hinzufügen",
+      "emptyProject": "Noch keine Medien.",
+      "import": "Importieren…",
+      "inProject": "Im Projekt",
+      "locate": "Datei suchen…",
+      "mediaFiles": "Mediendateien",
+      "missing": "Fehlt",
+      "noMatches": "Keine Treffer",
+      "remove": "Aus Projekt entfernen",
+      "search": "Suchen",
+      "insertAtPlayhead": "An Abspielposition einfügen",
+      "overwriteAtPlayhead": "An Abspielposition überschreiben",
+      "all": "Alle",
+      "unused": "Nicht verwendet",
+      "used": "In der Zeitleiste verwendet",
+      "groupBy": "Gruppieren nach",
+      "show": "Anzeigen",
+      "filterByType": "Nach Typ filtern",
+      "resetFilters": "Filter zurücksetzen",
+      "sort": {
+        "imported": "Importreihenfolge",
+        "name": "Name",
+        "date": "Datum",
+        "duration": "Dauer",
+        "type": "Typ"
+      },
+      "group": {
+        "none": "Keine",
+        "type": "Typ",
+        "folder": "Ordner"
+      },
+      "sizes": {
+        "small": "Klein",
+        "medium": "Mittel",
+        "large": "Groß"
+      },
+      "kinds": {
+        "video": "Video",
+        "image": "Fotos",
+        "audio": "Audio",
+        "sequence": "Sequenzen"
+      },
+      "itemCount_one": "{{count}} Element",
+      "itemCount_other": "{{count}} Elemente",
+      "newBin": "Neue Ablage",
+      "openBin": "Öffnen",
+      "renameBin": "Umbenennen",
+      "deleteBin": "Ablage löschen",
+      "moveToBin": "In Ablage verschieben",
+      "emptyBin": "Diese Ablage ist leer",
+      "history": {
+        "newBin": "Neue Ablage",
+        "renameBin": "Ablage umbenennen",
+        "deleteBin": "Ablage löschen",
+        "moveBin": "Ablage verschieben",
+        "moveToBin": "In Ablage verschieben"
+      }
+    },
+    "mixer": {
+      "master": "Master",
+      "pan": "Panorama",
+      "solo": "Solo",
+      "title": "Audiomixer",
+      "volume": "Lautstärke",
+      "peak": "Spitze",
+      "momentary": "Momentan",
+      "shortTerm": "Kurzzeit",
+      "integrated": "Integriert",
+      "integratedHint": "Lautheit seit Beginn der Wiedergabe",
+      "target": "Exportziel {{lufs}} LUFS"
+    },
+    "motion": {
+      "analysisFailed": "Dieser Clip konnte nicht analysiert werden.",
+      "analyzing": "Analysieren… {{percent}}%",
+      "levels": {
+        "minimal": "Niedrig",
+        "off": "Aus",
+        "recommended": "Mittel",
+        "strong": "Hoch"
+      },
+      "lost": "Objekt verloren. Versuche einen größeren Rahmen.",
+      "stabilize": "Stabilisieren",
+      "tracking": "Objekt folgen",
+      "trackMotion": "Objekt auswählen",
+      "followScale": "Skalierung und Drehung"
+    },
+    "nesting": {
+      "back": "Zurück",
+      "nest": "Verschachteln",
+      "open": "Verschachtelten Clip öffnen",
+      "refused": {
+        "empty": "Wähle mindestens einen Videoclip aus.",
+        "gap": "Wähle benachbarte Clips der Hauptspur aus."
+      },
+      "unnest": "Verschachtelung aufheben",
+      "name_one": "Verschachtelt {{count}}",
+      "name_other": "Verschachtelt {{count}}"
+    },
+    "timeline": {
+      "addTitle": "Titel hinzufügen",
+      "adjustmentLayer": "Einstellungsebene",
+      "clearRange": "In und Out löschen",
+      "copy": "Kopieren",
+      "delete": "Löschen",
+      "detachAudio": "Audio trennen",
+      "duplicate": "Duplizieren",
+      "fit": "Einpassen",
+      "hideBeats": "Beats ausblenden",
+      "crossfade": "Überblendung",
+      "removeCrossfade": "Überblendung entfernen",
+      "hideTrack": "Spur ausblenden",
+      "join": "Clips verbinden",
+      "lockTrack": "Spur sperren",
+      "loop": "Schleife",
+      "main": "Haupt",
+      "makeLookUnique": "Anpassungen entkoppeln",
+      "missing": "Fehlt",
+      "nextFrame": "Nächster Frame",
+      "paste": "Einfügen",
+      "playInToOut": "Von In bis Out abspielen",
+      "playbackSettings": "Wiedergabequalität",
+      "previousFrame": "Vorheriger Frame",
+      "quality": {
+        "auto": "Auto",
+        "full": "Voll",
+        "half": "Halb",
+        "quarter": "Viertel"
+      },
+      "qualityShort": {
+        "auto": "Auto",
+        "full": "Voll",
+        "half": "1/2",
+        "quarter": "1/4"
+      },
+      "rippleDelete": "Löschen und Lücke schließen",
+      "setIn": "In-Punkt setzen",
+      "setOut": "Out-Punkt setzen",
+      "showBeats": "Beats einblenden",
+      "showTrack": "Spur einblenden",
+      "snapping": "Einrasten",
+      "solid": "Farbfläche",
+      "toEnd": "Zum Ende",
+      "toStart": "Zum Anfang",
+      "transition": "Übergang",
+      "trimHint": "Ziehen zum Trimmen, {{alt}}+Ziehen zum Rollen",
+      "unlockTrack": "Spur entsperren",
+      "useProxies": "Proxys verwenden",
+      "zoom": "Zoom",
+      "zoomIn": "Vergrößern",
+      "zoomOut": "Verkleinern",
+      "saveAsPreset": "Als Vorgabe speichern",
+      "link": "Verknüpfen",
+      "unlink": "Verknüpfung aufheben",
+      "freezeFrame": "Standbild",
+      "reverse": "Rückwärts",
+      "split": "Teilen",
+      "removeTransition": "Übergang entfernen",
+      "slipHint": "Ziehen, um das Material im Clip zu verschieben, oder {{alt}}+Ziehen für den Clip",
+      "deleteGap": "Lücke löschen",
+      "closeAllGaps": "Alle Lücken schließen",
+      "dragIn": "Ziehen, um den In-Punkt zu verschieben",
+      "dragOut": "Ziehen, um den Out-Punkt zu verschieben",
+      "collapse": "Zeitleiste einklappen",
+      "expand": "Zeitleiste ausklappen"
+    },
+    "titles": {
+      "presets": {
+        "lowerThird": "Bauchbinde",
+        "title": "Titel"
+      },
+      "text": "Text"
+    },
+    "toasts": {
+      "invalidProject": "Kein RapidRAW-Videoprojekt.",
+      "openFailed": "Projekt konnte nicht geöffnet werden.",
+      "playbackFailed": "Wiedergabe nicht möglich.",
+      "saveFailed": "Projekt konnte nicht gespeichert werden.",
+      "timelapseFailed": "Der Zeitraffer konnte nicht erstellt werden.",
+      "analysisFailed": "Der Clip konnte nicht analysiert werden.",
+      "probeFailed_one": "{{file}} konnte nicht gelesen werden.",
+      "probeFailed_other": "{{count}} Dateien konnten nicht gelesen werden.",
+      "aiMasksFailed": "Die KI-Masken konnten nicht aktualisiert werden.",
+      "reframeFailed": "Der Clip konnte nicht reframt werden.",
+      "frameFailed": "Dieser Frame kann nicht angezeigt werden.",
+      "needsGpuRenderer": "Die Videobearbeitung benötigt den GPU-Renderer."
+    },
+    "tracking": {
+      "backward": "Rückwärts",
+      "both": "Beide",
+      "forward": "Vorwärts",
+      "track": "Tracken",
+      "progress": "Tracking… {{percent}}%",
+      "cancel": "Abbrechen",
+      "noClip": "Bewege die Abspielposition über einen Videoclip.",
+      "tracked": "Über {{duration}} getrackt.",
+      "remove": "Entfernen",
+      "position": "Position",
+      "planar": "Planar",
+      "pinToPlane": "An Ebene anheften",
+      "notConvex": "Der Umriss der Ebene überschneidet sich."
+    },
+    "transitions": {
+      "blur": "Unschärfe",
+      "dipToBlack": "Schwarzblende",
+      "dipToWhite": "Weißblende",
+      "dissolve": "Überblenden",
+      "iris": "Irisblende",
+      "none": "Keine",
+      "push": "Schieben",
+      "slide": "Gleiten",
+      "spin": "Drehen",
+      "whip": "Reißschwenk",
+      "wipe": "Wischen",
+      "zoom": "Zoom",
+      "fade": "Blende",
+      "pop": "Aufploppen",
+      "typewriter": "Schreibmaschine",
+      "words": "Wort für Wort"
+    },
+    "frame": {
+      "export": "Frame exportieren",
+      "saved": "{{file}} gespeichert",
+      "failed": "Frame konnte nicht exportiert werden."
+    },
+    "lookTarget": {
+      "alsoSelected": "Panels bearbeiten nur diesen Clip. „Einstellungen einfügen“ in der Zeitleiste wirkt auf alle ausgewählten Clips.",
+      "noCrop": "Einstellungsebenen können nicht zugeschnitten werden.",
+      "photoOnly": "KI-Bearbeitungen funktionieren bei Foto-Clips.",
+      "offline": "Die Medien dieses Clips sind offline."
+    },
+    "viewer": {
+      "clipOnly": "Nur Clip",
+      "clipOnlyHint": "Titel und andere Ebenen sind ausgeblendet",
+      "goToClip": "Zum Clip",
+      "showProgram": "Programm anzeigen"
+    },
+    "montage": {
+      "kenBurns": "Ken Burns",
+      "kenBurnsOptions": {
+        "zoomIn": "Hineinzoomen",
+        "zoomOut": "Herauszoomen",
+        "panLeft": "Nach links schwenken",
+        "panRight": "Nach rechts schwenken",
+        "random": "Zufällig",
+        "none": "Keiner"
+      },
+      "cutToBeat": "Auf Beat schneiden",
+      "everyBeat_one": "Jeder Beat",
+      "everyBeat_other": "Alle {{count}} Beats",
+      "beatsPerCut": "Beats pro Schnitt",
+      "arrange": "Anordnen",
+      "layouts": {
+        "sideBySide": "Nebeneinander",
+        "stack": "Übereinander",
+        "grid": "Raster",
+        "pictureInPicture": "Bild-in-Bild",
+        "fullFrame": "Vollbild"
+      },
+      "mixed": "Gemischt",
+      "beatsFailed": "Beats konnten nicht gefunden werden.",
+      "noBeats": "Keine Beats gefunden.",
+      "customLayout": "Eigenes Layout"
+    },
+    "presets": {
+      "applyToSelection": "Auf ausgewählte Clips anwenden"
+    },
+    "project": {
+      "media": "Medien",
+      "settings": "Einstellungen",
+      "rename": "Umbenennen",
+      "namePlaceholder": "Projektname",
+      "untitled": "Unbenanntes Projekt",
+      "exit": "Projekt verlassen",
+      "save": "Speichern",
+      "unsaved": "Nicht gespeichert",
+      "saveChanges": "Änderungen an „{{name}}“ speichern?",
+      "dontSave": "Nicht speichern",
+      "openProject": "Projekt öffnen…",
+      "projects": "Projekte",
+      "openRecent": "Letzte Projekte öffnen",
+      "noRecent": "Keine zuletzt geöffneten Projekte",
+      "removeFromRecent": "Aus letzten Projekten entfernen",
+      "more": "Mehr…",
+      "saveAs": "Projekt speichern unter"
+    },
+    "proxies": {
+      "title": "Proxys",
+      "hint": "Kleinere Kopien für flüssige Wiedergabe. Exporte verwenden immer die Originale.",
+      "notNeeded": "Deine Medien laufen auch ohne Proxys flüssig.",
+      "status": "Status",
+      "creatingCount_one": "{{count}} Proxy wird erstellt · {{percent}}%",
+      "creatingCount_other": "{{count}} Proxys werden erstellt · {{percent}}%",
+      "createAll": "Proxys erstellen",
+      "create": "Proxy erstellen",
+      "ready": "Proxy bereit",
+      "queued": "Proxy in Warteschlange",
+      "creating": "Proxy wird erstellt… {{percent}}%",
+      "readyCount_one": "{{ready}} von {{count}} bereit",
+      "readyCount_other": "{{ready}} von {{count}} bereit"
+    },
+    "playback": {
+      "closeCrop": "Zuschnitt schließen, um abzuspielen",
+      "play": "Wiedergabe",
+      "pause": "Pause"
+    },
+    "masks": {
+      "cutout": "Freistellen",
+      "cutoutHint": "Macht den Clip außerhalb dieser Maske transparent.",
+      "colorKey": "Farb-Key",
+      "colorKeyHint": "Entfernt zusätzlich eine Hintergrundfarbe, etwa einen Greenscreen.",
+      "keyColors": {
+        "green": "Grün",
+        "blue": "Blau",
+        "custom": "Benutzerdefiniert"
+      },
+      "keyColor": "Key-Farbe",
+      "pickColor": "Vom Bildschirm aufnehmen",
+      "tolerance": "Toleranz",
+      "softness": "Weichheit",
+      "spill": "Spill"
+    },
+    "audio": {
+      "equalizer": "Equalizer",
+      "enhance": "Verbessern",
+      "off": "Aus",
+      "resetEqualizer": "Equalizer zurücksetzen",
+      "compressorInfo": "Schwelle {{threshold}} · Verhältnis {{ratio}}:1"
+    },
+    "timelapse": {
+      "create": "Zeitraffer erstellen",
+      "frameRate": "Bildrate",
+      "deflicker": "Flimmern entfernen",
+      "destination": "Hinzufügen zu",
+      "newProject": "Neues Projekt",
+      "createButton": "Erstellen",
+      "name": "Zeitraffer {{name}}",
+      "section": "Zeitraffer",
+      "photos": "Fotos",
+      "rendering": "Rendern… {{percent}}%",
+      "failed": "Der Zeitraffer konnte nicht gerendert werden.",
+      "retry": "Erneut versuchen",
+      "mixed": "RAW- und Nicht-RAW-Fotos können nicht gemischt werden.",
+      "cancelled": "Das Rendern wurde abgebrochen.",
+      "failedPhoto": "{{file}} konnte nicht gerendert werden.",
+      "photoCount_one": "{{count}} Foto",
+      "photoCount_other": "{{count}} Fotos",
+      "summary_one": "{{count}} Foto · {{duration}}",
+      "summary_other": "{{count}} Fotos · {{duration}}",
+      "missingPhoto": "{{file}} fehlt."
+    },
+    "reframe": {
+      "action": "Automatisch reframen",
+      "clips": "Clips automatisch reframen",
+      "progress": "Reframing… {{percent}}%",
+      "done": "Reframt"
+    },
+    "history": {
+      "add_one": "{{type}} hinzufügen",
+      "add_other": "{{count}} Elemente hinzufügen",
+      "delete_one": "{{type}} löschen",
+      "delete_other": "{{count}} Elemente löschen",
+      "move_one": "{{type}} verschieben",
+      "move_other": "{{count}} Elemente verschieben",
+      "trim_one": "{{type}} trimmen",
+      "trim_other": "{{count}} Elemente trimmen",
+      "edit_one": "{{type}} bearbeiten",
+      "edit_other": "{{count}} Elemente bearbeiten",
+      "speed": "Geschwindigkeit ändern",
+      "transition": "Übergang bearbeiten",
+      "split": "Teilen",
+      "join": "Verbinden",
+      "timeline": "Zeitleiste bearbeiten",
+      "nest": "Verschachteln",
+      "unnest": "Verschachtelung aufheben",
+      "captions": "Untertitel bearbeiten",
+      "marker": {
+        "add": "Marke hinzufügen",
+        "delete": "Marke löschen",
+        "edit": "Marke bearbeiten"
+      },
+      "media": {
+        "add": "Medien hinzufügen",
+        "delete": "Medien entfernen",
+        "edit": "Medien bearbeiten"
+      },
+      "settings": "Projekteinstellungen",
+      "tracks": "Spuren bearbeiten",
+      "project": "Projekt bearbeiten"
     }
   }
 }

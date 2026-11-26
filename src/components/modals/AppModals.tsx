@@ -13,6 +13,7 @@ import ConfirmModal from './ConfirmModal';
 import ImportSettingsModal from './ImportSettingsModal';
 import CullingModal from './CullingModal';
 import CollageModal from './CollageModal';
+import { ProjectSwitcher, TimelapseModal } from '../../store/videoIntegration';
 import { AppSettings } from '../../types/settings';
 import { ImageFlag, AlbumItem, AlbumGroup, MergeSettings } from '../../types/library';
 import { CopyPasteSettings } from '../../utils/adjustments';
@@ -213,6 +214,8 @@ export default function AppModals(props: AppModalsProps) {
         onSave={props.handleSaveCollage}
         sourceImages={collageModalState.sourceImages}
       />
+      <TimelapseModal />
+      <ProjectSwitcher />
     </>
   );
 }

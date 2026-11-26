@@ -17,6 +17,8 @@ export function formatMaskTypeName(type: string) {
   if (type === Mask.Linear) return i18n.t('masks.types.linear');
   if (type === Mask.Luminance) return i18n.t('masks.types.luminance');
   if (type === Mask.Radial) return i18n.t('masks.types.radial');
+  if (type === Mask.Rectangle) return i18n.t('masks.types.rectangle');
+  if (type === Mask.Pen) return i18n.t('masks.types.pen');
   if (type === Mask.Clone) return i18n.t('masks.types.clone');
   if (type === Mask.Heal) return i18n.t('masks.types.heal');
   if (type === Mask.Liquify) return i18n.t('masks.types.liquify');

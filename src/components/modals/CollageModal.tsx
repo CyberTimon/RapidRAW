@@ -20,11 +20,13 @@ import { Invokes } from '../../types/invokes';
 import Button from '../ui/Button';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
+import SegmentedControl from '../ui/SegmentedControl';
 import clsx from 'clsx';
 import { LAYOUTS, type Layout, type LayoutDefinition } from './CollageVariants';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import { getDevicePixelRatio } from '../../utils/displayScale';
+import { useModalGate } from '../../store/useUIStore';
 
 interface CollageModalProps {
   isOpen: boolean;
@@ -72,6 +74,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
   );
 
   const [isMounted, setIsMounted] = useState(false);
+  useModalGate(isOpen);
   const [show, setShow] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -656,31 +659,19 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
             )}
           </button>
         </Text>
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {ASPECT_RATIO_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              onClick={() => handleAspectRatioChange(preset)}
-              className={clsx(
-                'px-2 py-1.5 text-sm rounded-md transition-colors',
-                activeAspectRatio.id === preset.id ? 'bg-accent text-button-text' : 'bg-surface hover:bg-card-active',
-              )}
-            >
-              {preset.name}
-            </button>
-          ))}
-          {loadedImages.length === 1 && (
-            <button
-              onClick={handleOriginalAspectRatio}
-              className={clsx(
-                'px-2 py-1.5 text-sm rounded-md transition-colors',
-                activeAspectRatio.id === 'original' ? 'bg-accent text-button-text' : 'bg-surface hover:bg-card-active',
-              )}
-            >
-              {t('modals.collage.original')}
-            </button>
-          )}
-        </div>
+        <SegmentedControl
+          className="mb-4"
+          options={[
+            ...ASPECT_RATIO_PRESETS.map((preset) => ({ id: preset.id, label: preset.name })),
+            ...(loadedImages.length === 1 ? [{ id: 'original', label: t('modals.collage.original') }] : []),
+          ]}
+          value={activeAspectRatio.id}
+          onChange={(id) => {
+            const preset = ASPECT_RATIO_PRESETS.find((option) => option.id === id);
+            if (preset) handleAspectRatioChange(preset);
+            else handleOriginalAspectRatio();
+          }}
+        />
 
         <Switch
           label={t('modals.collage.keepOriginalRatio')}

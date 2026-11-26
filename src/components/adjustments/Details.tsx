@@ -18,6 +18,7 @@ import { AppSettings } from '../../types/settings';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
+import { useVideoKind } from '../../store/videoIntegration';
 
 interface DetailsPanelProps {
   adjustments: Adjustments;
@@ -43,6 +44,7 @@ function DetailsPanel({
     state.selectedImage ? state.aiUpscaleProgress[state.selectedImage.path] : undefined,
   );
   const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
+  const isVideo = useVideoKind() !== 'none';
 
   const handleAdjustmentChange = (key: string, value: string) => {
     const numericValue = parseInt(value, 10);
@@ -182,7 +184,7 @@ function DetailsPanel({
             value={adjustments.colorNoiseReduction}
             onDragStateChange={onDragStateChange}
           />
-          {!isForMask && (
+          {!isForMask && !isVideo && (
             <div className="mt-2">
               <SpatialEffect
                 enabled={!!adjustments.aiDenoiseEnabled}
@@ -250,7 +252,7 @@ function DetailsPanel({
         </AdjustmentSubSection>
       )}
 
-      {!isForMask && !isAiFree && !hiddenTools.includes('superResolution') && (
+      {!isForMask && !isVideo && !isAiFree && !hiddenTools.includes('superResolution') && (
         <AdjustmentSubSection
           id="superResolution"
           order={toolOrder.indexOf('superResolution')}

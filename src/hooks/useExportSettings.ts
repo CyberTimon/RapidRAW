@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect } from 'react';
 import {
   BorderBasis,
   ConflictAction,
@@ -7,10 +7,16 @@ import {
   ExportColorSpace,
   ExportPreset,
   TiffBitDepth,
-  WatermarkAnchor,
 } from '../types/export';
+import { useWatermarkStore } from '../store/useWatermarkStore';
+import { watermarkFromPreset, watermarkPresetFields } from '../utils/watermark';
+
+type SessionSettings = Omit<ExportPreset, 'id' | 'name'>;
+
+let sessionSettings: SessionSettings | null = null;
 
 export function useExportSettings() {
+  const [restored] = useState(() => sessionSettings);
   const [fileFormat, setFileFormat] = useState('jpeg');
   const [jpegQuality, setJpegQuality] = useState(90);
   const [tiffBitDepth, setTiffBitDepth] = useState<TiffBitDepth>(16);
@@ -40,17 +46,12 @@ export function useExportSettings() {
   const [originalKeepExposure, setOriginalKeepExposure] = useState(false);
   const [preserveFolders, setPreserveFolders] = useState(false);
   const [filenameTemplate, setFilenameTemplate] = useState('{original_filename}_edited');
-  const [enableWatermark, setEnableWatermark] = useState(false);
-  const [watermarkPath, setWatermarkPath] = useState<string | null>(null);
-  const [watermarkAnchor, setWatermarkAnchor] = useState<WatermarkAnchor>(WatermarkAnchor.BottomRight);
-  const [watermarkScale, setWatermarkScale] = useState(10);
-  const [watermarkSpacing, setWatermarkSpacing] = useState(5);
-  const [watermarkOpacity, setWatermarkOpacity] = useState(75);
+  const watermark = useWatermarkStore((state) => state.watermark);
   const [destinationType, setDestinationType] = useState<string>('customFolder');
   const [subfolder, setSubfolder] = useState<string>('');
   const [onConflict, setOnConflict] = useState<ConflictAction>(ConflictAction.CreateUnique);
 
-  const handleApplyPreset = useCallback((preset: ExportPreset) => {
+  const handleApplyPreset = useCallback((preset: SessionSettings) => {
     setFileFormat(preset.fileFormat);
     setJpegQuality(preset.jpegQuality);
     setTiffBitDepth(preset.tiffBitDepth ?? 16);
@@ -80,12 +81,7 @@ export function useExportSettings() {
     setOriginalKeepExposure(preset.originalKeepExposure ?? false);
     setPreserveFolders(preset.preserveFolders ?? false);
     setFilenameTemplate(preset.filenameTemplate);
-    setEnableWatermark(preset.enableWatermark);
-    setWatermarkPath(preset.watermarkPath);
-    setWatermarkAnchor(preset.watermarkAnchor as WatermarkAnchor);
-    setWatermarkScale(preset.watermarkScale);
-    setWatermarkSpacing(preset.watermarkSpacing);
-    setWatermarkOpacity(preset.watermarkOpacity);
+    useWatermarkStore.getState().setWatermark(watermarkFromPreset(preset));
     setDestinationType(preset.destinationType || 'customFolder');
     setSubfolder(preset.subfolder || '');
     setOnConflict(preset.onConflict ?? ConflictAction.CreateUnique);
@@ -122,12 +118,7 @@ export function useExportSettings() {
       originalKeepExposure,
       preserveFolders,
       filenameTemplate,
-      enableWatermark,
-      watermarkPath,
-      watermarkAnchor,
-      watermarkScale,
-      watermarkSpacing,
-      watermarkOpacity,
+      ...watermarkPresetFields(watermark),
       destinationType,
       subfolder,
       onConflict,
@@ -162,19 +153,23 @@ export function useExportSettings() {
       originalKeepExposure,
       preserveFolders,
       filenameTemplate,
-      enableWatermark,
-      watermarkPath,
-      watermarkAnchor,
-      watermarkScale,
-      watermarkSpacing,
-      watermarkOpacity,
+      watermark,
       destinationType,
       subfolder,
       onConflict,
     ],
   );
 
+  useLayoutEffect(() => {
+    if (restored) handleApplyPreset({ ...restored, ...watermarkPresetFields(useWatermarkStore.getState().watermark) });
+  }, [restored, handleApplyPreset]);
+
+  useEffect(() => {
+    sessionSettings = currentSettingsObject;
+  }, [currentSettingsObject]);
+
   return {
+    restored: restored !== null,
     fileFormat,
     setFileFormat,
     jpegQuality,
@@ -233,18 +228,7 @@ export function useExportSettings() {
     setPreserveFolders,
     filenameTemplate,
     setFilenameTemplate,
-    enableWatermark,
-    setEnableWatermark,
-    watermarkPath,
-    setWatermarkPath,
-    watermarkAnchor,
-    setWatermarkAnchor,
-    watermarkScale,
-    setWatermarkScale,
-    watermarkSpacing,
-    setWatermarkSpacing,
-    watermarkOpacity,
-    setWatermarkOpacity,
+    watermark,
     destinationType,
     setDestinationType,
     subfolder,

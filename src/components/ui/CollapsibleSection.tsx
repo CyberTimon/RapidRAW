@@ -56,8 +56,8 @@ export default function CollapsibleSection({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="flex items-center gap-2">
-          <Text variant={TextVariants.title} weight={TextWeights.normal}>
+        <div className="flex items-center gap-2 min-w-0">
+          <Text variant={TextVariants.title} weight={TextWeights.normal} className="truncate -m-5 p-5">
             {title}
           </Text>
           {canToggleVisibility && (
@@ -74,7 +74,7 @@ export default function CollapsibleSection({
           )}
         </div>
         <ChevronDown
-          className={clsx('text-accent transition-transform duration-300', { 'rotate-180': isOpen })}
+          className={clsx('shrink-0 text-accent transition-transform duration-300', { 'rotate-180': isOpen })}
           size={20}
         />
       </div>

@@ -140,6 +140,7 @@ pub struct WgpuDisplay {
     pub standalone: bool,
     pub view: DisplayView,
     pub frame: Option<DisplayFrame>,
+    video: bool,
     pub content_key: Option<u64>,
     pub rect_key: Option<u64>,
     pub pending_rect: Option<(u64, [f32; 4])>,
@@ -282,6 +283,7 @@ impl WgpuDisplay {
         queue.submit(Some(encoder.finish()));
         let view = frame.view.clone();
         let capacity = frame.capacity;
+        self.video = false;
         self.show_texture(
             device,
             queue,
@@ -290,6 +292,29 @@ impl WgpuDisplay {
             capacity.map(|dim| dim as f32),
             None,
         );
+    }
+
+    pub fn show_video(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        view: &wgpu::TextureView,
+        size: [f32; 2],
+    ) -> bool {
+        let takeover = !std::mem::replace(&mut self.video, true);
+        if takeover {
+            self.view = DisplayView::default();
+        }
+        self.show_texture(device, queue, view, size, size, None);
+        takeover
+    }
+
+    pub fn clear_video(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        if std::mem::take(&mut self.video) {
+            self.edited_view = None;
+            self.current_bind_group = None;
+            self.flush(device, queue);
+        }
     }
 
     pub fn set_view(&mut self, view: DisplayView) {
@@ -720,6 +745,7 @@ pub fn build_wgpu_display(
         standalone,
         view: DisplayView::default(),
         frame: None,
+        video: false,
         content_key: None,
         rect_key: None,
         pending_rect: None,
@@ -1014,6 +1040,15 @@ static DISPLAYS_TRACKED: AtomicBool = AtomicBool::new(false);
 static HDR_AVAILABLE: AtomicBool = AtomicBool::new(false);
 static DISPLAY_REFRESH_PENDING: AtomicBool = AtomicBool::new(false);
 static DISPLAY_REFRESH_REQUESTED_AT: AtomicU64 = AtomicU64::new(0);
+static FRAME_OUTPUT_REVISION: AtomicU64 = AtomicU64::new(0);
+
+pub fn frame_output_revision() -> u64 {
+    FRAME_OUTPUT_REVISION.load(Ordering::Acquire)
+}
+
+pub fn frame_output_changed() {
+    FRAME_OUTPUT_REVISION.fetch_add(1, Ordering::AcqRel);
+}
 
 fn uptime_ms() -> u64 {
     static STARTED: OnceLock<Instant> = OnceLock::new();
@@ -1167,6 +1202,7 @@ pub fn refresh_displays(
         }
     }
     if changed {
+        frame_output_changed();
         let (space, headroom) = frame_output(context);
         crate::platform::viewer_window::handle_display_changed(app_handle, space, headroom);
         let _ = app_handle.emit(DISPLAY_CHANGED_EVENT, ());

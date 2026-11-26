@@ -2,10 +2,16 @@ use once_cell::sync::Lazy;
 use serde_json::json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 
+use super::client::ImmichClient;
+use super::registry::RemoteImage;
 use super::{Session, registry, session, sync};
+
+const CANCEL_POLL: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Clone)]
 struct ExportTarget {
@@ -18,6 +24,16 @@ enum ExportAlbum {
     None,
     Source,
     Album(String),
+}
+
+impl ExportTarget {
+    fn album(&self, entry: Option<&RemoteImage>) -> Option<String> {
+        match &self.album {
+            ExportAlbum::None => None,
+            ExportAlbum::Source => entry.and_then(|e| e.album_id.clone()),
+            ExportAlbum::Album(id) => Some(id.clone()),
+        }
+    }
 }
 
 static EXPORT_TARGETS: Lazy<Mutex<HashMap<PathBuf, ExportTarget>>> =
@@ -59,25 +75,49 @@ pub fn prepare_export(
     Ok(folder)
 }
 
+fn export_target(output: &Path) -> Option<ExportTarget> {
+    output
+        .ancestors()
+        .skip(1)
+        .find_map(|folder| EXPORT_TARGETS.lock().unwrap().get(folder).cloned())
+}
+
+fn file_name_of(path: &Path) -> String {
+    path.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+fn announce(app_handle: &AppHandle, file_name: &str, uploaded: bool) {
+    if uploaded {
+        let _ = app_handle.emit("immich-upload", json!({ "fileName": file_name }));
+    }
+    let _ = app_handle.emit("immich-library-changed", json!({}));
+}
+
+async fn send_edits(
+    app_handle: &AppHandle,
+    client: &ImmichClient,
+    entry: &RemoteImage,
+    source: &Path,
+) {
+    if let Err(e) = sync::push(app_handle, client, &entry.asset_id, source).await {
+        log::warn!("Could not send the edits of {}: {e}", source.display());
+    }
+}
+
 pub fn on_exported(
     app_handle: &AppHandle,
     source_path: &str,
     output_path: &Path,
 ) -> Result<(), String> {
-    let Some(target) = output_path
-        .ancestors()
-        .skip(1)
-        .find_map(|folder| EXPORT_TARGETS.lock().unwrap().get(folder).cloned())
-    else {
+    let Some(target) = export_target(output_path) else {
         return Ok(());
     };
     let session = session(app_handle)?;
 
     let (source, _) = crate::library::sidecars::parse_virtual_path(source_path);
-    let file_name = output_path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
+    let file_name = file_name_of(output_path);
     let result = tauri::async_runtime::block_on(upload_export(
         app_handle,
         &session,
@@ -86,10 +126,7 @@ pub fn on_exported(
         output_path,
     ));
     let _ = std::fs::remove_file(output_path);
-    if result.is_ok() {
-        let _ = app_handle.emit("immich-upload", json!({ "fileName": file_name }));
-    }
-    let _ = app_handle.emit("immich-library-changed", json!({}));
+    announce(app_handle, &file_name, result.is_ok());
     result.map_err(|e| format!("Immich upload of {file_name} failed: {e}"))
 }
 
@@ -104,9 +141,7 @@ async fn upload_export(
     let entry = registry::get(source);
     let original = match &entry {
         Some(entry) => {
-            if let Err(e) = sync::push(app_handle, client, &entry.asset_id, source).await {
-                log::warn!("Could not send the edits of {}: {e}", source.display());
-            }
+            send_edits(app_handle, client, entry, source).await;
             Some(entry.asset_id.clone())
         }
         None if target.with_original => Some(upload_original(app_handle, session, source).await?),
@@ -114,17 +149,15 @@ async fn upload_export(
     };
 
     let modified = file_time(output);
-    let new_id = client.upload(output, &modified, &modified).await?.id;
+    let new_id = client
+        .upload(output, &modified, &modified, |_, _| {})
+        .await?
+        .id;
     if original.as_deref() == Some(new_id.as_str()) {
         return Ok(());
     }
 
-    let album = match &target.album {
-        ExportAlbum::None => None,
-        ExportAlbum::Source => entry.as_ref().and_then(|e| e.album_id.clone()),
-        ExportAlbum::Album(id) => Some(id.clone()),
-    };
-    if let Some(album) = album {
+    if let Some(album) = target.album(entry.as_ref()) {
         client
             .add_to_album(&album, std::slice::from_ref(&new_id))
             .await?;
@@ -155,6 +188,89 @@ async fn upload_export(
         registry::set_listed_asset(source, &new_id);
     }
     Ok(())
+}
+
+pub struct VideoUpload {
+    session: Arc<Session>,
+    target: ExportTarget,
+    source: PathBuf,
+    created_at: Option<String>,
+}
+
+impl VideoUpload {
+    pub fn prepare(
+        app_handle: &AppHandle,
+        source_path: &str,
+        output: &Path,
+    ) -> Result<Option<Self>, String> {
+        let Some(target) = export_target(output) else {
+            return Ok(None);
+        };
+        let session = session(app_handle)?;
+        let (source, _) = crate::library::sidecars::parse_virtual_path(source_path);
+        let created_at = registry::get(&source).and_then(|entry| {
+            tauri::async_runtime::block_on(session.client.asset(&entry.asset_id))
+                .ok()?
+                .file_created_at
+        });
+        Ok(Some(Self {
+            session,
+            target,
+            source,
+            created_at,
+        }))
+    }
+
+    pub fn created_at(&self) -> Option<&str> {
+        self.created_at.as_deref()
+    }
+
+    pub fn run(
+        &self,
+        app_handle: &AppHandle,
+        output: &Path,
+        cancel: &AtomicBool,
+        progress: impl Fn(u64, u64) + Send + 'static,
+    ) -> Result<(), String> {
+        let result =
+            tauri::async_runtime::block_on(self.upload(app_handle, output, cancel, progress));
+        if result.is_ok() {
+            let _ = std::fs::remove_file(output);
+        }
+        announce(app_handle, &file_name_of(output), result.is_ok());
+        result
+    }
+
+    async fn upload(
+        &self,
+        app_handle: &AppHandle,
+        output: &Path,
+        cancel: &AtomicBool,
+        progress: impl Fn(u64, u64) + Send + 'static,
+    ) -> Result<(), String> {
+        let client = &self.session.client;
+        let entry = registry::get(&self.source);
+        if let Some(entry) = &entry {
+            send_edits(app_handle, client, entry, &self.source).await;
+        }
+        let modified = file_time(output);
+        let created = self.created_at.as_deref().unwrap_or(&modified);
+        let new_id = tokio::select! {
+            uploaded = client.upload(output, created, &modified, progress) => uploaded?.id,
+            () = cancelled(cancel) => return Err("Upload cancelled".to_string()),
+        };
+        if let Some(album) = self.target.album(entry.as_ref())
+            && let Err(e) = client
+                .add_to_album(&album, std::slice::from_ref(&new_id))
+                .await
+        {
+            log::warn!(
+                "Uploaded {} but could not add it to the album: {e}",
+                output.display()
+            );
+        }
+        Ok(())
+    }
 }
 
 const ALBUM_PREFIX: &str = "immich:";
@@ -235,7 +351,10 @@ async fn upload_original(
     source: &Path,
 ) -> Result<String, String> {
     let modified = file_time(source);
-    let uploaded = session.client.upload(source, &modified, &modified).await?;
+    let uploaded = session
+        .client
+        .upload(source, &modified, &modified, |_, _| {})
+        .await?;
     let id = uploaded.id;
 
     let file_name = source.file_name().ok_or("Invalid file name")?;
@@ -263,6 +382,12 @@ async fn upload_original(
     )
     .await?;
     Ok(id)
+}
+
+async fn cancelled(cancel: &AtomicBool) {
+    while !cancel.load(Ordering::Relaxed) {
+        tokio::time::sleep(CANCEL_POLL).await;
+    }
 }
 
 fn file_time(path: &Path) -> String {

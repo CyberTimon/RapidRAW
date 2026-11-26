@@ -5,7 +5,9 @@ import { useEditorStore } from '../../store/useEditorStore';
 import { SPEED_EDIT_ADJUSTMENTS } from '../../utils/adjustments';
 import { SpeedEditTarget } from '../../types/editor';
 import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/fineAdjustment';
+import { detentHaptic } from '../../utils/haptics';
 import { useSliderResetResolver } from '../../context/SliderResetContext';
+import { useLiveValues, useSliderKeyframe } from '../../context/SliderKeyframeContext';
 
 export type SliderChangeEvent =
   | React.ChangeEvent<HTMLInputElement>
@@ -35,9 +37,11 @@ interface SliderProps {
   defaultValue?: number;
   disabled?: boolean;
   label: React.ReactNode;
+  liveScale?: number;
   markers?: Array<SliderMarker>;
   max: number;
   min: number;
+  minLabel?: string;
   onChange(event: SliderChangeEvent): void;
   onDragStateChange?(state: boolean): void;
   onPointerUp?(): void;
@@ -59,6 +63,15 @@ const getFraction = (value: number, min: number, max: number) => (max !== min ? 
 
 const speedEditTargets = new WeakMap<Element, RefObject<SpeedEditTarget | null>>();
 
+const markTruncated = (label: HTMLElement) => {
+  if (label.scrollWidth > label.clientWidth) label.dataset.tooltip = label.textContent ?? '';
+  else delete label.dataset.tooltip;
+};
+
+const truncatedLabels = new ResizeObserver((entries) =>
+  entries.forEach((entry) => markTruncated(entry.target as HTMLElement)),
+);
+
 export const getSpeedEditTarget = (element: Element) => speedEditTargets.get(element) ?? null;
 
 const Slider = ({
@@ -66,9 +79,11 @@ const Slider = ({
   defaultValue = 0,
   disabled = false,
   label,
+  liveScale = 1,
   markers,
   max,
   min,
+  minLabel,
   onChange,
   onDragStateChange = () => {},
   onPointerUp,
@@ -76,23 +91,35 @@ const Slider = ({
   scale = LINEAR_SCALE,
   speedEditId,
   step = 1,
-  value,
+  value: storedValue,
   trackClassName,
   fillOrigin = 'default',
   suffix = '',
 }: SliderProps) => {
   const resolveReset = useSliderResetResolver();
   const resetValue = (resolveReset && resetKey !== undefined ? resolveReset(resetKey) : undefined) ?? defaultValue;
+  const keyframes = useSliderKeyframe();
+  const keyframe = useMemo(
+    () => (keyframes && resetKey !== undefined ? keyframes.render(resetKey) : null),
+    [keyframes, resetKey],
+  );
   const { t } = useTranslation();
-  const [displayValue, setDisplayValue] = useState<number>(value);
+  const [displayValue, setDisplayValue] = useState<number>(storedValue);
   const [isDragging, setIsDragging] = useState(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const [isEditing, setIsEditing] = useState(false);
-  const [inputValue, setInputValue] = useState<string>(String(value));
+  const [inputValue, setInputValue] = useState<string>(String(storedValue));
+  const [liveValue] = useLiveValues(resetKey === undefined ? null : [resetKey], isDragging);
+  const isLive = liveValue !== undefined;
+  const value = isLive ? liveValue * liveScale : storedValue;
+  const position = isLive ? value : displayValue;
+  const wasLiveRef = useRef(false);
+  const liveEditRef = useRef<number | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const rangeInputRef = useRef<HTMLInputElement | null>(null);
   const [isLabelHovered, setIsLabelHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
   const lastUpTime = useRef(0);
   const lastPointerXRef = useRef<number>(0);
   const accumulatedValueRef = useRef<number>(0);
@@ -123,7 +150,7 @@ const Slider = ({
   const maxPosition = scale.toPosition(max);
   const getPositionFraction = (val: number) => getFraction(scale.toPosition(val), minPosition, maxPosition);
 
-  const fillPercentage = getPositionFraction(displayValue) * 100;
+  const fillPercentage = getPositionFraction(position) * 100;
   const originPercentage = useMemo(() => {
     if (fillOrigin === 'min') {
       return 0;
@@ -145,6 +172,7 @@ const Slider = ({
 
   const numericValue = isNaN(Number(value)) ? 0 : Number(value);
   const formatValue = (val: number) => (decimalPlaces > 0 && val === 0 ? '0' : val.toFixed(decimalPlaces));
+  const valueText = (val: number) => (minLabel !== undefined && val <= min ? minLabel : formatValue(val));
 
   const onChangeRef = useRef(onChange);
   const snapToStepRef = useRef(snapToStep);
@@ -171,7 +199,7 @@ const Slider = ({
         step,
         minPosition,
         maxPosition,
-        format: (val) => `${formatValue(val)}${suffix}`,
+        format: (val) => `${valueText(val)}${suffix}`,
         toPosition: scale.toPosition,
         toValue: (position) => snapToStep(scale.fromPosition(position)),
         onChange: (val) => onChangeRef.current({ target: { value: val } }),
@@ -190,6 +218,14 @@ const Slider = ({
       if (speedEditTarget === speedEditTargetRef) setEditor({ speedEditTarget: null });
     };
   }, []);
+
+  const labelText = typeof label === 'string' ? label : null;
+  useEffect(() => {
+    const element = labelRef.current;
+    if (!element) return;
+    truncatedLabels.observe(element);
+    return () => truncatedLabels.unobserve(element);
+  }, [labelText]);
 
   useEffect(() => {
     if (!hasReportedDragStateRef.current && !isDragging) return;
@@ -294,6 +330,7 @@ const Slider = ({
       pendingDragValueRef.current = null;
       if (nextValue === null || nextValue === lastEmittedValueRef.current) return;
 
+      detentHaptic(lastEmittedValueRef.current, nextValue, resetValue, min, max);
       lastEmittedValueRef.current = nextValue;
       setDisplayValue(nextValue);
       setInputValue(String(nextValue));
@@ -371,14 +408,16 @@ const Slider = ({
   }, [disabled, isDragging]);
 
   useEffect(() => {
-    if (isDragging) {
+    const leftLive = wasLiveRef.current && !isLive;
+    wasLiveRef.current = isLive;
+    if (isDragging || isLive) {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
       return;
     }
 
-    if (isWheelActivelyChangingRef.current || !animateValueChanges) {
+    if (isWheelActivelyChangingRef.current || !animateValueChanges || leftLive) {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -416,13 +455,13 @@ const Slider = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [value, isDragging, animateValueChanges]);
+  }, [value, isDragging, animateValueChanges, isLive]);
 
   useEffect(() => {
-    if (!isEditing || isDragging) {
+    if (!isLive && (!isEditing || isDragging)) {
       setInputValue(String(value));
     }
-  }, [value, isEditing, isDragging]);
+  }, [value, isEditing, isDragging, isLive]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -494,7 +533,7 @@ const Slider = ({
     if (!inputEl) return;
 
     const rect = inputEl.getBoundingClientRect();
-    const thumbX = rect.left + Math.max(0, Math.min(1, getPositionFraction(displayValue))) * rect.width;
+    const thumbX = rect.left + Math.max(0, Math.min(1, getPositionFraction(position))) * rect.width;
 
     if (Math.abs(touch.clientX - thumbX) > TOUCH_THUMB_HIT_RADIUS_PX) {
       pendingTouchRef.current = null;
@@ -505,7 +544,7 @@ const Slider = ({
       startX: touch.clientX,
       startY: touch.clientY,
       latestX: touch.clientX,
-      startPosition: scale.toPosition(displayValue),
+      startPosition: scale.toPosition(position),
     };
   };
 
@@ -561,7 +600,16 @@ const Slider = ({
   const handleValueClick = () => {
     if (disabled) return;
 
+    const shown = formatValue(numericValue);
+    liveEditRef.current = isLive ? parseFloat(shown) : null;
+    if (isLive) setInputValue(shown);
     setIsEditing(true);
+  };
+
+  const applyTypedValue = (next: number) => {
+    if (next === liveEditRef.current) return;
+    if (liveEditRef.current !== null) liveEditRef.current = next;
+    onChange({ target: { value: next } });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -575,12 +623,7 @@ const Slider = ({
     const parseableText = textVal.replace(',', '.');
     const parsedValue = parseFloat(parseableText);
     if (!isNaN(parsedValue)) {
-      const clampedValue = Math.max(min, Math.min(max, parsedValue));
-      onChange({
-        target: {
-          value: clampedValue,
-        },
-      });
+      applyTypedValue(Math.max(min, Math.min(max, parsedValue)));
     }
   };
 
@@ -592,6 +635,13 @@ const Slider = ({
     }
 
     let newValue = parseFloat(inputValue.replace(',', '.'));
+    if (
+      liveEditRef.current !== null &&
+      (isNaN(newValue) || Math.max(min, Math.min(max, newValue)) === liveEditRef.current)
+    ) {
+      setIsEditing(false);
+      return;
+    }
     if (isNaN(newValue)) {
       newValue = value;
     } else {
@@ -629,11 +679,7 @@ const Slider = ({
       const newValue = currentNum + direction * step;
       const snappedNewValue = snapToStep(newValue);
       setInputValue(String(snappedNewValue));
-      onChange({
-        target: {
-          value: snappedNewValue,
-        },
-      });
+      applyTypedValue(snappedNewValue);
     }
   };
 
@@ -649,22 +695,23 @@ const Slider = ({
 
   return (
     <div
-      className={`mb-2 group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      className={`mb-2 group${keyframe ? ' relative group/keyframe' : ''} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       ref={containerRef}
       data-speed-edit-id={speedEditId}
       onPointerDownCapture={disabled ? undefined : claimSpeedEdit}
     >
-      <div className="flex justify-between items-center mb-1">
+      <div className="flex justify-between items-center gap-2 mb-1">
         <div
-          className={`grid ${typeof label === 'string' && !disabled ? 'cursor-pointer' : ''}`}
+          className={`grid min-w-0 ${typeof label === 'string' && !disabled ? 'cursor-pointer' : ''}`}
           onClick={typeof label === 'string' && !disabled ? handleReset : undefined}
           onDoubleClick={typeof label === 'string' && !disabled ? handleReset : undefined}
           onMouseEnter={typeof label === 'string' && !disabled ? () => setIsLabelHovered(true) : undefined}
           onMouseLeave={typeof label === 'string' && !disabled ? () => setIsLabelHovered(false) : undefined}
         >
           <span
+            ref={labelRef}
             aria-hidden={isLabelHovered && typeof label === 'string'}
-            className={`col-start-1 row-start-1 text-sm font-medium text-text-secondary select-none transition-opacity duration-200 ease-in-out ${
+            className={`col-start-1 row-start-1 truncate text-sm font-medium text-text-secondary select-none transition-opacity duration-200 ease-in-out ${
               isLabelHovered && typeof label === 'string' ? 'opacity-0' : 'opacity-100'
             }`}
           >
@@ -673,7 +720,7 @@ const Slider = ({
           {typeof label === 'string' && (
             <span
               aria-hidden={!isLabelHovered}
-              className={`col-start-1 row-start-1 text-sm font-medium text-text-primary select-none transition-opacity duration-200 ease-in-out pointer-events-none ${
+              className={`col-start-1 row-start-1 truncate text-sm font-medium text-text-primary select-none transition-opacity duration-200 ease-in-out pointer-events-none ${
                 isLabelHovered ? 'opacity-100' : 'opacity-0'
               }`}
             >
@@ -681,7 +728,7 @@ const Slider = ({
             </span>
           )}
         </div>
-        <div className="w-14 text-right shrink-0">
+        <div className={`text-right shrink-0 ${isEditing || keyframe ? 'w-14' : ''}`}>
           {isEditing ? (
             <input
               className="w-full text-sm text-right bg-card-active border border-gray-500 rounded-sm px-1 py-0 outline-none focus:ring-1 focus:ring-blue-500 text-text-primary"
@@ -703,7 +750,7 @@ const Slider = ({
               onDoubleClick={disabled ? undefined : handleReset}
               data-tooltip={disabled ? undefined : t('ui.slider.clickToEdit')}
             >
-              {formatValue(numericValue)}
+              {valueText(numericValue)}
               {suffix && <span className="text-[10px] align-top inline ml-0.5">{suffix}</span>}
             </span>
           )}
@@ -751,9 +798,10 @@ const Slider = ({
           onTouchCancel={handleTouchEnd}
           step={scale === LINEAR_SCALE ? String(step) : 'any'}
           type="range"
-          value={scale.toPosition(displayValue)}
+          value={scale.toPosition(position)}
         />
       </div>
+      {keyframe}
     </div>
   );
 };

@@ -29,6 +29,7 @@ import {
   Trash2,
   Users,
   Layers,
+  Layers2,
   Crop,
   Save,
   Wrench,
@@ -43,6 +44,7 @@ import CreateFolderModal from '../../modals/CreateFolderModal';
 import RenameFolderModal from '../../modals/RenameFolderModal';
 import Button from '../../ui/Button';
 import Text from '../../ui/Text';
+import PanelHeader from '../../ui/PanelHeader';
 import Slider from '../../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS, MaskContainer } from '../../../utils/adjustments';
@@ -55,6 +57,15 @@ import { OPTION_SEPARATOR, type Option } from '../../../types/ui';
 import { Preset } from '../../../types/editor';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { debouncedSave, useEditorActions, useHoverPreview } from '../../../hooks/useEditorActions';
+import {
+  MenuEntry,
+  clearPresetSource,
+  editorMenu,
+  routeLookPatch,
+  routeSelectionLook,
+  useEditorTargetId,
+  usePresetSource,
+} from '../../../store/videoIntegration';
 
 interface DroppableFolderItemProps {
   children: any;
@@ -193,14 +204,18 @@ const evaluateCurveY = (curve: Array<{ x: number; y: number }>, targetX: number)
   return targetX;
 };
 
-const applyPresetAdjustments = (adjustments: Adjustments, preset: Preset): Adjustments => {
+const presetPatch = (preset: Preset): Partial<Adjustments> => {
   const presetMasks = preset.adjustments.masks || [];
   return {
-    ...adjustments,
     ...preset.adjustments,
     ...(hasAiSubMasks(presetMasks) ? { masks: stripAiMaskResults(presetMasks) } : {}),
   };
 };
+
+const applyPresetAdjustments = (adjustments: Adjustments, preset: Preset): Adjustments => ({
+  ...adjustments,
+  ...presetPatch(preset),
+});
 
 const mixAdjustments = (presetObj: any, intensity: number, initialObj: any = INITIAL_ADJUSTMENTS): any => {
   const fraction = intensity / 100;
@@ -590,6 +605,9 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const { t } = useTranslation();
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore((s) => s.adjustments);
+  const editorTarget = useEditorTargetId();
+  const previewKey = selectedImage ? `${selectedImage.path}#${editorTarget ?? ''}` : null;
+  const presetSource = usePresetSource((s) => s.source);
   const setEditor = useEditorStore((s) => s.setEditor);
   const { setAdjustments } = useEditorActions();
   const hoverPreview = useHoverPreview();
@@ -609,7 +627,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     renameItem,
     reorderItems,
     sortAllPresetsAlphabetically,
-  } = usePresets(adjustments);
+  } = usePresets(presetSource ?? adjustments);
   const { showContextMenu } = useContextMenu();
   const [previews, setPreviews] = useState<Record<string, string | null>>({});
   const [configureModalState, setConfigureModalState] = useState<ModalState>({ isOpen: false, preset: null });
@@ -630,8 +648,17 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   expandedFoldersRef.current = expandedFolders;
   const previewQueue = useRef<Array<any>>([]);
   const isProcessingQueue = useRef(false);
-  const currentImagePathRef = useRef<string | null>(selectedImage?.path || null);
+  const previewKeyRef = useRef<string | null>(previewKey);
   const hiddenPresetMasks = useRef<Array<MaskContainer> | null>(null);
+
+  useEffect(() => {
+    if (presetSource) setConfigureModalState({ isOpen: true, preset: null });
+  }, [presetSource]);
+
+  const closeConfigureModal = () => {
+    setConfigureModalState({ isOpen: false, preset: null });
+    clearPresetSource();
+  };
 
   const handleDragStateChange = useCallback(
     (isDragging: boolean) => {
@@ -727,7 +754,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     isProcessingQueue.current = true;
 
     while (previewQueue.current.length > 0) {
-      const itemPath = currentImagePathRef.current;
+      const itemPath = previewKeyRef.current;
 
       const item = previewQueue.current.shift();
       if (!item) break;
@@ -747,7 +774,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           jsAdjustments: fullPresetAdjustments,
         });
 
-        if (itemPath !== currentImagePathRef.current) {
+        if (itemPath !== previewKeyRef.current) {
           continue;
         }
 
@@ -763,7 +790,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       } catch (error) {
         const errStr = String(error);
         if (errStr.includes('No original image loaded') || errStr.includes('cancelled')) {
-          if (itemPath !== currentImagePathRef.current) {
+          if (itemPath !== previewKeyRef.current) {
             continue;
           }
           previewQueue.current = [];
@@ -771,7 +798,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         }
 
         console.error(`Failed to generate preview for preset ${preset.name}:`, error);
-        if (itemPath === currentImagePathRef.current) {
+        if (itemPath === previewKeyRef.current) {
           setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
         }
       }
@@ -814,7 +841,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         return;
       }
 
-      const pathAtStart = currentImagePathRef.current;
+      const pathAtStart = previewKeyRef.current;
 
       try {
         const fullPresetAdjustments: any = { ...INITIAL_ADJUSTMENTS, ...preset.adjustments };
@@ -822,7 +849,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
           jsAdjustments: fullPresetAdjustments,
         });
 
-        if (pathAtStart !== currentImagePathRef.current) return;
+        if (pathAtStart !== previewKeyRef.current) return;
 
         const blob = new Blob([new Uint8Array(imageData)], { type: 'image/jpeg' });
         const url = URL.createObjectURL(blob);
@@ -838,7 +865,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         const errStr = String(error);
         if (!errStr.includes('No original image loaded') && !errStr.includes('cancelled')) {
           console.error(`Failed to generate preview for preset ${preset.name}:`, error);
-          if (pathAtStart === currentImagePathRef.current) {
+          if (pathAtStart === previewKeyRef.current) {
             setPreviews((prev: Record<string, string | null>) => ({ ...prev, [preset.id]: null }));
           }
         }
@@ -881,9 +908,9 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   }, [selectedImage?.isReady, presets, enqueuePreviews]);
 
   useEffect(() => {
-    const isPathChanged = selectedImage?.path !== currentImagePathRef.current;
+    const isKeyChanged = previewKey !== previewKeyRef.current;
 
-    if (isPathChanged || !selectedImage?.isReady) {
+    if (isKeyChanged || !selectedImage?.isReady) {
       Object.values(previewsRef.current).forEach((url) => {
         if (url && url.startsWith('blob:')) {
           URL.revokeObjectURL(url);
@@ -899,8 +926,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       setActivePresetId(null);
       setBaseAdjustments(null);
 
-      if (isPathChanged && selectedImage?.path) {
-        currentImagePathRef.current = selectedImage.path;
+      if (isKeyChanged && previewKey) {
+        previewKeyRef.current = previewKey;
       }
     }
 
@@ -912,7 +939,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     }
   }, [
     selectedImage?.isReady,
-    selectedImage?.path,
+    previewKey,
     presets.length,
     generateRootPreviews,
     generateFolderPreviews,
@@ -952,6 +979,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const handleApplyPreset = (preset: Preset) => {
     hoverPreview.show(null);
     hiddenPresetMasks.current = null;
+
+    if (routeLookPatch(presetPatch(preset))) return;
 
     if (activePresetId === preset.id) {
       setActivePresetId(null);
@@ -1029,7 +1058,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         await generateSinglePreview(newPreset);
       }
     }
-    setConfigureModalState({ isOpen: false, preset: null });
+    closeConfigureModal();
   };
 
   const handleAddFolder = (name: string) => {
@@ -1253,7 +1282,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     const isFolder = !!item.folder;
     const data = isFolder ? item.folder : item.preset;
 
-    let options: Option[];
+    let options: Array<MenuEntry>;
     if (isFolder) {
       options = [
         {
@@ -1276,6 +1305,13 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       ];
     } else {
       options = [
+        {
+          projectOnly: true,
+          icon: Layers2,
+          label: t('video.presets.applyToSelection'),
+          onClick: () => routeSelectionLook(presetPatch(data as Preset)),
+        },
+        { projectOnly: true, type: OPTION_SEPARATOR },
         {
           icon: Save,
           label: t('editor.presets.menu.overwrite'),
@@ -1319,7 +1355,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       ];
     }
 
-    showContextMenu(event.clientX, event.clientY, options);
+    showContextMenu(event.clientX, event.clientY, editorMenu(options));
   };
 
   const handleBackgroundContextMenu = (event: any) => {
@@ -1355,42 +1391,39 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   return (
     <DndContext id="presets-panel-dnd" sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-full">
-        <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-          <Text variant={TextVariants.title}>{t('editor.presets.title')}</Text>
-          <div className="flex items-center gap-1">
-            <button
-              className="p-2 rounded-full hover:bg-surface transition-colors"
-              onClick={onNavigateToCommunity}
-              data-tooltip={t('editor.presets.tooltips.explore')}
-            >
-              <Users size={18} />
-            </button>
-            <button
-              className="p-2 rounded-full hover:bg-surface transition-colors"
-              disabled={isLoading}
-              onClick={handleImportPresets}
-              data-tooltip={t('editor.presets.tooltips.import')}
-            >
-              <FileUp size={18} />
-            </button>
-            <button
-              className="p-2 rounded-full hover:bg-surface transition-colors"
-              disabled={presets.length === 0 || isLoading}
-              onClick={handleExportAllPresets}
-              data-tooltip={t('editor.presets.tooltips.export')}
-            >
-              <FileDown size={18} />
-            </button>
-            <button
-              className="p-2 rounded-full hover:bg-surface transition-colors"
-              disabled={isLoading}
-              onClick={() => setConfigureModalState({ isOpen: true, preset: null })}
-              data-tooltip={t('editor.presets.tooltips.saveNew')}
-            >
-              <Plus size={18} />
-            </button>
-          </div>
-        </div>
+        <PanelHeader title={t('editor.presets.title')}>
+          <button
+            className="p-2 rounded-full hover:bg-surface transition-colors"
+            onClick={onNavigateToCommunity}
+            data-tooltip={t('editor.presets.tooltips.explore')}
+          >
+            <Users size={18} />
+          </button>
+          <button
+            className="p-2 rounded-full hover:bg-surface transition-colors"
+            disabled={isLoading}
+            onClick={handleImportPresets}
+            data-tooltip={t('editor.presets.tooltips.import')}
+          >
+            <FileUp size={18} />
+          </button>
+          <button
+            className="p-2 rounded-full hover:bg-surface transition-colors"
+            disabled={presets.length === 0 || isLoading}
+            onClick={handleExportAllPresets}
+            data-tooltip={t('editor.presets.tooltips.export')}
+          >
+            <FileDown size={18} />
+          </button>
+          <button
+            className="p-2 rounded-full hover:bg-surface transition-colors"
+            disabled={isLoading}
+            onClick={() => setConfigureModalState({ isOpen: true, preset: null })}
+            data-tooltip={t('editor.presets.tooltips.saveNew')}
+          >
+            <Plus size={18} />
+          </button>
+        </PanelHeader>
 
         <RootDroppableArea onContextMenu={handleBackgroundContextMenu}>
           {!selectedImage ? (
@@ -1505,7 +1538,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
         <ConfigurePresetModal
           isOpen={configureModalState.isOpen}
           initialPreset={configureModalState.preset}
-          onClose={() => setConfigureModalState({ isOpen: false, preset: null })}
+          onClose={closeConfigureModal}
           onSave={handleSaveConfiguredPreset}
         />
         <CreateFolderModal

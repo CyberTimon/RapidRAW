@@ -83,6 +83,25 @@ pub const OS_DECODED_EXTENSIONS: &[&str] = &["heic", "heif", "hif"];
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub const OS_DECODED_EXTENSIONS: &[&str] = &[];
 
+pub const VIDEO_EXTENSIONS: &[&str] = &[
+    "mp4", "mov", "m4v", "mkv", "webm", "avi", "mts", "m2ts", "mxf", "3gp", "wmv", "mpg", "mpeg",
+];
+
+pub const AUDIO_EXTENSIONS: &[&str] = &["mp3", "wav", "m4a", "aac", "flac", "ogg", "opus"];
+
+pub const VIDEO_PROJECT_EXTENSION: &str = "rrproj";
+
+const ALPHA_EXTENSIONS: &[&str] = &[
+    "png", "webp", "tif", "tiff", "gif", "bmp", "tga", "ico", "dds", "qoi", "ff", "pam", "exr",
+    "avif",
+];
+
+fn has_extension_in(path: &Path, extensions: &[&str]) -> bool {
+    path.extension()
+        .and_then(|s| s.to_str())
+        .is_some_and(|ext| extensions.iter().any(|e| e.eq_ignore_ascii_case(ext)))
+}
+
 pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
     let ext = match path.as_ref().extension().and_then(|s| s.to_str()) {
         Some(e) => e,
@@ -94,14 +113,48 @@ pub fn is_raw_file<P: AsRef<Path>>(path: P) -> bool {
         .any(|(raw_ext, _)| raw_ext.eq_ignore_ascii_case(ext))
 }
 
+pub fn is_video_file<P: AsRef<Path>>(path: P) -> bool {
+    let path = path.as_ref();
+    let path = path
+        .to_str()
+        .and_then(|s| s.rsplit_once("?vc=").map(|(base, _)| Path::new(base)))
+        .unwrap_or(path);
+    has_extension_in(path, VIDEO_EXTENSIONS)
+}
+
+pub fn is_audio_file<P: AsRef<Path>>(path: P) -> bool {
+    has_extension_in(path.as_ref(), AUDIO_EXTENSIONS)
+}
+
+pub fn is_video_project_file<P: AsRef<Path>>(path: P) -> bool {
+    has_extension_in(path.as_ref(), &[VIDEO_PROJECT_EXTENSION])
+}
+
+pub fn may_have_alpha<P: AsRef<Path>>(path: P) -> bool {
+    has_extension_in(path.as_ref(), ALPHA_EXTENSIONS)
+}
+
+pub fn is_supported_media_file<P: AsRef<Path>>(
+    path: P,
+    videos_supported: impl FnOnce() -> bool,
+) -> bool {
+    let path = path.as_ref();
+    is_supported_image_file(path)
+        || (!is_hidden(path)
+            && (is_video_file(path) || is_video_project_file(path))
+            && videos_supported())
+}
+
+fn is_hidden(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with('.'))
+}
+
 pub fn is_supported_image_file<P: AsRef<Path>>(path: P) -> bool {
     let path = path.as_ref();
 
-    if path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .is_some_and(|name| name.starts_with('.'))
-    {
+    if is_hidden(path) {
         return false;
     }
 

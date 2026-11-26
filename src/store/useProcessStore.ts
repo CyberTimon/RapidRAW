@@ -38,6 +38,7 @@ export enum JobKind {
   AiTagging = 'aiTagging',
   Copy = 'copy',
   Export = 'export',
+  ImmichDownload = 'immichDownload',
   Import = 'import',
   ModelDownload = 'modelDownload',
   Move = 'move',
@@ -51,6 +52,12 @@ export enum JobStatus {
   Success = 'success',
 }
 
+export interface TransferRate {
+  since: number;
+  at: number;
+  bytesPerSecond: number | null;
+}
+
 export interface Job {
   id: string;
   kind: JobKind;
@@ -61,11 +68,29 @@ export interface Job {
   skipped?: number;
   startedAt: number;
   finishedAt: number | null;
+  transfer?: TransferRate;
 }
 
 export type JobUpdate = Partial<Pick<Job, 'status' | 'progress' | 'detail' | 'error' | 'skipped'>>;
 
 export const isJobActive = (status: JobStatus) => status === JobStatus.Running || status === JobStatus.Cancelling;
+
+export const isTransferJob = (kind: JobKind) => kind === JobKind.ImmichDownload || kind === JobKind.ModelDownload;
+
+const RATE_WINDOW_MS = 3000;
+
+const sampleTransfer = (job: Job, progress: Progress, now: number): TransferRate => {
+  const previous = job.transfer;
+  if (!previous || job.progress.current === undefined || progress.current === undefined) {
+    return { since: now, at: now, bytesPerSecond: null };
+  }
+  const elapsed = Math.max(1, now - previous.at);
+  const sample = ((progress.current - job.progress.current) * 1000) / elapsed;
+  const weight = Math.max(1 - Math.exp(-elapsed / RATE_WINDOW_MS), elapsed / Math.max(elapsed, now - previous.since));
+  const bytesPerSecond =
+    previous.bytesPerSecond === null ? sample : previous.bytesPerSecond + (sample - previous.bytesPerSecond) * weight;
+  return { since: previous.since, at: now, bytesPerSecond };
+};
 
 const findActiveJob = (jobs: Record<string, Job>, kind: JobKind) =>
   Object.values(jobs).find((job) => job.kind === kind && isJobActive(job.status));
@@ -338,6 +363,7 @@ export const useProcessStore = create<ProcessState>((set, get) => ({
       if (!job) return {};
 
       const next = { ...job, ...update };
+      if (update.progress && isTransferJob(job.kind)) next.transfer = sampleTransfer(job, update.progress, Date.now());
       if (next.status === JobStatus.Success) {
         next.progress = { ...next.progress, current: next.progress.total };
       }

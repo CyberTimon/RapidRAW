@@ -333,7 +333,7 @@ pub async fn generate_uncropped_preview(
             1.0
         };
 
-        let geometry = get_geometry_params_from_json(&path, &adjustments_clone);
+        let geometry = get_geometry_params_from_json(loaded_image.lens_path(), &adjustments_clone);
         let has_geometry = !is_geometry_identity(&geometry);
         let source = RenderSource::new(
             &source_image,
@@ -389,7 +389,7 @@ pub async fn generate_uncropped_preview(
                 roi: None,
                 hsl_probe: false,
                 motion_blur: crate::effects::motion_blur::MotionBlurs::new(
-                    &path,
+                    loaded_image.lens_path(),
                     &adjustments_clone,
                     (preview_width, preview_height),
                     (0.0, 0.0),

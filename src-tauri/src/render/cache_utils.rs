@@ -493,26 +493,37 @@ pub struct DecodeFingerprint {
     settings_hash: u64,
 }
 
+type DecodeSettings<'a> = (
+    Option<u32>,
+    &'a str,
+    Option<u32>,
+    Option<u32>,
+    Option<bool>,
+    Option<bool>,
+    Option<bool>,
+);
+
+fn decode_settings(settings: &AppSettings) -> DecodeSettings<'_> {
+    (
+        settings.raw_highlight_compression.map(f32::to_bits),
+        &settings.linear_raw_mode,
+        settings.raw_preprocessing_color_nr.map(f32::to_bits),
+        settings.raw_preprocessing_sharpening.map(f32::to_bits),
+        settings.apply_preprocessing_to_non_raws,
+        settings.use_apple_raw9,
+        settings.remove_hot_pixels,
+    )
+}
+
+pub fn stable_decode_settings(settings: &AppSettings) -> String {
+    serde_json::to_string(&decode_settings(settings)).unwrap_or_default()
+}
+
 impl DecodeFingerprint {
     pub fn for_file(path: &Path, settings: &AppSettings) -> Option<Self> {
         let metadata = std::fs::metadata(path).ok()?;
         let mut hasher = DefaultHasher::new();
-        settings
-            .raw_highlight_compression
-            .map(f32::to_bits)
-            .hash(&mut hasher);
-        settings.linear_raw_mode.hash(&mut hasher);
-        settings
-            .raw_preprocessing_color_nr
-            .map(f32::to_bits)
-            .hash(&mut hasher);
-        settings
-            .raw_preprocessing_sharpening
-            .map(f32::to_bits)
-            .hash(&mut hasher);
-        settings.apply_preprocessing_to_non_raws.hash(&mut hasher);
-        settings.use_apple_raw9.hash(&mut hasher);
-        settings.remove_hot_pixels.hash(&mut hasher);
+        decode_settings(settings).hash(&mut hasher);
         Some(Self {
             len: metadata.len(),
             modified: metadata.modified().ok(),
@@ -773,6 +784,27 @@ pub fn clear_preview_stage_caches(state: &AppState) {
         .working_cache
         .lock()
         .unwrap_or_else(|e| e.into_inner()) = None;
+}
+
+pub fn clear_source_caches(state: &AppState) {
+    for target in PreviewTarget::ALL {
+        clear_preview_slot(state, target);
+    }
+    *state
+        .full_warped_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner()) = None;
+    clear_preview_stage_caches(state);
+    state
+        .mask_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
+    state
+        .uncropped_source_cache
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
 }
 
 pub fn clear_preview_slot(state: &AppState, target: PreviewTarget) {

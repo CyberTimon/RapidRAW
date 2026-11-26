@@ -4,8 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { Captions, Filter } from 'lucide-react';
 import clsx from 'clsx';
-import Text from '../ui/Text';
-import { TextVariants } from '../../types/typography';
+import PanelHeader from '../ui/PanelHeader';
 import { ImageFile } from '../../types/library';
 import { ThumbnailAspectRatio } from '../../types/settings';
 import { GroupBadgeInfo, GroupId } from '../../utils/imageGrouping';
@@ -224,25 +223,22 @@ export default function DockedFilmstrip({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>{t('editor.switcher.tooltips.filmstrip')}</Text>
-        <div className="flex items-center gap-1">
-          <HeaderToggleButton
-            isActive={showFileInfo}
-            onClick={() => setUI((s) => ({ filmstripShowFileInfo: !s.filmstripShowFileInfo }))}
-            tooltip={t('library.sort.fileName')}
-          >
-            <Captions size={18} />
-          </HeaderToggleButton>
-          <HeaderToggleButton
-            isActive={isFilterExpanded}
-            onClick={toggleQuickFilter}
-            tooltip={t('ui.bottomBar.tooltips.quickFilter')}
-          >
-            <Filter size={18} />
-          </HeaderToggleButton>
-        </div>
-      </div>
+      <PanelHeader title={t('editor.switcher.tooltips.filmstrip')}>
+        <HeaderToggleButton
+          isActive={showFileInfo}
+          onClick={() => setUI((s) => ({ filmstripShowFileInfo: !s.filmstripShowFileInfo }))}
+          tooltip={t('library.sort.fileName')}
+        >
+          <Captions size={18} />
+        </HeaderToggleButton>
+        <HeaderToggleButton
+          isActive={isFilterExpanded}
+          onClick={toggleQuickFilter}
+          tooltip={t('ui.bottomBar.tooltips.quickFilter')}
+        >
+          <Filter size={18} />
+        </HeaderToggleButton>
+      </PanelHeader>
       <div
         className={clsx(
           'grid shrink-0 transition-[grid-template-rows] duration-300 ease-in-out',

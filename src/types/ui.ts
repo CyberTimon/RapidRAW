@@ -1,3 +1,5 @@
+import type { ShortcutAction } from '../utils/keyboardUtils';
+
 export const GLOBAL_KEYS = [
   ' ',
   'ArrowUp',
@@ -37,6 +39,11 @@ export enum Panel {
   FolderTree = 'folderTree',
   Tethering = 'tethering',
   Filmstrip = 'filmstrip',
+  MediaPool = 'mediaPool',
+  Inspector = 'inspector',
+  Effects = 'effects',
+  Captions = 'captions',
+  Mixer = 'mixer',
 }
 
 export type PanelRegion = 'leftTop' | 'leftBottom' | 'rightTop' | 'rightBottom';
@@ -49,7 +56,9 @@ export interface Option {
   label?: string;
   onClick?(): void;
   onRightClick?(): void;
+  shortcut?: ShortcutAction;
   submenu?: any;
+  tooltip?: string;
   type?: string;
 }
 

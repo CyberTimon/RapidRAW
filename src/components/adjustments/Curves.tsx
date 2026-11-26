@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, memo } from 'react';
+import { useState, useRef, useEffect, useMemo, memo, ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -15,10 +15,12 @@ import {
 import { Theme } from '../../types/settings';
 import { OPTION_SEPARATOR } from '../../types/ui';
 import { useContextMenu } from '../../context/ContextMenuContext';
+import { useLiveValues } from '../../context/SliderKeyframeContext';
 import Text from '../ui/Text';
 import Slider from '../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useEditorStore } from '../../store/useEditorStore';
+import { useVideoPlaying } from '../../store/videoIntegration';
 import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/fineAdjustment';
 
 let curveClipboard: Array<Coord> | null = null;
@@ -173,6 +175,63 @@ function getCurvePath(points: Array<Coord>) {
   return path;
 }
 
+const PARAMETRIC_KEYS = Object.keys(DEFAULT_PARAMETRIC_CURVE_SETTINGS) as Array<keyof ParametricCurveSettings>;
+const SPLIT_KEYS = ['split1', 'split2', 'split3'] as const;
+
+interface LiveParametricProps {
+  settings: ParametricCurveSettings;
+  channel: ActiveChannel;
+  interacting: boolean;
+}
+
+function useShownParametric({ settings, channel, interacting }: LiveParametricProps) {
+  const live = useLiveValues(
+    PARAMETRIC_KEYS.map((key) => `parametricCurve.${channel}.${key}`),
+    interacting,
+  );
+  return PARAMETRIC_KEYS.reduce((shown, key, index) => {
+    const value = live[index];
+    return value === undefined ? shown : { ...shown, [key]: value };
+  }, settings);
+}
+
+function ParametricSplits({
+  children,
+  ...props
+}: LiveParametricProps & { children(key: (typeof SPLIT_KEYS)[number], value: number): ReactNode }) {
+  const shown = useShownParametric(props);
+  return <>{SPLIT_KEYS.map((key) => children(key, shown[key]))}</>;
+}
+
+function ParametricCurvePath({ color, ...props }: LiveParametricProps & { color: string }) {
+  const points = buildParametricPoints(useShownParametric(props));
+  return (
+    <>
+      <path d={getCurvePath(points)} fill="none" stroke={color} strokeWidth="2.5" />
+      {points.length >= 2 && (
+        <>
+          <circle
+            cx={points[0]?.x || 0}
+            cy={255 - (points[0]?.y || 0)}
+            fill={color}
+            r="6"
+            stroke="#1e1e1e"
+            strokeWidth="2"
+          />
+          <circle
+            cx={points[points.length - 1]?.x || 255}
+            cy={255 - (points[points.length - 1]?.y || 255)}
+            fill={color}
+            r="6"
+            stroke="#1e1e1e"
+            strokeWidth="2"
+          />
+        </>
+      )}
+    </>
+  );
+}
+
 function getHistogramPath(data: Array<any>) {
   if (!data || data.length === 0) return '';
   const maxVal = Math.max(...data);
@@ -208,6 +267,7 @@ const HistogramFill = memo(({ channel, opacity }: { channel: ActiveChannel; opac
   const data = useMemo(() => displayed && sdrHistogram(displayed, sdrWhite), [displayed, sdrWhite]);
   const histogramPath = useMemo(() => getHistogramPath(data ?? []), [data]);
   const zeroHistogramPath = useMemo(() => getZeroHistogramPath(data ?? []), [data]);
+  const playing = useVideoPlaying();
 
   return (
     <AnimatePresence>
@@ -219,7 +279,7 @@ const HistogramFill = memo(({ channel, opacity }: { channel: ActiveChannel; opac
           animate={{
             d: histogramPath,
             opacity,
-            transition: { d: { duration: 0.5, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 1 } },
+            transition: { d: { duration: playing ? 0.3 : 0.5, ease: [0.22, 1, 0.36, 1] }, opacity: { duration: 1 } },
           }}
           exit={{
             d: zeroHistogramPath,
@@ -311,6 +371,11 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
   const activeParametricSettings =
     (draggingSplitKey ? localParametricSettings : null) ?? parametricCurves[activeChannel];
+  const liveParametric = {
+    settings: activeParametricSettings,
+    channel: activeChannel,
+    interacting: draggingSplitKey !== null,
+  };
 
   const handleToggleMode = (newMode: 'point' | 'parametric') => {
     if (newMode === curveMode) return;
@@ -802,15 +867,6 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
     showContextMenu(e.clientX, e.clientY, options);
   };
 
-  const splitPositions = useMemo(
-    () => [
-      { key: 'split1' as const, value: activeParametricSettings.split1 },
-      { key: 'split2' as const, value: activeParametricSettings.split2 },
-      { key: 'split3' as const, value: activeParametricSettings.split3 },
-    ],
-    [activeParametricSettings.split1, activeParametricSettings.split2, activeParametricSettings.split3],
-  );
-
   const getParametricMarkers = (key: keyof ParametricCurveSettings) =>
     inactiveChannels
       .filter((channel) => parametricCurves[channel]?.[key] !== DEFAULT_PARAMETRIC_CURVE_SETTINGS[key])
@@ -910,11 +966,16 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
               strokeDasharray="2 2"
             />
 
-            {isParametricMode &&
-              splitPositions.map(({ key, value }) => {
-                const x = (value / 100) * 255;
-                return <line key={key} x1={x} y1="0" x2={x} y2="255" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />;
-              })}
+            {isParametricMode && (
+              <ParametricSplits {...liveParametric}>
+                {(key, value) => {
+                  const x = (value / 100) * 255;
+                  return (
+                    <line key={key} x1={x} y1="0" x2={x} y2="255" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+                  );
+                }}
+              </ParametricSplits>
+            )}
 
             {inactiveChannels
               .filter((channel) =>
@@ -934,27 +995,10 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                 />
               ))}
 
-            <path d={getCurvePath(activePoints)} fill="none" stroke={color} strokeWidth="2.5" />
-
-            {isParametricMode && activePoints.length >= 2 && (
-              <>
-                <circle
-                  cx={activePoints[0]?.x || 0}
-                  cy={255 - (activePoints[0]?.y || 0)}
-                  fill={color}
-                  r="6"
-                  stroke="#1e1e1e"
-                  strokeWidth="2"
-                />
-                <circle
-                  cx={activePoints[activePoints.length - 1]?.x || 255}
-                  cy={255 - (activePoints[activePoints.length - 1]?.y || 255)}
-                  fill={color}
-                  r="6"
-                  stroke="#1e1e1e"
-                  strokeWidth="2"
-                />
-              </>
+            {isParametricMode ? (
+              <ParametricCurvePath {...liveParametric} color={color} />
+            ) : (
+              <path d={getCurvePath(activePoints)} fill="none" stroke={color} strokeWidth="2.5" />
             )}
 
             {!isParametricMode &&
@@ -996,7 +1040,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                         background: getSplitterGradient(activeChannel),
                       }}
                     />
-                    {splitPositions.flatMap(({ key }) =>
+                    {SPLIT_KEYS.flatMap((key) =>
                       getParametricMarkers(key).map(({ channel, color: markerColor, value }) => (
                         <div
                           className="absolute inset-y-0 w-0.5 -translate-x-1/2 pointer-events-none opacity-70"
@@ -1005,38 +1049,40 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                         />
                       )),
                     )}
-                    {splitPositions.map(({ key, value }) => (
-                      <button
-                        key={key}
-                        className="absolute top-0 bottom-0 w-3 -translate-x-1/2 cursor-ew-resize group"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          lastPointerRef.current = { x: e.clientX, y: e.clientY };
-                          accumulatedSplitRef.current = activeParametricSettings[key];
-                          localParametricSettingsRef.current = { ...activeParametricSettings };
-                          setDraggingSplitKey(key);
-                        }}
-                        onTouchStart={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          lastPointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                          accumulatedSplitRef.current = activeParametricSettings[key];
-                          localParametricSettingsRef.current = { ...activeParametricSettings };
-                          setDraggingSplitKey(key);
-                        }}
-                        onDoubleClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          updateParametricValue(key, DEFAULT_PARAMETRIC_CURVE_SETTINGS[key]);
-                        }}
-                        style={{ left: `${value}%` }}
-                        type="button"
-                      >
-                        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-white/70 group-hover:bg-white" />
-                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-4 rounded-sm bg-white/80 border border-white/60 group-hover:bg-white group-hover:border-white" />
-                      </button>
-                    ))}
+                    <ParametricSplits {...liveParametric}>
+                      {(key, value) => (
+                        <button
+                          key={key}
+                          className="absolute top-0 bottom-0 w-3 -translate-x-1/2 cursor-ew-resize group"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            lastPointerRef.current = { x: e.clientX, y: e.clientY };
+                            accumulatedSplitRef.current = value;
+                            localParametricSettingsRef.current = { ...activeParametricSettings };
+                            setDraggingSplitKey(key);
+                          }}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            lastPointerRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                            accumulatedSplitRef.current = value;
+                            localParametricSettingsRef.current = { ...activeParametricSettings };
+                            setDraggingSplitKey(key);
+                          }}
+                          onDoubleClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            updateParametricValue(key, DEFAULT_PARAMETRIC_CURVE_SETTINGS[key]);
+                          }}
+                          style={{ left: `${value}%` }}
+                          type="button"
+                        >
+                          <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-white/70 group-hover:bg-white" />
+                          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-4 rounded-sm bg-white/80 border border-white/60 group-hover:bg-white group-hover:border-white" />
+                        </button>
+                      )}
+                    </ParametricSplits>
                   </div>
                 </div>
               </div>

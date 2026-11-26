@@ -24,6 +24,7 @@ interface DropdownProps<T extends React.Key> {
   value: T | null;
   disabled?: boolean;
   triggerClassName?: string;
+  searchable?: boolean;
 }
 
 const Dropdown = <T extends React.Key>({
@@ -35,6 +36,7 @@ const Dropdown = <T extends React.Key>({
   value,
   disabled = false,
   triggerClassName = '',
+  searchable = false,
 }: DropdownProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -43,7 +45,8 @@ const Dropdown = <T extends React.Key>({
   const [opensUp, setOpensUp] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
+  const [typedSearch, setTypedSearch] = useState(false);
+  const showSearch = searchable || typedSearch;
   const selectedOption = options.find((opt) => opt.value === value) || null;
 
   useEffect(() => {
@@ -62,7 +65,7 @@ const Dropdown = <T extends React.Key>({
   useEffect(() => {
     if (!isOpen) {
       setSearchTerm('');
-      setShowSearch(false);
+      setTypedSearch(false);
     }
   }, [isOpen]);
 
@@ -133,7 +136,7 @@ const Dropdown = <T extends React.Key>({
       e.preventDefault();
 
       setIsOpen(true);
-      setShowSearch(true);
+      setTypedSearch(true);
       setSearchTerm((prev) => prev + e.key);
     }
   };
@@ -152,11 +155,11 @@ const Dropdown = <T extends React.Key>({
         onClick={() => setIsOpen(!isOpen)}
         type="button"
       >
-        <Text as="span" variant={TextVariants.label} color={TextColors.primary}>
+        <Text as="span" variant={TextVariants.label} color={TextColors.primary} className="truncate">
           {selectedOption ? selectedOption.label : placeholder}
         </Text>
         <ChevronDown
-          className={`${TEXT_COLOR_KEYS[TextColors.secondary]} transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          className={`shrink-0 ${TEXT_COLOR_KEYS[TextColors.secondary]} transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           size={20}
         />
       </button>

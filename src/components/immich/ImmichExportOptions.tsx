@@ -25,7 +25,13 @@ export function useImmichExportChoice() {
   return { album: isKnown ? album : 'source', withOriginal: settings.exportWithOriginal };
 }
 
-export default function ImmichExportOptions({ disabled }: { disabled?: boolean }) {
+export default function ImmichExportOptions({
+  disabled,
+  showOriginal = true,
+}: {
+  disabled?: boolean;
+  showOriginal?: boolean;
+}) {
   const { t } = useTranslation();
   const appSettings = useSettingsStore((state) => state.appSettings);
   const handleSettingsChange = useSettingsStore((state) => state.handleSettingsChange);
@@ -102,14 +108,16 @@ export default function ImmichExportOptions({ disabled }: { disabled?: boolean }
           </Button>
         </div>
       )}
-      <Switch
-        id="immich-export-with-original"
-        label={t('immich.export.withOriginal')}
-        tooltip={t('immich.export.withOriginalDesc')}
-        checked={withOriginal}
-        onChange={(exportWithOriginal) => change({ exportWithOriginal })}
-        disabled={disabled}
-      />
+      {showOriginal && (
+        <Switch
+          id="immich-export-with-original"
+          label={t('immich.export.withOriginal')}
+          tooltip={t('immich.export.withOriginalDesc')}
+          checked={withOriginal}
+          onChange={(exportWithOriginal) => change({ exportWithOriginal })}
+          disabled={disabled}
+        />
+      )}
     </div>
   );
 }

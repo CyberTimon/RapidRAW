@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
+import Shortcut from './Shortcut';
 import Text from './Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 
@@ -14,6 +15,7 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 interface TooltipData {
   id: number;
   content: string;
+  shortcut: string | null;
   centerX: number;
   y: number;
   isAbove: boolean;
@@ -65,7 +67,7 @@ export default function GlobalTooltip() {
       }
 
       tooltipIdRef.current += 1;
-      return { id: tooltipIdRef.current, content, centerX, y, isAbove };
+      return { id: tooltipIdRef.current, content, shortcut: el.getAttribute('data-shortcut'), centerX, y, isAbove };
     };
 
     const watchTarget = () => {
@@ -76,13 +78,17 @@ export default function GlobalTooltip() {
           hide();
           return;
         }
-        setTooltip((prev) => (prev && prev.content !== content ? { ...prev, content } : prev));
+        const shortcut = el.getAttribute('data-shortcut');
+        setTooltip((prev) =>
+          prev && (prev.content !== content || prev.shortcut !== shortcut) ? { ...prev, content, shortcut } : prev,
+        );
         rafRef.current = requestAnimationFrame(tick);
       };
       rafRef.current = requestAnimationFrame(tick);
     };
 
     const handleMouseOver = (e: MouseEvent) => {
+      if (e.buttons !== 0) return;
       const el = (e.target as HTMLElement).closest?.('[data-tooltip]');
       if (!el || !(el instanceof HTMLElement)) return;
       if (el === targetRef.current) return;
@@ -135,14 +141,14 @@ export default function GlobalTooltip() {
 
     document.addEventListener('mouseover', handleMouseOver);
     document.addEventListener('mouseout', handleMouseOut);
-    document.addEventListener('mousedown', dismiss);
+    document.addEventListener('pointerdown', dismiss, true);
     document.addEventListener('scroll', dismiss, true);
     document.addEventListener('keydown', onKey);
 
     return () => {
       document.removeEventListener('mouseover', handleMouseOver);
       document.removeEventListener('mouseout', handleMouseOut);
-      document.removeEventListener('mousedown', dismiss);
+      document.removeEventListener('pointerdown', dismiss, true);
       document.removeEventListener('scroll', dismiss, true);
       document.removeEventListener('keydown', onKey);
       clearTimer();
@@ -189,13 +195,19 @@ export default function GlobalTooltip() {
             'fixed z-10000 pointer-events-none',
             'bg-surface/80 backdrop-blur-xs',
             'border border-text-secondary/10 shadow-xl rounded-md',
-            'px-2.5 py-1.5 whitespace-nowrap',
+            'px-2.5 py-1.5 w-max max-w-md flex items-center gap-2',
             tooltip.isAbove && '-translate-y-full',
           )}
         >
-          <Text variant={TextVariants.small} color={TextColors.primary} weight={TextWeights.medium}>
+          <Text
+            variant={TextVariants.small}
+            color={TextColors.primary}
+            weight={TextWeights.medium}
+            className="min-w-0 wrap-break-word"
+          >
             {tooltip.content}
           </Text>
+          <Shortcut keys={tooltip.shortcut ?? undefined} />
         </motion.div>
       )}
     </AnimatePresence>,

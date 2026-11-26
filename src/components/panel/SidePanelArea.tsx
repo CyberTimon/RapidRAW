@@ -144,7 +144,7 @@ function RegionDroppableContainer({
           data-panel-region={region}
           onPointerDownCapture={handleContentInteraction}
         >
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="wait" presenceAffectsLayout={false}>
             {activePanel ? (
               <motion.div
                 key={activePanel}

@@ -167,6 +167,14 @@ pub struct LoadedImage {
     pub is_raw: bool,
     pub as_shot: AsShot,
     pub has_gain_map: bool,
+    pub source_time: Option<f64>,
+    pub lens_source: Option<String>,
+}
+
+impl LoadedImage {
+    pub fn lens_path(&self) -> &str {
+        self.lens_source.as_deref().unwrap_or(&self.path)
+    }
 }
 
 #[derive(Clone)]
@@ -253,6 +261,7 @@ pub struct PreviewJob {
 pub enum PreviewTask {
     Editor(PreviewJob),
     Viewer,
+    InstallFrame(LoadedImage, usize, tokio::sync::oneshot::Sender<bool>),
 }
 
 pub struct AnalyticsJob {
@@ -355,6 +364,7 @@ pub struct AppState {
     pub uncropped_source_cache: Mutex<HashMap<u64, Arc<DynamicImage>>>,
     pub thumbnail_source_cache: Mutex<HashMap<String, Arc<ThumbnailSource>>>,
     pub load_image_generation: Arc<AtomicUsize>,
+    pub image_load_epoch: AtomicUsize,
     pub wgpu_presented_generation: AtomicUsize,
     pub full_warped_cache: Mutex<Option<(u64, Arc<DynamicImage>)>>,
     pub full_warped_build_lock: Mutex<()>,

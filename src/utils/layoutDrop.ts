@@ -13,8 +13,17 @@ export type LayoutDropData =
 
 const LAYOUT_DROP_PRIORITY = ['layout-switcher', 'layout-split', 'layout-bottom', 'layout-region'];
 
+const isClippedAway = (node: HTMLElement | null | undefined, pointer: { x: number; y: number } | null) => {
+  const clip = node?.closest('[data-drop-clip]');
+  if (!clip || !pointer) return false;
+  const rect = clip.getBoundingClientRect();
+  return pointer.x < rect.left || pointer.x > rect.right || pointer.y < rect.top || pointer.y > rect.bottom;
+};
+
 export const layoutCollisionDetection: CollisionDetection = (args) => {
-  const collisions = pointerWithin(args);
+  const collisions = pointerWithin(args).filter(
+    (collision) => !isClippedAway(collision.data?.droppableContainer?.node.current, args.pointerCoordinates),
+  );
   if (args.active.data.current?.type !== 'layout-tab') return collisions;
   for (const type of LAYOUT_DROP_PRIORITY) {
     const hit = collisions.find((collision) => collision.data?.droppableContainer?.data.current?.type === type);

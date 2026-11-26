@@ -5,6 +5,7 @@ use rawler::formats::bmff::Bmff;
 use rawler::formats::tiff::reader::TiffReader;
 use rawler::formats::tiff::{IFD, Value, ifd::OffsetMode};
 use rawler::tags::{DngTag, ExifTag};
+use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
@@ -25,7 +26,7 @@ const RAF_JPEG_TIFF_HEADER: u32 = 12;
 const FUJI_MAKERNOTE_HEADER: &[u8] = b"FUJIFILM";
 const FUJI_MAKERNOTE_IFD_OFFSET: u32 = 12;
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct RawExposure {
     pub scene_referred: bool,
     pub dng_baseline: Option<f32>,

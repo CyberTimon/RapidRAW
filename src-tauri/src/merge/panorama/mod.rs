@@ -10,14 +10,15 @@ pub mod seams;
 use crate::decode::formats::is_raw_file;
 use crate::merge::features::{FeatureSet, detect_features};
 use crate::merge::output::{MergeOutput, MergePreview, Rendition, encode_jpeg_base64};
+use crate::merge::raster::Interpolation;
 use crate::merge::raster::{encoded_luminance, srgb_decoded};
 use crate::merge::source::{SourceLoader, file_name};
 use crate::merge::{MergeContext, MergeSession, parse_settings};
 use crate::metadata::exif_processing::read_focal_length_35mm;
 use alignment::{Alignment, AlignmentImage, align_images};
 use compositor::{
-    CompositionPlan, Interpolation, Scene, SourceImage, StitchSettings, build_levels,
-    level_for_magnification, level_for_size, plan_composition, render_composition,
+    CompositionPlan, Scene, SourceImage, StitchSettings, build_levels, level_for_magnification,
+    level_for_size, plan_composition, render_composition,
 };
 use serde_json::Value;
 use std::time::Instant;

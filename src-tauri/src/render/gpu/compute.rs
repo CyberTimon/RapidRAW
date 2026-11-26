@@ -1,10 +1,11 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
+use std::convert::Infallible;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 use half::f16;
 use half::slice::HalfFloatSliceExt;
@@ -19,9 +20,13 @@ pub const KEEP_ZW: u32 = 1;
 pub const RGB_MODE: u32 = 2;
 pub const IMAGE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 const WORKGROUP: u32 = 8;
+const POOL_SHARE: u64 = 12;
+const MIN_POOL_KEEP_BYTES: u64 = 128 << 20;
 const POOL_KEEP_BYTES: u64 = 768 << 20;
-const POOL_KEEP_ENCODES: u64 = 4;
+const POOL_KEEP_ENCODES: u64 = 8;
 const MAP_CACHE_ENTRIES: usize = 6;
+const MAP_SHARE: u64 = 32;
+const MIN_MAP_CACHE_BYTES: u64 = 64 << 20;
 const MAP_CACHE_BYTES: u64 = 256 << 20;
 const UPLOAD_STRIP_BYTES: usize = 16 << 20;
 const COMMON_SOURCE: &str = include_str!("../../shaders/compute_common.wgsl");
@@ -63,16 +68,26 @@ pub enum Group {
     Fog,
     LensBlur,
     Light,
+    Video,
+    VideoCompose,
+    Pixelate,
+    Flow,
+    RangeMask,
 }
 
 impl Group {
-    const ALL: [Group; 6] = [
+    const ALL: [Group; 11] = [
         Group::Common,
         Group::Transform,
         Group::Relight,
         Group::Fog,
         Group::LensBlur,
         Group::Light,
+        Group::Video,
+        Group::VideoCompose,
+        Group::Pixelate,
+        Group::Flow,
+        Group::RangeMask,
     ];
 
     fn source(self) -> (&'static str, &'static [&'static str]) {
@@ -123,6 +138,71 @@ impl Group {
                     "lt_flare",
                 ],
             ),
+            Group::Pixelate => (include_str!("../../shaders/pixelate.wgsl"), &["px_apply"]),
+            Group::Video => (
+                include_str!("../../shaders/video.wgsl"),
+                &[
+                    "vd_to_working",
+                    "vd_frame_to_working",
+                    "vd_encode_hdr",
+                    "vd_overlay_to_output",
+                ],
+            ),
+            Group::VideoCompose => (
+                include_str!("../../shaders/video_compose.wgsl"),
+                &[
+                    "vc_fill",
+                    "vc_premultiply",
+                    "vc_composite",
+                    "vc_pin",
+                    "vc_transition",
+                    "vc_wash",
+                    "vc_half",
+                    "vc_gauss",
+                    "vc_blur_mix",
+                    "vc_reveal",
+                    "vc_round",
+                    "vc_text_reveal",
+                    "vc_cutout",
+                    "vc_matte",
+                    "vc_window",
+                    "vc_pack",
+                ],
+            ),
+            Group::Flow => (
+                include_str!("../../shaders/optical_flow.wgsl"),
+                &[
+                    "fl_luma",
+                    "fl_down",
+                    "fl_grad",
+                    "fl_patch",
+                    "fl_densify",
+                    "fl_field",
+                    "fl_trust",
+                    "fl_pull",
+                    "fl_push",
+                    "fl_front",
+                    "fl_select",
+                    "fl_clean",
+                    "fl_splat",
+                    "fl_resolve",
+                    "fl_fill",
+                    "fl_synth",
+                    "fl_link",
+                    "fl_carry",
+                ],
+            ),
+            Group::RangeMask => (
+                include_str!("../../shaders/range_mask.wgsl"),
+                &[
+                    "rm_eval",
+                    "rm_grow",
+                    "rm_blur",
+                    "rm_combine",
+                    "rm_pack",
+                    "rm_cutout",
+                ],
+            ),
         }
     }
 }
@@ -130,7 +210,7 @@ impl Group {
 pub struct ComputePipelines {
     layout: wgpu::PipelineLayout,
     bgl: wgpu::BindGroupLayout,
-    groups: [OnceLock<HashMap<&'static str, wgpu::ComputePipeline>>; 6],
+    groups: [OnceLock<HashMap<&'static str, wgpu::ComputePipeline>>; Group::ALL.len()],
     dummy_view: wgpu::TextureView,
     dummy_layers: wgpu::TextureView,
     dummy_f32: wgpu::TextureView,
@@ -139,7 +219,7 @@ pub struct ComputePipelines {
     dummy_scratch: wgpu::Buffer,
     dummy_data: wgpu::Buffer,
     pool: Mutex<Vec<Slot>>,
-    maps: Mutex<Vec<(u64, Slot)>>,
+    maps: Mutex<Vec<(u64, u64, Slot)>>,
     encodes: AtomicU64,
 }
 
@@ -250,6 +330,18 @@ impl ComputePipelines {
     }
 
     pub fn warm(&self, device: &wgpu::Device) {
+        for group in Group::ALL.into_iter().filter(|group| {
+            !matches!(
+                group,
+                Group::Video | Group::VideoCompose | Group::Flow | Group::RangeMask
+            )
+        }) {
+            self.compiled(device, group);
+        }
+    }
+
+    #[cfg(test)]
+    pub fn warm_all(&self, device: &wgpu::Device) {
         for group in Group::ALL {
             self.compiled(device, group);
         }
@@ -302,14 +394,26 @@ pub struct Slot {
 }
 
 impl Slot {
-    fn bytes(&self) -> u64 {
-        let texel = match self.format {
+    fn texel_bytes(&self) -> u32 {
+        match self.format {
             wgpu::TextureFormat::Rgba32Float => 16,
             IMAGE_FORMAT => 8,
             _ => 4,
-        };
-        self.size.0 as u64 * self.size.1 as u64 * self.layers.max(1) as u64 * texel
+        }
     }
+
+    pub fn bytes(&self) -> u64 {
+        self.size.0 as u64
+            * self.size.1 as u64
+            * self.layers.max(1) as u64
+            * self.texel_bytes() as u64
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct MapKey {
+    pub slot: u64,
+    pub version: u64,
 }
 
 pub struct Tex {
@@ -361,6 +465,7 @@ pub struct ComputeEncoder<'a> {
     queue: &'a wgpu::Queue,
     pipelines: &'a ComputePipelines,
     encode_index: u64,
+    map_budget: u64,
     pub encoder: wgpu::CommandEncoder,
     free: Rc<RefCell<Vec<Slot>>>,
 }
@@ -369,6 +474,13 @@ pub fn encode<T>(
     context: &GpuContext,
     build: impl FnOnce(&mut ComputeEncoder) -> T,
 ) -> Result<T, String> {
+    encode_submitted(context, build).map(|(output, _)| output)
+}
+
+pub fn encode_submitted<T>(
+    context: &GpuContext,
+    build: impl FnOnce(&mut ComputeEncoder) -> T,
+) -> Result<(T, wgpu::SubmissionIndex), String> {
     let device = &context.device;
     let pipelines = context
         .compute
@@ -383,6 +495,7 @@ pub fn encode<T>(
         queue: &context.queue,
         pipelines,
         encode_index,
+        map_budget: memory_share(context, MAP_SHARE, MIN_MAP_CACHE_BYTES, MAP_CACHE_BYTES),
         encoder: device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Compute Encoder"),
         }),
@@ -390,7 +503,7 @@ pub fn encode<T>(
     };
     let output = build(&mut enc);
     let ComputeEncoder { encoder, free, .. } = enc;
-    context.queue.submit(Some(encoder.finish()));
+    let submission = context.queue.submit(Some(encoder.finish()));
 
     let invalid = pollster::block_on(invalid.pop());
     if let Some(error) = pollster::block_on(out_of_memory.pop()).or(invalid) {
@@ -408,19 +521,20 @@ pub fn encode<T>(
     let mut pool = pipelines.pool.lock().unwrap_or_else(|e| e.into_inner());
     pool.extend(free);
     pool.retain(|slot| encode_index - slot.last_encode.min(encode_index) < POOL_KEEP_ENCODES);
+    let keep = memory_share(context, POOL_SHARE, MIN_POOL_KEEP_BYTES, POOL_KEEP_BYTES);
     let mut kept = 0u64;
     let mut index = pool.len();
     while index > 0 {
         index -= 1;
         let bytes = pool[index].bytes();
-        if kept + bytes > POOL_KEEP_BYTES {
+        if kept + bytes > keep {
             pool.remove(index);
         } else {
             kept += bytes;
         }
     }
     drop(pool);
-    Ok(output)
+    Ok((output, submission))
 }
 
 fn convert_rows_to_halves(src: &[f32], channels: usize, width: usize, halves: &mut [f16]) {
@@ -441,7 +555,185 @@ fn convert_rows_to_halves(src: &[f32], channels: usize, width: usize, halves: &m
         });
 }
 
+struct DeviceTag(Weak<wgpu::Device>);
+
+impl DeviceTag {
+    fn of(context: &GpuContext) -> Self {
+        Self(Arc::downgrade(&context.device))
+    }
+
+    fn matches(&self, context: &GpuContext) -> bool {
+        std::ptr::eq(self.0.as_ptr(), Arc::as_ptr(&context.device))
+    }
+}
+
+pub struct PerDevice<T> {
+    device: DeviceTag,
+    value: Option<T>,
+}
+
+impl<T> Default for PerDevice<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> PerDevice<T> {
+    pub const fn new() -> Self {
+        Self {
+            device: DeviceTag(Weak::new()),
+            value: None,
+        }
+    }
+
+    pub fn get(&self) -> Option<&T> {
+        self.value.as_ref()
+    }
+
+    pub fn get_mut(&mut self) -> Option<&mut T> {
+        self.value.as_mut()
+    }
+
+    pub fn get_or_insert_with(&mut self, context: &GpuContext, make: impl FnOnce() -> T) -> &mut T {
+        let Ok(value) = self.get_or_try_insert_with(context, || Ok::<T, Infallible>(make()));
+        value
+    }
+
+    pub fn get_or_try_insert_with<E>(
+        &mut self,
+        context: &GpuContext,
+        make: impl FnOnce() -> Result<T, E>,
+    ) -> Result<&mut T, E> {
+        let value = match self.value.take().filter(|_| self.device.matches(context)) {
+            Some(value) => value,
+            None => {
+                let value = make()?;
+                self.device = DeviceTag::of(context);
+                value
+            }
+        };
+        Ok(self.value.insert(value))
+    }
+}
+
+const FALLBACK_ADAPTER_MEMORY: u64 = 2 << 30;
+#[cfg(not(target_os = "macos"))]
+const DEVICE_LOCAL_HEAP: u32 = 1;
+
+#[cfg(target_os = "windows")]
+fn dxgi_memory(context: &GpuContext) -> Option<u64> {
+    use windows::Win32::Graphics::Dxgi::{
+        CreateDXGIFactory1, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, DXGI_QUERY_VIDEO_MEMORY_INFO,
+        IDXGIAdapter3, IDXGIFactory1,
+    };
+    use windows::core::Interface;
+
+    let info = context.adapter.get_info();
+    unsafe {
+        let factory: IDXGIFactory1 = CreateDXGIFactory1().ok()?;
+        (0..)
+            .map_while(|index| factory.EnumAdapters1(index).ok())
+            .find_map(|adapter| {
+                let desc = adapter.GetDesc1().ok()?;
+                if desc.VendorId != info.vendor || desc.DeviceId != info.device {
+                    return None;
+                }
+                let adapter: IDXGIAdapter3 = adapter.cast().ok()?;
+                let mut memory = DXGI_QUERY_VIDEO_MEMORY_INFO::default();
+                adapter
+                    .QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &mut memory)
+                    .ok()?;
+                (memory.Budget > 0).then_some(memory.Budget)
+            })
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn vulkan_memory(context: &GpuContext) -> Option<u64> {
+    let adapter = unsafe { context.adapter.as_hal::<wgpu::hal::api::Vulkan>() }?;
+    let properties = unsafe {
+        adapter
+            .shared_instance()
+            .raw_instance()
+            .get_physical_device_memory_properties(adapter.raw_physical_device())
+    };
+    properties.memory_heaps[..properties.memory_heap_count as usize]
+        .iter()
+        .filter(|heap| heap.flags.as_raw() & DEVICE_LOCAL_HEAP != 0)
+        .map(|heap| heap.size)
+        .max()
+        .filter(|size| *size > 0)
+}
+
+#[cfg(target_os = "macos")]
+fn metal_memory(context: &GpuContext) -> Option<u64> {
+    let device = unsafe { context.device.as_hal::<wgpu::hal::api::Metal>() }?;
+    let raw = &**device.raw_device();
+    let size: u64 = unsafe { objc2::msg_send![raw, recommendedMaxWorkingSetSize] };
+    (size > 0).then_some(size)
+}
+
+#[cfg(target_os = "windows")]
+fn queried_memory(context: &GpuContext) -> Option<u64> {
+    dxgi_memory(context).or_else(|| vulkan_memory(context))
+}
+
+#[cfg(target_os = "macos")]
+fn queried_memory(context: &GpuContext) -> Option<u64> {
+    metal_memory(context)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn queried_memory(context: &GpuContext) -> Option<u64> {
+    vulkan_memory(context)
+}
+
+pub fn adapter_memory(context: &GpuContext) -> u64 {
+    static KNOWN: Mutex<PerDevice<u64>> = Mutex::new(PerDevice::new());
+    *KNOWN
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get_or_insert_with(context, || {
+            queried_memory(context).unwrap_or(FALLBACK_ADAPTER_MEMORY)
+        })
+}
+
+pub fn memory_share(context: &GpuContext, share: u64, floor: u64, ceiling: u64) -> u64 {
+    (adapter_memory(context) / share).clamp(floor, ceiling)
+}
+
+const UPLOADED_FRAMES: usize = 4;
+
+type UploadedFrame = (Weak<DynamicImage>, DeviceTag, Slot);
+
+static UPLOADED: Mutex<Vec<UploadedFrame>> = Mutex::new(Vec::new());
+
+pub fn register_upload(context: &GpuContext, image: &Arc<DynamicImage>, slot: Slot) {
+    let mut uploaded = UPLOADED.lock().unwrap_or_else(|e| e.into_inner());
+    uploaded.retain(|(frame, device, _)| frame.strong_count() > 0 && device.matches(context));
+    uploaded.push((Arc::downgrade(image), DeviceTag::of(context), slot));
+    let excess = uploaded.len().saturating_sub(UPLOADED_FRAMES);
+    uploaded.drain(..excess);
+}
+
+fn registered_upload(context: &GpuContext, image: &DynamicImage) -> Option<Slot> {
+    UPLOADED
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .iter()
+        .find(|(frame, device, slot)| {
+            std::ptr::eq(frame.as_ptr(), image)
+                && frame.strong_count() > 0
+                && device.matches(context)
+                && slot.size == image.dimensions()
+        })
+        .map(|(_, _, slot)| slot.clone())
+}
+
 pub fn upload_image(context: &GpuContext, image: &DynamicImage) -> Slot {
+    if let Some(slot) = registered_upload(context, image) {
+        return slot;
+    }
     let size = image.dimensions();
     let texture = context.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("Source Image"),
@@ -587,14 +879,14 @@ impl<'a> ComputeEncoder<'a> {
     pub fn cached_map(
         &self,
         name: &'static str,
-        map_key: u64,
+        map_key: MapKey,
         size: (u32, u32),
         format: wgpu::TextureFormat,
         values: impl FnOnce() -> Vec<f32>,
     ) -> Slot {
         let key = {
             let mut hasher = DefaultHasher::new();
-            (name, map_key).hash(&mut hasher);
+            (name, map_key.slot).hash(&mut hasher);
             hasher.finish()
         };
         let mut maps = self
@@ -602,12 +894,45 @@ impl<'a> ComputeEncoder<'a> {
             .maps
             .lock()
             .unwrap_or_else(|e| e.into_inner());
-        if let Some(index) = maps.iter().position(|(k, _)| *k == key) {
-            let entry = maps.remove(index);
-            let slot = entry.1.clone();
-            maps.push(entry);
-            return slot;
+        if let Some(index) = maps.iter().position(|(k, ..)| *k == key) {
+            let (key, version, slot) = maps.remove(index);
+            if version == map_key.version {
+                maps.push((key, version, slot.clone()));
+                return slot;
+            }
+            if slot.size == size && slot.format == format {
+                self.queue.write_texture(
+                    slot.texture.as_image_copy(),
+                    bytemuck::cast_slice(&values()),
+                    wgpu::TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(size.0 * slot.texel_bytes()),
+                        rows_per_image: Some(size.1),
+                    },
+                    slot.texture.size(),
+                );
+                maps.push((key, map_key.version, slot.clone()));
+                return slot;
+            }
         }
+        let slot = self.map(name, size, format, &values());
+        let mut bytes: u64 = maps.iter().map(|(.., map)| map.bytes()).sum();
+        while !maps.is_empty()
+            && (maps.len() >= MAP_CACHE_ENTRIES || bytes + slot.bytes() > self.map_budget)
+        {
+            bytes -= maps.remove(0).2.bytes();
+        }
+        maps.push((key, map_key.version, slot.clone()));
+        slot
+    }
+
+    pub fn map(
+        &self,
+        name: &'static str,
+        size: (u32, u32),
+        format: wgpu::TextureFormat,
+        values: &[f32],
+    ) -> Slot {
         let texture = self.device.create_texture_with_data(
             self.queue,
             &wgpu::TextureDescriptor {
@@ -625,25 +950,17 @@ impl<'a> ComputeEncoder<'a> {
                 view_formats: &[],
             },
             wgpu::util::TextureDataOrder::MipMajor,
-            bytemuck::cast_slice(&values()),
+            bytemuck::cast_slice(values),
         );
         let view = texture.create_view(&Default::default());
-        let slot = Slot {
+        Slot {
             texture,
             view,
             size,
             format,
             layers: 0,
             last_encode: 0,
-        };
-        let mut bytes: u64 = maps.iter().map(|(_, map)| map.bytes()).sum();
-        while !maps.is_empty()
-            && (maps.len() >= MAP_CACHE_ENTRIES || bytes + slot.bytes() > MAP_CACHE_BYTES)
-        {
-            bytes -= maps.remove(0).1.bytes();
         }
-        maps.push((key, slot.clone()));
-        slot
     }
 
     pub fn buffer(&self, label: &'static str, bytes: &[u8]) -> wgpu::Buffer {

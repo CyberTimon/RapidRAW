@@ -7,10 +7,11 @@ import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { AppSettings } from '../../../types/settings';
 import { Invokes } from '../../../types/invokes';
-import { useUIStore } from '../../../store/useUIStore';
+import { useUIStore, workspaceSettingsKey } from '../../../store/useUIStore';
 import { formatBytes } from '../../../utils/formatBytes';
 import { DEFAULT_IMMICH_SETTINGS } from '../../../utils/immichApi';
 import { useImmichStore } from '../../../store/useImmichStore';
+import { VideoCachePart, restoreAfterCacheClear } from '../../../store/videoIntegration';
 
 interface StorageUsage {
   thumbnails: number;
@@ -19,22 +20,49 @@ interface StorageUsage {
   aiMaps: number;
   metadata: number;
   immich: number;
+  immichProjects: number;
   models: number;
   logs: number;
+  videoProxies: number;
+  videoReversed: number;
+  videoAnalysis: number;
+  videoTimelapses: number;
 }
 
-type StorageKey = keyof StorageUsage;
+type StorageKey = Exclude<keyof StorageUsage, 'immichProjects'>;
+
+interface CacheLimit {
+  get(settings: AppSettings | null): number;
+  set(settings: AppSettings, gb: number): AppSettings;
+}
 
 interface StorageItem {
   key: StorageKey;
   color: string;
-  limit?: {
-    get(settings: AppSettings | null): number;
-    set(settings: AppSettings, gb: number): AppSettings;
-  };
+  limit?: CacheLimit;
 }
 
-const storageItems: StorageItem[] = [
+interface StorageGroup {
+  key: 'video';
+  limit: CacheLimit;
+  parts: StorageItem[];
+}
+
+const videoCache: StorageGroup = {
+  key: 'video',
+  limit: {
+    get: (settings) => settings?.videoCacheLimitGb ?? 50,
+    set: (settings, gb) => ({ ...settings, videoCacheLimitGb: gb }),
+  },
+  parts: [
+    { key: 'videoProxies', color: 'bg-[#a8978a]' },
+    { key: 'videoReversed', color: 'bg-[#9aa08c]' },
+    { key: 'videoAnalysis', color: 'bg-[#8c9cb0]' },
+    { key: 'videoTimelapses', color: 'bg-[#b48a8a]' },
+  ],
+};
+
+const storageEntries: Array<StorageItem | StorageGroup> = [
   {
     key: 'thumbnails',
     color: 'bg-[#8796a8]',
@@ -79,9 +107,19 @@ const storageItems: StorageItem[] = [
       }),
     },
   },
+  videoCache,
   { key: 'metadata', color: 'bg-[#8aa3a4]' },
   { key: 'logs', color: 'bg-[#8e8e8e]' },
 ];
+
+const storageItems = storageEntries.flatMap((entry) => ('parts' in entry ? entry.parts : [entry]));
+
+const VIDEO_CACHE_PARTS: Partial<Record<StorageKey, VideoCachePart>> = {
+  videoProxies: 'proxies',
+  videoReversed: 'reversed',
+  videoAnalysis: 'analysis',
+  videoTimelapses: 'timelapses',
+};
 
 type ClearableKey = Exclude<StorageKey, 'logs'>;
 
@@ -208,7 +246,7 @@ function Row({
   action?: ReactNode;
   children?: ReactNode;
   color?: string;
-  description: ReactNode;
+  description?: ReactNode;
   size?: ReactNode;
   status?: Status;
   title: string;
@@ -221,9 +259,11 @@ function Row({
           <Text variant={TextVariants.label} color={TextColors.primary} weight={TextWeights.medium}>
             {title}
           </Text>
-          <Text variant={TextVariants.small} className="mt-0.5">
-            {description}
-          </Text>
+          {description && (
+            <Text variant={TextVariants.small} className="mt-0.5">
+              {description}
+            </Text>
+          )}
         </div>
         {size !== undefined && (
           <Text
@@ -308,7 +348,10 @@ export default function DataManagementSettings({
     }
   };
 
-  const clearActions: Record<ClearableKey, { invoke: Invokes; message: string; success: string }> = {
+  const clearActions: Record<
+    ClearableKey,
+    { invoke: Invokes; args?: Record<string, unknown>; message: string; success: string }
+  > = {
     thumbnails: {
       invoke: Invokes.ClearThumbnailCache,
       message: t('settings.data.modals.cacheMessage'),
@@ -344,6 +387,30 @@ export default function DataManagementSettings({
       message: t('settings.data.modals.metadataMessage'),
       success: t('settings.data.statuses.cleared'),
     },
+    videoProxies: {
+      invoke: Invokes.VideoClearCache,
+      args: { part: VIDEO_CACHE_PARTS.videoProxies },
+      message: t('settings.data.modals.videoProxiesMessage'),
+      success: t('settings.data.statuses.cleared'),
+    },
+    videoReversed: {
+      invoke: Invokes.VideoClearCache,
+      args: { part: VIDEO_CACHE_PARTS.videoReversed },
+      message: t('settings.data.modals.videoReversedMessage'),
+      success: t('settings.data.statuses.cleared'),
+    },
+    videoAnalysis: {
+      invoke: Invokes.VideoClearCache,
+      args: { part: VIDEO_CACHE_PARTS.videoAnalysis },
+      message: t('settings.data.modals.videoAnalysisMessage'),
+      success: t('settings.data.statuses.cleared'),
+    },
+    videoTimelapses: {
+      invoke: Invokes.VideoClearCache,
+      args: { part: VIDEO_CACHE_PARTS.videoTimelapses },
+      message: t('settings.data.modals.videoTimelapsesMessage'),
+      success: t('settings.data.statuses.cleared'),
+    },
   };
 
   const clearStorage = (key: ClearableKey) =>
@@ -353,7 +420,9 @@ export default function DataManagementSettings({
       title: t(`settings.data.storage.${key}` as const),
       onConfirm: () =>
         run(key, async () => {
-          await invoke(clearActions[key].invoke);
+          await invoke(clearActions[key].invoke, clearActions[key].args);
+          const videoPart = VIDEO_CACHE_PARTS[key];
+          if (videoPart) restoreAfterCacheClear(videoPart);
           if (key === 'thumbnails') onLibraryRefresh();
           return clearActions[key].success;
         }),
@@ -402,14 +471,15 @@ export default function DataManagementSettings({
       title: t('settings.data.modals.confirmResetLayoutTitle'),
       onConfirm: () =>
         run('layout', async () => {
-          const workspace = useUIStore.getState().resetWorkspaceLayout(false);
-          await onSettingsChange({ ...appSettings, workspace } as AppSettings);
+          const { resetWorkspaceLayout, workspaceMode } = useUIStore.getState();
+          const workspace = resetWorkspaceLayout(false);
+          await onSettingsChange({ ...appSettings, [workspaceSettingsKey(workspaceMode)]: workspace } as AppSettings);
           return t('settings.data.statuses.layoutResetSuccess');
         }),
     });
 
-  const setLimit = async ({ key, limit }: StorageItem, limitGb: number) => {
-    if (!limit || !appSettings) return;
+  const setLimit = async (key: string, limit: CacheLimit, limitGb: number) => {
+    if (!appSettings) return;
     try {
       await onSettingsChange(limit.set(appSettings, limitGb));
       if (key === 'immich') await useImmichStore.getState().refresh();
@@ -424,9 +494,83 @@ export default function DataManagementSettings({
   const sizeOf = (key: StorageKey) => (usage ? formatBytes(usage[key], t, 1) : '…');
 
   const immichConfigured = !!appSettings?.immich?.serverUrl?.trim();
-  const visibleItems = storageItems.filter(
+  const visibleEntries = storageEntries.filter(
     ({ key }) => key !== 'immich' || immichConfigured || (usage?.immich ?? 0) > 0,
   );
+
+  const descriptionOf = (key: StorageKey) => {
+    const description = t(`settings.data.storage.${key}Desc` as const);
+    if (key !== 'immich' || !usage?.immichProjects) return description;
+    const kept = t('settings.data.storage.immichProjects', { size: formatBytes(usage.immichProjects, t, 1) });
+    return `${description} ${kept}`;
+  };
+
+  const renderItem = (item: StorageItem) => {
+    const { key, color, limit } = item;
+    const limitGb = limit?.get(appSettings);
+    return (
+      <Row
+        key={key}
+        action={
+          key === 'logs' ? (
+            <ActionButton
+              disabled={!logPath}
+              icon={<FolderOpen size={13} />}
+              onClick={() => logPath && invoke(Invokes.ShowInFinder, { path: logPath })}
+            >
+              {t('settings.data.show')}
+            </ActionButton>
+          ) : (
+            <ActionButton
+              danger
+              busy={busy[key]}
+              disabled={!usage?.[key]}
+              icon={<Trash2 size={13} />}
+              onClick={() => clearStorage(key)}
+            >
+              {t('settings.data.clear')}
+            </ActionButton>
+          )
+        }
+        color={color}
+        description={descriptionOf(key)}
+        size={limitGb !== undefined && usage ? `${sizeOf(key)} / ${limitGb} ${t('export.bytes.gb')}` : sizeOf(key)}
+        status={statuses[key]}
+        title={t(`settings.data.storage.${key}` as const)}
+      >
+        {limit && limitGb !== undefined && (
+          <LimitBar
+            color={color}
+            limitGb={limitGb}
+            onCommit={(newLimitGb) => setLimit(key, limit, newLimitGb)}
+            usedBytes={usage?.[key] ?? null}
+          />
+        )}
+      </Row>
+    );
+  };
+
+  const renderGroup = ({ key, limit, parts }: StorageGroup) => {
+    const limitGb = limit.get(appSettings);
+    const used = usage ? parts.reduce((sum, part) => sum + usage[part.key], 0) : null;
+    return (
+      <Row
+        key={key}
+        color="bg-text-secondary"
+        size={used === null ? '…' : `${formatBytes(used, t, 1)} / ${limitGb} ${t('export.bytes.gb')}`}
+        status={statuses[key]}
+        title={t(`settings.data.storage.${key}` as const)}
+      >
+        <LimitBar
+          color="bg-text-secondary"
+          limitGb={limitGb}
+          onCommit={(newLimitGb) => setLimit(key, limit, newLimitGb)}
+          usedBytes={used}
+        />
+        <div className="divide-y divide-border-color mt-3.5 pl-5.5">{parts.map(renderItem)}</div>
+      </Row>
+    );
+  };
 
   return (
     <div className="space-y-8">
@@ -464,52 +608,7 @@ export default function DataManagementSettings({
         </div>
 
         <div className="divide-y divide-border-color mt-5">
-          {visibleItems.map((item) => {
-            const { key, color, limit } = item;
-            const limitGb = limit?.get(appSettings);
-            return (
-              <Row
-                key={key}
-                action={
-                  key === 'logs' ? (
-                    <ActionButton
-                      disabled={!logPath}
-                      icon={<FolderOpen size={13} />}
-                      onClick={() => logPath && invoke(Invokes.ShowInFinder, { path: logPath })}
-                    >
-                      {t('settings.data.show')}
-                    </ActionButton>
-                  ) : (
-                    <ActionButton
-                      danger
-                      busy={busy[key]}
-                      disabled={!usage?.[key]}
-                      icon={<Trash2 size={13} />}
-                      onClick={() => clearStorage(key)}
-                    >
-                      {t('settings.data.clear')}
-                    </ActionButton>
-                  )
-                }
-                color={color}
-                description={t(`settings.data.storage.${key}Desc` as const)}
-                size={
-                  limitGb !== undefined && usage ? `${sizeOf(key)} / ${limitGb} ${t('export.bytes.gb')}` : sizeOf(key)
-                }
-                status={statuses[key]}
-                title={t(`settings.data.storage.${key}` as const)}
-              >
-                {limitGb !== undefined && (
-                  <LimitBar
-                    color={color}
-                    limitGb={limitGb}
-                    onCommit={(newLimitGb) => setLimit(item, newLimitGb)}
-                    usedBytes={usage?.[key] ?? null}
-                  />
-                )}
-              </Row>
-            );
-          })}
+          {visibleEntries.map((entry) => ('parts' in entry ? renderGroup(entry) : renderItem(entry)))}
         </div>
       </div>
 

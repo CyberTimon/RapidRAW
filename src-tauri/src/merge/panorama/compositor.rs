@@ -4,7 +4,7 @@ use super::photometric::Photometric;
 use super::projection::{Projection, ProjectionMode, plan_canvas};
 use super::seams::{NO_LABEL, SeamLayer, find_seams};
 use crate::merge::blending::{MultiBandBlender, band_count};
-use crate::merge::raster::{Raster, Rect, push_pull_fill};
+use crate::merge::raster::{Interpolation, Raster, Rect, push_pull_fill};
 use crate::render::color_space::srgb_transfer;
 use nalgebra::Vector3;
 use rayon::prelude::*;
@@ -87,12 +87,6 @@ impl CompositionPlan {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Interpolation {
-    Bilinear,
-    Bicubic,
-}
-
 fn magnification(layout: &OutputLayout, camera: &Camera, scale: f64) -> f64 {
     scale * layout.canvas.scale / camera.focal
 }
@@ -152,10 +146,7 @@ fn warp_layer(
                 {
                     continue;
                 }
-                match interpolation {
-                    Interpolation::Bilinear => level.bilinear(px as f32, py as f32, &mut sample),
-                    Interpolation::Bicubic => level.bicubic(px as f32, py as f32, &mut sample),
-                }
+                level.sample(interpolation, px as f32, py as f32, &mut sample);
                 let r2 = (p.norm_squared() / (r_norm * r_norm)) as f32;
                 let gain = photometric.correction(image, r2);
                 for c in 0..3 {

@@ -77,7 +77,7 @@ fn runtime_libraries(
             (
                 "onnxruntime-directml-windows-x86_64.dll",
                 "onnxruntime.dll",
-                "95366724919f4e95ecc60010912ed538ad9804b6683fbd0aad389749102834b9",
+                "e7eedec6a6f26dc39dc948276a75ef6d2bee3fff944d874ceed0bbd3b97bff40",
             ),
             (
                 "directml-windows-x86_64.dll",
@@ -89,7 +89,7 @@ fn runtime_libraries(
             (
                 "onnxruntime-directml-windows-aarch64.dll",
                 "onnxruntime.dll",
-                "c544001fbb76c7217fce76e9c24dada4a35d263b7ae3c0024474d9d7323a888f",
+                "939fa0be435d253eadd9e394ee94ad6b6ac1878c83b64118bb4bda669eb0e28c",
             ),
             (
                 "directml-windows-aarch64.dll",
@@ -97,30 +97,44 @@ fn runtime_libraries(
                 "77b0db83ff903f2323f5caf538499d75af6038bbea23b7959f7d232d9a4ab9d4",
             ),
         ],
-        ("linux", "x86_64") => vec![(
-            "libonnxruntime-linux-x86_64.so",
-            "libonnxruntime.so",
-            "3da6146e14e7b8aaec625dde11d6114c7457c87a5f93d744897da8781e35c673",
-        )],
-        ("linux", "aarch64") => vec![(
-            "libonnxruntime-linux-aarch64.so",
-            "libonnxruntime.so",
-            "0afd69a0ae38c5099fd0e8604dda398ac43dee67cd9c6394b5142b19e82528de",
-        )],
+        ("linux", "x86_64") => vec![
+            (
+                "libonnxruntime-linux-x86_64.so",
+                "libonnxruntime.so",
+                "d132535d051344ff5c64c9c200004150559049a81ed330eb4422c1962fb6b7e4",
+            ),
+            (
+                "libonnxruntime-providers-webgpu-linux-x86_64.so",
+                "libonnxruntime_providers_webgpu.so",
+                "5b711b9dcececc2d08ffb33d3847df4c7d24804c2d1ff93aa26d2d11891c9916",
+            ),
+        ],
+        ("linux", "aarch64") => vec![
+            (
+                "libonnxruntime-linux-aarch64.so",
+                "libonnxruntime.so",
+                "52b2a0e75e79468404284fec38ad5ee1a7a996232274f5e1b84f3e793fb07554",
+            ),
+            (
+                "libonnxruntime-providers-webgpu-linux-aarch64.so",
+                "libonnxruntime_providers_webgpu.so",
+                "f883094e682f385177cc1ff536005166d18dea8647daeb3d4ae0d030f0fce659",
+            ),
+        ],
         ("macos", "x86_64") => vec![(
             "libonnxruntime-macos-x86_64.dylib",
             "libonnxruntime.dylib",
-            "283e595e61cf65df7a6b1d59a1616cbd35c8b6399dd90d799d99b71a3ff83160",
+            "8c9c78de65ea3786f987c0d980e9c1b13a3a5fbc6b3e2965ba05b450e6e4c054",
         )],
         ("macos", "aarch64") => vec![(
             "libonnxruntime-macos-aarch64.dylib",
             "libonnxruntime.dylib",
-            "2b885992d3d6fa4130d39ec84a80d7504ff52750027c547bb22c86165f19406a",
+            "d306d2bc768540766c7ed8a1e0ff05d2870c77a934ebeee4a7bafa1b732ef299",
         )],
         ("android", "aarch64") => vec![(
             "libonnxruntime-android-arm64-v8a.so",
             "libonnxruntime.so",
-            "999ecfdb5b5a13e4097487773b6d71ce8a075408a237daab072e8f5e817bd78e",
+            "7f2f5c400f70a70bc4dce907752c48e2691de5e70d4c08cff45639e0e98f480e",
         )],
         _ => panic!("Unsupported target: {}-{}", target_os, target_arch),
     }
@@ -184,7 +198,7 @@ fn ensure_runtime_library(
     } else {
         println!("cargo:warning=Downloading {}...", download_filename);
         let base_url =
-            "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/onnxruntimes-v1.22.0/";
+            "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/onnxruntimes-v1.24.4/";
         let download_url = format!("{}{}?download=true", base_url, download_filename);
         println!("cargo:warning=URL: {}", download_url);
         download_and_verify(&download_url, &dest_path, expected_hash)
@@ -195,6 +209,134 @@ fn ensure_runtime_library(
     }
 
     dest_path
+}
+
+const FFMPEG_BASE_URL: &str =
+    "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/ffmpeg-v9.0.2-lean/";
+const FFMPEG_LIBRARIES: &[&str] = &[
+    "avutil",
+    "swresample",
+    "swscale",
+    "avcodec",
+    "avformat",
+    "avfilter",
+];
+
+fn ffmpeg_archive(target_os: &str, target_arch: &str) -> Option<(&'static str, &'static str)> {
+    match (target_os, target_arch) {
+        ("windows", "x86_64") => Some((
+            "ffmpeg-windows-x86_64.zip",
+            "8345e3e681a1929104d995d0cb7980b1fdb04a5f92ab064812e05d1c52f28e71",
+        )),
+        ("windows", "aarch64") => Some((
+            "ffmpeg-windows-aarch64.zip",
+            "b9bb8a9a39b1d1dfad8a5af80661ff556feaa672d4923984d234da6f7af2140a",
+        )),
+        ("linux", "x86_64") => Some((
+            "ffmpeg-linux-x86_64.tar.xz",
+            "da5832b8fbba08b2ac97abe4fcf0de1b26c38ee049b93fbb95c59c4f24d9d892",
+        )),
+        ("linux", "aarch64") => Some((
+            "ffmpeg-linux-aarch64.tar.xz",
+            "6b24b98564b033782893a4ce311056e24853f3cacd3a95519569492318c865e9",
+        )),
+        ("macos", "aarch64") => Some((
+            "ffmpeg-macos-aarch64.tar.gz",
+            "ab486f973a777667b576efec138c4c5fb4794056b9147c400ced26e1936cec2c",
+        )),
+        ("macos", "x86_64") => Some((
+            "ffmpeg-macos-x86_64.tar.gz",
+            "9dd2fb60d684e569d5d40df5d85ef050b05f3e681bc351720206ca64e91a9f39",
+        )),
+        _ => None,
+    }
+}
+
+fn is_ffmpeg_library(name: &str) -> bool {
+    FFMPEG_LIBRARIES.iter().any(|library| {
+        let windows = name.starts_with(&format!("{}-", library)) && name.ends_with(".dll");
+        let linux =
+            name.starts_with(&format!("lib{}.so.", library)) && name.matches('.').count() == 2;
+        let macos = name.starts_with(&format!("lib{}.", library))
+            && name.ends_with(".dylib")
+            && name.matches('.').count() == 2;
+        windows || linux || macos
+    })
+}
+
+fn ensure_ffmpeg(target_os: &str, target_arch: &str, dest_dir: &Path) {
+    let Some((archive_name, expected_hash)) = ffmpeg_archive(target_os, target_arch) else {
+        return;
+    };
+    if expected_hash.is_empty() {
+        println!(
+            "cargo:warning={} has no published checksum yet, so this build has no video support.",
+            archive_name
+        );
+        return;
+    }
+    let ffmpeg_dir = dest_dir.join("ffmpeg");
+    let marker = ffmpeg_dir.join(".archive");
+    if fs::read_to_string(&marker).is_ok_and(|content| content.trim() == expected_hash) {
+        return;
+    }
+    let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR not set"));
+    let archive_dir = out_dir.join("ffmpeg-archive");
+    fs::create_dir_all(&archive_dir).unwrap();
+    let archive_path = archive_dir.join(archive_name);
+    let local_archive = env::var_os("RAPIDRAW_RUNTIME_DIR")
+        .map(|dir| PathBuf::from(dir).join(archive_name))
+        .filter(|path| path.exists());
+    let result = match local_archive {
+        Some(local) => copy_and_verify(&local, &archive_path, expected_hash),
+        None if verify_sha256(&archive_path, expected_hash).unwrap_or(false) => Ok(()),
+        None => {
+            println!("cargo:warning=Downloading {}...", archive_name);
+            download_and_verify(
+                &format!("{}{}?download=true", FFMPEG_BASE_URL, archive_name),
+                &archive_path,
+                expected_hash,
+            )
+        }
+    };
+    if let Err(e) = result {
+        panic!("Failed to download and verify {}: {}", archive_name, e);
+    }
+
+    let extract_dir = out_dir.join("ffmpeg-extract");
+    let _ = fs::remove_dir_all(&extract_dir);
+    fs::create_dir_all(&extract_dir).unwrap();
+    let status = std::process::Command::new("tar")
+        .arg("-xf")
+        .arg(&archive_path)
+        .arg("-C")
+        .arg(&extract_dir)
+        .status()
+        .expect("failed to run tar to unpack FFmpeg");
+    assert!(status.success(), "tar could not unpack {}", archive_name);
+
+    let root = fs::read_dir(&extract_dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .find(|path| path.is_dir())
+        .expect("FFmpeg archive has no top-level folder");
+    let _ = fs::remove_dir_all(&ffmpeg_dir);
+    fs::create_dir_all(&ffmpeg_dir).unwrap();
+    let library_dir = root.join(if target_os == "windows" { "bin" } else { "lib" });
+    for entry in fs::read_dir(&library_dir).unwrap().filter_map(Result::ok) {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if is_ffmpeg_library(&name) {
+            fs::copy(entry.path(), ffmpeg_dir.join(&name)).unwrap();
+        }
+    }
+    fs::copy(root.join("LICENSE.txt"), ffmpeg_dir.join("LICENSE.txt")).unwrap();
+    fs::write(&marker, expected_hash).unwrap();
+    let _ = fs::remove_dir_all(&extract_dir);
+    println!(
+        "cargo:warning=Unpacked the LGPL FFmpeg libraries to {:?}.",
+        ffmpeg_dir
+    );
 }
 
 fn main() {
@@ -218,6 +360,8 @@ fn main() {
         })
         .collect();
 
+    ensure_ffmpeg(&target_os, &target_arch, &dest_dir);
+
     if target_os == "android" {
         let jni_libs_dir = manifest_dir.join("gen/android/app/src/main/jniLibs/arm64-v8a");
         fs::create_dir_all(&jni_libs_dir).unwrap();
@@ -225,8 +369,7 @@ fn main() {
             fs::copy(lib_path, jni_libs_dir.join(lib_path.file_name().unwrap())).unwrap();
         }
 
-        println!("cargo:rustc-env=ORT_LIB_LOCATION={}", dest_dir.display());
-        println!("cargo:rustc-env=ORT_STRATEGY=manual");
+        println!("cargo:rustc-env=ORT_LIB_PATH={}", dest_dir.display());
         println!("cargo:rustc-link-search=native={}", dest_dir.display());
     }
 

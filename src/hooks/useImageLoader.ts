@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import i18n from 'i18next';
 import { adjustmentsFromMetadata, fetchImageDefaults } from '../utils/developDefaults';
+import { clearSessionCaches, loadImage } from '../utils/backendPayload';
 import { toast } from 'react-toastify';
 import { useEditorStore } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
@@ -54,8 +55,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
 
       const loadMetadataEarly = async () => {
         try {
-          useEditorStore.getState().patchesSentToBackend.clear();
-          await invoke('clear_session_caches').catch((e) => console.warn('Cache clear failed:', e));
+          await clearSessionCaches().catch((e) => console.warn('Cache clear failed:', e));
 
           const metadata: any = await invoke(Invokes.LoadMetadata, { path: selectedImage.path });
           if (!isEffectActive) return;
@@ -71,7 +71,7 @@ export function useImageLoader(cachedEditStateRef: React.RefObject<any>) {
 
       const loadFullImageData = async () => {
         try {
-          const loadImageResult: any = await invoke(Invokes.LoadImage, { path: selectedImage.path });
+          const loadImageResult: any = await loadImage(selectedImage.path);
           if (!isEffectActive) return;
 
           const { width, height } = loadImageResult;

@@ -4,6 +4,7 @@ use rayon::prelude::*;
 use super::{Camera, FILL_SUPPORT_DIVISOR, Finish, PLATEAU_SHARE, SAMPLE_BAND_PX};
 use crate::render::color_space::{fit_gamut, working_luma};
 use crate::render::geometry::oriented_rgb32f;
+use crate::render::image_processing::smoothstep;
 
 const CLIP_THRESHOLD: f32 = 0.985;
 const SOFT_THRESHOLD: f32 = 0.90;
@@ -82,12 +83,6 @@ impl Grid {
             top + (bottom - top) * fy
         })
     }
-}
-
-#[inline]
-fn ease(edge0: f32, edge1: f32, x: f32) -> f32 {
-    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
 }
 
 #[inline]
@@ -244,7 +239,7 @@ impl<'a> Highlights<'a> {
 
     #[inline]
     fn blends(&self, p: [f32; 3]) -> [f32; 3] {
-        std::array::from_fn(|c| ease(self.softs[c], self.thresholds[c], p[c]))
+        std::array::from_fn(|c| smoothstep(self.softs[c], self.thresholds[c], p[c]))
     }
 
     #[inline]
@@ -307,7 +302,8 @@ impl<'a> Highlights<'a> {
             .filter(|&c| bits & (1 << c) == 0)
             .map(|c| 1.0 - observed[c] / self.clips[c])
             .fold(0.0f32, f32::max);
-        let keep = FULL_CLIP_CHROMA + (1.0 - FULL_CLIP_CHROMA) * ease(0.0, HEADROOM_FADE, headroom);
+        let keep =
+            FULL_CLIP_CHROMA + (1.0 - FULL_CLIP_CHROMA) * smoothstep(0.0, HEADROOM_FADE, headroom);
         let mean = (pixel[0] + pixel[1] + pixel[2]) / 3.0;
         for c in 0..3 {
             if blend[c] > 0.0 {
@@ -328,7 +324,8 @@ impl<'a> Highlights<'a> {
         }
         let [rg, bg, _] = chroma.sample(self.cell_coord(x), self.cell_coord(y));
         let spread = rg.max(bg).max(0.0) - rg.min(bg).min(0.0);
-        let strength = FILL_STRENGTH * (1.0 - ease(FILL_SPREAD_START, FILL_SPREAD_END, spread));
+        let strength =
+            FILL_STRENGTH * (1.0 - smoothstep(FILL_SPREAD_START, FILL_SPREAD_END, spread));
         let tint = [(rg * strength).exp(), 1.0, (bg * strength).exp()];
         let brightness = (rebuilt[0] + rebuilt[1] + rebuilt[2]) / (tint[0] + tint[1] + tint[2]);
         let scale = (0..3)

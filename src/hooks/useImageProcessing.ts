@@ -3,14 +3,21 @@ import { invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import throttle from 'lodash.throttle';
 import { useEditorStore } from '../store/useEditorStore';
-import { useUIStore } from '../store/useUIStore';
+import { usableActivePanel, useUIStore } from '../store/useUIStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useLibraryStore } from '../store/useLibraryStore';
+import {
+  editorFramePending,
+  isProgramView,
+  isVideoPlaying,
+  routeProgramRender,
+  saveVideoLook,
+} from '../store/videoIntegration';
 import { Adjustments, COPYABLE_ADJUSTMENT_KEYS } from '../utils/adjustments';
 import { Invokes } from '../types/invokes';
 import { Panel } from '../types/ui';
 import { debouncedSave, getOriginalAdjustments } from './useEditorActions';
-import { globalImageCache } from '../utils/ImageLRUCache';
+import { globalImageCache, releasePreviewUrl } from '../utils/ImageLRUCache';
 import { prepareAdjustmentsPayload } from '../utils/backendPayload';
 import { calculateTargetResolution, getVisibleImageRegion } from '../utils/previewResolution';
 import { getDevicePixelRatio } from '../utils/displayScale';
@@ -23,16 +30,6 @@ const isSameIgnoringCrop = (a: Adjustments, b: Adjustments) => {
     if (key !== 'crop' && a[key] !== b[key]) return false;
   }
   return true;
-};
-
-const releasePreviewUrl = (url: string | null | undefined) => {
-  if (url && url.startsWith('blob:') && !globalImageCache.isProtected(url)) {
-    setTimeout(() => {
-      if (!globalImageCache.isProtected(url)) {
-        URL.revokeObjectURL(url);
-      }
-    }, 250);
-  }
 };
 
 export function useImageProcessing(
@@ -60,7 +57,7 @@ export function useImageProcessing(
   const setEditor = useEditorStore((state) => state.setEditor);
 
   const activeView = useUIStore((state) => state.activeView);
-  const activePanel = useUIStore((state) => state.activePanel);
+  const activePanel = useUIStore(usableActivePanel);
   const isViewerOpen = useUIStore((state) => state.isViewerOpen);
   const appSettings = useSettingsStore((state) => state.appSettings);
   const multiSelectedPaths = useLibraryStore((state) => state.multiSelectedPaths);
@@ -106,7 +103,14 @@ export function useImageProcessing(
     async (targetRes?: number) => {
       const { selectedImage: image, adjustments: currentAdjustments, compareView: view } = useEditorStore.getState();
       const ui = useUIStore.getState();
-      if (view === 'off' || !image?.isReady || ui.activeView !== 'editor' || ui.activePanel === Panel.Crop) return;
+      if (
+        view === 'off' ||
+        !image?.isReady ||
+        ui.activeView !== 'editor' ||
+        ui.activePanel === Panel.Crop ||
+        isProgramView()
+      )
+        return;
 
       const originalAdjustments = getOriginalAdjustments(currentAdjustments);
       const { useWgpuRenderer, hdrDisplay, gainMapMode, displayColorMode, displayIccProfile, wideGamutPreview } =
@@ -285,7 +289,7 @@ export function useImageProcessing(
 
   const applyAdjustments = useCallback(
     (currentAdjustments: Adjustments, dragging: boolean = false, targetRes?: number) => {
-      if (!selectedImage?.isReady) return;
+      if (!selectedImage?.isReady || routeProgramRender() || editorFramePending()) return;
 
       if (dragging) {
         pendingApplyRef.current = { adjustments: currentAdjustments, targetRes };
@@ -303,7 +307,7 @@ export function useImageProcessing(
       throttle(
         (adj: Adjustments, targetResolution: number) => {
           const requestedImage = useEditorStore.getState().selectedImage;
-          if (!requestedImage?.isReady) return;
+          if (!requestedImage?.isReady || editorFramePending()) return;
           const jobId = ++uncroppedJobIdRef.current;
           const { payload, markSent } = prepareAdjustmentsPayload(adj);
           invoke<ArrayBuffer>(Invokes.GenerateUncroppedPreview, { jsAdjustments: payload, targetResolution })
@@ -495,15 +499,26 @@ export function useImageProcessing(
       if (isSliderDragging) return;
     }
 
+    const isPlaying = isVideoPlaying();
+    const last = prevAdjustmentsRef.current;
+    const onlyClipSettingsChanged =
+      !!last &&
+      last.path === selectedImage.path &&
+      last.adjustments !== adjustments &&
+      last.adjustments.video !== adjustments.video &&
+      (Object.keys(adjustments) as Array<keyof Adjustments>).every(
+        (key) => key === 'video' || last.adjustments[key] === adjustments[key],
+      );
+
     if (isSliderDragging) {
-      if (appSettings?.enableLivePreviews !== false) {
+      if (appSettings?.enableLivePreviews !== false && !isPlaying) {
         applyAdjustments(renderAdjustments, true, targetRes);
       }
     } else {
       dragIdleTimer.current = setTimeout(() => {
         currentResRef.current = targetRes;
 
-        applyAdjustments(renderAdjustments, false, targetRes);
+        if (!isPlaying && !onlyClipSettingsChanged) applyAdjustments(renderAdjustments, false, targetRes);
 
         const prev = prevAdjustmentsRef.current;
 
@@ -513,6 +528,11 @@ export function useImageProcessing(
         }
 
         const hasAdjustmentsChanged = prev.adjustments !== adjustments;
+
+        if (hasAdjustmentsChanged && saveVideoLook(selectedImage.path, adjustments)) {
+          prevAdjustmentsRef.current = { path: selectedImage.path, adjustments };
+          return;
+        }
 
         if (hasAdjustmentsChanged) {
           debouncedSave(selectedImage.path, adjustments);

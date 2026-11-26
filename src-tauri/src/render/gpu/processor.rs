@@ -63,6 +63,64 @@ fn read_texture_data_roi(
     size: wgpu::Extent3d,
     bytes_per_pixel: u32,
 ) -> Result<Vec<u8>, String> {
+    let unpadded_bytes_per_row = (bytes_per_pixel * size.width) as usize;
+    read_texture_rows(
+        device,
+        queue,
+        texture,
+        origin,
+        size,
+        bytes_per_pixel,
+        |mapped, padded_bytes_per_row| {
+            if padded_bytes_per_row == unpadded_bytes_per_row {
+                mapped.to_vec()
+            } else {
+                let mut unpadded_data =
+                    Vec::with_capacity(unpadded_bytes_per_row * size.height as usize);
+                for chunk in mapped.chunks(padded_bytes_per_row) {
+                    unpadded_data.extend_from_slice(&chunk[..unpadded_bytes_per_row]);
+                }
+                unpadded_data
+            }
+        },
+    )
+}
+
+pub(crate) fn read_buffer<T>(
+    context: &GpuContext,
+    buffer: &wgpu::Buffer,
+    consume: impl FnOnce(&[u8]) -> T,
+) -> Result<T, String> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    buffer
+        .slice(..)
+        .map_async(wgpu::MapMode::Read, move |result| {
+            let _ = tx.send(result);
+        });
+    context
+        .device
+        .poll(wgpu::PollType::Wait {
+            submission_index: None,
+            timeout: Some(std::time::Duration::from_secs(10)),
+        })
+        .map_err(|e| e.to_string())?;
+    rx.recv()
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+    let data = consume(&buffer.slice(..).get_mapped_range());
+    buffer.unmap();
+    Ok(data)
+}
+
+pub(crate) fn read_texture_rows<T>(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    texture: &wgpu::Texture,
+    origin: wgpu::Origin3d,
+    size: wgpu::Extent3d,
+    bytes_per_pixel: u32,
+    consume: impl FnOnce(&[u8], usize) -> T,
+) -> Result<T, String> {
     let unpadded_bytes_per_row = bytes_per_pixel * size.width;
     let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
     let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) & !(align - 1);
@@ -114,16 +172,7 @@ fn read_texture_data_roi(
 
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let mapped = buffer_slice.get_mapped_range();
-        let data = if padded_bytes_per_row == unpadded_bytes_per_row {
-            mapped.to_vec()
-        } else {
-            let mut unpadded_data =
-                Vec::with_capacity((unpadded_bytes_per_row * size.height) as usize);
-            for chunk in mapped.chunks(padded_bytes_per_row as usize) {
-                unpadded_data.extend_from_slice(&chunk[..unpadded_bytes_per_row as usize]);
-            }
-            unpadded_data
-        };
+        let data = consume(&mapped, padded_bytes_per_row as usize);
         drop(mapped);
         output_buffer.unmap();
         data
@@ -198,6 +247,7 @@ pub struct GpuProcessor {
     adjustments_buffer: wgpu::Buffer,
     mask_cache: std::sync::Mutex<Option<MaskCache>>,
     motion_cache: std::sync::Mutex<Vec<(u64, Arc<MotionBlurred>)>>,
+    pixelate_cache: std::sync::Mutex<Vec<(u64, Arc<GpuImageEntry>)>>,
     motion_grain: std::sync::Mutex<Vec<(u64, f32)>>,
     lut_cache: std::sync::Mutex<Option<LutCache>>,
     ping_pong_view: wgpu::TextureView,
@@ -211,7 +261,7 @@ pub struct GpuProcessor {
     pub readback_pool: ReadbackPool,
 }
 
-type ReadbackPool = Arc<std::sync::Mutex<Vec<wgpu::Buffer>>>;
+pub type ReadbackPool = Arc<std::sync::Mutex<Vec<wgpu::Buffer>>>;
 
 const READBACK_POOL_SIZE: usize = 3;
 
@@ -221,6 +271,60 @@ fn recycle_readback_buffer(pool: &ReadbackPool, buffer: wgpu::Buffer) {
         pool.remove(0);
     }
     pool.push(buffer);
+}
+
+pub fn copy_to_readback(
+    device: &wgpu::Device,
+    pool: &ReadbackPool,
+    encoder: &mut wgpu::CommandEncoder,
+    texture: &wgpu::Texture,
+    origin: (u32, u32),
+    size: (u32, u32),
+    bytes_per_pixel: u32,
+) -> (wgpu::Buffer, usize) {
+    let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+    let padded_bytes_per_row = (bytes_per_pixel * size.0 + align - 1) & !(align - 1);
+    let buffer_size = (padded_bytes_per_row * size.1) as u64;
+    let pooled = {
+        let mut pool = pool.lock().unwrap_or_else(|e| e.into_inner());
+        pool.iter()
+            .position(|buffer| buffer.size() == buffer_size)
+            .map(|index| pool.swap_remove(index))
+    };
+    let buffer = pooled.unwrap_or_else(|| {
+        device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Async Analytics Readback Buffer"),
+            size: buffer_size,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        })
+    });
+    encoder.copy_texture_to_buffer(
+        wgpu::TexelCopyTextureInfo {
+            texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d {
+                x: origin.0,
+                y: origin.1,
+                z: 0,
+            },
+            aspect: wgpu::TextureAspect::All,
+        },
+        wgpu::TexelCopyBufferInfo {
+            buffer: &buffer,
+            layout: wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(padded_bytes_per_row),
+                rows_per_image: Some(size.1),
+            },
+        },
+        wgpu::Extent3d {
+            width: size.0,
+            height: size.1,
+            depth_or_array_layers: 1,
+        },
+    );
+    (buffer, padded_bytes_per_row as usize)
 }
 
 pub struct PooledReadback {
@@ -455,6 +559,7 @@ impl GpuProcessor {
             adjustments_buffer,
             mask_cache: std::sync::Mutex::new(None),
             motion_cache: std::sync::Mutex::new(Vec::new()),
+            pixelate_cache: std::sync::Mutex::new(Vec::new()),
             motion_grain: std::sync::Mutex::new(Vec::new()),
             lut_cache: std::sync::Mutex::new(None),
             ping_pong_view,
@@ -1063,7 +1168,7 @@ impl GpuProcessor {
                 }
             }
         };
-        let pipelines = self.pipelines.motion_blur.get_or_init(|| {
+        let pipelines = self.context.motion_blur.get_or_init(|| {
             crate::effects::motion_blur::MotionBlurPipelines::new(&self.context.device)
         });
         let depth = motion.depth.as_deref().map(|map| {
@@ -1114,6 +1219,58 @@ impl GpuProcessor {
             cache.push((key, Arc::clone(&blurred)));
         }
         Ok(Some(blurred))
+    }
+
+    pub fn pixelated(
+        &self,
+        input: &GpuImageEntry,
+        request: &RenderRequest,
+        mask_view: &wgpu::TextureView,
+    ) -> Result<Option<Arc<GpuImageEntry>>, String> {
+        let layers =
+            (request.mask_bitmaps.len() as u32).min(mask_view.texture().depth_or_array_layers());
+        let size = (input.width, input.height);
+        let Some(pixelation) =
+            crate::effects::pixelate::Pixelation::new(&request.adjustments, size, layers)
+        else {
+            return Ok(None);
+        };
+        let key = request
+            .mask_cache_key
+            .map(|mask_key| pixelation.cache_key(input.id, mask_key));
+        let mut cache = self
+            .pixelate_cache
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if let Some((_, entry)) = key.and_then(|key| cache.iter().find(|(k, _)| *k == key)) {
+            return Ok(Some(Arc::clone(entry)));
+        }
+        let output = crate::render::gpu::compute::encode(&self.context, |enc| {
+            pixelation.encode(enc, &input.texture_view, size, mask_view)
+        })?;
+        let guided =
+            self.build_guided_coeffs(&output.view, input.width, input.height, input.is_raw);
+        let entry = Arc::new(GpuImageEntry {
+            id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
+            texture: output.texture.clone(),
+            texture_view: output.view.clone(),
+            gf_coeffs_view: guided.coeffs,
+            tone_base_view: guided.tone_base,
+            haze_view: guided.haze,
+            airlight_view: guided.airlight,
+            is_raw: input.is_raw,
+            width: input.width,
+            height: input.height,
+            transform_key: input.transform_key,
+            source_identity: input.source_identity,
+        });
+        if let Some(key) = key {
+            if cache.len() >= GPU_IMAGE_CACHE_ENTRIES {
+                cache.remove(0);
+            }
+            cache.push((key, Arc::clone(&entry)));
+        }
+        Ok(Some(entry))
     }
 
     fn lut_view(&self, lut: &Arc<Lut>) -> (wgpu::TextureView, wgpu::Sampler) {
@@ -1231,23 +1388,6 @@ impl GpuProcessor {
         generic.clone()
     }
 
-    pub fn readback_buffer(&self, size: u64) -> wgpu::Buffer {
-        let pooled = {
-            let mut pool = self.readback_pool.lock().unwrap_or_else(|e| e.into_inner());
-            pool.iter()
-                .position(|buffer| buffer.size() == size)
-                .map(|index| pool.swap_remove(index))
-        };
-        pooled.unwrap_or_else(|| {
-            self.context.device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("Async Analytics Readback Buffer"),
-                size,
-                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-                mapped_at_creation: false,
-            })
-        })
-    }
-
     pub fn display_textures(&self, format: wgpu::TextureFormat) -> Arc<DisplayTextures> {
         let mut textures = self
             .display_textures
@@ -1288,7 +1428,7 @@ impl GpuProcessor {
         let sixteen_bit = self.high_precision_pipeline(RenderOutputPrecision::SixteenBit);
         let float = self.high_precision_pipeline(RenderOutputPrecision::Float);
         self.hsl_probe_pipeline();
-        self.pipelines.motion_blur.get_or_init(|| {
+        self.context.motion_blur.get_or_init(|| {
             crate::effects::motion_blur::MotionBlurPipelines::new(&self.context.device)
         });
         if self.context.shares_one_gl_context() {

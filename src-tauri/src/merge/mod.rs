@@ -1,11 +1,14 @@
 pub mod align;
 pub mod blending;
+pub mod burst;
 pub mod dng;
 pub mod features;
+pub mod flow;
 pub mod focus;
 pub mod hdr;
 pub mod homography;
 pub mod matching;
+pub mod noise;
 pub mod output;
 pub mod panorama;
 pub mod raster;
@@ -36,17 +39,27 @@ pub enum MergeKind {
     Panorama,
     Hdr,
     FocusStack,
+    BurstDenoise,
+    LongExposure,
 }
+
+pub const CANCELLED: &str = "The merge was cancelled.";
 
 pub struct MergeContext<'a> {
     pub settings: &'a AppSettings,
     pub memory_budget: &'a Arc<MemoryBudget>,
     pub progress: &'a (dyn Fn(String) + Sync),
+    pub cancelled: &'a (dyn Fn() -> bool + Sync),
 }
 
 impl MergeContext<'_> {
     pub fn loader(&self, linear_raw: bool) -> SourceLoader<'_> {
-        SourceLoader::new(self.settings, self.memory_budget, linear_raw)
+        SourceLoader::new(
+            self.settings,
+            self.memory_budget,
+            linear_raw,
+            self.cancelled,
+        )
     }
 
     pub fn report(&self, message: impl Into<String>) {
@@ -69,6 +82,14 @@ fn build_session(
         MergeKind::Panorama => Box::new(panorama::build_session(paths, context)?),
         MergeKind::Hdr => Box::new(hdr::build_session(paths, context)?),
         MergeKind::FocusStack => Box::new(focus::build_session(paths, context)?),
+        MergeKind::BurstDenoise => {
+            Box::new(burst::build_session(burst::Mode::Denoise, paths, context)?)
+        }
+        MergeKind::LongExposure => Box::new(burst::build_session(
+            burst::Mode::LongExposure,
+            paths,
+            context,
+        )?),
     })
 }
 
@@ -95,10 +116,12 @@ pub async fn start_merge(
         let progress = |message: String| {
             let _ = app_handle.emit("merge-progress", message);
         };
+        let cancelled = || current_generation.load(Ordering::SeqCst) != generation;
         let context = MergeContext {
             settings: &app_settings,
             memory_budget: &memory_budget,
             progress: &progress,
+            cancelled: &cancelled,
         };
         let start = std::time::Instant::now();
         let mut session = build_session(kind, &paths, &context)?;
@@ -111,8 +134,8 @@ pub async fn start_merge(
             start.elapsed()
         );
         let mut guard = slot.lock().unwrap();
-        if current_generation.load(Ordering::SeqCst) != generation {
-            return Err("The merge was cancelled.".to_string());
+        if cancelled() {
+            return Err(CANCELLED.to_string());
         }
         *guard = Some(session);
         Ok(preview)
@@ -157,10 +180,12 @@ pub async fn save_merge(
         let progress = |message: String| {
             let _ = app_handle.emit("merge-progress", message);
         };
+        let cancelled = || current_generation.load(Ordering::SeqCst) != generation;
         let context = MergeContext {
             settings: &app_settings,
             memory_budget: &memory_budget,
             progress: &progress,
+            cancelled: &cancelled,
         };
         let start = std::time::Instant::now();
         match session.render(&settings, &context) {
@@ -172,7 +197,7 @@ pub async fn save_merge(
                 path
             }
             Err(e) => {
-                if current_generation.load(Ordering::SeqCst) == generation {
+                if !cancelled() {
                     *slot.lock().unwrap() = Some(session);
                 }
                 Err(e)

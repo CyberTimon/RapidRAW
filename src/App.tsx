@@ -1,4 +1,13 @@
-import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from 'react';
+import { motion } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -30,10 +39,31 @@ import Controls from './components/panel/right/ControlsPanel';
 import MetadataPanel from './components/panel/right/MetadataPanel';
 import CropPanel from './components/panel/right/CropPanel';
 import AdjustmentSliderResetProvider from './components/adjustments/AdjustmentSliderResetProvider';
+import LookSliderKeyframes from './components/video/inspector/LookSliderKeyframes';
 import MasksPanel from './components/panel/right/MasksPanel';
 import AIPanel from './components/panel/right/AIPanel';
 import PresetsPanel from './components/panel/right/PresetsPanel';
 import TetheringPanel from './components/panel/right/TetheringPanel';
+import ProjectPanel from './components/video/ProjectPanel';
+import InspectorPanel from './components/video/inspector/InspectorPanel';
+import EffectsPanel from './components/video/EffectsPanel';
+import CaptionsPanel from './components/video/CaptionsPanel';
+import MixerPanel from './components/video/MixerPanel';
+import LookPanelFrame from './components/video/LookPanelFrame';
+import {
+  TimelineDragOverlay,
+  draggedPaths,
+  dropEffectOnTimeline,
+  dropMediaOnTimeline,
+} from './components/video/timeline/drop';
+import type { VideoDragData } from './components/video/EffectsPanel';
+import {
+  BIN_DRAG,
+  FileDropTarget,
+  ProjectThumbnails,
+  dropOnProject,
+  projectCloseGuard,
+} from './store/videoIntegration';
 
 import EditorView from './components/views/EditorView';
 import LibraryView from './components/views/LibraryView';
@@ -43,7 +73,10 @@ import { useSettingsStore } from './store/useSettingsStore';
 import {
   DEFAULT_BOTTOM_PANEL_HEIGHT,
   DEFAULT_PANEL_WIDTH,
+  MAX_TIMELINE_SHARE,
+  defaultTimelineHeight,
   getReopenedPanelWidth,
+  usableActivePanel,
   useUIStore,
 } from './store/useUIStore';
 import { useLibraryStore } from './store/useLibraryStore';
@@ -80,9 +113,12 @@ import { Panel, PanelRegion } from './types/ui';
 import ImageProcessingManager from './components/managers/ImageProcessingManager';
 import ImageLoaderManager from './components/managers/ImageLoaderManager';
 import { isImmichAlbumId } from './utils/immichApi';
+import { guardWindowClose, watchWindowClose } from './utils/windowClose';
 import { useImmichEvents } from './hooks/useImmichEvents';
 
 const DND_MEASURING = { droppable: { strategy: MeasuringStrategy.Always } };
+const LAYOUT_SENSOR_OPTIONS = { activationConstraint: { distance: 5 } };
+const FOLDER_TREE_STYLE = { width: '100%', height: '100%' };
 
 const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[]): any => {
   if (!node) return null;
@@ -108,44 +144,64 @@ const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[
   return node;
 };
 
-const imageDragModifier: Modifier = ({ active, activatorEvent, activeNodeRect, transform }) => {
-  if (active?.data?.current?.type === 'library-image' && activatorEvent && activeNodeRect) {
-    const event = activatorEvent as any;
-    const startX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
-    const startY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
+const CURSOR_GAP = 14;
 
-    if (startX === 0 && startY === 0) return transform;
-
-    const offsetX = startX - activeNodeRect.left - 48;
-    const offsetY = startY - activeNodeRect.top - 48;
-
-    return {
-      ...transform,
-      x: transform.x + offsetX,
-      y: transform.y + offsetY,
-    };
-  }
-  return transform;
+const pointerOf = (event: Event | null) => {
+  const source = event as (Partial<PointerEvent> & { touches?: TouchList }) | null;
+  const x = source?.clientX ?? source?.touches?.[0]?.clientX;
+  const y = source?.clientY ?? source?.touches?.[0]?.clientY;
+  return x === undefined || y === undefined ? null : { x, y };
 };
+
+const trailCursorModifier: Modifier = ({ activatorEvent, activeNodeRect, draggingNodeRect, transform }) => {
+  const start = pointerOf(activatorEvent);
+  if (!start || !activeNodeRect) return transform;
+  return {
+    ...transform,
+    x: transform.x + start.x - activeNodeRect.left + CURSOR_GAP,
+    y: transform.y + start.y - activeNodeRect.top - (draggingNodeRect?.height ?? 0) / 2,
+  };
+};
+
+function DragChip({ children }: { children: ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.92 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.12, ease: 'easeOut' }}
+      style={{ transformOrigin: 'left center' }}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 function ImageDragOverlayNode({ activeItem }: { activeItem: { path: string; paths: string[] } }) {
   const url = useProcessStore.getState().thumbnails[activeItem.path];
   const count = activeItem.paths.length;
 
   return (
-    <div className="w-24 h-24 rounded-lg shadow-2xl border-2 border-accent relative bg-surface overflow-hidden flex items-center justify-center">
-      {url && <img src={url} className="w-full h-full object-cover" />}
-      {count > 1 && (
-        <div className="absolute top-1 right-1 bg-accent text-button-text text-xs font-bold px-2 py-0.5 rounded-full shadow-md z-10">
-          {count}
+    <DragChip>
+      <div className="relative w-18 h-18">
+        {count > 1 && (
+          <div className="absolute inset-0 translate-x-1 -translate-y-1 rounded-lg bg-surface ring-1 ring-border-color/60 shadow-lg" />
+        )}
+        <div className="absolute inset-0 rounded-lg shadow-xl ring-2 ring-accent bg-surface overflow-hidden">
+          {url && <img src={url} className="w-full h-full object-cover" />}
         </div>
-      )}
-    </div>
+        {count > 1 && (
+          <div className="absolute -top-2 -right-2 min-w-5 h-5 px-1.5 flex items-center justify-center bg-accent text-button-text text-[11px] font-semibold rounded-full shadow-md">
+            {count}
+          </div>
+        )}
+      </div>
+    </DragChip>
   );
 }
 
 function App() {
   const [activeImageDragItem, setActiveImageDragItem] = useState<{ path: string; paths: string[] } | null>(null);
+  const [activeVideoDrag, setActiveVideoDrag] = useState<Pick<VideoDragData, 'label' | 'icon'> | null>(null);
 
   const { appSettings, theme, osPlatform, handleSettingsChange } = useSettingsStore(
     useShallow((state) => ({
@@ -185,7 +241,7 @@ function App() {
       leftPanelWidth: state.leftPanelWidth,
       rightPanelWidth: state.rightPanelWidth,
       compactEditorPanelHeightOverride: state.compactEditorPanelHeightOverride,
-      activePanel: state.activePanel,
+      activePanel: usableActivePanel(state),
       activeLayoutDragItem: state.activeLayoutDragItem,
       isSettingsOpen: state.isSettingsOpen,
       setUI: state.setUI,
@@ -329,6 +385,7 @@ function App() {
     Math.min(compactEditorPanelHeightOverride ?? compactEditorPanelDefaultHeight, compactEditorPanelMaxHeight),
   );
   const compactEditorPanelCollapsedHeight = 96;
+  const timelineMaxHeight = Math.round(viewportSize.height * MAX_TIMELINE_SHARE);
 
   const { handleCopyAdjustments, handlePasteAdjustments, handleResetAdjustments, handleZoomChange } =
     useEditorActions();
@@ -416,6 +473,12 @@ function App() {
       }
     }
   }, [currentFolderPath, handleSelectSubfolder, handleSelectAlbum]);
+
+  useEffect(() => {
+    const { setLibraryRefreshHandler } = useUIStore.getState();
+    setLibraryRefreshHandler(handleLibraryRefresh);
+    return () => setLibraryRefreshHandler(null);
+  }, [handleLibraryRefresh]);
 
   const {
     executeDelete,
@@ -605,6 +668,13 @@ function App() {
             uiVisibility: { ...state.uiVisibility, filmstrip: true },
           }));
         }
+      } else if (stateKey === 'timeline') {
+        const newHeight = startSize - (moveEvent.clientY - startY);
+        setUI(
+          newHeight < 100
+            ? { timelineCollapsed: true }
+            : { timelineHeight: Math.round(Math.min(newHeight, timelineMaxHeight)), timelineCollapsed: false },
+        );
       } else if (stateKey === 'compact') {
         setUI({
           compactEditorPanelHeightOverride: Math.round(
@@ -631,8 +701,9 @@ function App() {
       setIsResizing(false);
     };
 
-    document.documentElement.style.cursor =
-      stateKey === 'bottom' || stateKey === 'compact' ? 'row-resize' : 'col-resize';
+    document.documentElement.style.cursor = ['bottom', 'timeline', 'compact'].includes(stateKey)
+      ? 'row-resize'
+      : 'col-resize';
 
     window.addEventListener('pointermove', doDrag, { passive: false });
     window.addEventListener('pointerup', stopDrag);
@@ -655,6 +726,8 @@ function App() {
         bottomPanelHeight: DEFAULT_BOTTOM_PANEL_HEIGHT,
         uiVisibility: { ...state.uiVisibility, filmstrip: true },
       }));
+    } else if (stateKey === 'timeline') {
+      setUI({ timelineHeight: defaultTimelineHeight(), timelineCollapsed: false });
     } else if (stateKey === 'compact') {
       setUI({ compactEditorPanelHeightOverride: null });
     }
@@ -671,6 +744,15 @@ function App() {
       unlistenPromise.then((unlisten: any) => unlisten());
     };
   }, [setUI]);
+
+  useEffect(() => {
+    const unguard = guardWindowClose(projectCloseGuard);
+    const unlisten = watchWindowClose();
+    return () => {
+      unguard();
+      void unlisten.then((stop) => stop());
+    };
+  }, []);
 
   const handlePanelSelect = useCallback(
     (panelId: Panel) => {
@@ -711,6 +793,22 @@ function App() {
     [expandedFolders, appSettings?.enableFolderImageCounts, setLibrary],
   );
 
+  const handleTreeSelectAlbum = useCallback(
+    (id: string, name: string, images: string[], skipHistory?: boolean) =>
+      handleSelectAlbum(id, name, images, false, skipHistory),
+    [handleSelectAlbum],
+  );
+
+  const handleTreeFolderSelect = useCallback(
+    (path: string, skipHistory?: boolean) => handleSelectSubfolder(path, false, undefined, true, false, skipHistory),
+    [handleSelectSubfolder],
+  );
+
+  const handleNavigateToFolder = useCallback(
+    (path: string) => handleSelectSubfolder(path, false, undefined, true),
+    [handleSelectSubfolder],
+  );
+
   const renderAppPanel = useCallback(
     (panelId: Panel) => {
       switch (panelId) {
@@ -720,15 +818,13 @@ function App() {
               isResizing={isResizing}
               onContextMenu={handleFolderTreeContextMenu}
               onAlbumContextMenu={handleAlbumTreeContextMenu}
-              onSelectAlbum={(id, name, images, skipHistory) => handleSelectAlbum(id, name, images, false, skipHistory)}
-              onFolderSelect={(path, skipHistory) =>
-                handleSelectSubfolder(path, false, undefined, true, false, skipHistory)
-              }
+              onSelectAlbum={handleTreeSelectAlbum}
+              onFolderSelect={handleTreeFolderSelect}
               onToggleFolder={handleToggleFolder}
               onOpenFolder={handleOpenFolder}
               onNavBack={handleNavBack}
               onNavForward={handleNavForward}
-              style={{ width: '100%', height: '100%' }}
+              style={FOLDER_TREE_STYLE}
               isInstantTransition={isInstantTransition}
             />
           );
@@ -748,26 +844,54 @@ function App() {
           );
         case Panel.Adjustments:
           return (
-            <AdjustmentSliderResetProvider>
-              <Controls />
-            </AdjustmentSliderResetProvider>
+            <LookPanelFrame>
+              <AdjustmentSliderResetProvider>
+                <LookSliderKeyframes>
+                  <Controls />
+                </LookSliderKeyframes>
+              </AdjustmentSliderResetProvider>
+            </LookPanelFrame>
           );
         case Panel.Metadata:
           return <MetadataPanel />;
         case Panel.Crop:
           return (
-            <AdjustmentSliderResetProvider>
-              <CropPanel />
-            </AdjustmentSliderResetProvider>
+            <LookPanelFrame needs="clip">
+              <AdjustmentSliderResetProvider>
+                <CropPanel />
+              </AdjustmentSliderResetProvider>
+            </LookPanelFrame>
           );
         case Panel.Masks:
-          return <MasksPanel />;
+          return (
+            <LookPanelFrame>
+              <MasksPanel />
+            </LookPanelFrame>
+          );
         case Panel.Ai:
-          return <AIPanel />;
+          return (
+            <LookPanelFrame needs="photo">
+              <AIPanel />
+            </LookPanelFrame>
+          );
         case Panel.Presets:
-          return <PresetsPanel onNavigateToCommunity={() => setUI({ activeView: 'community' })} />;
+          return (
+            <LookPanelFrame browsable>
+              <PresetsPanel onNavigateToCommunity={() => setUI({ activeView: 'community' })} />
+            </LookPanelFrame>
+          );
         case Panel.Tethering:
           return <TetheringPanel onLibraryRefresh={handleLibraryRefresh} onImageSelect={handleImageSelect} />;
+        case Panel.MediaPool:
+          return <ProjectPanel />;
+        case Panel.Inspector:
+          return <InspectorPanel />;
+        case Panel.Effects:
+          return <EffectsPanel />;
+        case Panel.Captions:
+          return <CaptionsPanel />;
+        case Panel.Mixer:
+          return <MixerPanel />;
         case Panel.Filmstrip:
           return (
             <DockedFilmstrip
@@ -789,8 +913,8 @@ function App() {
       isResizing,
       handleFolderTreeContextMenu,
       handleAlbumTreeContextMenu,
-      handleSelectAlbum,
-      handleSelectSubfolder,
+      handleTreeSelectAlbum,
+      handleTreeFolderSelect,
       handleToggleFolder,
       handleOpenFolder,
       handleNavBack,
@@ -812,6 +936,7 @@ function App() {
       requestThumbnails,
       thumbnailAspectRatio,
       groupBadgeInfo,
+      handleBackToLibrary,
     ],
   );
 
@@ -823,15 +948,24 @@ function App() {
     activeView === 'editor' && appSettings?.useWgpuRenderer !== false && !!selectedImage && wgpuPhase === 'live';
   const useMacWindowShell = osPlatform === 'macos' && !appSettings?.decorations && !isWindowFullScreen && !isFullScreen;
 
-  const layoutSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const layoutSensors = useSensors(useSensor(PointerSensor, LAYOUT_SENSOR_OPTIONS));
+  const isDndDragging = useRef(false);
+  useEffect(() => {
+    const keepDragEscape = (event: KeyboardEvent) => {
+      if (event.code === 'Escape' && isDndDragging.current) event.stopPropagation();
+    };
+    document.addEventListener('keydown', keepDragEscape);
+    return () => document.removeEventListener('keydown', keepDragEscape);
+  }, []);
   const handleDragStart = (e: any) => {
+    isDndDragging.current = true;
     if (e.active.data.current?.type === 'layout-tab') {
       setLayoutDragItem(e.active.data.current.panel as Panel);
+    } else if (String(e.active.data.current?.type).startsWith('video-') || e.active.data.current?.type === BIN_DRAG) {
+      setActiveVideoDrag(e.active.data.current as VideoDragData);
     } else if (e.active.data.current?.type === 'library-image') {
-      const path = e.active.data.current.path;
-      const multiSelected = useLibraryStore.getState().multiSelectedPaths;
-      const paths = multiSelected.includes(path) ? multiSelected : [path];
-      setActiveImageDragItem({ path, paths });
+      const { path, paths } = e.active.data.current;
+      setActiveImageDragItem({ path, paths: draggedPaths(path, paths) });
     }
   };
 
@@ -850,8 +984,10 @@ function App() {
   };
 
   const resetDragState = () => {
+    isDndDragging.current = false;
     setLayoutDragItem(null);
     setActiveImageDragItem(null);
+    setActiveVideoDrag(null);
   };
 
   const handleDragEnd = (e: any) => {
@@ -877,7 +1013,18 @@ function App() {
       openHiddenSide(over.data.current.region as PanelRegion);
     }
 
-    if (active.data.current?.type === 'library-image' && over?.data.current?.type === 'folder') {
+    const isPoolTile = String(active.id).startsWith('media-pool-');
+
+    if (String(active.data.current?.type).startsWith('video-') && over?.data.current?.type === 'video-timeline') {
+      const pointer = e.activatorEvent as PointerEvent;
+      dropEffectOnTimeline(
+        active.data.current as VideoDragData,
+        pointer.clientX + e.delta.x,
+        pointer.clientY + e.delta.y,
+      );
+    }
+
+    if (!isPoolTile && active.data.current?.type === 'library-image' && over?.data.current?.type === 'folder') {
       const targetFolder = over.data.current.path;
       const sourcePaths = activeImageDragItem?.paths || [active.data.current.path];
 
@@ -892,7 +1039,16 @@ function App() {
         });
     }
 
-    if (active.data.current?.type === 'library-image' && over?.data.current?.type === 'album') {
+    if (active.data.current?.type === 'library-image' && over?.data.current?.type === 'video-timeline') {
+      const pointer = e.activatorEvent as PointerEvent;
+      dropMediaOnTimeline(
+        activeImageDragItem?.paths || [active.data.current.path],
+        pointer.clientX + e.delta.x,
+        pointer.clientY + e.delta.y,
+      );
+    }
+
+    if (!isPoolTile && active.data.current?.type === 'library-image' && over?.data.current?.type === 'album') {
       const targetAlbumId = over.data.current.id;
       const sourcePaths = activeImageDragItem?.paths || [active.data.current.path];
 
@@ -905,6 +1061,10 @@ function App() {
         .catch((err) => {
           toast.error(`Failed to add to album: ${err}`);
         });
+    }
+
+    if (over?.data.current?.type === 'video-project') {
+      dropOnProject(active, over.data.current.path);
     }
   };
 
@@ -994,6 +1154,7 @@ function App() {
                       isAndroid={isAndroid}
                       compactEditorPanelHeight={compactEditorPanelHeight}
                       compactEditorPanelCollapsedHeight={compactEditorPanelCollapsedHeight}
+                      timelineMaxHeight={timelineMaxHeight}
                       thumbnailAspectRatio={thumbnailAspectRatio}
                       sortedImageList={sortedImageList}
                       createResizeHandler={createResizeHandler}
@@ -1040,7 +1201,7 @@ function App() {
                     handleContinueSession={handleContinueSession}
                     handleGoHome={handleGoHome}
                     handleOpenFolder={handleOpenFolder}
-                    handleNavigateToFolder={(path) => handleSelectSubfolder(path, false, undefined, true)}
+                    handleNavigateToFolder={handleNavigateToFolder}
                     handleImportClick={handleImportClick}
                     handleLibraryRefresh={handleLibraryRefresh}
                     handleCopyAdjustments={handleCopyAdjustments}
@@ -1049,7 +1210,7 @@ function App() {
                     requestThumbnails={requestThumbnails}
                   />
                 </div>
-                {isSettingsOpen && appSettings && hasRoots && (
+                {isSettingsOpen && appSettings && hasMainContent && (
                   <div className="absolute inset-0 z-50 flex bg-bg-secondary rounded-lg">
                     <div className="w-full h-full flex flex-col p-4 lg:p-8 overflow-y-auto custom-scrollbar">
                       <SettingsPanel
@@ -1077,16 +1238,31 @@ function App() {
                 />
               )}
             </div>
-            <DragOverlay modifiers={activeImageDragItem ? [imageDragModifier] : undefined} dropAnimation={null}>
+            <DragOverlay
+              modifiers={activeImageDragItem || activeVideoDrag ? [trailCursorModifier] : undefined}
+              dropAnimation={null}
+            >
               {activeLayoutDragItem && ActiveOverlayIcon ? (
                 <div className="w-10 h-10 bg-surface shadow-2xl rounded-md flex items-center justify-center text-text-primary ring-1 ring-border-color">
                   <ActiveOverlayIcon size={20} />
                 </div>
               ) : null}
-              {activeImageDragItem ? <ImageDragOverlayNode activeItem={activeImageDragItem} /> : null}
+              <TimelineDragOverlay>
+                {activeImageDragItem ? <ImageDragOverlayNode activeItem={activeImageDragItem} /> : null}
+                {activeVideoDrag ? (
+                  <DragChip>
+                    <div className="flex items-center gap-2 pl-2.5 pr-3.5 h-8 rounded-full bg-surface/95 backdrop-blur-sm shadow-xl ring-1 ring-border-color/60 text-text-primary text-[13px] font-medium whitespace-nowrap">
+                      <activeVideoDrag.icon size={15} className="text-accent" />
+                      {activeVideoDrag.label}
+                    </div>
+                  </DragChip>
+                ) : null}
+              </TimelineDragOverlay>
             </DragOverlay>
+            <FileDropTarget />
           </DndContext>
         </div>
+        <ProjectThumbnails onRequestThumbnails={requestThumbnails} />
         <AppModals
           handleImageSelect={handleImageSelect}
           handleMergeSettingsChange={handleMergeSettingsChange}
@@ -1118,7 +1294,7 @@ function App() {
           toastClassName={() =>
             clsx(
               'relative flex min-h-16 p-4 rounded-lg justify-between overflow-hidden cursor-pointer mb-4',
-              'bg-surface! text-text-primary! border! border-border-color! shadow-2xl! max-w-[420px]!',
+              'bg-surface! text-text-primary! border! border-border-color! shadow-2xl! w-[380px]! max-w-[calc(100vw-2rem)]!',
             )
           }
         />

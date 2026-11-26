@@ -1,4 +1,3 @@
-import { useState, useEffect, useRef } from 'react';
 import { Star, Copy, ClipboardPaste, Check, Settings, Filter, PanelLeft, PanelRight } from 'lucide-react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,15 +5,18 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
 import Filmstrip from './Filmstrip';
-import { GLOBAL_KEYS } from '../../types/ui';
+import ViewerZoom from './ViewerZoom';
+import Timeline from '../video/timeline/Timeline';
+import { useVideoKind } from '../../store/videoIntegration';
 import { ImageFile, ImageFlag } from '../../types/library';
 import { SelectedImage } from '../../types/editor';
 import { ThumbnailAspectRatio } from '../../types/settings';
 import FlagToggles from './library/FlagToggles';
 import Text from '../ui/Text';
-import { getZoomContentSize, getZoomPercent, useEditorStore } from '../../store/useEditorStore';
 import { useLibraryActions } from '../../hooks/useLibraryActions';
-import { getReopenedPanelWidth, isFilmstripDocked, useUIStore } from '../../store/useUIStore';
+import { useShortcut, useShortcuts } from '../../hooks/useShortcuts';
+import type { ShortcutAction } from '../../utils/keyboardUtils';
+import { isFilmstripDocked, toggleBottomPanel, toggleSidePanel, useUIStore } from '../../store/useUIStore';
 import { Panel } from '../../types/ui';
 import { PanelTabButton } from './PanelSwitcher';
 import { QuickFilterControls, useQuickFilterToggle } from './QuickFilter';
@@ -57,6 +59,16 @@ interface BottomBarProps {
   totalImages?: number;
 }
 
+const PRIORITY = {
+  counter: ['@max-[52rem]:hidden', '@max-[39rem]:hidden'],
+  filter: ['@max-[43rem]:hidden', '@max-[30rem]:hidden'],
+  gear: ['@max-[40rem]:hidden', '@max-[27rem]:hidden'],
+  flags: ['@max-[37rem]:hidden', '@max-[24rem]:hidden'],
+  copy: ['@max-[34rem]:hidden', '@max-[21rem]:hidden'],
+} as const;
+
+const COLLAPSED_TIMELINE_HEIGHT = 56;
+
 interface StarRatingProps {
   disabled: boolean;
   onRate(rate: number): void;
@@ -65,6 +77,7 @@ interface StarRatingProps {
 
 const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
   const { t } = useTranslation();
+  const shortcut = useShortcuts();
 
   return (
     <div className={clsx('flex items-center gap-1', disabled && 'cursor-not-allowed')}>
@@ -81,6 +94,7 @@ const StarRating = ({ rating, onRate, disabled }: StarRatingProps) => {
                 ? t('ui.bottomBar.tooltips.selectToRate')
                 : t('ui.bottomBar.tooltips.rateStars', { count: starValue })
             }
+            {...shortcut(disabled ? null : `rate_${starValue}`)}
           >
             <Star
               size={18}
@@ -105,23 +119,28 @@ interface PanelToggleButtonProps {
   Icon: React.ElementType;
   tooltip: string;
   disabled?: boolean;
+  shortcut: ShortcutAction;
 }
 
-const PanelToggleButton = ({ onClick, Icon, tooltip, disabled = false }: PanelToggleButtonProps) => (
-  <button
-    className={clsx(
-      'p-1.5 rounded-md transition-colors',
-      disabled
-        ? 'text-text-secondary opacity-40 cursor-not-allowed'
-        : 'text-text-secondary hover:bg-surface hover:text-text-primary',
-    )}
-    onClick={() => !disabled && onClick()}
-    disabled={disabled}
-    data-tooltip={tooltip}
-  >
-    <Icon size={18} />
-  </button>
-);
+const PanelToggleButton = ({ onClick, Icon, tooltip, disabled = false, shortcut }: PanelToggleButtonProps) => {
+  const shortcutProps = useShortcut(disabled ? null : shortcut);
+  return (
+    <button
+      className={clsx(
+        'p-1.5 rounded-md transition-colors',
+        disabled
+          ? 'text-text-secondary opacity-40 cursor-not-allowed'
+          : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+      )}
+      onClick={() => !disabled && onClick()}
+      disabled={disabled}
+      data-tooltip={tooltip}
+      {...shortcutProps}
+    >
+      <Icon size={18} />
+    </button>
+  );
+};
 
 export default function BottomBar({
   filmstripHeight,
@@ -157,69 +176,28 @@ export default function BottomBar({
   totalImages,
 }: BottomBarProps) {
   const { t } = useTranslation();
+  const shortcut = useShortcuts();
   const { handleToggleFlag } = useLibraryActions();
 
-  const { isInstantTransition, uiVisibility, setUI } = useUIStore(
+  const { isInstantTransition, uiVisibility } = useUIStore(
     useShallow((state) => ({
       isInstantTransition: state.isInstantTransition,
       uiVisibility: state.uiVisibility,
-      setUI: state.setUI,
     })),
   );
 
   const isDocked = useUIStore(isFilmstripDocked);
-  const hasBottomFilmstrip = showFilmstrip && !(layoutMode === 'full' && isDocked);
+  const isProjectSession = useVideoKind() === 'project';
+  const hasVideoTimeline = isProjectSession && showFilmstrip;
+  const hasBottomFilmstrip = hasVideoTimeline || (showFilmstrip && !(layoutMode === 'full' && isDocked));
   const isLeftOpen = uiVisibility.leftPanel;
   const isRightOpen = uiVisibility.rightPanel;
   const isBottomOpen = uiVisibility.filmstrip;
   const showLeftPanelToggle = layoutMode === 'full';
   const showRightPanelToggle = layoutMode === 'full' || layoutMode === 'wide';
   const showFilmstripTab = layoutMode !== 'compact' && hasBottomFilmstrip;
-  const toggleLeft = () =>
-    setUI((s) => {
-      const isOpening = !s.uiVisibility.leftPanel;
-      return {
-        uiVisibility: { ...s.uiVisibility, leftPanel: isOpening },
-        leftPanelWidth: isOpening ? getReopenedPanelWidth(s.leftPanelWidth) : s.leftPanelWidth,
-      };
-    });
-
-  const toggleRight = () =>
-    setUI((s) => {
-      const isOpening = !s.uiVisibility.rightPanel;
-      return {
-        uiVisibility: { ...s.uiVisibility, rightPanel: isOpening },
-        rightPanelWidth: isOpening ? getReopenedPanelWidth(s.rightPanelWidth) : s.rightPanelWidth,
-      };
-    });
-
-  const toggleBottom = () =>
-    setUI((s) => ({
-      uiVisibility: { ...s.uiVisibility, filmstrip: !s.uiVisibility.filmstrip },
-    }));
-
-  const { displayWidth, contentWidth, zoomPercent } = useEditorStore(
-    useShallow((state) => ({
-      displayWidth: state.displaySize.width,
-      contentWidth: getZoomContentSize(state).width,
-      zoomPercent: getZoomPercent(state),
-    })),
-  );
-
-  const [isEditingPercent, setIsEditingPercent] = useState(false);
-  const [percentInputValue, setPercentInputValue] = useState('');
-  const isDraggingSlider = useRef(false);
-  const [isZoomActive, setIsZoomActive] = useState(false);
-
-  const percentInputRef = useRef<HTMLInputElement>(null);
-  const [isZoomLabelHovered, setIsZoomLabelHovered] = useState(false);
-  const isZoomReady = !isLoading && contentWidth > 0 && displayWidth > 0;
-
-  const currentOriginalPercent = isZoomReady ? zoomPercent : 1.0;
-
-  const [latchedSliderValue, setLatchedSliderValue] = useState(1.0);
-  const [latchedDisplayPercent, setLatchedDisplayPercent] = useState(100);
-
+  const hasZoom = !isLibraryView && showZoomControls;
+  const priority = (item: keyof typeof PRIORITY) => (isProjectSession ? undefined : PRIORITY[item][hasZoom ? 0 : 1]);
   const numSelected = multiSelectedPaths.length;
   const total = totalImages ?? 0;
   const showSelectionCounter = numSelected > 1;
@@ -227,101 +205,8 @@ export default function BottomBar({
   const { isExpanded: isFilterExpanded, toggle: toggleQuickFilter } = useQuickFilterToggle('quickFilter');
   const currentHeight = filmstripHeight ?? 120;
   const isCollapsed = !isFilmstripVisible;
-  const effectiveHeight = isFilmstripVisible ? currentHeight : 0;
+  const effectiveHeight = isFilmstripVisible ? currentHeight : hasVideoTimeline ? COLLAPSED_TIMELINE_HEIGHT : 0;
   const shouldAnimate = !isInstantTransition && (!isResizing || isCollapsed);
-
-  useEffect(() => {
-    if (isZoomReady && !isDraggingSlider.current) {
-      setLatchedSliderValue(currentOriginalPercent);
-      setLatchedDisplayPercent(Math.round(currentOriginalPercent * 100));
-    }
-  }, [currentOriginalPercent, isZoomReady]);
-
-  useEffect(() => {
-    const handleDragEndGlobal = () => {
-      if (isZoomActive) {
-        setIsZoomActive(false);
-        isDraggingSlider.current = false;
-        if (isZoomReady) {
-          setLatchedDisplayPercent(Math.round(currentOriginalPercent * 100));
-        }
-      }
-    };
-
-    if (isZoomActive) {
-      window.addEventListener('mouseup', handleDragEndGlobal);
-      window.addEventListener('touchend', handleDragEndGlobal);
-    }
-
-    return () => {
-      window.removeEventListener('mouseup', handleDragEndGlobal);
-      window.removeEventListener('touchend', handleDragEndGlobal);
-    };
-  }, [isZoomActive, isZoomReady, currentOriginalPercent]);
-
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newZoom = parseFloat(e.target.value);
-    setLatchedSliderValue(newZoom);
-    setLatchedDisplayPercent(Math.round(newZoom * 100));
-    onZoomChange(newZoom);
-  };
-
-  const handleMouseDown = () => {
-    isDraggingSlider.current = true;
-    setIsZoomActive(true);
-  };
-
-  const handleMouseUp = () => {
-    isDraggingSlider.current = false;
-    setIsZoomActive(false);
-    if (isZoomReady) {
-      setLatchedDisplayPercent(Math.round(currentOriginalPercent * 100));
-    }
-  };
-
-  const handleZoomKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.ctrlKey || e.metaKey) && ['z', 'y'].includes(e.key.toLowerCase())) {
-      (e.target as HTMLElement).blur();
-      return;
-    }
-    if (GLOBAL_KEYS.includes(e.key)) {
-      (e.target as HTMLElement).blur();
-    }
-  };
-
-  const handleResetZoom = () => {
-    onZoomChange(0, true);
-  };
-
-  const handlePercentClick = () => {
-    if (!isZoomReady) return;
-    setIsEditingPercent(true);
-    setPercentInputValue(latchedDisplayPercent.toString());
-    setTimeout(() => {
-      percentInputRef.current?.focus();
-      percentInputRef.current?.select();
-    }, 0);
-  };
-
-  const handlePercentSubmit = () => {
-    const value = parseFloat(percentInputValue);
-    if (!isNaN(value)) {
-      const originalPercent = value / 100;
-      const clampedPercent = Math.max(0.1, Math.min(2.0, originalPercent));
-      onZoomChange(clampedPercent);
-    }
-    setIsEditingPercent(false);
-    setPercentInputValue('');
-  };
-
-  const handlePercentKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handlePercentSubmit();
-    else if (e.key === 'Escape') {
-      setIsEditingPercent(false);
-      setPercentInputValue('');
-    }
-    e.stopPropagation();
-  };
 
   return (
     <div className="shrink-0 bg-bg-secondary rounded-lg flex flex-col">
@@ -337,270 +222,237 @@ export default function BottomBar({
             className={clsx(
               'w-full p-2 duration-300 ease-in-out',
               shouldAnimate ? 'transition-all' : 'transition-opacity',
-              isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
+              isCollapsed && !hasVideoTimeline ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
             )}
             style={{ height: `${currentHeight}px` }}
           >
-            <Filmstrip
-              imageList={imageList}
-              imageRatings={imageRatings}
-              isLoading={isLoading}
-              multiSelectedPaths={multiSelectedPaths}
-              onClearSelection={onClearSelection}
-              onContextMenu={onContextMenu}
-              onEmptyAreaContextMenu={onEmptyAreaContextMenu}
-              onImageSelect={onImageSelect}
-              onRequestThumbnails={onRequestThumbnails}
-              selectedImage={selectedImage}
-              thumbnailAspectRatio={thumbnailAspectRatio}
-            />
+            {hasVideoTimeline ? (
+              <Timeline />
+            ) : (
+              <Filmstrip
+                imageList={imageList}
+                imageRatings={imageRatings}
+                isLoading={isLoading}
+                multiSelectedPaths={multiSelectedPaths}
+                onClearSelection={onClearSelection}
+                onContextMenu={onContextMenu}
+                onEmptyAreaContextMenu={onEmptyAreaContextMenu}
+                onImageSelect={onImageSelect}
+                onRequestThumbnails={onRequestThumbnails}
+                selectedImage={selectedImage}
+                thumbnailAspectRatio={thumbnailAspectRatio}
+              />
+            )}
           </div>
         </div>
       )}
 
-      <div
-        className={clsx(
-          'shrink-0 h-12 flex items-center justify-between px-3',
-          !isLibraryView && 'border-t transition-colors duration-300',
-          !isLibraryView && hasBottomFilmstrip && isFilmstripVisible ? 'border-surface' : 'border-transparent',
-        )}
-      >
-        <div className="flex items-center gap-3">
-          <StarRating rating={rating} onRate={onRate} disabled={isRatingDisabled} />
-          <FlagToggles
-            flag={flag}
-            onToggle={(option) => handleToggleFlag(option)}
-            inactiveClassName="text-text-secondary hover:text-accent"
-            disabled={isRatingDisabled}
-          />
-          <div className="h-5 w-px bg-surface"></div>
-          <div className="flex items-center gap-2">
-            <button
-              className="relative w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              disabled={isCopyDisabled}
-              onClick={onCopy}
-              data-tooltip={t('ui.bottomBar.tooltips.copySettings')}
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                {isCopied ? (
-                  <motion.div
-                    key="copied"
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute"
-                  >
-                    <Check size={18} className="text-green-500" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="copy"
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute"
-                  >
-                    <Copy size={18} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </button>
-
-            <button
-              className="relative w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-              disabled={isPasteDisabled}
-              onClick={onPaste}
-              data-tooltip={t('ui.bottomBar.tooltips.pasteSettings')}
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                {isPasted ? (
-                  <motion.div
-                    key="pasted"
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute"
-                  >
-                    <Check size={18} className="text-green-500" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="paste"
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.5 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute"
-                  >
-                    <ClipboardPaste size={18} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </button>
-
-            <button
-              className="w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors"
-              onClick={onOpenCopyPasteSettings}
-              data-tooltip={t('ui.bottomBar.tooltips.copyPasteSettings')}
-            >
-              <Settings size={18} />
-            </button>
-          </div>
-
-          <div className="h-5 w-px bg-surface"></div>
-
-          <div
-            className={clsx(
-              'flex items-center transition-all duration-300',
-              isFilterExpanded ? 'bg-surface rounded-md' : 'bg-transparent',
-            )}
-          >
-            <button
-              className={clsx(
-                'relative w-8 h-8 flex items-center justify-center rounded-md transition-colors shrink-0',
-                isFilterExpanded ? 'text-text-primary' : 'text-text-secondary hover:bg-surface hover:text-text-primary',
-              )}
-              onClick={toggleQuickFilter}
-              data-tooltip={t('ui.bottomBar.tooltips.quickFilter')}
-            >
-              <Filter size={18} />
-            </button>
-
-            <div
-              className={clsx(
-                'flex items-center transition-all duration-300 ease-in-out overflow-hidden',
-                // Increased max-w so stars + flags + colors all fit without clipping
-                isFilterExpanded ? 'max-w-xl opacity-100 pr-2 ml-1' : 'max-w-0 opacity-0 pr-0 ml-0',
-              )}
-            >
-              <QuickFilterControls className="flex items-center gap-3 whitespace-nowrap" />
+      {!hasVideoTimeline && (
+        <div
+          className={clsx(
+            '@container shrink-0 h-12 flex items-center justify-between px-3',
+            !isLibraryView && 'border-t transition-colors duration-300',
+            !isLibraryView && hasBottomFilmstrip && isFilmstripVisible ? 'border-surface' : 'border-transparent',
+          )}
+        >
+          <div className="flex flex-wrap items-center gap-3 h-8 min-w-0 overflow-hidden before:h-8 before:-mr-3 before:content-['']">
+            <div className={isProjectSession ? 'hidden' : 'contents'}>
+              <StarRating rating={rating} onRate={onRate} disabled={isRatingDisabled} />
+              <FlagToggles
+                flag={flag}
+                onToggle={(option) => handleToggleFlag(option)}
+                inactiveClassName="text-text-secondary hover:text-accent"
+                disabled={isRatingDisabled}
+                showShortcuts
+                className={priority('flags')}
+              />
+              <div className={clsx('h-5 w-px bg-surface', priority('copy'))}></div>
             </div>
-          </div>
-
-          <div
-            className={clsx(
-              'flex items-center transition-all duration-300 ease-out overflow-hidden',
-              showSelectionCounter ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0',
-            )}
-          >
-            <div className="h-5 w-px bg-surface mr-3"></div>
-            <Text as="span" className="whitespace-nowrap">
-              {t('ui.bottomBar.imagesSelected', { current: numSelected, total })}
-            </Text>
-          </div>
-        </div>
-
-        <div className="flex-1 flex items-center justify-end gap-3">
-          {!isLibraryView && showZoomControls && (
-            <>
-              <div className="flex-1 max-w-56 flex items-center gap-2">
-                <div
-                  className="relative w-12 h-full shrink-0 flex items-center justify-end cursor-pointer"
-                  onClick={handleResetZoom}
-                  onMouseEnter={() => setIsZoomLabelHovered(true)}
-                  onMouseLeave={() => setIsZoomLabelHovered(false)}
-                  data-tooltip={t('ui.bottomBar.tooltips.resetZoom')}
-                >
-                  <span className="absolute right-0 text-xs text-text-secondary select-none text-right w-max transition-colors hover:text-text-primary">
-                    {isZoomLabelHovered ? t('ui.bottomBar.zoomLabelReset') : t('ui.bottomBar.zoomLabel')}
-                  </span>
-                </div>
-
-                <div className="relative flex-1 min-w-0 h-5">
-                  <div className="absolute top-1/2 left-0 w-full h-1.5 -translate-y-1/2 bg-surface rounded-full pointer-events-none" />
-                  <input
-                    type="range"
-                    min={0.1}
-                    max={2.0}
-                    step="0.05"
-                    value={latchedSliderValue}
-                    onChange={handleSliderChange}
-                    onKeyDown={handleZoomKeyDown}
-                    onMouseDown={handleMouseDown}
-                    onMouseUp={handleMouseUp}
-                    onTouchStart={handleMouseDown}
-                    onTouchEnd={handleMouseUp}
-                    onDoubleClick={handleResetZoom}
-                    className={`absolute top-1/2 left-0 w-full h-1.5 mt-[-1.5px] appearance-none bg-transparent cursor-pointer p-0 slider-input z-10 ${
-                      isZoomActive ? 'slider-thumb-active' : ''
-                    }`}
-                  />
-                </div>
-
-                <div className="relative text-xs text-text-secondary w-6 shrink-0 text-right flex items-center justify-end h-5 gap-1">
-                  {isEditingPercent ? (
-                    <input
-                      ref={percentInputRef}
-                      type="text"
-                      value={percentInputValue}
-                      onChange={(e) => setPercentInputValue(e.target.value)}
-                      onKeyDown={handlePercentKeyDown}
-                      onBlur={handlePercentSubmit}
-                      className="w-full text-xs text-text-primary bg-bg-primary border border-border-color rounded-sm px-1 text-right"
-                      style={{ fontSize: '12px', height: '18px' }}
-                    />
-                  ) : (
-                    <span
-                      onClick={handlePercentClick}
-                      className="cursor-pointer hover:text-text-primary transition-colors select-none"
-                      data-tooltip={t('ui.bottomBar.tooltips.customZoom')}
+            <div className={clsx('flex items-center gap-2', priority('copy'))}>
+              <button
+                className="relative w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                disabled={isCopyDisabled}
+                onClick={onCopy}
+                data-tooltip={t('ui.bottomBar.tooltips.copySettings')}
+                {...shortcut(isCopyDisabled ? null : ['video_copy_adjustments', 'copy_adjustments'])}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  {isCopied ? (
+                    <motion.div
+                      key="copied"
+                      initial={{ opacity: 0, scale: 0.5 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.5 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute"
                     >
-                      {latchedDisplayPercent}%
-                    </span>
+                      <Check size={18} className="text-green-500" />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="copy"
+                      initial={{ opacity: 0, scale: 0.5 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.5 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute"
+                    >
+                      <Copy size={18} />
+                    </motion.div>
                   )}
+                </AnimatePresence>
+              </button>
+
+              <button
+                className="relative w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+                disabled={isPasteDisabled}
+                onClick={onPaste}
+                data-tooltip={t('ui.bottomBar.tooltips.pasteSettings')}
+                {...shortcut(isPasteDisabled ? null : 'paste_adjustments')}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  {isPasted ? (
+                    <motion.div
+                      key="pasted"
+                      initial={{ opacity: 0, scale: 0.5 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.5 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute"
+                    >
+                      <Check size={18} className="text-green-500" />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="paste"
+                      initial={{ opacity: 0, scale: 0.5 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.5 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute"
+                    >
+                      <ClipboardPaste size={18} />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </button>
+
+              <button
+                className={clsx(
+                  'w-8 h-8 flex items-center justify-center rounded-md text-text-secondary hover:bg-surface hover:text-text-primary transition-colors',
+                  priority('gear'),
+                )}
+                onClick={onOpenCopyPasteSettings}
+                data-tooltip={t('ui.bottomBar.tooltips.copyPasteSettings')}
+              >
+                <Settings size={18} />
+              </button>
+            </div>
+
+            <div className={isProjectSession ? 'hidden' : 'contents'}>
+              <div className={clsx('h-5 w-px bg-surface', priority('filter'))}></div>
+
+              <div
+                className={clsx(
+                  'flex items-center grow basis-0 min-w-8 max-w-max transition-all duration-300',
+                  isFilterExpanded ? 'bg-surface rounded-md' : 'bg-transparent',
+                  priority('filter'),
+                )}
+              >
+                <button
+                  className={clsx(
+                    'relative w-8 h-8 flex items-center justify-center rounded-md transition-colors shrink-0',
+                    isFilterExpanded
+                      ? 'text-text-primary'
+                      : 'text-text-secondary hover:bg-surface hover:text-text-primary',
+                  )}
+                  onClick={toggleQuickFilter}
+                  data-tooltip={t('ui.bottomBar.tooltips.quickFilter')}
+                >
+                  <Filter size={18} />
+                </button>
+
+                <div
+                  className={clsx(
+                    'flex items-center min-w-0 transition-all duration-300 ease-in-out overflow-hidden',
+                    isFilterExpanded ? 'max-w-xl opacity-100 pr-2 ml-1' : 'max-w-0 opacity-0 pr-0 ml-0',
+                  )}
+                >
+                  <QuickFilterControls className="flex flex-wrap items-center gap-3 h-8 overflow-hidden whitespace-nowrap before:h-8 before:-mr-3 before:content-['']" />
                 </div>
               </div>
 
-              <div className="h-5 w-px shrink-0 bg-surface"></div>
-            </>
-          )}
+              <div
+                className={clsx(
+                  'flex items-center shrink-0 transition-all duration-300 ease-out overflow-hidden',
+                  showSelectionCounter ? 'max-w-xs opacity-100' : 'max-w-0 opacity-0',
+                  priority('counter'),
+                )}
+              >
+                <div className="h-5 w-px bg-surface mr-3"></div>
+                <Text as="span" className="whitespace-nowrap">
+                  {t('ui.bottomBar.imagesSelected', { current: numSelected, total })}
+                </Text>
+              </div>
+            </div>
+          </div>
 
-          <div className="flex items-center gap-1 shrink-0">
-            {(showLeftPanelToggle || showRightPanelToggle) && (
+          <div className="flex-1 flex items-center justify-end gap-3">
+            {!isLibraryView && showZoomControls && (
               <>
-                {showLeftPanelToggle && (
-                  <PanelToggleButton
-                    onClick={toggleLeft}
-                    Icon={PanelLeft}
-                    tooltip={
-                      isLeftOpen ? t('ui.bottomBar.tooltips.collapseLeft') : t('ui.bottomBar.tooltips.expandLeft')
-                    }
-                  />
-                )}
+                <ViewerZoom className="flex-1 max-w-56" isLoading={isLoading} onZoomChange={onZoomChange} />
 
-                {showRightPanelToggle && (
-                  <PanelToggleButton
-                    onClick={toggleRight}
-                    Icon={PanelRight}
-                    tooltip={
-                      isRightOpen ? t('ui.bottomBar.tooltips.collapseRight') : t('ui.bottomBar.tooltips.expandRight')
-                    }
-                  />
-                )}
+                <div className="h-5 w-px shrink-0 bg-surface"></div>
+              </>
+            )}
+
+            <div className="flex items-center gap-1 shrink-0">
+              {(showLeftPanelToggle || showRightPanelToggle) && (
+                <>
+                  {showLeftPanelToggle && (
+                    <PanelToggleButton
+                      onClick={() => toggleSidePanel('left')}
+                      Icon={PanelLeft}
+                      shortcut="toggle_left_panel"
+                      tooltip={
+                        isLeftOpen ? t('ui.bottomBar.tooltips.collapseLeft') : t('ui.bottomBar.tooltips.expandLeft')
+                      }
+                    />
+                  )}
+
+                  {showRightPanelToggle && (
+                    <PanelToggleButton
+                      onClick={() => toggleSidePanel('right')}
+                      Icon={PanelRight}
+                      shortcut="toggle_right_panel"
+                      tooltip={
+                        isRightOpen ? t('ui.bottomBar.tooltips.collapseRight') : t('ui.bottomBar.tooltips.expandRight')
+                      }
+                    />
+                  )}
+                </>
+              )}
+            </div>
+
+            {showFilmstripTab && (
+              <>
+                <div className="h-5 w-px shrink-0 bg-surface"></div>
+                <PanelTabButton
+                  panel={Panel.Filmstrip}
+                  isActive={isBottomOpen && !isLibraryView}
+                  indicatorId="active-indicator-filmstrip"
+                  onClick={toggleBottomPanel}
+                  shortcut="toggle_bottom_panel"
+                  isDraggable={layoutMode === 'full'}
+                  isDisabled={isLibraryView}
+                  isCompact
+                  dragId={isLibraryView ? `layout-tab-${Panel.Filmstrip}-library` : undefined}
+                />
               </>
             )}
           </div>
-
-          {showFilmstripTab && (
-            <>
-              <div className="h-5 w-px shrink-0 bg-surface"></div>
-              <PanelTabButton
-                panel={Panel.Filmstrip}
-                isActive={isBottomOpen && !isLibraryView}
-                indicatorId="active-indicator-filmstrip"
-                onClick={toggleBottom}
-                isDraggable={layoutMode === 'full'}
-                isDisabled={isLibraryView}
-                isCompact
-                dragId={isLibraryView ? `layout-tab-${Panel.Filmstrip}-library` : undefined}
-              />
-            </>
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

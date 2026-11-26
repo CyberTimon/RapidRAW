@@ -87,7 +87,7 @@ fn grayscale_erode(image: &GrayImage, k: u8) -> GrayImage {
     GrayImage::from_raw(width, height, out).unwrap()
 }
 
-fn gaussian_kernel(sigma: f32) -> Vec<f32> {
+pub(crate) fn gaussian_kernel(sigma: f32) -> Vec<f32> {
     let radius = (2.0 * sigma).ceil() as usize;
     let pdf =
         |x: f32| (sigma * (2.0 * PI).sqrt()).recip() * (-x.powi(2) / (2.0 * sigma.powi(2))).exp();
@@ -155,6 +155,25 @@ pub(crate) fn gaussian_blur_mask(mask: &GrayImage, sigma: f32) -> GrayImage {
     GrayImage::from_raw(w as u32, h as u32, blurred).expect("mask buffer size")
 }
 
+pub(crate) fn grow_radius(grow: f32, width: u32, height: u32) -> Option<(u8, bool)> {
+    const MAX_GROW_PERCENTAGE: f32 = 0.01;
+    if grow.abs() <= 0.01 || grow.is_nan() {
+        return None;
+    }
+    let grow_pixels = (grow / 100.0) * width.min(height) as f32 * MAX_GROW_PERCENTAGE;
+    let amount = grow_pixels.abs().round() as u8;
+    (amount > 0).then_some((amount, grow_pixels > 0.0))
+}
+
+pub(crate) fn feather_sigma(feather: f32, width: u32, height: u32) -> Option<f32> {
+    const MAX_FEATHER_SIGMA_PERCENTAGE: f32 = 0.005;
+    if feather <= 0.0 || feather.is_nan() {
+        return None;
+    }
+    let sigma = (feather / 100.0) * width.min(height) as f32 * MAX_FEATHER_SIGMA_PERCENTAGE;
+    (sigma > 0.01).then_some(sigma)
+}
+
 pub fn apply_grow_and_feather(
     mask: &mut GrayImage,
     grow: f32,
@@ -162,30 +181,15 @@ pub fn apply_grow_and_feather(
     width: u32,
     height: u32,
 ) {
-    let base_dimension = width.min(height) as f32;
-
-    if grow.abs() > 0.01 {
-        const MAX_GROW_PERCENTAGE: f32 = 0.01;
-        let grow_pixels = (grow / 100.0) * base_dimension * MAX_GROW_PERCENTAGE;
-
-        let amount = grow_pixels.abs().round() as u8;
-
-        if amount > 0 {
-            if grow_pixels > 0.0 {
-                *mask = grayscale_dilate(mask, amount);
-            } else {
-                *mask = grayscale_erode(mask, amount);
-            }
-        }
+    if let Some((amount, dilate)) = grow_radius(grow, width, height) {
+        *mask = if dilate {
+            grayscale_dilate(mask, amount)
+        } else {
+            grayscale_erode(mask, amount)
+        };
     }
-
-    if feather > 0.0 {
-        const MAX_FEATHER_SIGMA_PERCENTAGE: f32 = 0.005;
-        let sigma = (feather / 100.0) * base_dimension * MAX_FEATHER_SIGMA_PERCENTAGE;
-
-        if sigma > 0.01 {
-            *mask = gaussian_blur_mask(mask, sigma);
-        }
+    if let Some(sigma) = feather_sigma(feather, width, height) {
+        *mask = gaussian_blur_mask(mask, sigma);
     }
 }
 

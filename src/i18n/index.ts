@@ -1,5 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { platform } from '@tauri-apps/plugin-os';
+import { formatKeyCode } from '../utils/keyboardUtils';
 
 import en from './locales/en.json';
 import de from './locales/de.json';
@@ -19,6 +21,14 @@ import nl from './locales/nl.json';
 import cs from './locales/cs.json';
 import lt from './locales/lt.json';
 import sv from './locales/sv.json';
+
+const osPlatform = (() => {
+  try {
+    return platform();
+  } catch (_error) {
+    return '';
+  }
+})();
 
 i18n.use(initReactI18next).init({
   resources: {
@@ -46,5 +56,6 @@ i18n.use(initReactI18next).init({
   returnEmptyString: false,
   interpolation: {
     escapeValue: false,
+    defaultVariables: { alt: formatKeyCode('alt', osPlatform) },
   },
 });

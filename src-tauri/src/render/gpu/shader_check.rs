@@ -63,12 +63,13 @@ fn check(backend: &str) -> Result<String, CheckError> {
         viewer_display: Default::default(),
         pipelines: Default::default(),
         compute: Default::default(),
+        motion_blur: Default::default(),
     };
 
     GpuProcessor::new(context, 512, 512)
         .map_err(CheckError::Failed)?
         .warm_all_shaders();
-    crate::render::gpu::compute::ComputePipelines::new(&device).warm(&device);
+    crate::render::gpu::compute::ComputePipelines::new(&device).warm_all(&device);
     let decode_errors = [
         crate::decode::demosaic::warm(&device),
         crate::decode::develop::warm(&device),

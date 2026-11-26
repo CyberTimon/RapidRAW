@@ -14,10 +14,10 @@ const APP2: u8 = 0xE2;
 const START_OF_SCAN: u8 = 0xDA;
 const MPF_ENTRIES: u16 = 0xB002;
 const MPF_ENTRY_SIZE: usize = 16;
-const PQ_PEAK_NITS: f32 = 10000.0;
+pub(crate) const PQ_PEAK_NITS: f32 = 10000.0;
 const PQ_UNKNOWN_PEAK_NITS: f32 = 1000.0;
-const HLG_PEAK_NITS: f32 = 1000.0;
-const HLG_SYSTEM_GAMMA: f32 = 1.2;
+pub(crate) const HLG_PEAK_NITS: f32 = 1000.0;
+pub(crate) const HLG_SYSTEM_GAMMA: f32 = 1.2;
 const MAX_PEAK: f32 = 16.0;
 const MAX_GAIN_LOG2: f32 = 16.0;
 const JXL_CODESTREAM: &[u8] = &[0xFF, 0x0A];
@@ -468,7 +468,6 @@ pub fn pq_to_relative(encoded: f32) -> f32 {
     linear * PQ_PEAK_NITS / REFERENCE_WHITE_NITS
 }
 
-#[cfg(target_os = "windows")]
 pub fn pq_from_nits(nits: f32) -> f32 {
     let power = (nits / PQ_PEAK_NITS).clamp(0.0, 1.0).powf(PQ_M1);
     ((PQ_C1 + PQ_C2 * power) / (1.0 + PQ_C3 * power)).powf(PQ_M2)

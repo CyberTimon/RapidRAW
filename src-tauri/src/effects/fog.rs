@@ -7,7 +7,7 @@ use image::GrayImage;
 
 use crate::render::adjustment_utils::is_effect_enabled;
 use crate::render::color_space::{luminance, srgb_to_working};
-use crate::render::gpu::compute::{Bind, ComputeEncoder, Grid, Group, Out, RGB_MODE, Slot};
+use crate::render::gpu::compute::{Bind, ComputeEncoder, Grid, Group, MapKey, Out, RGB_MODE, Slot};
 
 const EPS: f32 = 2.0e-3;
 const NEAR: f32 = 0.1;
@@ -39,7 +39,7 @@ struct Params {
 
 pub struct Fog {
     depth_map: Arc<GrayImage>,
-    map_key: u64,
+    map_key: MapKey,
     tint: [f32; 4],
     amount: f32,
     start: f32,

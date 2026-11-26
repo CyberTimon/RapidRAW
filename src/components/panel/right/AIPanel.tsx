@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import {
@@ -43,6 +42,7 @@ import Slider from '../../ui/Slider';
 import Input from '../../ui/Input';
 import Button from '../../ui/Button';
 import Dropdown from '../../ui/Dropdown';
+import SegmentedControl from '../../ui/SegmentedControl';
 
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import {
@@ -57,8 +57,9 @@ import { Mask, MaskType, SubMask, SubMaskMode, ToolType } from '../../../types/m
 import { formatMaskTypeName, getSubMaskName } from '../../../utils/maskNames';
 import { Adjustments, AiPatch, Coord } from '../../../utils/adjustments';
 import { OPTION_SEPARATOR } from '../../../types/ui';
-import { countPatchesOfType, createSubMask } from '../../../utils/maskUtils';
+import { countPatchesOfType, createSubMask, initialDrawParameters } from '../../../utils/maskUtils';
 import Text from '../../ui/Text';
+import PanelHeader from '../../ui/PanelHeader';
 import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../../store/useProcessStore';
@@ -67,6 +68,7 @@ import { useEditorActions } from '../../../hooks/useEditorActions';
 import { useAiMasking } from '../../../hooks/useAiMasking';
 import { useCloudUsage } from '../../../hooks/useCloudUsage';
 import { useDelayedLoading } from '../../../hooks/useDelayedLoading';
+import ToolTile from '../../ui/ToolTile';
 
 export const STANDALONE_MASK_TYPES: Mask[] = [Mask.Clone, Mask.Heal, Mask.Liquify, Mask.Retouch];
 
@@ -161,28 +163,15 @@ const BrushTools = ({
         />
       )}
       {showToolSwitch && (
-        <div className="grid grid-cols-2 gap-2 pt-2">
-          <button
-            className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-              settings.tool === ToolType.Brush
-                ? 'text-primary bg-surface'
-                : 'bg-surface text-text-secondary hover:bg-card-active'
-            }`}
-            onClick={() => onSettingsChange((s: any) => ({ ...s, tool: ToolType.Brush }))}
-          >
-            {t('editor.ai.brush.add')}
-          </button>
-          <button
-            className={`p-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-              settings.tool === ToolType.Eraser
-                ? 'text-primary bg-surface'
-                : 'bg-surface text-text-secondary hover:bg-card-active'
-            }`}
-            onClick={() => onSettingsChange((s: any) => ({ ...s, tool: ToolType.Eraser }))}
-          >
-            {t('editor.ai.brush.erase')}
-          </button>
-        </div>
+        <SegmentedControl
+          className="mt-2"
+          options={[
+            { id: ToolType.Brush, label: t('editor.ai.brush.add') },
+            { id: ToolType.Eraser, label: t('editor.ai.brush.erase') },
+          ]}
+          value={settings.tool}
+          onChange={(tool) => onSettingsChange((s: any) => ({ ...s, tool }))}
+        />
       )}
     </div>
   );
@@ -238,73 +227,25 @@ const CloneHealControls = ({
 
   const modes = useMemo(
     () => [
-      { type: Mask.Clone, label: t('masks.types.clone'), title: t('editor.ai.cloneHeal.cloneTooltip') },
-      { type: Mask.Heal, label: t('masks.types.heal'), title: t('editor.ai.cloneHeal.healTooltip') },
+      { id: Mask.Clone, label: t('masks.types.clone'), tooltip: t('editor.ai.cloneHeal.cloneTooltip') },
+      { id: Mask.Heal, label: t('masks.types.heal'), tooltip: t('editor.ai.cloneHeal.healTooltip') },
     ],
     [t],
   );
-  const [bubbleStyle, setBubbleStyle] = useState({});
-  const isInitialAnimation = useRef(true);
-
-  useEffect(() => {
-    const selectedIndex = modes.findIndex((m) => m.type === subMask.type);
-    const safeIndex = selectedIndex >= 0 ? selectedIndex : 0;
-
-    const widthPercent = 100 / modes.length;
-    const targetX = `${safeIndex * 100}%`;
-    const targetWidth = `${widthPercent}%`;
-
-    if (isInitialAnimation.current) {
-      const initialX = subMask.type === Mask.Heal ? `${modes.length * 100}%` : '-25%';
-      setBubbleStyle({
-        x: [initialX, targetX],
-        width: targetWidth,
-      });
-      isInitialAnimation.current = false;
-    } else {
-      setBubbleStyle({
-        x: targetX,
-        width: targetWidth,
-      });
-    }
-  }, [subMask.type, modes]);
 
   return (
     <div className="space-y-3">
-      <Text variant={TextVariants.small} className="leading-relaxed">
-        {hasStrokes ? t('editor.ai.cloneHeal.hintActive') : t('editor.ai.cloneHeal.hintEmpty')}
-      </Text>
       <div>
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-medium text-text-secondary select-none">{t('editor.ai.cloneHeal.mode')}</span>
         </div>
-        <div className="w-full p-2 bg-card-active rounded-md">
-          <div className="relative flex w-full">
-            <motion.div
-              className="absolute top-0 bottom-0 z-0 bg-accent"
-              style={{ borderRadius: 6 }}
-              animate={bubbleStyle}
-              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-            />
-            {modes.map((mode) => (
-              <button
-                key={mode.type}
-                data-tooltip={mode.title}
-                onClick={() => switchMode(mode.type)}
-                className={clsx(
-                  'relative flex-1 flex items-center justify-center gap-2 px-3 p-1.5 text-sm font-medium rounded-md transition-colors',
-                  {
-                    'text-text-primary hover:bg-surface': subMask.type !== mode.type,
-                    'text-button-text': subMask.type === mode.type,
-                  },
-                )}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <span className="relative z-10 flex items-center">{mode.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <SegmentedControl
+          variant="embedded"
+          className="p-2 bg-card-active rounded-md"
+          options={modes}
+          value={subMask.type}
+          onChange={switchMode}
+        />
       </div>
       <Slider
         defaultValue={100}
@@ -668,18 +609,8 @@ export default function AIPanel() {
       subMask.parameters.range = Math.min(imgW, imgH) * 0.1;
     }
 
-    if (type === Mask.Linear || type === Mask.Radial) {
-      if (!subMask.parameters) subMask.parameters = {};
-      subMask.parameters.isInitialDraw = true;
-      subMask.parameters.startX = -10000;
-      subMask.parameters.startY = -10000;
-      subMask.parameters.endX = -10000;
-      subMask.parameters.endY = -10000;
-      subMask.parameters.centerX = -10000;
-      subMask.parameters.centerY = -10000;
-      subMask.parameters.radiusX = 0;
-      subMask.parameters.radiusY = 0;
-    }
+    const drawn = initialDrawParameters(type);
+    if (drawn) subMask.parameters = { ...subMask.parameters, ...drawn };
     return subMask;
   };
 
@@ -1216,8 +1147,7 @@ export default function AIPanel() {
       collisionDetection={pointerWithin}
     >
       <div className="flex flex-col h-full select-none overflow-hidden" onContextMenu={handlePanelContextMenu}>
-        <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-          <Text variant={TextVariants.title}>{t('editor.ai.inpaintingTitle')}</Text>
+        <PanelHeader title={t('editor.ai.inpaintingTitle')}>
           <button
             className="p-2 rounded-full hover:bg-surface transition-colors"
             onClick={handleResetAllAiEdits}
@@ -1225,7 +1155,7 @@ export default function AIPanel() {
           >
             <RotateCcw size={18} />
           </button>
-        </div>
+        </PanelHeader>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0 p-3">
           {!isAiFree && (
@@ -1496,36 +1426,21 @@ function DraggableGridItem({ maskType, isGenerating, onClick }: any) {
     disabled: isGenerating,
   });
   return (
-    <motion.div
+    <ToolTile
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      icon={maskType.icon}
+      label={formatMaskTypeName(maskType.type)}
+      disabled={maskType.disabled || isGenerating}
+      dragging={isDragging}
       onClick={onClick}
-      className={`bg-surface text-text-primary rounded-lg p-2 flex flex-col items-center justify-center gap-2 aspect-square transition-colors
-            ${
-              maskType.disabled || isGenerating
-                ? 'opacity-50 cursor-not-allowed'
-                : 'hover:bg-card-active active:bg-accent/20'
-            }
-            ${isDragging ? 'opacity-50' : ''}`}
       data-tooltip={
         maskType.disabled
           ? t('editor.ai.comingSoon')
           : t('editor.ai.createNewTooltip', { name: formatMaskTypeName(maskType.type) })
       }
-      whileTap={{ scale: 0.98 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-    >
-      <maskType.icon size={24} />
-      <Text
-        as="span"
-        variant={TextVariants.small}
-        color={TextColors.primary}
-        className="text-center w-full leading-tight"
-      >
-        {formatMaskTypeName(maskType.type)}
-      </Text>
-    </motion.div>
+    />
   );
 }
 
@@ -2175,14 +2090,6 @@ function SettingsPanel({
                 </div>
               </Text>
             )}
-
-            <Text variant={TextVariants.small}>
-              {isQuickErasePatch
-                ? t('editor.ai.settings.quickEraseDesc')
-                : useFastInpaint || isCloud
-                  ? t('editor.ai.settings.fastInpaintDesc')
-                  : t('editor.ai.settings.generativeDesc')}
-            </Text>
 
             <div>
               <Switch

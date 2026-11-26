@@ -29,9 +29,11 @@ import { TextColors, TextVariants, TextWeights } from '../../../types/typography
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { isProjectPath, libraryName } from '../../../store/videoIntegration';
 import { useLibraryActions } from '../../../hooks/useLibraryActions';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
 import { expandGroupedPaths } from '../../../utils/imageGrouping';
+import { formatFocalLength } from '../../../utils/exif';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 
 const NOOP = () => {};
@@ -212,10 +214,8 @@ function CullingPreview({
     panRef.current = pan;
   }, [zoom, pan]);
 
-  const fullFileName = image.path.split(/[\\/]/).pop() || '';
-  const parts = fullFileName.split('?vc=');
-  const baseName = parts[0];
-  const isVirtualCopy = parts.length > 1;
+  const baseName = libraryName(image.path);
+  const isVirtualCopy = image.path.includes('?vc=');
 
   const updateFitScale = useCallback(() => {
     if (!containerRef.current || !imageRef.current) return;
@@ -244,6 +244,11 @@ function CullingPreview({
   }, [updateFitScale]);
 
   useEffect(() => {
+    if (isProjectPath(image.path)) {
+      setHighResSrc(null);
+      setIsLoading(false);
+      return;
+    }
     const currentPreview = useProcessStore.getState().previews[image.path];
     if (currentPreview && currentPreview.thumbKey === safeThumbKey) {
       setHighResSrc(currentPreview.url);
@@ -619,9 +624,7 @@ function CullingPreview({
                         <span className="opacity-70">
                           <IconFocalLength />
                         </span>
-                        <Text variant={TextVariants.small}>
-                          {String(exifData.focal).endsWith('mm') ? exifData.focal : `${exifData.focal}mm`}
-                        </Text>
+                        <Text variant={TextVariants.small}>{formatFocalLength(exifData.focal)}</Text>
                       </div>
                     )}
                   </div>
@@ -1220,8 +1223,6 @@ export default function CullingView(props: any) {
             <Text variant={TextVariants.heading} color={TextColors.secondary}>
               {t('library.culling.selectImagesToCompare')}
             </Text>
-            <Text className="mt-2 text-text-secondary">{t('library.culling.clickThumbnailsHint')}</Text>
-            <Text className="mt-1 text-text-secondary">{t('library.culling.doubleClickToEditHint')}</Text>
           </div>
         ) : (
           <div

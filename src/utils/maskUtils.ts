@@ -85,6 +85,21 @@ export const createSubMask = (
         ...common,
         parameters: { startX: width * 0.25, startY: height / 2, endX: width * 0.75, endY: height / 2, range: 50 },
       };
+    case Mask.Rectangle:
+      return {
+        ...common,
+        parameters: {
+          centerX: width / 2,
+          centerY: height / 2,
+          width: width / 2,
+          height: height / 2,
+          rotation: 0,
+          roundness: 0,
+          feather: 0.1,
+        },
+      };
+    case Mask.Pen:
+      return { ...common, parameters: { points: [], closed: false, feather: 0.02 } };
     case Mask.Brush:
       return { ...common, parameters: { lines: [] } };
     case Mask.Flow:
@@ -113,6 +128,32 @@ export const createSubMask = (
       return { ...common, parameters: { maskDataBase64: null, grow: 150, feather: 75 } };
     default:
       return { ...common, parameters: {} };
+  }
+};
+
+const OFF_CANVAS = -10000;
+
+export const initialDrawParameters = (type: Mask): Record<string, unknown> | null => {
+  switch (type) {
+    case Mask.Rectangle:
+      return { isInitialDraw: true, width: 0, height: 0 };
+    case Mask.Pen:
+      return { isInitialDraw: true };
+    case Mask.Linear:
+    case Mask.Radial:
+      return {
+        isInitialDraw: true,
+        startX: OFF_CANVAS,
+        startY: OFF_CANVAS,
+        endX: OFF_CANVAS,
+        endY: OFF_CANVAS,
+        centerX: OFF_CANVAS,
+        centerY: OFF_CANVAS,
+        radiusX: 0,
+        radiusY: 0,
+      };
+    default:
+      return null;
   }
 };
 

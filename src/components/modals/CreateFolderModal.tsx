@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { useModalGate } from '../../store/useUIStore';
 
 interface FolderModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export default function CreateFolderModal({
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  useModalGate(isOpen);
   const [show, setShow] = useState(false);
 
   useEffect(() => {

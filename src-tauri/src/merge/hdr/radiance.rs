@@ -1,5 +1,6 @@
 use crate::merge::raster::{Raster, gaussian_blur, map_pixels, max_filter};
 use crate::render::color_space::luminance;
+use crate::render::image_processing::smoothstep;
 use rayon::prelude::*;
 
 const KNEE: (f32, f32) = (0.7, 0.9);
@@ -16,12 +17,6 @@ pub struct FrameRole {
     pub exposure: f32,
     pub darkest: bool,
     pub reference: bool,
-}
-
-#[inline]
-fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
-    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
 }
 
 pub fn levels(image: &Raster, clip: f32, spread: usize) -> Raster {
@@ -155,8 +150,90 @@ fn clean_mask(raw: Vec<f32>, width: usize, height: usize) -> Raster {
     feathered
 }
 
-pub fn ghost_masks(clip: f32, frames: &[PreviewFrame], reference: usize) -> Vec<Option<Raster>> {
+pub struct Refined {
+    pub selection: Raster,
+    pub image: Raster,
+    pub valid: Vec<f32>,
+}
+
+pub fn mix_selected(
+    base: &mut Raster,
+    valid: &mut [f32],
+    other: &Raster,
+    other_valid: &[f32],
+    selection: &Raster,
+) {
+    let width = base.width;
+    let sx = selection.width as f32 / width as f32;
+    let sy = selection.height as f32 / base.height as f32;
+    base.data
+        .par_chunks_mut(width * 3)
+        .zip(valid.par_chunks_mut(width))
+        .enumerate()
+        .for_each(|(y, (row, valid_row))| {
+            let mut sample = [0.0f32; 1];
+            for x in 0..width {
+                selection.bilinear(
+                    (x as f32 + 0.5) * sx - 0.5,
+                    (y as f32 + 0.5) * sy - 0.5,
+                    &mut sample,
+                );
+                let t = sample[0].clamp(0.0, 1.0);
+                if t <= 0.0 {
+                    continue;
+                }
+                let i = y * width + x;
+                let p = other.pixel_at(i);
+                for c in 0..3 {
+                    row[x * 3 + c] += t * (p[c] - row[x * 3 + c]);
+                }
+                valid_row[x] += t * (other_valid[i] - valid_row[x]);
+            }
+        });
+}
+
+struct Comparison<'a> {
+    clip: f32,
+    accumulator: &'a Accumulator,
+    estimate: &'a Raster,
+    role: FrameRole,
+    base: FrameRole,
+}
+
+impl Comparison<'_> {
+    fn ghosts(&self, image: &Raster, valid: &[f32]) -> Vec<f32> {
+        let radiance = gaussian_blur(image, COMPARISON_BLUR);
+        let level = levels(image, self.clip, 2);
+        let delta = NOISE_FLOOR * self.clip / self.role.exposure;
+        let min_support = 1e-3 * self.role.exposure.min(self.base.exposure);
+        (0..image.width * image.height)
+            .into_par_iter()
+            .map(|i| {
+                let comparable = valid[i] >= 1.0
+                    && self.accumulator.denominator[i] > min_support
+                    && contributes(self.role, level.data[i]);
+                let ghost = comparable
+                    && (0..3).any(|c| {
+                        let measured = radiance.data[i * 3 + c] / self.role.exposure;
+                        ((measured + delta) / (self.estimate.data[i * 3 + c] + delta))
+                            .ln()
+                            .abs()
+                            > GHOST_THRESHOLD
+                    });
+                if ghost { 1.0 } else { 0.0 }
+            })
+            .collect()
+    }
+}
+
+pub fn ghost_masks(
+    clip: f32,
+    frames: &[PreviewFrame],
+    reference: usize,
+    refine: &mut dyn FnMut(usize) -> Option<(Raster, Vec<f32>)>,
+) -> (Vec<Option<Raster>>, Vec<Option<Refined>>) {
     let mut masks: Vec<Option<Raster>> = (0..frames.len()).map(|_| None).collect();
+    let mut refined: Vec<Option<Refined>> = (0..frames.len()).map(|_| None).collect();
     let (width, height) = (frames[0].image.width, frames[0].image.height);
     let mut order: Vec<usize> = (0..frames.len()).filter(|&k| k != reference).collect();
     order.sort_by(|&a, &b| {
@@ -171,37 +248,50 @@ pub fn ghost_masks(clip: f32, frames: &[PreviewFrame], reference: usize) -> Vec<
     let mut accumulator = Accumulator::new(width, height);
     let base = &frames[reference];
     accumulator.add(clip, base.role, base.image, base.valid, None);
-    let floor = NOISE_FLOOR * clip;
 
     for k in order {
         let frame = &frames[k];
         let estimate = gaussian_blur(&accumulator.estimate(), COMPARISON_BLUR);
-        let radiance = gaussian_blur(frame.image, COMPARISON_BLUR);
-        let level = levels(frame.image, clip, 2);
-        let delta = floor / frame.role.exposure;
-        let min_support = 1e-3 * frame.role.exposure.min(base.role.exposure);
-        let raw: Vec<f32> = (0..width * height)
-            .into_par_iter()
-            .map(|i| {
-                let comparable = frame.valid[i] >= 1.0
-                    && accumulator.denominator[i] > min_support
-                    && contributes(frame.role, level.data[i]);
-                let ghost = comparable
-                    && (0..3).any(|c| {
-                        let measured = radiance.data[i * 3 + c] / frame.role.exposure;
-                        ((measured + delta) / (estimate.data[i * 3 + c] + delta))
-                            .ln()
-                            .abs()
-                            > GHOST_THRESHOLD
-                    });
-                if ghost { 1.0 } else { 0.0 }
-            })
-            .collect();
+        let comparison = Comparison {
+            clip,
+            accumulator: &accumulator,
+            estimate: &estimate,
+            role: frame.role,
+            base: base.role,
+        };
+        let mut raw = comparison.ghosts(frame.image, frame.valid);
+        let mut choice: Option<Refined> = None;
+        if raw.iter().any(|&g| g > 0.0)
+            && let Some((local, local_valid)) = refine(k)
+        {
+            let local_raw = comparison.ghosts(&local, &local_valid);
+            let fixed: Vec<f32> = raw
+                .iter()
+                .zip(&local_raw)
+                .map(|(&h, &l)| if h > 0.0 && l == 0.0 { 1.0 } else { 0.0 })
+                .collect();
+            if fixed.iter().any(|&f| f > 0.0) {
+                let selection = clean_mask(fixed, width, height);
+                let mut image = frame.image.clone();
+                let mut valid = frame.valid.to_vec();
+                mix_selected(&mut image, &mut valid, &local, &local_valid, &selection);
+                raw = comparison.ghosts(&image, &valid);
+                choice = Some(Refined {
+                    selection,
+                    image,
+                    valid,
+                });
+            }
+        }
         let mask = clean_mask(raw, width, height);
-        accumulator.add(clip, frame.role, frame.image, frame.valid, Some(&mask));
+        let (image, valid) = choice.as_ref().map_or((frame.image, frame.valid), |c| {
+            (&c.image, c.valid.as_slice())
+        });
+        accumulator.add(clip, frame.role, image, valid, Some(&mask));
         masks[k] = Some(mask);
+        refined[k] = choice;
     }
-    masks
+    (masks, refined)
 }
 
 pub fn exposure_ratio(

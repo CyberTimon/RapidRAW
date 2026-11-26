@@ -10,8 +10,28 @@ pub struct RemoteImage {
     pub album_id: Option<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct AssetDetails {
+    pub modified: Option<String>,
+    pub checksum: Option<String>,
+}
+
 static ENTRIES: Lazy<RwLock<HashMap<PathBuf, RemoteImage>>> =
     Lazy::new(|| RwLock::new(HashMap::new()));
+
+static DETAILS: Lazy<RwLock<HashMap<String, AssetDetails>>> =
+    Lazy::new(|| RwLock::new(HashMap::new()));
+
+pub fn set_details(asset_id: &str, details: AssetDetails) {
+    DETAILS
+        .write()
+        .unwrap()
+        .insert(asset_id.to_string(), details);
+}
+
+pub fn details(asset_id: &str) -> Option<AssetDetails> {
+    DETAILS.read().unwrap().get(asset_id).cloned()
+}
 
 pub fn insert(path: PathBuf, image: RemoteImage) {
     ENTRIES.write().unwrap().insert(path, image);
@@ -58,4 +78,5 @@ pub fn is_trashing(asset_id: &str) -> bool {
 
 pub fn clear() {
     ENTRIES.write().unwrap().clear();
+    DETAILS.write().unwrap().clear();
 }

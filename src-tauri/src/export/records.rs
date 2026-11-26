@@ -6,7 +6,7 @@ use serde_json::Value;
 use tauri::Manager;
 
 use crate::app::settings::AppSettings;
-use crate::export::settings::ExportSettings;
+use crate::export::settings::{ExportSettings, WatermarkSource};
 use crate::render::cache_utils::DecodeFingerprint;
 use crate::render::options::resolve_render_options;
 
@@ -47,10 +47,14 @@ impl ExportRecords {
             on_conflict: None,
             ..export_settings.clone()
         };
-        let watermark = export_settings
-            .watermark
-            .as_ref()
-            .map(|watermark| file_stamp(Path::new(&watermark.path)));
+        let watermark =
+            export_settings
+                .watermark
+                .as_ref()
+                .and_then(|watermark| match &watermark.source {
+                    WatermarkSource::Image { path } => Some(file_stamp(Path::new(path))),
+                    WatermarkSource::Text(_) => None,
+                });
         let context = serde_json::json!({
             "version": self.app_version,
             "source": record_key(source_path),

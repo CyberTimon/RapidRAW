@@ -23,6 +23,9 @@ export const ImmichInvokes = {
   Flush: 'immich_flush',
   PrepareExport: 'immich_prepare_export',
   RemoveFromAlbum: 'immich_remove_from_album',
+  MediaRefs: 'immich_media_refs',
+  LinkMedia: 'immich_link_media',
+  CancelDownload: 'immich_cancel_download',
 } as const;
 
 export const DEFAULT_IMMICH_SETTINGS: ImmichSettings = {
@@ -61,6 +64,16 @@ export interface ImmichConnectionInfo {
   version: string;
   userName: string;
   userEmail: string;
+}
+
+export interface ImmichMediaRef {
+  server: string;
+  asset: string;
+}
+
+export interface ImmichOriginal {
+  path: string;
+  missing: boolean;
 }
 
 export interface ImmichFilter {
@@ -115,15 +128,25 @@ export const monthFilter = (timeBucket: string): ImmichFilter => {
   return { takenFrom: `${year}-${mm}-01`, takenUntil: `${year}-${mm}-${String(lastDay).padStart(2, '0')}` };
 };
 
-const immichImagePaths = new Set<string>();
+const immichPaths = new Set<string>();
 
-export const isImmichImagePath = (path: string) => immichImagePaths.has(path.split('?vc=')[0]);
+export const isImmichPath = (path: string) => immichPaths.has(path.split('?vc=')[0]);
 
 export const getImmichAlbumImages = async (albumId: string) => {
   const images = await invoke<ImageFile[]>(ImmichInvokes.GetImages, { filter: albumIdToFilter(albumId) });
-  images.forEach((image) => immichImagePaths.add(image.path.split('?vc=')[0]));
+  images.forEach((image) => immichPaths.add(image.path.split('?vc=')[0]));
   return images;
 };
+
+export const immichMediaRefs = (paths: Array<string>) =>
+  paths.some(isImmichPath)
+    ? invoke<Array<ImmichMediaRef | null>>(ImmichInvokes.MediaRefs, { paths })
+    : Promise.resolve(paths.map(() => null));
+
+export const linkImmichMedia = (media: Array<{ path: string; immich: ImmichMediaRef }>) =>
+  invoke<Array<ImmichOriginal | null>>(ImmichInvokes.LinkMedia, { media });
+
+export const cancelImmichDownload = (path: string) => invoke<void>(ImmichInvokes.CancelDownload, { path });
 
 export const getImmichSyncStatus = () => invoke<ImmichSyncStatus>(ImmichInvokes.SyncStatus);
 

@@ -1,4 +1,5 @@
 pub mod android;
+pub mod haptics;
 #[cfg(target_os = "linux")]
 pub mod linux_graphics;
 pub mod main_window;

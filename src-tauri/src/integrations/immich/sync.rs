@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter};
 
 use super::client::{ImmichClient, MetadataEntry, is_asset_id};
 use super::{Session, current_session};
+use crate::decode::formats::{is_supported_image_file, is_video_file};
 
 const EDITS_KEY: &str = "rapidraw";
 const STATE_FILE: &str = ".immich-sync.json";
@@ -168,6 +169,9 @@ fn keep_as_virtual_copy(
     source: &Path,
     value: &Value,
 ) -> Result<(), String> {
+    if is_video_file(source) {
+        return Ok(());
+    }
     let file_name = write_virtual_copy(source, value)?;
     let _ = app_handle.emit(
         "immich-edits-conflict",
@@ -286,7 +290,9 @@ pub async fn adopt_upload(
         None
     };
     match (local, remote) {
-        (Some(local), Some(remote)) if !is_blank(&remote.value) && remote.value != local => {
+        (Some(local), Some(remote))
+            if !is_blank(&remote.value) && remote.value != local && !is_video_file(target) =>
+        {
             let file_name = write_virtual_copy(target, &local)?;
             let _ = app_handle.emit(
                 "immich-upload-kept-copy",
@@ -364,7 +370,7 @@ fn unsent_edits(cache_dir: &Path) -> Vec<(String, PathBuf)> {
                 .ok()?
                 .flatten()
                 .map(|file| file.path())
-                .find(|path| crate::decode::formats::is_supported_image_file(path))?;
+                .find(|path| is_supported_image_file(path) || is_video_file(path))?;
             let state = load_state(&source);
             let changed = modified_ms(&sidecar_of(&source)) != state.local_modified_ms;
             (changed && !state.shared_by_others).then_some((asset_id, source))

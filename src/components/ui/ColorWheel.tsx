@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Text from './Text';
 import { useCtrlClickMenuGuard } from '../../hooks/useCtrlClickMenuGuard';
+import { useLiveValues } from '../../context/SliderKeyframeContext';
 import { TextColors, TextVariants } from '../../types/typography';
 
 interface ColorWheelProps {
@@ -17,6 +18,7 @@ interface ColorWheelProps {
   value: HueSatLum;
   onDragStateChange?: (isDragging: boolean) => void;
   isExpanded?: boolean;
+  liveKey?: string;
 }
 
 const ColorWheel = ({
@@ -26,10 +28,10 @@ const ColorWheel = ({
   value,
   onDragStateChange,
   isExpanded = false,
+  liveKey,
 }: ColorWheelProps) => {
   const { t } = useTranslation();
   const effectiveValue = { ...defaultValue, ...value };
-  const { hue, saturation, luminance } = effectiveValue;
   const sizerRef = useRef<HTMLDivElement>(null);
   const [wheelSize, setWheelSize] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,6 +42,13 @@ const ColorWheel = ({
   const ctrlClickMenuGuard = useCtrlClickMenuGuard();
 
   const isDragging = isWheelDragging || isSliderDragging;
+  const [liveHue, liveSaturation, liveLuminance] = useLiveValues(
+    liveKey ? [`${liveKey}.hue`, `${liveKey}.saturation`, `${liveKey}.luminance`] : null,
+    isDragging,
+  );
+  const hue = liveHue ?? effectiveValue.hue;
+  const saturation = liveSaturation ?? effectiveValue.saturation;
+  const luminance = liveLuminance ?? effectiveValue.luminance;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -271,6 +280,7 @@ const ColorWheel = ({
                 min={0}
                 onChange={handleHueChange}
                 onDragStateChange={setIsSliderDragging}
+                animateValueChanges={liveHue === undefined}
                 step={1}
                 value={hue}
                 trackClassName="cg-hue-gradient"
@@ -285,6 +295,7 @@ const ColorWheel = ({
                 min={0}
                 onChange={handleSaturationChange}
                 onDragStateChange={setIsSliderDragging}
+                animateValueChanges={liveSaturation === undefined}
                 step={1}
                 value={saturation}
                 trackClassName="cg-sat-gradient"
@@ -302,6 +313,7 @@ const ColorWheel = ({
           min={-100}
           onChange={handleLumChange}
           onDragStateChange={setIsSliderDragging}
+          animateValueChanges={liveLuminance === undefined}
           step={1}
           value={luminance}
           trackClassName="cg-lum-gradient"

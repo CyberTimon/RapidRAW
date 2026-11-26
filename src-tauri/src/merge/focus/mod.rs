@@ -5,10 +5,10 @@ use crate::decode::formats::is_raw_file;
 use crate::merge::align::warp_with;
 use crate::merge::output::{MergeOutput, MergePreview, Rendition, encode_jpeg_base64};
 use crate::merge::raster::{
-    Raster, Rect, crop, crop_rects, encoded_luminance, fit_size, resize_area, srgb_decoded,
-    srgb_encoded,
+    Interpolation, Raster, Rect, crop, crop_rects, encoded_luminance, fit_size, resize_area,
+    srgb_decoded, srgb_encoded,
 };
-use crate::merge::source::{ensure_same_size, file_name};
+use crate::merge::source::{ensure_same_size, file_name, natural_key};
 use crate::merge::{MergeContext, MergeSession, parse_settings};
 use crate::render::color_space::luminance;
 use align::{FramePose, LensWarp, MIN_QUALITY, align_stack};
@@ -68,26 +68,6 @@ struct Loaded {
     height: usize,
 }
 
-fn natural_key(path: &str) -> Vec<(String, u64)> {
-    let name = file_name(path).to_lowercase();
-    let mut key = Vec::new();
-    let mut text = String::new();
-    let mut digits = String::new();
-    for c in name.chars() {
-        if c.is_ascii_digit() {
-            digits.push(c);
-        } else {
-            if !digits.is_empty() {
-                key.push((std::mem::take(&mut text), digits.parse().unwrap_or(0)));
-                digits.clear();
-            }
-            text.push(c);
-        }
-    }
-    key.push((text, digits.parse().unwrap_or(0)));
-    key
-}
-
 fn median_gain(reference: &Raster, frame: &Raster, valid: &[f32]) -> f32 {
     let mut ratios: Vec<f32> = (0..valid.len())
         .into_par_iter()
@@ -116,10 +96,12 @@ fn warp_frame(
     gain: f32,
     width: usize,
     height: usize,
-    bicubic: bool,
+    interpolation: Interpolation,
 ) -> (Raster, Vec<f32>) {
     let (mut warped, valid) = match warp {
-        Some(warp) => warp_with(image, width, height, bicubic, |x, y| Some(warp.apply(x, y))),
+        Some(warp) => warp_with(image, width, height, interpolation, |x, y| {
+            Some(warp.apply(x, y))
+        }),
         None => (image.clone(), vec![1.0; width * height]),
     };
     if gain != 1.0 {
@@ -188,7 +170,14 @@ pub fn build_session(paths: &[String], context: &MergeContext) -> Result<FocusSe
                 && full.max_displacement(width, height) >= IDENTITY_DISPLACEMENT)
                 .then_some(full);
             let local = warp.map(|w| w.rescaled(1.0 / preview_scale));
-            let (aligned, valid) = warp_frame(&l.preview, local.as_ref(), 1.0, pw, ph, false);
+            let (aligned, valid) = warp_frame(
+                &l.preview,
+                local.as_ref(),
+                1.0,
+                pw,
+                ph,
+                Interpolation::Bilinear,
+            );
             let gain = if i == reference {
                 1.0
             } else {
@@ -288,7 +277,7 @@ impl MergeSession for FocusSession {
         }
         let (fused, labels) = fusion.finish();
         let (rect, full) = self.crop_rects(&settings);
-        let image = srgb_decoded(crop(&fused, &rect));
+        let image = srgb_decoded(crop(fused, &rect).into_owned());
         let depth = labels.expect("preview fusion tracks depth");
         let preview = MergePreview {
             base64: encode_jpeg_base64(&self.rendition.to_srgb8(&image))?,
@@ -324,7 +313,7 @@ impl MergeSession for FocusSession {
                 frame.gain,
                 width,
                 height,
-                true,
+                Interpolation::Bicubic,
             );
             Ok((srgb_encoded(&warped), valid))
         };
@@ -370,7 +359,7 @@ impl MergeSession for FocusSession {
             .finish();
         let (_, rect) = self.crop_rects(&settings);
         Ok(MergeOutput {
-            image: srgb_decoded(crop(&fused, &rect)),
+            image: srgb_decoded(crop(fused, &rect).into_owned()),
             rendition: self.rendition,
             suffix: "Stacked",
             name_source: self.name_source.clone(),

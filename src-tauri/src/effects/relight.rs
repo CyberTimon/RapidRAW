@@ -7,7 +7,7 @@ use image::RgbaImage;
 
 use crate::render::adjustment_utils::is_effect_enabled;
 use crate::render::color_space::{luminance, srgb_to_working};
-use crate::render::gpu::compute::{Bind, ComputeEncoder, Grid, Group, Out, Slot, Tex};
+use crate::render::gpu::compute::{Bind, ComputeEncoder, Grid, Group, MapKey, Out, Slot, Tex};
 
 const EPS: f32 = 2.0e-3;
 const POINT: f32 = 0.0;
@@ -32,7 +32,7 @@ struct Params {
 pub struct Relight {
     lights: Vec<[f32; 16]>,
     normal_map: Arc<RgbaImage>,
-    map_key: u64,
+    map_key: MapKey,
     ambient_gain: f32,
     softness: f32,
     shine: f32,

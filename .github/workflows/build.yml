@@ -156,8 +156,7 @@ jobs:
         env:
           NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ORT_SKIP_DOWNLOAD: '1'
-          ORT_LIB_LOCATION: ${{ format('{0}/src-tauri/libs/arm64-v8a', github.workspace) }}
-          ORT_STRATEGY: manual
+          ORT_LIB_PATH: ${{ format('{0}/src-tauri/libs/arm64-v8a', github.workspace) }}
         run: |
           npx tauri android build --verbose ${{ inputs.build-args }}
 

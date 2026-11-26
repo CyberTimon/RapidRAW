@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import clsx from 'clsx';
+import SegmentedControl from '../ui/SegmentedControl';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import Switch from '../ui/Switch';
 import { Preset } from '../../types/editor';
 import { ADJUSTMENT_GROUPS } from '../../utils/adjustments';
+import { useModalGate } from '../../store/useUIStore';
 
 interface ConfigurePresetModalProps {
   isOpen: boolean;
@@ -22,80 +22,31 @@ interface PresetTypeSwitchProps {
 
 const PresetTypeSwitch = ({ selectedType, onChange }: PresetTypeSwitchProps) => {
   const { t } = useTranslation();
-  const [bubbleStyle, setBubbleStyle] = useState({});
-  const isInitialAnimation = useRef(true);
 
   const presetTypeOptions = useMemo(
     () => [
       {
         id: 'style' as const,
         label: t('modals.configurePreset.typeStyleLabel'),
-        title: t('modals.configurePreset.typeStyleDesc'),
+        tooltip: t('modals.configurePreset.typeStyleDesc'),
       },
       {
         id: 'tool' as const,
         label: t('modals.configurePreset.typeToolLabel'),
-        title: t('modals.configurePreset.typeToolDesc'),
+        tooltip: t('modals.configurePreset.typeToolDesc'),
       },
     ],
     [t],
   );
 
-  useEffect(() => {
-    const selectedIndex = presetTypeOptions.findIndex((m) => m.id === selectedType);
-    const safeIndex = selectedIndex >= 0 ? selectedIndex : 0;
-
-    const widthPercent = 100 / presetTypeOptions.length;
-    const targetX = `${safeIndex * 100}%`;
-    const targetWidth = `${widthPercent}%`;
-
-    if (isInitialAnimation.current) {
-      const initialX = selectedType === 'style' ? '-25%' : '100%';
-
-      setBubbleStyle({
-        x: [initialX, targetX],
-        width: targetWidth,
-      });
-      isInitialAnimation.current = false;
-    } else {
-      setBubbleStyle({
-        x: targetX,
-        width: targetWidth,
-      });
-    }
-  }, [selectedType, presetTypeOptions]);
-
   return (
-    <div className="w-full p-1.5 bg-card-active rounded-md mt-2">
-      <div className="relative flex w-full">
-        <motion.div
-          className="absolute top-0 bottom-0 z-0 bg-accent"
-          style={{ borderRadius: 4 }}
-          animate={bubbleStyle}
-          transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-        />
-        {presetTypeOptions.map((option) => (
-          <button
-            key={option.id}
-            data-tooltip={option.title}
-            onClick={(e) => {
-              e.preventDefault();
-              onChange(option.id);
-            }}
-            className={clsx(
-              'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-              {
-                'text-text-primary hover:bg-surface': selectedType !== option.id,
-                'text-button-text': selectedType === option.id,
-              },
-            )}
-            style={{ WebkitTapHighlightColor: 'transparent' }}
-          >
-            <span className="relative z-10 flex items-center">{option.label}</span>
-          </button>
-        ))}
-      </div>
-    </div>
+    <SegmentedControl
+      variant="embedded"
+      className="p-1.5 bg-card-active rounded-md mt-2"
+      options={presetTypeOptions}
+      value={selectedType}
+      onChange={onChange}
+    />
   );
 };
 
@@ -106,6 +57,7 @@ export default function ConfigurePresetModal({ isOpen, onClose, onSave, initialP
   const [includeCropTransform, setIncludeCropTransform] = useState(false);
   const [presetType, setPresetType] = useState<'tool' | 'style'>('style');
   const [isMounted, setIsMounted] = useState(false);
+  useModalGate(isOpen);
   const [show, setShow] = useState(false);
 
   useEffect(() => {

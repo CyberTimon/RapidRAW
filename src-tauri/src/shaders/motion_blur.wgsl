@@ -15,9 +15,9 @@ struct MotionParams {
     seed: u32,
     guard: f32,
     channel: u32,
+    zoom: f32,
+    turn: f32,
     _pad0: u32,
-    _pad1: u32,
-    _pad2: u32,
 }
 
 struct Spin {
@@ -49,6 +49,7 @@ struct Spins {
 
 const KIND_ZOOM: u32 = 1u;
 const KIND_SPIN: u32 = 2u;
+const KIND_FLOW: u32 = 3u;
 const LAYER_SUBJECT: u32 = 0u;
 const LAYER_PANNING: u32 = 1u;
 const FULL_FRAME: u32 = 0xffffffffu;
@@ -62,6 +63,11 @@ const FRONT_GUARD: f32 = 0.5;
 const MIN_ALPHA: f32 = 1.0e-4;
 const FILL_DIV: i32 = 4;
 const FILL_WEIGHT: f32 = 0.01;
+const FIELD_SLACK: f32 = 0.5;
+const FIELD_SHARE: f32 = 0.15;
+const FIELD_BEHIND: f32 = 0.3;
+const FRONT_TAPS: i32 = 16;
+const FRONT_MIN: f32 = 0.5;
 
 fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
     let cutoff = vec3<f32>(0.04045);
@@ -178,7 +184,26 @@ fn nearest_spin(p: vec2<f32>) -> u32 {
     return best;
 }
 
+fn complex_mul(a: vec2<f32>, b: vec2<f32>) -> vec2<f32> {
+    return vec2<f32>(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x);
+}
+
+fn flow(p: vec2<f32>, t: f32) -> vec2<f32> {
+    let w = vec2<f32>(params.zoom, params.turn) * t;
+    let grown = exp(w.x) * vec2<f32>(cos(w.y), sin(w.y));
+    let norm = dot(w, w);
+    var along = vec2<f32>(1.0, 0.0) + 0.5 * w + complex_mul(w, w) / 6.0;
+    if (norm > 1.0e-4) {
+        let d = grown - vec2<f32>(1.0, 0.0);
+        along = vec2<f32>(d.x * w.x + d.y * w.y, d.y * w.x - d.x * w.y) / norm;
+    }
+    return complex_mul(grown, p) + complex_mul(along, params.axis) * t;
+}
+
 fn tap(p: vec2<f32>, t: f32, spin: u32) -> vec2<f32> {
+    if (params.kind == KIND_FLOW) {
+        return flow(p, t);
+    }
     if (params.kind == KIND_ZOOM) {
         return params.axis + (p - params.axis) * exp(t);
     }
@@ -381,4 +406,69 @@ fn mb_pack(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
     packed[id.y * params.row_words + id.x] = word;
+}
+
+fn blur_field(p: vec2<f32>) -> vec4<f32> {
+    return textureSampleLevel(fill, samp, p / vec2<f32>(textureDimensions(dst)), 0.0);
+}
+
+fn alike(a: vec2<f32>, b: vec2<f32>) -> f32 {
+    let slack = FIELD_SLACK + FIELD_SHARE * max(length(a), length(b));
+    return 1.0 - smoothstep(slack, 2.0 * slack, length(a - b));
+}
+
+fn behind(flag: f32) -> f32 {
+    return smoothstep(FIELD_BEHIND, 1.0 - FIELD_BEHIND, flag);
+}
+
+fn framed(q: vec2<f32>, size: vec2<f32>) -> f32 {
+    return select(0.0, 1.0, all(q >= vec2<f32>(0.0)) && all(q <= size));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn mb_field(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = textureDimensions(dst);
+    if (id.x >= dims.x || id.y >= dims.y) { return; }
+
+    let size = vec2<f32>(dims);
+    let p = vec2<f32>(id.xy) + 0.5;
+    let own = blur_field(p);
+    var acc = vec4<f32>(0.0);
+    var weight = 0.0;
+    for (var i = 0; i < TAPS; i = i + 1) {
+        let q = p + own.xy * ((f32(i) - 0.5 * f32(TAPS - 1)) * params.spacing);
+        let other = blur_field(q);
+        let w = framed(q, size) * max(alike(own.xy, other.xy), behind(other.z - own.z));
+        acc += w * textureSampleLevel(src, samp, q / size, 0.0);
+        weight += w;
+    }
+    if (weight < MIN_ALPHA) {
+        textureStore(dst, id.xy, textureLoad(src, vec2<i32>(id.xy), 0));
+        return;
+    }
+    textureStore(dst, id.xy, acc / weight);
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn mb_front(@builtin(global_invocation_id) id: vec3<u32>) {
+    let dims = textureDimensions(dst);
+    if (id.x >= dims.x || id.y >= dims.y) { return; }
+
+    let size = vec2<f32>(dims);
+    let p = vec2<f32>(id.xy) + 0.5;
+    let own = textureLoad(src, vec2<i32>(id.xy), 0);
+    let cover = behind(blur_field(p).z);
+    let sweep = textureSampleLevel(front, samp, p / size, 0.0).xy;
+    if (cover <= 0.0 || dot(sweep, sweep) < FRONT_MIN * FRONT_MIN) {
+        textureStore(dst, id.xy, own);
+        return;
+    }
+    var acc = vec4<f32>(0.0);
+    for (var i = 0; i < FRONT_TAPS; i = i + 1) {
+        let q = p + sweep * ((f32(i) + 0.5) / f32(FRONT_TAPS) - 0.5);
+        let other = blur_field(q);
+        let w = framed(q, size) * alike(sweep, other.xy) * (1.0 - behind(other.z));
+        acc += mix(own, textureSampleLevel(src, samp, q / size, 0.0), w);
+    }
+    textureStore(dst, id.xy, mix(own, acc / f32(FRONT_TAPS), cover));
 }

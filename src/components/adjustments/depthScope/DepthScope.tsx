@@ -10,6 +10,7 @@ import { invoke } from '@tauri-apps/api/core';
 import clsx from 'clsx';
 import { Invokes } from '../../../types/invokes';
 import { useEditorStore } from '../../../store/useEditorStore';
+import { type VideoFrame, useVideoFrame } from '../../../store/videoIntegration';
 import { useCtrlClickMenuGuard } from '../../../hooks/useCtrlClickMenuGuard';
 import { Camera, DEPTH_SCALE, DepthPreview, DepthScopeRenderer, Frame, toDisplay } from './renderer';
 import {
@@ -110,8 +111,17 @@ const fingerprint = (value: string) => {
   return `${value.length}:${(hash >>> 0).toString(36)}`;
 };
 
-const fetchPreview = (mapKey: DepthMapKey | undefined, mapValue: string, signature: string) => {
-  const key = `${mapKey ? `${mapKey}|${mapValue}` : `data|${fingerprint(mapValue)}`}|${signature}`;
+type ShownFrame = VideoFrame & { time: number };
+
+const fetchPreview = (
+  mapKey: DepthMapKey | undefined,
+  mapValue: string,
+  signature: string,
+  frame: ShownFrame | null,
+) => {
+  const source = mapKey ? `${mapKey}|${mapValue}` : `data|${fingerprint(mapValue)}`;
+  const shown = frame ? `${frame.path}@${frame.time}|${JSON.stringify(frame.log)}|${frame.deflicker}` : '';
+  const key = `${source}|${signature}|${shown}`;
   const cached = previewCache.get(key);
   if (cached) {
     previewCache.delete(key);
@@ -121,7 +131,8 @@ const fetchPreview = (mapKey: DepthMapKey | undefined, mapValue: string, signatu
   const payload: Record<string, unknown> = { ...useEditorStore.getState().adjustments };
   for (const omitted of OMITTED_KEYS) delete payload[omitted];
   if (mapKey) payload[mapKey] = mapValue;
-  const request = invoke<ArrayBuffer>(Invokes.GetDepthPreview, {
+  const request = invoke<ArrayBuffer>(frame ? Invokes.VideoDepthPreview : Invokes.GetDepthPreview, {
+    ...frame,
     jsAdjustments: payload,
     mapKey: mapKey ?? null,
     mapData: mapKey ? null : mapValue,
@@ -142,6 +153,7 @@ const useDepthPreview = (mapKey: DepthMapKey | undefined, mapData: string | unde
   const signature = useEditorStore((state) =>
     WARP_KEYS.map((key) => JSON.stringify((state.adjustments as Record<string, unknown>)[key] ?? null)).join('|'),
   );
+  const video = useVideoFrame();
   const [preview, setPreview] = useState<DepthPreview | null>(null);
 
   useEffect(() => {
@@ -149,9 +161,14 @@ const useDepthPreview = (mapKey: DepthMapKey | undefined, mapData: string | unde
       setPreview(null);
       return;
     }
+    const frame =
+      video && video.time !== null
+        ? { path: video.path, time: video.time, log: video.log, deflicker: video.deflicker }
+        : null;
+    if (video && !frame) return;
     let cancelled = false;
     const timer = setTimeout(() => {
-      fetchPreview(mapKey, mapValue, signature)
+      fetchPreview(mapKey, mapValue, signature, frame)
         .then((next) => !cancelled && setPreview(next))
         .catch(() => {});
     }, 90);
@@ -159,7 +176,7 @@ const useDepthPreview = (mapKey: DepthMapKey | undefined, mapData: string | unde
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [mapKey, mapValue, signature]);
+  }, [mapKey, mapValue, signature, video?.path, video?.time, video?.log, video?.deflicker]);
 
   return preview;
 };

@@ -7,6 +7,7 @@ import CollapsibleSection from '../../ui/CollapsibleSection';
 import AdjustmentSection from '../../adjustments/AdjustmentSection';
 import ConnectedWaveform from '../editor/ConnectedWaveform';
 import Resizer from '../../ui/Resizer';
+import PanelHeader from '../../ui/PanelHeader';
 import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
 import {
   ActiveTools,
@@ -29,6 +30,7 @@ import { getOpenImageDefaults } from '../../../utils/developDefaults';
 import { useUIStore } from '../../../store/useUIStore';
 import { buildAutoAdjustModeOptions, useEditorActions } from '../../../hooks/useEditorActions';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
+import { useShortcut } from '../../../hooks/useShortcuts';
 import type { ParseKeys } from 'i18next';
 
 function AdjustmentSectionContent(props: {
@@ -43,6 +45,7 @@ function AdjustmentSectionContent(props: {
 
 export default function Controls() {
   const { t } = useTranslation();
+  const analyticsShortcut = useShortcut('toggle_analytics');
   const { showContextMenu } = useContextMenu();
   const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
     useWaveformControls();
@@ -239,41 +242,39 @@ export default function Controls() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>{t('editor.adjustments.title')}</Text>
-        <div className="flex items-center gap-1">
-          <button
-            className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            disabled={!selectedImage}
-            onClick={() => handleAutoAdjustments()}
-            onContextMenu={handleAutoAdjustContextMenu}
-            data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
-          >
-            <PencilSparkles size={18} />
-          </button>
-          <button
-            className={clsx(
-              'p-2 rounded-full transition-colors',
-              isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
-            )}
-            onClick={onToggleWaveform}
-            data-tooltip={t('editor.adjustments.tooltips.toggleAnalytics')}
-          >
-            <ChartArea size={18} />
-          </button>
-          <button
-            className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            disabled={!selectedImage}
-            onClick={handleResetAdjustments}
-            data-tooltip={t('editor.adjustments.tooltips.resetAdjustments')}
-          >
-            <RotateCcw size={18} />
-          </button>
-        </div>
-      </div>
+      <PanelHeader title={t('editor.adjustments.title')}>
+        <button
+          className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          disabled={!selectedImage}
+          onClick={() => handleAutoAdjustments()}
+          onContextMenu={handleAutoAdjustContextMenu}
+          data-tooltip={t('editor.adjustments.tooltips.autoAdjust')}
+        >
+          <PencilSparkles size={18} />
+        </button>
+        <button
+          className={clsx(
+            'p-2 rounded-full transition-colors',
+            isWaveformVisible ? 'bg-surface hover:bg-card-active' : 'hover:bg-surface',
+          )}
+          onClick={onToggleWaveform}
+          data-tooltip={t('editor.adjustments.tooltips.toggleAnalytics')}
+          {...analyticsShortcut}
+        >
+          <ChartArea size={18} />
+        </button>
+        <button
+          className="p-2 rounded-full hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          disabled={!selectedImage}
+          onClick={handleResetAdjustments}
+          data-tooltip={t('editor.adjustments.tooltips.resetAdjustments')}
+        >
+          <RotateCcw size={18} />
+        </button>
+      </PanelHeader>
 
       <AnimatePresence initial={false}>
-        {isWaveformVisible && (
+        {isWaveformVisible && selectedImage && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: waveformHeight || 256, opacity: 1 }}

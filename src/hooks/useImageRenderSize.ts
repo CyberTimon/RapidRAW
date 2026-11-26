@@ -30,7 +30,23 @@ export const getFitRenderSize = (
   containerHeight: number,
   imgWidth: number,
   imgHeight: number,
+  fitFrame?: ImageDimensions | null,
 ): RenderSize => {
+  if (fitFrame) {
+    const scale = Math.min(containerWidth / fitFrame.width, containerHeight / fitFrame.height);
+    const width = imgWidth * scale;
+    const height = imgHeight * scale;
+    return {
+      width,
+      height,
+      scale,
+      offsetX: (containerWidth - width) / 2,
+      offsetY: (containerHeight - height) / 2,
+      containerWidth,
+      containerHeight,
+    };
+  }
+
   const imageAspectRatio = imgWidth / imgHeight;
   const containerAspectRatio = containerWidth / containerHeight;
 
@@ -52,10 +68,13 @@ export const getFitRenderSize = (
 export const useImageRenderSize = (
   containerRef: React.RefObject<HTMLElement | null>,
   imageDimensions: ImageDimensions | null,
+  fitFrame?: ImageDimensions | null,
 ) => {
   const [renderSize, setRenderSize] = useState<RenderSize>(DEFAULT_SIZE);
   const imgWidth = imageDimensions?.width;
   const imgHeight = imageDimensions?.height;
+  const frameWidth = fitFrame?.width;
+  const frameHeight = fitFrame?.height;
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -66,7 +85,15 @@ export const useImageRenderSize = (
     }
 
     const updateSize = () => {
-      setRenderSize(getFitRenderSize(container.clientWidth, container.clientHeight, imgWidth, imgHeight));
+      setRenderSize(
+        getFitRenderSize(
+          container.clientWidth,
+          container.clientHeight,
+          imgWidth,
+          imgHeight,
+          frameWidth && frameHeight ? { width: frameWidth, height: frameHeight } : null,
+        ),
+      );
     };
 
     updateSize();
@@ -78,7 +105,7 @@ export const useImageRenderSize = (
     resizeObserver.observe(container);
 
     return () => resizeObserver.disconnect();
-  }, [containerRef, imgWidth, imgHeight]);
+  }, [containerRef, imgWidth, imgHeight, frameWidth, frameHeight]);
 
   return renderSize;
 };

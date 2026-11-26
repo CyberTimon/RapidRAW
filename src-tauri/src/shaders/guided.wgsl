@@ -354,46 +354,67 @@ fn tb_tone(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(dst, id.xy, vec4<f32>(base.x, broad_guide, base.z, base.x - (fit.x * base.x + fit.y)));
 }
 
-@compute @workgroup_size(8, 8, 1)
-fn tb_peak(@builtin(global_invocation_id) id: vec3<u32>) {
-    if (id.x != 0u || id.y != 0u) { return; }
+var<workgroup> tb_hist: array<atomic<u32>, 72>;
+var<workgroup> tb_peaks: array<f32, 256>;
+var<workgroup> tb_clipped: atomic<u32>;
 
-    let dims = vec2<i32>(textureDimensions(src_a));
-    var peak = -1.0e9;
-    var hist: array<f32, 72>;
-    for (var i = 0; i < 72; i = i + 1) {
-        hist[i] = 0.0;
+@compute @workgroup_size(256, 1, 1)
+fn tb_peak(@builtin(local_invocation_index) li: u32) {
+    if (li < 72u) {
+        atomicStore(&tb_hist[li], 0u);
     }
-    var counted = 0.0;
-    for (var y = 0; y < dims.y; y = y + 1) {
-        for (var x = 0; x < dims.x; x = x + 1) {
-            let cell = textureLoad(src_a, vec2<i32>(x, y), 0);
-            peak = max(peak, cell.z);
-            if (cell.x > TB_KEY_LO) {
-                hist[clamp(i32((cell.x - TB_KEY_LO) * 4.0), 0, 71)] += 1.0;
-                counted += 1.0;
-            }
+    if (li == 0u) {
+        atomicStore(&tb_clipped, 0u);
+    }
+    workgroupBarrier();
+
+    let dims = textureDimensions(src_a);
+    let count = dims.x * dims.y;
+    var own_peak = -1.0e9;
+    for (var i = li; i < count; i = i + 256u) {
+        let cell = textureLoad(src_a, vec2<u32>(i % dims.x, i / dims.x), 0);
+        own_peak = max(own_peak, cell.z);
+        if (cell.x > TB_KEY_LO) {
+            atomicAdd(&tb_hist[clamp(i32((cell.x - TB_KEY_LO) * 4.0), 0, 71)], 1u);
         }
+    }
+    tb_peaks[li] = own_peak;
+    workgroupBarrier();
+    for (var stride = 128u; stride > 0u; stride = stride >> 1u) {
+        if (li < stride) {
+            tb_peaks[li] = max(tb_peaks[li], tb_peaks[li + stride]);
+        }
+        workgroupBarrier();
+    }
+
+    let peak = tb_peaks[0];
+    var own_clipped = 0u;
+    for (var i = li; i < count; i = i + 256u) {
+        let cell = textureLoad(src_a, vec2<u32>(i % dims.x, i / dims.x), 0).yz;
+        if (peak - cell.y < TB_CLIP_BAND && cell.x < TB_CLIP_FLAT) {
+            own_clipped += 1u;
+        }
+    }
+    atomicAdd(&tb_clipped, own_clipped);
+    workgroupBarrier();
+    if (li != 0u) { return; }
+
+    var counted = 0.0;
+    for (var i = 0; i < 72; i = i + 1) {
+        counted += f32(atomicLoad(&tb_hist[i]));
     }
     var key = TB_KEY_LO;
     var below = 0.0;
     for (var i = 0; i < 72; i = i + 1) {
-        if (counted > 0.0 && below + hist[i] >= 0.5 * counted) {
-            key = TB_KEY_LO + (f32(i) + (0.5 * counted - below) / max(hist[i], 1.0)) * 0.25;
+        let bin = f32(atomicLoad(&tb_hist[i]));
+        if (counted > 0.0 && below + bin >= 0.5 * counted) {
+            key = TB_KEY_LO + (f32(i) + (0.5 * counted - below) / max(bin, 1.0)) * 0.25;
             break;
         }
-        below += hist[i];
+        below += bin;
     }
-    var clipped = 0.0;
-    for (var y = 0; y < dims.y; y = y + 1) {
-        for (var x = 0; x < dims.x; x = x + 1) {
-            let cell = textureLoad(src_a, vec2<i32>(x, y), 0).yz;
-            if (peak - cell.y < TB_CLIP_BAND && cell.x < TB_CLIP_FLAT) {
-                clipped += 1.0;
-            }
-        }
-    }
-    let confidence = smoothstep(TB_CLIP_LO, TB_CLIP_HI, clipped / f32(dims.x * dims.y));
+    let clipped = f32(atomicLoad(&tb_clipped));
+    let confidence = smoothstep(TB_CLIP_LO, TB_CLIP_HI, clipped / f32(count));
     textureStore(dst, vec2<u32>(2u, 0u), vec4<f32>(peak + (1.0 - confidence) * TB_CLIP_HEADROOM, confidence, peak, key));
 }
 

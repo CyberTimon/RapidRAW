@@ -6,6 +6,7 @@ import {
   Folder,
   FolderInput,
   Home,
+  Images,
   Loader2,
   RefreshCw,
   Settings,
@@ -38,10 +39,12 @@ import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { Job, useProcessStore } from '../../store/useProcessStore';
 import { useUIStore } from '../../store/useUIStore';
+import { useShortcut } from '../../hooks/useShortcuts';
 import SettingsPanel from './SettingsPanel';
 
 import LibraryGrid from './library/LibraryGrid';
-import { JobsMenu, SearchInput, ViewOptionsDropdown } from './library/LibraryHeader';
+import { JobsMenu } from './library/JobsMenu';
+import { SearchInput, ViewOptionsDropdown } from './library/LibraryHeader';
 
 interface MainLibraryProps {
   activePath: string | null;
@@ -158,6 +161,7 @@ function ThumbnailProgressCount() {
 
 export default function MainLibrary(props: MainLibraryProps) {
   const { t } = useTranslation();
+  const settingsShortcut = useShortcut('open_settings');
   const setUI = useUIStore((state) => state.setUI);
   const [appVersion, setAppVersion] = useState('');
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
@@ -181,6 +185,8 @@ export default function MainLibrary(props: MainLibraryProps) {
 
   const searchCriteria = useLibraryStore((state) => state.searchCriteria);
   const setLibrary = useLibraryStore((state) => state.setLibrary);
+  const hasUnfilteredImages = useLibraryStore((state) => state.imageList.length > 0);
+  const isAlbumOpen = useLibraryStore((state) => state.activeAlbumId !== null);
 
   const translatedRatingFilterOptions = useMemo(
     () => [
@@ -416,6 +422,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                           onClick={() => setUI({ isSettingsOpen: true })}
                           size="lg"
                           data-tooltip={t('settings.general.title')}
+                          {...settingsShortcut}
                           variant="ghost"
                         >
                           <Settings size={20} />
@@ -667,6 +674,8 @@ export default function MainLibrary(props: MainLibraryProps) {
           </Text>
           <Text className="mt-2">{t('library.status.moment')}</Text>
         </div>
+      ) : props.isLoading ? (
+        <div className="flex-1" onContextMenu={props.onEmptyAreaContextMenu} />
       ) : searchCriteria.tags.length > 0 || searchCriteria.text ? (
         <div
           className="flex-1 flex flex-col items-center justify-center text-text-secondary text-center"
@@ -683,8 +692,18 @@ export default function MainLibrary(props: MainLibraryProps) {
         </div>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center" onContextMenu={props.onEmptyAreaContextMenu}>
-          <SlidersHorizontal className="h-12 w-12 mb-4 text-text-secondary" />
-          <Text>{t('library.filters.noMatch')}</Text>
+          {hasUnfilteredImages ? (
+            <SlidersHorizontal className="h-12 w-12 mb-4 text-text-secondary" />
+          ) : (
+            <Images className="h-12 w-12 mb-4 text-text-secondary" />
+          )}
+          <Text>
+            {hasUnfilteredImages
+              ? t('library.filters.noMatch')
+              : isAlbumOpen
+                ? t('library.grid.emptyAlbum')
+                : t('library.grid.emptyFolder')}
+          </Text>
         </div>
       )}
       {props.isAndroid && (

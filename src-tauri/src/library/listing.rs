@@ -1,6 +1,6 @@
 use crate::app::settings::{AppSettings, load_settings};
 use crate::app::state::{AppState, PendingMetadata};
-use crate::decode::formats::is_supported_image_file;
+use crate::decode::formats::{is_supported_media_file, is_video_file, is_video_project_file};
 use crate::library::file_ops::{is_cloud_placeholder, read_file_mapped};
 use crate::library::sidecars::{parse_sidecar_name, parse_virtual_path};
 use crate::metadata::sidecar::{ImageFlag, ImageMetadata, is_image_edited};
@@ -166,6 +166,10 @@ pub struct ImageFile {
     is_virtual_copy: bool,
     is_cloud_placeholder: bool,
     is_raw: bool,
+    #[serde(default)]
+    is_video: bool,
+    #[serde(default)]
+    is_video_project: bool,
     group_id: Option<String>,
     #[serde(default)]
     needs_ai: bool,
@@ -174,6 +178,8 @@ pub struct ImageFile {
 impl ImageFile {
     pub fn placeholder(path: String, modified: u64) -> Self {
         let is_raw = crate::decode::formats::is_raw_file(&path);
+        let is_video = is_video_file(&path);
+        let is_video_project = is_video_project_file(&path);
         Self {
             path,
             modified,
@@ -185,6 +191,8 @@ impl ImageFile {
             is_virtual_copy: false,
             is_cloud_placeholder: true,
             is_raw,
+            is_video,
+            is_video_project,
             group_id: None,
             needs_ai: false,
         }
@@ -211,7 +219,12 @@ pub fn assign_group_ids(files: &mut [ImageFile], settings: &AppSettings) {
     let candidates: Vec<Candidate> = files
         .iter()
         .enumerate()
-        .filter(|(_, file)| !file.is_virtual_copy && (group_edited_files || !file.is_edited))
+        .filter(|(_, file)| {
+            !file.is_virtual_copy
+                && !file.is_video
+                && !file.is_video_project
+                && (group_edited_files || !file.is_edited)
+        })
         .map(|(index, file)| {
             let (source_path, _) = parse_virtual_path(&file.path);
             let key = make_group_key(&source_path);
@@ -451,6 +464,13 @@ pub fn build_image_file(
     modified: u64,
     is_cloud_placeholder: bool,
 ) -> ImageFile {
+    if is_video_project_file(source_path) {
+        return ImageFile {
+            is_cloud_placeholder,
+            ..ImageFile::placeholder(virtual_path, modified)
+        };
+    }
+
     let enable_xmp_sync = settings.enable_xmp_sync.unwrap_or(false);
     let is_virtual_copy = virtual_path.contains("?vc=");
 
@@ -491,6 +511,8 @@ pub fn build_image_file(
         exif: None,
         is_virtual_copy,
         is_raw: metadata.is_raw,
+        is_video: is_video_file(source_path),
+        is_video_project: false,
         group_id: None,
         rating: metadata.rating,
         flag: metadata.flag,
@@ -511,7 +533,9 @@ fn collect_image_files<E: Send>(
     let tasks: Vec<_> = listed
         .into_iter()
         .map(|image| {
-            let sidecars = sidecars_by_path.remove(&image.path);
+            let sidecars = sidecars_by_path
+                .remove(&image.path)
+                .filter(|_| !is_video_project_file(&image.path));
             (image, sidecars)
         })
         .collect();
@@ -564,6 +588,7 @@ pub async fn list_images_in_dir(
         update_rotational_disk_flag(&path, &app_handle);
 
         let entries = fs::read_dir(&path).map_err(|e| e.to_string())?;
+        let videos_supported = std::cell::LazyCell::new(|| crate::video::libav::get().is_some());
         let mut images = Vec::new();
         let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
 
@@ -578,7 +603,7 @@ pub async fn list_images_in_dir(
                     .entry(entry.path().with_file_name(source_filename))
                     .or_default()
                     .push(copy_id.map(str::to_string));
-            } else if is_supported_image_file(&file_name) {
+            } else if is_supported_media_file(&file_name, || *videos_supported) {
                 images.push((entry, file_name));
             }
         }
@@ -609,6 +634,7 @@ pub async fn list_images_recursive(
     tauri::async_runtime::spawn_blocking(move || {
         update_rotational_disk_flag(&path, &app_handle);
 
+        let videos_supported = std::cell::LazyCell::new(|| crate::video::libav::get().is_some());
         let mut images = Vec::new();
         let mut sidecars_by_path: HashMap<PathBuf, Vec<Option<String>>> = HashMap::new();
 
@@ -624,7 +650,7 @@ pub async fn list_images_recursive(
                     .entry(entry.path().with_file_name(source_filename))
                     .or_default()
                     .push(copy_id.map(str::to_string));
-            } else if is_supported_image_file(file_name.as_ref()) {
+            } else if is_supported_media_file(file_name.as_ref(), || *videos_supported) {
                 images.push(entry);
             }
         }
@@ -661,6 +687,9 @@ pub fn get_supported_file_types() -> Result<serde_json::Value, String> {
 
     Ok(serde_json::json!({
         "raw": raw_extensions,
-        "nonRaw": non_raw_extensions
+        "nonRaw": non_raw_extensions,
+        "video": crate::decode::formats::VIDEO_EXTENSIONS,
+        "audio": crate::decode::formats::AUDIO_EXTENSIONS,
+        "videoProject": [crate::decode::formats::VIDEO_PROJECT_EXTENSION]
     }))
 }

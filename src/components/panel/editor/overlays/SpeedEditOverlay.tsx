@@ -7,6 +7,7 @@ import { useUIStore } from '../../../../store/useUIStore';
 import { getSpeedEditTarget } from '../../../ui/Slider';
 import { formatKeyCode, normalizeCombo } from '../../../../utils/keyboardUtils';
 import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../../../utils/fineAdjustment';
+import { detentHaptic } from '../../../../utils/haptics';
 import { SpeedEditTarget } from '../../../../types/editor';
 import { Coord, DEFAULT_SPEED_EDIT_ADJUSTMENTS } from '../../../../utils/adjustments';
 import { Panel, PanelRegion } from '../../../../types/ui';
@@ -352,6 +353,13 @@ export default function SpeedEditOverlay() {
         drag.last = point;
         const nextValue = target.toValue(drag.position);
         if (nextValue !== drag.value) {
+          detentHaptic(
+            drag.value,
+            nextValue,
+            target.defaultValue,
+            target.toValue(target.minPosition),
+            target.toValue(target.maxPosition),
+          );
           drag.value = nextValue;
           target.onChange(nextValue);
         }

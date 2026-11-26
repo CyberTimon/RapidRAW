@@ -90,10 +90,13 @@ fn process_preview_job(
     }
 
     hydrate_adjustments(&state, &mut adjustments_json);
+    crate::video::frame_adjustments(app_handle, &loaded_image, &mut adjustments_json);
     let adjustments_clone = adjustments_json;
 
-    crate::ai::denoise::ensure_generated(app_handle, &loaded_image, &adjustments_clone);
-    crate::ai::upscale::ensure_generated(app_handle, &loaded_image, &adjustments_clone);
+    if !crate::decode::formats::is_video_file(&loaded_image.path) {
+        crate::ai::denoise::ensure_generated(app_handle, &loaded_image, &adjustments_clone);
+        crate::ai::upscale::ensure_generated(app_handle, &loaded_image, &adjustments_clone);
+    }
 
     let new_transform_hash = calculate_transform_hash(&adjustments_clone);
     let live_quality = settings.live_preview_quality.as_deref().unwrap_or("high");
@@ -548,6 +551,14 @@ pub fn start_preview_worker(app_handle: tauri::AppHandle) {
                         latest[slot] = Some(job);
                     }
                     PreviewTask::Viewer => viewer_pending = true,
+                    PreviewTask::InstallFrame(frame, load_epoch, installed) => {
+                        let done = crate::video::install_frame(
+                            &app_handle.state::<AppState>(),
+                            frame,
+                            load_epoch,
+                        );
+                        let _ = installed.send(done);
+                    }
                 }
             }
 

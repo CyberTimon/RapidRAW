@@ -2,12 +2,12 @@ import { useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useShallow } from 'zustand/react/shallow';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { useUIStore, reconcileWorkspace } from '../store/useUIStore';
+import { useUIStore, reconcileWorkspace, workspaceSettingsKey } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useEditorStore } from '../store/useEditorStore';
 import { useProcessStore } from '../store/useProcessStore';
 import { THEMES, DEFAULT_THEME_ID, ThemeProps } from '../utils/themes';
-import { COPYABLE_ADJUSTMENT_KEYS, withAdjustmentLayout } from '../utils/adjustments';
+import { COPYABLE_ADJUSTMENT_KEYS, withAdjustmentLayout, withNewGroupKeys } from '../utils/adjustments';
 import { setLocalUiScale } from '../utils/displayScale';
 import { FilterCriteria, RawStatus, EditedStatus, FlagStatus, type FolderNode } from '../types/library';
 import { Invokes } from '../types/invokes';
@@ -93,8 +93,12 @@ export const useAppInitialization = ({
       panelSwitcherPlacement: state.panelSwitcherPlacement,
       filmstripColumns: state.filmstripColumns,
       filmstripShowFileInfo: state.filmstripShowFileInfo,
+      ...(state.workspaceMode === 'video'
+        ? { timelineHeight: state.timelineHeight, timelineCollapsed: state.timelineCollapsed }
+        : {}),
     })),
   );
+  const workspaceMode = useUIStore((state) => state.workspaceMode);
 
   const {
     sortCriteria,
@@ -150,6 +154,10 @@ export const useAppInitialization = ({
           settings.copyPasteSettings.includedAdjustments.length === 0
         ) {
           settings.copyPasteSettings = { mode: 'merge', includedAdjustments: COPYABLE_ADJUSTMENT_KEYS };
+        } else {
+          settings.copyPasteSettings.includedAdjustments = withNewGroupKeys(
+            settings.copyPasteSettings.includedAdjustments,
+          );
         }
 
         if (!settings.language) {
@@ -200,13 +208,10 @@ export const useAppInitialization = ({
         setUI({
           leftPanelWidth: reconciledWorkspace.leftPanelWidth,
           rightPanelWidth: reconciledWorkspace.rightPanelWidth,
-          leftTopHeight: reconciledWorkspace.leftTopHeight,
-          rightTopHeight: reconciledWorkspace.rightTopHeight,
-          panelLayout: reconciledWorkspace.panelLayout,
-          activePanels: reconciledWorkspace.activePanels,
-          panelSwitcherPlacement: reconciledWorkspace.panelSwitcherPlacement,
-          filmstripColumns: reconciledWorkspace.filmstripColumns,
-          filmstripShowFileInfo: reconciledWorkspace.filmstripShowFileInfo,
+        });
+        useUIStore.getState().loadWorkspaces({
+          photo: reconciledWorkspace,
+          video: settings?.videoWorkspace ? reconcileWorkspace(settings.videoWorkspace, false, 'video') : null,
         });
 
         if (settings?.isWaveformVisible !== undefined) setEditor({ isWaveformVisible: settings.isWaveformVisible });
@@ -305,17 +310,18 @@ export const useAppInitialization = ({
   useEffect(() => {
     if (isInitialMount.current || !appSettings) return;
 
-    const currentWorkspaceStr = JSON.stringify(appSettings.workspace || {});
+    const key = workspaceSettingsKey(workspaceMode);
+    const currentWorkspaceStr = JSON.stringify(appSettings[key] || {});
     const newWorkspaceStr = JSON.stringify(workspaceProps);
 
     if (currentWorkspaceStr !== newWorkspaceStr) {
       const timeoutId = setTimeout(() => {
-        handleSettingsChange({ ...appSettings, workspace: workspaceProps });
+        handleSettingsChange({ ...appSettings, [key]: workspaceProps });
       }, 500);
 
       return () => clearTimeout(timeoutId);
     }
-  }, [workspaceProps, appSettings, handleSettingsChange]);
+  }, [workspaceProps, workspaceMode, appSettings, handleSettingsChange]);
 
   useEffect(() => {
     if (isInitialMount.current || !appSettings) return;

@@ -1,7 +1,7 @@
 use crate::merge::features::{FeatureSet, detect_features};
 use crate::merge::homography::{Correspondence, estimate_homography, fit_homography};
 use crate::merge::matching::match_features;
-use crate::merge::raster::Raster;
+use crate::merge::raster::{Interpolation, Raster};
 use nalgebra::{Matrix3, Vector2, Vector3};
 use rayon::prelude::*;
 
@@ -96,21 +96,29 @@ pub fn downscaled(h: &Matrix3<f64>, factor: f64) -> Matrix3<f64> {
     from_full * h * to_full
 }
 
+pub fn scaled(h: &Matrix3<f64>, factor: f64) -> Matrix3<f64> {
+    if *h == Matrix3::identity() {
+        *h
+    } else {
+        downscaled(h, factor)
+    }
+}
+
 pub fn warp(
     source: &Raster,
     h: &Matrix3<f64>,
     width: usize,
     height: usize,
-    bicubic: bool,
+    interpolation: Interpolation,
 ) -> (Raster, Vec<f32>) {
-    warp_with(source, width, height, bicubic, |x, y| apply(h, x, y))
+    warp_with(source, width, height, interpolation, |x, y| apply(h, x, y))
 }
 
 pub fn warp_with(
     source: &Raster,
     width: usize,
     height: usize,
-    bicubic: bool,
+    interpolation: Interpolation,
     map: impl Fn(f64, f64) -> Option<(f64, f64)> + Sync,
 ) -> (Raster, Vec<f32>) {
     let ch = source.channels;
@@ -127,11 +135,7 @@ pub fn warp_with(
                 let Some((u, v)) = map(x as f64, y as f64) else {
                     continue;
                 };
-                if bicubic {
-                    source.bicubic(u as f32, v as f32, &mut sample[..ch]);
-                } else {
-                    source.bilinear(u as f32, v as f32, &mut sample[..ch]);
-                }
+                source.sample(interpolation, u as f32, v as f32, &mut sample[..ch]);
                 row[x * ch..x * ch + ch].copy_from_slice(&sample[..ch]);
                 let edge = (u + 0.5).min(v + 0.5).min(sw - 0.5 - u).min(sh - 0.5 - v);
                 valid_row[x] = (edge as f32).clamp(0.0, 1.0);

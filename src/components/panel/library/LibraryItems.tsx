@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Ban,
+  Clapperboard,
   Flag,
   Image as ImageIcon,
   Folder,
@@ -11,6 +12,7 @@ import {
   Layers,
   Loader2,
   Pause,
+  Video,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
@@ -21,9 +23,11 @@ import { ThumbnailAspectRatio, ExifOverlay } from '../../../types/settings';
 import { ImageFile, ImageFlag, ColumnWidths } from '../../../types/library';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
+import { formatFocalLength } from '../../../utils/exif';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
+import { libraryName } from '../../../store/videoIntegration';
 import { isImmichAlbumId } from '../../../utils/immichApi';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
 import { useCtrlClickMenuGuard } from '../../../hooks/useCtrlClickMenuGuard';
@@ -53,6 +57,8 @@ const ThumbnailComponent = ({
   aspectRatio: thumbnailAspectRatio,
   isEdited,
   isCloudPlaceholder,
+  isVideo,
+  isVideoProject,
   groupBadgeLabel,
   onAspectRatioLoaded,
   showFileInfo = true,
@@ -104,14 +110,8 @@ const ThumbnailComponent = ({
     data: { type: 'library-image', path },
   });
 
-  const { baseName, isVirtualCopy } = useMemo(() => {
-    const fullFileName = path.split(/[\\/]/).pop() || '';
-    const parts = fullFileName.split('?vc=');
-    return {
-      baseName: parts[0],
-      isVirtualCopy: parts.length > 1,
-    };
-  }, [path]);
+  const baseName = useMemo(() => libraryName(path), [path]);
+  const isVirtualCopy = path.includes('?vc=');
 
   const { shutter, fNumber, iso, focal } = useMemo(() => {
     const e = exif || {};
@@ -124,6 +124,7 @@ const ThumbnailComponent = ({
       focal: e.FocalLengthIn35mmFilm || e.FocalLength || '',
     };
   }, [exif]);
+  const hidesExif = (isVideo || isVideoProject) && !shutter && !fNumber && !iso && !focal;
 
   useEffect(() => {
     if (data) {
@@ -289,13 +290,30 @@ const ThumbnailComponent = ({
             </div>
           ) : (
             <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-surface">
-              <ImageIcon className="text-text-secondary animate-pulse" />
+              {isVideoProject ? (
+                <Clapperboard className="text-text-secondary" />
+              ) : (
+                <ImageIcon className="text-text-secondary animate-pulse" />
+              )}
             </div>
           ))}
 
+        {(isVideo || isVideoProject) && layers.length > 0 && (
+          <div className="absolute top-1.5 left-1.5 z-10 rounded-full h-5 w-5 flex items-center justify-center bg-black/40 shadow-md pointer-events-none">
+            {isVideoProject ? (
+              <Clapperboard size={12} className="text-white" />
+            ) : (
+              <Video size={12} className="text-white" />
+            )}
+          </div>
+        )}
+
         {isCloudPlaceholder && layers.length > 0 && (
           <div
-            className="absolute top-1.5 left-1.5 z-10 rounded-full h-5 w-5 flex items-center justify-center bg-black/40 shadow-md pointer-events-none"
+            className={clsx(
+              'absolute top-1.5 z-10 rounded-full h-5 w-5 flex items-center justify-center bg-black/40 shadow-md pointer-events-none',
+              isVideo || isVideoProject ? 'left-7.5' : 'left-1.5',
+            )}
             data-tooltip={t(cloudTooltip)}
           >
             <CloudOff size={12} className="text-white" />
@@ -431,7 +449,7 @@ const ThumbnailComponent = ({
               <div className="flex items-center gap-1">
                 <IconFocalLength className="w-2.5 h-2.5" />
                 <Text variant={TextVariants.small} className="text-[9px] font-medium tracking-wide">
-                  {focal ? (String(focal).endsWith('mm') ? focal : `${focal}mm`) : '-'}
+                  {formatFocalLength(focal) || '-'}
                 </Text>
               </div>
             </div>
@@ -496,6 +514,7 @@ const ThumbnailComponent = ({
               className={clsx(
                 'pt-1.5 pb-0.5 flex flex-wrap items-center gap-x-2.5 shrink-0 transition-transform duration-300 ease-in-out',
                 isAlways ? 'translate-y-0' : isHover ? 'translate-y-3 group-hover:translate-y-0' : 'translate-y-3',
+                hidesExif && 'invisible',
               )}
             >
               <div
@@ -528,7 +547,7 @@ const ThumbnailComponent = ({
               >
                 <IconFocalLength className="w-2.5 h-2.5" />
                 <Text variant={TextVariants.small} className="text-[9px] font-medium tracking-wide">
-                  {focal ? (String(focal).endsWith('mm') ? focal : `${focal}mm`) : '-'}
+                  {formatFocalLength(focal) || '-'}
                 </Text>
               </div>
             </div>
@@ -620,14 +639,8 @@ const ListItemComponent = ({
     data: { type: 'library-image', path },
   });
 
-  const { baseName, isVirtualCopy } = useMemo(() => {
-    const fullFileName = path.split(/[\\/]/).pop() || '';
-    const parts = fullFileName.split('?vc=');
-    return {
-      baseName: parts[0],
-      isVirtualCopy: parts.length > 1,
-    };
-  }, [path]);
+  const baseName = useMemo(() => libraryName(path), [path]);
+  const isVirtualCopy = path.includes('?vc=');
 
   const { shutter, fNumber, iso, focal } = useMemo(() => {
     const e = exif || {};
@@ -910,7 +923,7 @@ const ListItemComponent = ({
           </div>
           <div style={{ width: getW('focal') }} className="flex items-center px-3 h-full overflow-hidden">
             <Text variant={TextVariants.small} color={TextColors.secondary} className="truncate">
-              {focal ? (String(focal).endsWith('mm') ? focal : `${focal}mm`) : ''}
+              {formatFocalLength(focal)}
             </Text>
           </div>
         </>
@@ -1108,6 +1121,8 @@ export const Row = ({
                 isEdited={imageFile.is_edited}
                 aspectRatio={thumbnailAspectRatio}
                 isCloudPlaceholder={imageFile.is_cloud_placeholder}
+                isVideo={imageFile.is_video}
+                isVideoProject={imageFile.is_video_project}
                 groupBadgeLabel={imageFile.group_id && groupBadgeInfo?.get(imageFile.group_id)?.label}
                 onAspectRatioLoaded={onAspectRatioLoaded}
                 showFileInfo={showFileInfo}

@@ -71,16 +71,11 @@ fn process_image_for_export_pipeline(
     is_raw: bool,
     debug_tag: &str,
     renders: &[(RenderOptions, RenderOutputPrecision)],
+    image_id: u64,
 ) -> Result<Vec<DynamicImage>, String> {
     let (fitted, fit_scale) = fit_to_gpu(context, base_image);
     let scale = fit_scale * base_scale;
-    let source = RenderSource::edited(
-        &fitted,
-        source_id("export", path, js_adjustments),
-        path,
-        js_adjustments,
-    )
-    .scaled(scale);
+    let source = RenderSource::edited(&fitted, image_id, path, js_adjustments).scaled(scale);
     let crop_offset = source.crop_offset();
     let (img_w, img_h) = source.size();
 
@@ -194,6 +189,7 @@ fn process_image_for_export(
             is_raw,
             "process_image_for_export",
             &renders,
+            source_id("export", path, js_adjustments),
         )?
     } else {
         let mut rendered = Vec::with_capacity(renders.len());
@@ -211,6 +207,7 @@ fn process_image_for_export(
                 is_raw,
                 "process_image_for_export",
                 std::slice::from_ref(render),
+                source_id("export", path, js_adjustments),
             )?);
         }
         rendered

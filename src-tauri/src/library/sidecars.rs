@@ -88,13 +88,16 @@ pub fn save_metadata_and_update_thumbnail(
             crate::metadata::sidecar::fill_missing_exif(metadata, &source_path);
             had_ai_work = crate::ai::jobs::needs_generation(&metadata.adjustments, &source_path);
             let mut final_adjustments = adjustments;
+            let dropped =
+                crate::video::ai_maps::drop_clip_maps(&mut final_adjustments, &source_path);
             if let Some(source_id) = &source_id {
                 stripped_ai_results = crate::ai::jobs::reconcile_ai_results(
                     &mut final_adjustments,
                     &metadata.adjustments,
                     source_id,
                     true,
-                );
+                ) || (dropped
+                    && crate::ai::jobs::has_ai_results(&final_adjustments));
             }
             metadata.adjustments = final_adjustments;
         })
@@ -116,7 +119,7 @@ pub fn save_metadata_and_update_thumbnail(
 
     let loaded_image_lock = state.original_image.lock().unwrap();
     let preloaded_image_option = if let Some(loaded_image) = loaded_image_lock.as_ref() {
-        if loaded_image.path == path {
+        if loaded_image.path == path && !crate::decode::formats::is_video_file(&source_path) {
             Some(loaded_image.image.clone())
         } else {
             None
@@ -202,6 +205,7 @@ pub async fn apply_adjustments_to_paths(
             }
 
             let mut pasted = adjustments.clone();
+            crate::video::ai_maps::drop_clip_maps(&mut pasted, source_path);
             let source_id = regenerates_ai
                 .then(|| crate::ai::jobs::source_id(source_path))
                 .flatten();

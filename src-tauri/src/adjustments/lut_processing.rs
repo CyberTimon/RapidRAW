@@ -980,6 +980,7 @@ pub fn export_adjustments_as_lut(
     all_adjustments.global.structure = 0.0;
     all_adjustments.global.centré = 0.0;
     all_adjustments.global.glow_amount = 0.0;
+    all_adjustments.global.pixelate = 0.0;
     all_adjustments.global.halation_amount = 0.0;
     all_adjustments.global.flare_amount = 0.0;
     all_adjustments.global.luma_noise_reduction = 0.0;

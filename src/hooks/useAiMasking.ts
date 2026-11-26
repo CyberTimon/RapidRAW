@@ -8,6 +8,7 @@ import { useCloudStore } from '../store/useCloudStore';
 import { Adjustments, AiPatch, MaskContainer, Coord } from '../utils/adjustments';
 import { SubMask } from '../types/masks';
 import { Invokes } from '../types/invokes';
+import { prepareClipMaps } from '../store/videoIntegration';
 
 const getTransformAdjustments = (adj: Adjustments) => ({
   transformDistortion: adj.transformDistortion,
@@ -411,6 +412,7 @@ export function useAiMasking() {
       const mergedParameters = { ...(subMask?.parameters || {}), ...newParameters };
       patchesSentToBackend.delete(subMaskId);
       updateSubMask(subMaskId, { parameters: mergedParameters });
+      prepareClipMaps('depth');
     } catch (error) {
       if (!String(error).includes('cancelled')) {
         toast.error(`AI Depth Mask Failed: ${error}`);

@@ -4,6 +4,7 @@ import Switch from '../ui/Switch';
 import { FILENAME_VARIABLES, isUniqueFilenameTemplate } from '../../types/export';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { useModalGate } from '../../store/useUIStore';
 
 interface ImportSettingsModalProps {
   fileCount: number;
@@ -15,6 +16,7 @@ interface ImportSettingsModalProps {
 export default function ImportSettingsModal({ fileCount, isOpen, onClose, onSave }: ImportSettingsModalProps) {
   const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
+  useModalGate(isOpen);
   const [show, setShow] = useState(false);
 
   const [filenameTemplate, setFilenameTemplate] = useState('{original_filename}');

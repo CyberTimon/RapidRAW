@@ -5,6 +5,7 @@ import { Trash2 } from 'lucide-react';
 import Dropdown, { OptionItem } from '../../ui/Dropdown';
 import Switch from '../../ui/Switch';
 import Text from '../../ui/Text';
+import SettingItem from './SettingItem';
 import { TextVariants } from '../../../types/typography';
 import {
   AppSettings,
@@ -119,60 +120,52 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
   };
 
   return (
-    <div className="space-y-6">
-      <Text variant={TextVariants.small}>{t('settings.processing.defaultAdjustments.description')}</Text>
-
-      <div>
-        <Text variant={TextVariants.heading} className="block mb-2">
-          {t('settings.processing.defaultAdjustments.preset')}
-        </Text>
+    <div className="space-y-8">
+      <SettingItem
+        label={t('settings.processing.defaultAdjustments.preset')}
+        tooltip={t('settings.processing.defaultAdjustments.presetTooltip')}
+        description={
+          presetMissing
+            ? t('settings.processing.defaultAdjustments.presetMissing')
+            : t('settings.processing.defaultAdjustments.presetDesc')
+        }
+      >
         <Dropdown
           onChange={(value: string) => update({ presetId: value === NO_PRESET ? null : value })}
           options={presetOptions}
           value={presetMissing ? NO_PRESET : selectedPresetId}
           triggerClassName="bg-bg-primary"
         />
-        <Text variant={TextVariants.small} className="mt-2">
-          {presetMissing
-            ? t('settings.processing.defaultAdjustments.presetMissing')
-            : t('settings.processing.defaultAdjustments.presetDesc')}
-        </Text>
-      </div>
+      </SettingItem>
 
-      <div>
-        <Text variant={TextVariants.heading} className="block mb-2">
-          {t('settings.processing.defaultAdjustments.lensCorrection')}
-        </Text>
+      <SettingItem
+        label={t('settings.processing.defaultAdjustments.lensCorrection')}
+        tooltip={t('settings.processing.defaultAdjustments.autoLensCorrectionDesc')}
+      >
         <Switch
           checked={developDefaults.autoLensCorrection ?? false}
           id="default-auto-lens-correction-toggle"
           label={t('settings.processing.defaultAdjustments.autoLensCorrection')}
           onChange={(checked) => update({ autoLensCorrection: checked })}
         />
-        <Text variant={TextVariants.small} className="mt-2">
-          {t('settings.processing.defaultAdjustments.autoLensCorrectionDesc')}
-        </Text>
-      </div>
+      </SettingItem>
 
-      <div>
-        <Text variant={TextVariants.heading} className="block mb-2">
-          {t('settings.processing.defaultAdjustments.scope')}
-        </Text>
+      <SettingItem
+        label={t('settings.processing.defaultAdjustments.scope')}
+        tooltip={t('settings.processing.defaultAdjustments.applyToNonRawDesc')}
+      >
         <Switch
           checked={developDefaults.applyToNonRaw ?? false}
           id="default-adjustments-non-raw-toggle"
           label={t('settings.processing.defaultAdjustments.applyToNonRaw')}
           onChange={(checked) => update({ applyToNonRaw: checked })}
         />
-        <Text variant={TextVariants.small} className="mt-2">
-          {t('settings.processing.defaultAdjustments.applyToNonRawDesc')}
-        </Text>
-      </div>
+      </SettingItem>
 
-      <div>
-        <Text variant={TextVariants.heading} className="block mb-2">
-          {t('settings.processing.defaultAdjustments.sliderReset')}
-        </Text>
+      <SettingItem
+        label={t('settings.processing.defaultAdjustments.sliderReset')}
+        tooltip={t('settings.processing.defaultAdjustments.sliderResetDesc')}
+      >
         <Dropdown
           onChange={(value: SliderResetTarget) =>
             appSettings && onSettingsChange({ ...appSettings, sliderResetTarget: value })
@@ -181,18 +174,12 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
           value={appSettings?.sliderResetTarget ?? 'neutral'}
           triggerClassName="bg-bg-primary"
         />
-        <Text variant={TextVariants.small} className="mt-2">
-          {t('settings.processing.defaultAdjustments.sliderResetDesc')}
-        </Text>
-      </div>
+      </SettingItem>
 
-      <div>
-        <Text variant={TextVariants.heading} className="block mb-2">
-          {t('settings.processing.defaultAdjustments.cameraDefaults')}
-        </Text>
-        <Text variant={TextVariants.small} className="mb-3">
-          {t('settings.processing.defaultAdjustments.cameraDefaultsDesc')}
-        </Text>
+      <SettingItem
+        label={t('settings.processing.defaultAdjustments.cameraDefaults')}
+        tooltip={t('settings.processing.defaultAdjustments.cameraDefaultsDesc')}
+      >
         <div className="space-y-3">
           {cameraRules.map((rule, index) => (
             <div
@@ -236,7 +223,7 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
             <Text variant={TextVariants.small}>{t('settings.processing.defaultAdjustments.noCamerasFound')}</Text>
           )}
         </div>
-      </div>
+      </SettingItem>
     </div>
   );
 }

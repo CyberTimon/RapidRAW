@@ -4,8 +4,27 @@ use tauri::AppHandle;
 
 use super::client::{Album, ImmichClient, TimelineMonth};
 use super::config::{self, ApiKeyInfo};
-use super::{MIN_VERSION, registry, reset_session, resolve, session, sync};
+use super::media::{self, LinkedMedia, MediaRef, Original};
+use super::{MIN_VERSION, files, registry, reset_session, resolve, session, sync};
 use crate::library::listing::ImageFile;
+
+#[tauri::command]
+pub async fn immich_media_refs(paths: Vec<String>, app_handle: AppHandle) -> Vec<Option<MediaRef>> {
+    media::refs(&app_handle, &paths)
+}
+
+#[tauri::command]
+pub async fn immich_link_media(
+    media: Vec<LinkedMedia>,
+    app_handle: AppHandle,
+) -> Vec<Option<Original>> {
+    media::link(&app_handle, &media)
+}
+
+#[tauri::command]
+pub fn immich_cancel_download(path: String) {
+    files::cancel_download(Path::new(&path));
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

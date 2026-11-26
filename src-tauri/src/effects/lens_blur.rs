@@ -5,7 +5,10 @@ use crate::render::geometry::GeometryParams;
 use image::GrayImage;
 
 use crate::render::adjustment_utils::is_effect_enabled;
-use crate::render::gpu::compute::{Bind, ComputeEncoder, Grid, Group, KEEP_ZW, Out, Slot, Tex};
+use crate::render::gpu::compute::{
+    Bind, ComputeEncoder, Grid, Group, KEEP_ZW, MapKey, Out, Slot, Tex,
+};
+use crate::render::image_processing::smoothstep;
 
 const EPS: f32 = 4.0e-3;
 
@@ -39,7 +42,7 @@ struct Params {
 
 pub struct LensBlur {
     depth_map: Arc<GrayImage>,
-    map_key: u64,
+    map_key: MapKey,
     max_radius: f32,
     shape: String,
     min_depth: f32,
@@ -109,12 +112,6 @@ fn downsample_factor(pixels: usize, max_radius: f32) -> usize {
         ds += 1;
     }
     ds
-}
-
-#[inline(always)]
-fn smoothstep(e0: f32, e1: f32, x: f32) -> f32 {
-    let t = ((x - e0) / (e1 - e0).max(1e-6)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
 }
 
 fn polygon_scale(theta: f32, blades: u32) -> f32 {

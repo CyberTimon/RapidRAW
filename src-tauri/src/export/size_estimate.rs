@@ -36,13 +36,13 @@ fn render_with_gain<T>(
     render: impl FnOnce(&RenderSource) -> T,
 ) -> T {
     let gained = gain_layer_for(path, settings, options.headroom)
-        .and_then(|(layer, weight)| Some((layer.apply(source.image, weight)?, weight)));
+        .and_then(|(layer, weight)| Some((layer.apply(source.image()?, weight)?, weight)));
     match &gained {
         Some((image, weight)) => {
             let mut hasher = DefaultHasher::new();
             (source.id, weight.to_bits()).hash(&mut hasher);
             render(&RenderSource {
-                image,
+                pixels: crate::render::source::SourcePixels::Cpu(image),
                 id: hasher.finish(),
                 adjustments: source.adjustments,
                 transform: source.transform.clone(),

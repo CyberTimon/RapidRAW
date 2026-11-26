@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   CheckCircle,
   Cylinder,
+  GalleryHorizontalEnd,
   Globe,
   Images,
   Layers,
@@ -14,23 +15,26 @@ import {
   SquaresUnite,
   TriangleAlert,
   WandSparkles,
+  Waves,
   XCircle,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
 import Button from '../ui/Button';
+import SegmentedControl from '../ui/SegmentedControl';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
 import {
   FocusStackSettings,
+  LongExposureSettings,
   MergeKind,
   MergeSettings,
   PanoramaProjectionMode,
   PanoramaSettings,
 } from '../../types/library';
-import { MergeModalState } from '../../store/useUIStore';
+import { MergeModalState, useModalGate } from '../../store/useUIStore';
 
 const SETTINGS_COMMIT_DELAY_MS = 250;
 
@@ -38,6 +42,8 @@ const TOOL_ICONS: Record<MergeKind, { icon: LucideIcon; overlayIcon?: LucideIcon
   panorama: { icon: SquaresUnite },
   hdr: { icon: Images },
   focusStack: { icon: Layers, overlayIcon: MapIcon },
+  burstDenoise: { icon: GalleryHorizontalEnd },
+  longExposure: { icon: Waves },
 };
 
 interface ToolText {
@@ -71,6 +77,26 @@ function useToolText(kind: MergeKind, count: number): ToolText {
         savedSuccess: t('modals.focusStack.savedSuccess'),
         title: t('modals.focusStack.title'),
       };
+    case 'burstDenoise':
+      return {
+        description: count
+          ? t('modals.burstDenoise.descriptionWithCount', { count })
+          : t('modals.burstDenoise.description'),
+        failed: t('modals.burstDenoise.failed'),
+        processing: t('modals.burstDenoise.processing'),
+        savedSuccess: t('modals.burstDenoise.savedSuccess'),
+        title: t('modals.burstDenoise.title'),
+      };
+    case 'longExposure':
+      return {
+        description: count
+          ? t('modals.longExposure.descriptionWithCount', { count })
+          : t('modals.longExposure.description'),
+        failed: t('modals.longExposure.failed'),
+        processing: t('modals.longExposure.processing'),
+        savedSuccess: t('modals.longExposure.savedSuccess'),
+        title: t('modals.longExposure.title'),
+      };
     default:
       return {
         description: count ? t('modals.panorama.descriptionWithCount', { count }) : t('modals.panorama.description'),
@@ -83,48 +109,16 @@ function useToolText(kind: MergeKind, count: number): ToolText {
 }
 
 const PROJECTION_OPTIONS = [
-  { value: 'auto', label: 'modals.panorama.projectionAuto', icon: WandSparkles },
-  { value: 'spherical', label: 'modals.panorama.projectionSpherical', icon: Globe },
-  { value: 'cylindrical', label: 'modals.panorama.projectionCylindrical', icon: Cylinder },
-  { value: 'perspective', label: 'modals.panorama.projectionPerspective', icon: Square },
+  { id: 'auto', label: 'modals.panorama.projectionAuto', icon: WandSparkles },
+  { id: 'spherical', label: 'modals.panorama.projectionSpherical', icon: Globe },
+  { id: 'cylindrical', label: 'modals.panorama.projectionCylindrical', icon: Cylinder },
+  { id: 'perspective', label: 'modals.panorama.projectionPerspective', icon: Square },
 ] as const;
 
 const METHOD_OPTIONS = [
-  { value: 'detail', label: 'modals.focusStack.methodDetail' },
-  { value: 'smooth', label: 'modals.focusStack.methodSmooth' },
+  { id: 'detail', label: 'modals.focusStack.methodDetail', tooltip: 'modals.focusStack.methodDetailHint' },
+  { id: 'smooth', label: 'modals.focusStack.methodSmooth', tooltip: 'modals.focusStack.methodSmoothHint' },
 ] as const;
-
-interface SegmentedOption<T extends string> {
-  icon?: LucideIcon;
-  label: string;
-  value: T;
-}
-
-interface SegmentedProps<T extends string> {
-  onChange(value: T): void;
-  options: ReadonlyArray<SegmentedOption<T>>;
-  value: T;
-}
-
-function Segmented<T extends string>({ onChange, options, value }: SegmentedProps<T>) {
-  return (
-    <div className="grid grid-cols-2 gap-2">
-      {options.map(({ value: optionValue, label, icon: Icon }) => (
-        <button
-          key={optionValue}
-          onClick={() => onChange(optionValue)}
-          className={clsx(
-            'flex items-center justify-center gap-1.5 px-2 py-1.5 text-sm rounded-md transition-colors',
-            value === optionValue ? 'bg-accent text-button-text' : 'bg-bg-primary hover:bg-card-active',
-          )}
-        >
-          {Icon && <Icon size={14} />}
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 interface MergeModalProps {
   loadingImageUrl: string | null;
@@ -151,6 +145,7 @@ export default function MergeModal({
   const tool = TOOL_ICONS[kind];
   const text = useToolText(kind, sourcePaths.length);
   const [isMounted, setIsMounted] = useState(false);
+  useModalGate(isOpen);
   const [show, setShow] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedPath, setSavedPath] = useState<string | null>(null);
@@ -264,7 +259,7 @@ export default function MergeModal({
 
   const renderPanoramaOptions = (panorama: PanoramaSettings) => {
     const projectionLabel = (value: PanoramaProjectionMode) =>
-      t(PROJECTION_OPTIONS.find((option) => option.value === value)?.label ?? 'modals.panorama.projectionAuto');
+      t(PROJECTION_OPTIONS.find((option) => option.id === value)?.label ?? 'modals.panorama.projectionAuto');
     if (!isUpdatingPreview) {
       const requested = (settings as PanoramaSettings).projection;
       let note = null;
@@ -283,7 +278,7 @@ export default function MergeModal({
         <Text variant={TextVariants.heading} className="mb-2">
           {t('modals.panorama.projection')}
         </Text>
-        <Segmented
+        <SegmentedControl
           options={PROJECTION_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
           value={panorama.projection}
           onChange={(projection) => updateSettings({ projection })}
@@ -303,9 +298,6 @@ export default function MergeModal({
           onChange={(e) => updateSettings({ boundaryWarp: Number(e.target.value) })}
           fillOrigin="min"
         />
-        <Text variant={TextVariants.small} className="mt-2">
-          {t('modals.panorama.boundaryWarpHint')}
-        </Text>
       </div>,
       <div key="toggles" className="space-y-3">
         {renderAutoCrop(panorama.autoCrop)}
@@ -324,31 +316,50 @@ export default function MergeModal({
       <Text variant={TextVariants.heading} className="mb-2">
         {t('modals.focusStack.method')}
       </Text>
-      <Segmented
-        options={METHOD_OPTIONS.map((option) => ({ ...option, label: t(option.label) }))}
+      <SegmentedControl
+        options={METHOD_OPTIONS.map((option) => ({ ...option, label: t(option.label), tooltip: t(option.tooltip) }))}
         value={focusStack.method}
         onChange={(method) => updateSettings({ method })}
       />
-      <Text variant={TextVariants.small} className="mt-2">
-        {t('modals.focusStack.methodHint')}
-      </Text>
     </div>,
     <div key="toggles" className="space-y-3">
       {renderAutoCrop(focusStack.autoCrop)}
     </div>,
   ];
 
+  const renderLongExposureOptions = (longExposure: LongExposureSettings) => [
+    <div key="toggles" className="space-y-3">
+      {renderAutoCrop(longExposure.autoCrop)}
+      <Switch
+        label={t('modals.longExposure.smoothMotion')}
+        checked={longExposure.smoothMotion}
+        onChange={(smoothMotion) => updateSettings({ smoothMotion })}
+        tooltip={t('modals.longExposure.smoothMotionHint')}
+      />
+    </div>,
+  ];
+
+  const renderColumns = () => {
+    switch (kind) {
+      case 'panorama':
+        return renderPanoramaOptions(draftSettings as PanoramaSettings);
+      case 'focusStack':
+        return renderFocusStackOptions(draftSettings as FocusStackSettings);
+      case 'longExposure':
+        return renderLongExposureOptions(draftSettings as LongExposureSettings);
+      case 'burstDenoise':
+        return [];
+      default:
+        return [
+          <div key="toggles" className="space-y-3">
+            {renderAutoCrop(draftSettings.autoCrop)}
+          </div>,
+        ];
+    }
+  };
+
   const renderOptions = () => {
-    const columns =
-      kind === 'panorama'
-        ? renderPanoramaOptions(draftSettings as PanoramaSettings)
-        : kind === 'focusStack'
-          ? renderFocusStackOptions(draftSettings as FocusStackSettings)
-          : [
-              <div key="toggles" className="space-y-3">
-                {renderAutoCrop(draftSettings.autoCrop)}
-              </div>,
-            ];
+    const columns = renderColumns();
     const sharedColumn = columns.length === 3 ? columns.pop() : null;
     const settingsClass = clsx(isSaving && 'opacity-50 pointer-events-none');
     return (
@@ -566,11 +577,10 @@ export default function MergeModal({
       );
     }
 
-    const disabled = isProcessing || isSaving;
     const ToolIcon = tool.icon;
 
     return (
-      <div className={clsx('w-full flex items-center justify-end gap-2', disabled && 'opacity-50 pointer-events-none')}>
+      <div className={clsx('w-full flex items-center justify-end gap-2', isSaving && 'opacity-50 pointer-events-none')}>
         <button
           onClick={handleClose}
           className="px-4 py-2 rounded-md text-text-secondary hover:bg-card-active transition-colors text-sm"

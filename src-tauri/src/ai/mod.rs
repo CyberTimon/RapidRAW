@@ -8,5 +8,6 @@ pub mod jobs;
 pub mod lama;
 pub mod models;
 pub mod processing;
+pub mod speech;
 pub mod tiling;
 pub mod upscale;

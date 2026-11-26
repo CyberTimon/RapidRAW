@@ -37,6 +37,7 @@ import { useCloudStore } from '../../store/useCloudStore';
 import Button from '../ui/Button';
 import ConfirmModal from '../modals/ConfirmModal';
 import Dropdown, { OptionItem } from '../ui/Dropdown';
+import SegmentedControl from '../ui/SegmentedControl';
 import Switch from '../ui/Switch';
 import Input from '../ui/Input';
 import Slider from '../ui/Slider';
@@ -44,9 +45,11 @@ import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
 import { useTranslation } from 'react-i18next';
 import { Invokes } from '../../types/invokes';
 import {
+  formatCombo,
   formatKeyCode,
   getDefaultCombo,
   KeybindDefinition,
+  keybindContext,
   KEYBIND_DEFINITIONS,
   KEYBIND_SECTIONS,
   normalizeCombo,
@@ -63,6 +66,7 @@ import ImmichSettings from '../immich/ImmichSettings';
 import DataManagementSettings from './settings/DataManagementSettings';
 import DefaultAdjustmentsSettings from './settings/DefaultAdjustmentsSettings';
 import EditInAppsSettings from './settings/EditInAppsSettings';
+import SettingItem, { SettingsSection } from './settings/SettingItem';
 import { applyUiScale, clampUiScale, getDevicePixelRatio, UI_SCALE_PRESETS } from '../../utils/displayScale';
 import type { ParseKeys } from 'i18next';
 
@@ -83,14 +87,6 @@ interface KeybindRowProps {
   recordingAction: string | null;
   onStartRecording: (action: string) => void;
   isConflicting: boolean;
-}
-
-interface SettingItemProps {
-  children: any;
-  description?: string;
-  label: string;
-  status?: string | null;
-  statusAction?: { label: string; onClick(): void } | null;
 }
 
 interface GpuFallbacks {
@@ -232,7 +228,7 @@ const KeybindRow = ({
               className={`px-2 py-1 font-sans bg-bg-primary border rounded-md cursor-pointer hover:border-accent transition-colors ${isConflicting ? 'border-yellow-400' : 'border-border-color'}`}
             >
               {displayCombo ? (
-                displayCombo.map((k) => formatKeyCode(k, osPlatform)).join(' + ')
+                formatCombo(displayCombo, osPlatform)
               ) : (
                 <span className="text-text-secondary italic">{t('settings.controls.notAssigned')}</span>
               )}
@@ -244,32 +240,33 @@ const KeybindRow = ({
   );
 };
 
-const SettingItem = ({ children, description, label, status, statusAction }: SettingItemProps) => (
-  <div>
-    <Text variant={TextVariants.heading} className="block mb-2">
-      {label}
-    </Text>
-    {children}
-    {description && (
-      <Text variant={TextVariants.small} className="mt-2">
-        {description}
-      </Text>
-    )}
-    {status && (
-      <Text variant={TextVariants.small} className="mt-1">
-        {status}
-        {statusAction && (
-          <>
-            {' '}
-            <button className="text-accent hover:underline focus:outline-none" onClick={statusAction.onClick}>
-              {statusAction.label}
-            </button>
-          </>
-        )}
-      </Text>
-    )}
-  </div>
-);
+const FfmpegSetting = () => {
+  const { t } = useTranslation();
+  const [version, setVersion] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    let alive = true;
+    invoke<string | null>(Invokes.VideoFfmpegVersion)
+      .then((found) => alive && setVersion(found))
+      .catch(() => alive && setVersion(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  return (
+    <SettingItem
+      label={t('settings.processing.ffmpeg')}
+      description={
+        version === undefined
+          ? undefined
+          : version
+            ? t('settings.processing.ffmpegBundledDesc', { version })
+            : t('settings.processing.ffmpegMissing')
+      }
+    />
+  );
+};
 
 const SPEED_EDIT_KEY_ROWS = [
   {
@@ -370,35 +367,7 @@ const AiProviderSwitch = ({ selectedProvider, onProviderChange }: AiProviderSwit
   );
 
   return (
-    <div className="relative flex w-full p-1 bg-bg-primary rounded-md border border-border-color">
-      {aiProviders.map((provider) => (
-        <button
-          key={provider.id}
-          onClick={() => onProviderChange(provider.id)}
-          className={clsx(
-            'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-            {
-              'text-text-primary hover:bg-surface': selectedProvider !== provider.id,
-              'text-button-text': selectedProvider === provider.id,
-            },
-          )}
-          style={{ WebkitTapHighlightColor: 'transparent' }}
-        >
-          {selectedProvider === provider.id && (
-            <motion.span
-              layoutId="ai-provider-switch-bubble"
-              className="absolute inset-0 z-0 bg-accent"
-              style={{ borderRadius: 6 }}
-              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-            />
-          )}
-          <span className="relative z-10 flex items-center">
-            <provider.icon size={16} className="mr-2" />
-            {provider.label}
-          </span>
-        </button>
-      ))}
-    </div>
+    <SegmentedControl variant="outlined" options={aiProviders} value={selectedProvider} onChange={onProviderChange} />
   );
 };
 
@@ -538,43 +507,13 @@ const CanvasInputModeSwitch = ({ mode, onModeChange }: CanvasInputModeSwitchProp
 
   const canvasInputModes = useMemo(
     () => [
-      { id: 'mouse', label: t('settings.controls.modes.mouse'), icon: Mouse },
-      { id: 'trackpad', label: t('settings.controls.modes.trackpad'), icon: Touchpad },
+      { id: 'mouse' as const, label: t('settings.controls.modes.mouse'), icon: Mouse },
+      { id: 'trackpad' as const, label: t('settings.controls.modes.trackpad'), icon: Touchpad },
     ],
     [t],
   );
 
-  return (
-    <div className="relative flex w-full p-1 bg-bg-primary rounded-md border border-border-color">
-      {canvasInputModes.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => onModeChange(item.id as 'mouse' | 'trackpad')}
-          className={clsx(
-            'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-            {
-              'text-text-primary hover:bg-surface': mode !== item.id,
-              'text-button-text': mode === item.id,
-            },
-          )}
-          style={{ WebkitTapHighlightColor: 'transparent' }}
-        >
-          {mode === item.id && (
-            <motion.span
-              layoutId="canvas-input-mode-switch-bubble"
-              className="absolute inset-0 z-0 bg-accent"
-              style={{ borderRadius: 6 }}
-              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-            />
-          )}
-          <span className="relative z-10 flex items-center">
-            <item.icon size={16} className="mr-2" />
-            {item.label}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
+  return <SegmentedControl variant="outlined" options={canvasInputModes} value={mode} onChange={onModeChange} />;
 };
 
 interface PreviewModeSwitchProps {
@@ -587,43 +526,23 @@ const PreviewModeSwitch = ({ mode, onModeChange }: PreviewModeSwitchProps) => {
 
   const previewModes = useMemo(
     () => [
-      { id: 'static', label: t('settings.processing.modes.static'), icon: ImageIcon },
-      { id: 'dynamic', label: t('settings.processing.modes.dynamic'), icon: Scaling },
+      {
+        id: 'static' as const,
+        label: t('settings.processing.modes.static'),
+        icon: ImageIcon,
+        tooltip: t('settings.processing.staticDesc'),
+      },
+      {
+        id: 'dynamic' as const,
+        label: t('settings.processing.modes.dynamic'),
+        icon: Scaling,
+        tooltip: t('settings.processing.dynamicDesc'),
+      },
     ],
     [t],
   );
 
-  return (
-    <div className="relative flex w-full p-1 bg-bg-primary rounded-md border border-border-color">
-      {previewModes.map((item) => (
-        <button
-          key={item.id}
-          onClick={() => onModeChange(item.id as 'static' | 'dynamic')}
-          className={clsx(
-            'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-            {
-              'text-text-primary hover:bg-surface': mode !== item.id,
-              'text-button-text': mode === item.id,
-            },
-          )}
-          style={{ WebkitTapHighlightColor: 'transparent' }}
-        >
-          {mode === item.id && (
-            <motion.span
-              layoutId="preview-mode-switch-bubble"
-              className="absolute inset-0 z-0 bg-accent"
-              style={{ borderRadius: 6 }}
-              transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-            />
-          )}
-          <span className="relative z-10 flex items-center">
-            <item.icon size={16} className="mr-2" />
-            {item.label}
-          </span>
-        </button>
-      ))}
-    </div>
-  );
+  return <SegmentedControl variant="outlined" options={previewModes} value={mode} onChange={onModeChange} />;
 };
 
 const THANKS_CREDITS: Array<{ name: string; url: string; description: ParseKeys }> = [
@@ -667,6 +586,12 @@ const THANKS_CREDITS: Array<{ name: string; url: string; description: ParseKeys 
     url: 'https://github.com/Phhofm/models/releases/tag/2xBHI_small_span_pretrain',
     description: 'settings.thanks.list.span',
   },
+  {
+    name: 'Parakeet TDT 0.6B v3',
+    url: 'https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3',
+    description: 'settings.thanks.list.parakeet',
+  },
+  { name: 'FFmpeg', url: 'https://ffmpeg.org', description: 'settings.thanks.list.ffmpeg' },
   { name: 'libgphoto2', url: 'http://gphoto.org/', description: 'settings.thanks.list.libgphoto2' },
   {
     name: 'darktable & co.',
@@ -1129,7 +1054,7 @@ export default function SettingsPanel({
           ? getDefaultCombo(def, osPlatform)
           : null;
       if (!effective) continue;
-      const key = effective.join('+');
+      const key = `${keybindContext(def)}:${effective.join('+')}`;
       if (!map.has(key)) map.set(key, new Set());
       map.get(key)!.add(def.action);
     }
@@ -1161,35 +1086,13 @@ export default function SettingsPanel({
               </Text>
             </div>
 
-            <div className="relative flex w-full min-[1200px]:w-112.5 p-2 bg-surface rounded-md">
-              {settingCategories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setActiveCategory(category.id)}
-                  className={clsx(
-                    'relative flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-                    {
-                      'text-text-primary hover:bg-surface': activeCategory !== category.id,
-                      'text-button-text': activeCategory === category.id,
-                    },
-                  )}
-                  style={{ WebkitTapHighlightColor: 'transparent' }}
-                >
-                  {activeCategory === category.id && (
-                    <motion.span
-                      layoutId="settings-category-switch-bubble"
-                      className="absolute inset-0 z-0 bg-accent"
-                      style={{ borderRadius: 6 }}
-                      transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                  <span className="relative z-10 flex items-center">
-                    <category.icon size={16} className="mr-2 shrink-0" />
-                    <span className="truncate">{category.label}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              variant="embedded"
+              className="min-[1200px]:w-112.5 p-2 bg-surface rounded-md"
+              options={settingCategories}
+              value={activeCategory}
+              onChange={setActiveCategory}
+            />
           </header>
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 -mr-2 custom-scrollbar">
@@ -1203,12 +1106,9 @@ export default function SettingsPanel({
                   transition={{ duration: 0.2 }}
                   className="space-y-10"
                 >
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.general.title')}
-                    </Text>
+                  <SettingsSection title={t('settings.general.title')}>
                     <div className="space-y-8">
-                      <SettingItem label={t('settings.general.theme')} description={t('settings.general.themeDesc')}>
+                      <SettingItem label={t('settings.general.theme')}>
                         <Dropdown
                           onChange={(value: any) => onSettingsChange({ ...appSettings, theme: value })}
                           options={THEMES.map((theme: ThemeProps) => ({
@@ -1220,7 +1120,7 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      <SettingItem label={t('settings.language')} description={t('settings.languageDesc')}>
+                      <SettingItem label={t('settings.language')}>
                         <Dropdown
                           onChange={(value: any) => onSettingsChange({ ...appSettings, language: value })}
                           options={[
@@ -1277,10 +1177,7 @@ export default function SettingsPanel({
                               className="overflow-hidden"
                             >
                               <div className="pl-4 border-l-2 border-border-color ml-1">
-                                <SettingItem
-                                  label={t('settings.general.createXmp')}
-                                  description={t('settings.general.createXmpDesc')}
-                                >
+                                <SettingItem label={t('settings.general.createXmp')}>
                                   <Switch
                                     checked={appSettings?.createXmpIfMissing ?? false}
                                     id="create-xmp-missing-toggle"
@@ -1298,7 +1195,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.general.folderImageCounts')}
-                        description={t('settings.general.folderImageCountsDesc')}
+                        tooltip={t('settings.general.folderImageCountsDesc')}
                       >
                         <Switch
                           checked={appSettings?.enableFolderImageCounts ?? false}
@@ -1310,7 +1207,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.general.neutralGreyCanvas')}
-                        description={t('settings.general.neutralGreyCanvasDesc')}
+                        tooltip={t('settings.general.neutralGreyCanvasDesc')}
                       >
                         <Switch
                           checked={appSettings?.editorNeutralGreyBg ?? false}
@@ -1320,14 +1217,11 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      <SettingItem
-                        label={t('settings.general.displayEditIcon')}
-                        description={t('settings.general.displayEditIconDesc')}
-                      >
+                      <SettingItem label={t('settings.general.displayEditIcon')}>
                         <Switch
                           checked={appSettings?.displayEditIcon ?? true}
                           id="display-edit-icon-toggle"
-                          label={t('settings.general.displayEditIcon')}
+                          label={t('settings.general.showEditIcon')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, displayEditIcon: checked })}
                         />
                       </SettingItem>
@@ -1358,7 +1252,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.general.hideCollapsedPanels')}
-                        description={t('settings.general.hideCollapsedPanelsDesc')}
+                        tooltip={t('settings.general.hideCollapsedPanelsDesc')}
                       >
                         <Switch
                           checked={appSettings?.hideCollapsedPanels ?? false}
@@ -1368,7 +1262,7 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      <SettingItem label={t('settings.general.font')} description={t('settings.general.fontDesc')}>
+                      <SettingItem label={t('settings.general.font')}>
                         <Dropdown
                           onChange={(value: any) => onSettingsChange({ ...appSettings, fontFamily: value })}
                           options={fontOptions}
@@ -1377,10 +1271,7 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      <SettingItem
-                        label={t('settings.general.uiScale')}
-                        description={t('settings.general.uiScaleDesc')}
-                      >
+                      <SettingItem label={t('settings.general.uiScale')} tooltip={t('settings.general.uiScaleDesc')}>
                         <Dropdown
                           onChange={(value: number) => {
                             onSettingsChange({ ...appSettings, uiScale: value });
@@ -1395,7 +1286,7 @@ export default function SettingsPanel({
                       {osPlatform === 'linux' && (
                         <SettingItem
                           label={t('settings.general.nativeTitlebar')}
-                          description={t('settings.general.nativeTitlebarDesc')}
+                          tooltip={t('settings.general.nativeTitlebarDesc')}
                         >
                           <Switch
                             checked={appSettings?.decorations ?? false}
@@ -1409,14 +1300,12 @@ export default function SettingsPanel({
                         </SettingItem>
                       )}
                     </div>
-                  </div>
+                  </SettingsSection>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.processing.ai.title')}
-                    </Text>
-                    <Text className="mb-4">{t('settings.processing.ai.description')}</Text>
-
+                  <SettingsSection
+                    title={t('settings.processing.ai.title')}
+                    description={t('settings.processing.ai.description')}
+                  >
                     <AiProviderSwitch selectedProvider={aiProvider} onProviderChange={handleProviderChange} />
 
                     <div className="mt-8">
@@ -1429,18 +1318,15 @@ export default function SettingsPanel({
                             exit={{ opacity: 0, x: -10 }}
                             transition={{ duration: 0.2 }}
                           >
-                            <Text variant={TextVariants.heading}>{t('settings.processing.ai.cpu.title')}</Text>
-                            <Text className="mt-1">{t('settings.processing.ai.cpu.description')}</Text>
-                            <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
-                              <li>{t('settings.processing.ai.cpu.feature1')}</li>
-                              <li>{t('settings.processing.ai.cpu.feature2')}</li>
-                              <li>{t('settings.processing.ai.cpu.feature3')}</li>
-                            </Text>
-                            {(osPlatform === 'windows' || osPlatform === 'macos') && (
+                            <SettingItem
+                              label={t('settings.processing.ai.cpu.title')}
+                              description={t('settings.processing.ai.cpu.description')}
+                            />
+                            {(osPlatform === 'windows' || osPlatform === 'macos' || osPlatform === 'linux') && (
                               <div className="mt-8">
                                 <SettingItem
                                   label={t('settings.processing.ai.cpu.gpuAcceleration')}
-                                  description={t('settings.processing.ai.cpu.gpuAccelerationDesc')}
+                                  tooltip={t('settings.processing.ai.cpu.gpuAccelerationDesc')}
                                 >
                                   <Switch
                                     checked={appSettings?.aiGpuAcceleration ?? true}
@@ -1464,13 +1350,10 @@ export default function SettingsPanel({
                             exit={{ opacity: 0, x: -10 }}
                             transition={{ duration: 0.2 }}
                           >
-                            <Text variant={TextVariants.heading}>{t('settings.processing.ai.aiFree.title')}</Text>
-                            <Text className="mt-1">{t('settings.processing.ai.aiFree.description')}</Text>
-                            <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
-                              <li>{t('settings.processing.ai.aiFree.feature1')}</li>
-                              <li>{t('settings.processing.ai.aiFree.feature2')}</li>
-                              <li>{t('settings.processing.ai.aiFree.feature3')}</li>
-                            </Text>
+                            <SettingItem
+                              label={t('settings.processing.ai.aiFree.title')}
+                              description={t('settings.processing.ai.aiFree.description')}
+                            />
                           </motion.div>
                         )}
 
@@ -1483,20 +1366,14 @@ export default function SettingsPanel({
                             transition={{ duration: 0.2 }}
                           >
                             <div className="space-y-8">
-                              <div>
-                                <Text variant={TextVariants.heading}>
-                                  {t('settings.processing.ai.connector.title')}
-                                </Text>
-                                <Text className="mt-1">{t('settings.processing.ai.connector.description')}</Text>
-                                <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
-                                  <li>{t('settings.processing.ai.connector.feature1')}</li>
-                                  <li>{t('settings.processing.ai.connector.feature2')}</li>
-                                  <li>{t('settings.processing.ai.connector.feature3')}</li>
-                                </Text>
-                              </div>
+                              <SettingItem
+                                label={t('settings.processing.ai.connector.title')}
+                                description={t('settings.processing.ai.connector.description')}
+                                tooltip={t('settings.processing.ai.connector.tooltip')}
+                              />
                               <SettingItem
                                 label={t('settings.processing.ai.connector.address')}
-                                description={t('settings.processing.ai.connector.addressDesc')}
+                                tooltip={t('settings.processing.ai.connector.addressDesc')}
                               >
                                 <div className="flex items-center gap-2">
                                   <Input
@@ -1545,13 +1422,11 @@ export default function SettingsPanel({
                             exit={{ opacity: 0, x: -10 }}
                             transition={{ duration: 0.2 }}
                           >
-                            <Text variant={TextVariants.heading}>{t('settings.processing.ai.cloud.title')}</Text>
-                            <Text className="mt-1">{t('settings.processing.ai.cloud.description')}</Text>
-                            <Text as="ul" className="mt-3 space-y-1 list-disc list-inside">
-                              <li>{t('settings.processing.ai.cloud.feature1')}</li>
-                              <li>{t('settings.processing.ai.cloud.feature2')}</li>
-                              <li>{t('settings.processing.ai.cloud.feature3')}</li>
-                            </Text>
+                            <SettingItem
+                              label={t('settings.processing.ai.cloud.title')}
+                              description={t('settings.processing.ai.cloud.description')}
+                              tooltip={t('settings.processing.ai.cloud.tooltip')}
+                            />
 
                             <div className="mt-8">
                               {authStatus === 'ready' && user && (
@@ -1604,21 +1479,16 @@ export default function SettingsPanel({
                         )}
                       </AnimatePresence>
                     </div>
-                  </div>
+                  </SettingsSection>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.processing.defaultAdjustments.title')}
-                    </Text>
+                  <SettingsSection
+                    title={t('settings.processing.defaultAdjustments.title')}
+                    tooltip={t('settings.processing.defaultAdjustments.description')}
+                  >
                     <DefaultAdjustmentsSettings appSettings={appSettings} onSettingsChange={onSettingsChange} />
-                  </div>
+                  </SettingsSection>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.lenses.title')}
-                    </Text>
-                    <Text className="mb-6">{t('settings.lenses.description')}</Text>
-
+                  <SettingsSection title={t('settings.lenses.title')} description={t('settings.lenses.description')}>
                     <div className="space-y-8">
                       <div className="bg-bg-primary rounded-lg p-4 border border-border-color">
                         <Text variant={TextVariants.heading} className="mb-3">
@@ -1685,19 +1555,16 @@ export default function SettingsPanel({
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </SettingsSection>
 
                   <ImmichSettings />
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.tagging.title')}
-                    </Text>
+                  <SettingsSection title={t('settings.tagging.title')}>
                     <div className="space-y-8">
                       <div className="space-y-4">
                         <SettingItem
-                          description={t('settings.tagging.aiTaggingDesc')}
                           label={t('settings.tagging.aiTagging')}
+                          tooltip={t('settings.tagging.aiTaggingDesc')}
                         >
                           <Switch
                             checked={appSettings?.enableAiTagging ?? false}
@@ -1717,10 +1584,7 @@ export default function SettingsPanel({
                               className="overflow-hidden"
                             >
                               <div className="pl-4 border-l-2 border-border-color ml-1 space-y-8">
-                                <SettingItem
-                                  label={t('settings.tagging.maxAiTags')}
-                                  description={t('settings.tagging.maxAiTagsDesc')}
-                                >
+                                <SettingItem label={t('settings.tagging.maxAiTags')}>
                                   <Slider
                                     label={t('settings.tagging.amount')}
                                     min={1}
@@ -1736,7 +1600,7 @@ export default function SettingsPanel({
 
                                 <SettingItem
                                   label={t('settings.tagging.customList')}
-                                  description={t('settings.tagging.customListDesc')}
+                                  tooltip={t('settings.tagging.customListDesc')}
                                 >
                                   <div>
                                     <div className="flex flex-wrap gap-2 p-2 bg-bg-primary rounded-md min-h-10 border border-border-color mb-2 items-center">
@@ -1886,13 +1750,9 @@ export default function SettingsPanel({
                         </div>
                       </SettingItem>
                     </div>
-                  </div>
+                  </SettingsSection>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-4">
-                      {t('settings.thanks.title')}
-                    </Text>
-                    <Text className="mb-4">{t('settings.thanks.description')}</Text>
+                  <SettingsSection title={t('settings.thanks.title')} description={t('settings.thanks.description')}>
                     <Text as="ul" className="space-y-3 list-disc ml-5 pl-1">
                       {THANKS_CREDITS.map((credit) => (
                         <li key={credit.name}>
@@ -1912,7 +1772,7 @@ export default function SettingsPanel({
                         {t('settings.thanks.list.you')}
                       </li>
                     </Text>
-                  </div>
+                  </SettingsSection>
                 </motion.div>
               )}
               {activeCategory === 'processing' && (
@@ -1924,21 +1784,15 @@ export default function SettingsPanel({
                   transition={{ duration: 0.2 }}
                   className="space-y-10"
                 >
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.processing.title')}
-                    </Text>
+                  <SettingsSection title={t('settings.processing.title')}>
                     <div className="space-y-8">
-                      <div>
-                        <Text variant={TextVariants.heading} className="mb-2">
-                          {t('settings.processing.previewStrategy')}
-                        </Text>
+                      <SettingItem label={t('settings.processing.previewStrategy')}>
                         <PreviewModeSwitch
                           mode={appSettings?.enableZoomHifi ? 'dynamic' : 'static'}
                           onModeChange={handlePreviewModeChange}
                         />
 
-                        <div className="mt-3">
+                        <div className="mt-4">
                           <AnimatePresence mode="wait">
                             {!(appSettings?.enableZoomHifi ?? true) ? (
                               <motion.div
@@ -1948,13 +1802,10 @@ export default function SettingsPanel({
                                 exit={{ opacity: 0, x: -10 }}
                                 transition={{ duration: 0.2 }}
                               >
-                                <Text variant={TextVariants.small} className="mb-4">
-                                  {t('settings.processing.staticDesc')}
-                                </Text>
                                 <div className="pl-4 border-l-2 border-border-color ml-1">
                                   <SettingItem
-                                    description={t('settings.processing.previewResDesc')}
                                     label={t('settings.processing.previewRes')}
+                                    tooltip={t('settings.processing.previewResDesc')}
                                   >
                                     <Dropdown
                                       onChange={(value: any) =>
@@ -1975,13 +1826,10 @@ export default function SettingsPanel({
                                 exit={{ opacity: 0, x: -10 }}
                                 transition={{ duration: 0.2 }}
                               >
-                                <Text variant={TextVariants.small} className="mb-4">
-                                  {t('settings.processing.dynamicDesc')}
-                                </Text>
-                                <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
+                                <div className="pl-4 border-l-2 border-border-color ml-1 space-y-6">
                                   <SettingItem
                                     label={t('settings.processing.renderScale')}
-                                    description={t('settings.processing.renderScaleDesc')}
+                                    tooltip={t('settings.processing.renderScaleDesc')}
                                   >
                                     <Dropdown
                                       onChange={(value: any) =>
@@ -1995,11 +1843,8 @@ export default function SettingsPanel({
 
                                   <SettingItem
                                     label={t('settings.processing.highDpi')}
-                                    description={
-                                      dpr > 1
-                                        ? t('settings.processing.highDpiDesc', { dpr })
-                                        : t('settings.processing.highDpiDescStandard')
-                                    }
+                                    tooltip={dpr > 1 ? t('settings.processing.highDpiDesc', { dpr }) : null}
+                                    description={dpr > 1 ? null : t('settings.processing.highDpiDescStandard')}
                                   >
                                     <Switch
                                       checked={processingSettings.useFullDpiRendering}
@@ -2016,12 +1861,12 @@ export default function SettingsPanel({
                             )}
                           </AnimatePresence>
                         </div>
-                      </div>
+                      </SettingItem>
 
                       <div className="space-y-4">
                         <SettingItem
                           label={t('settings.processing.livePreviews')}
-                          description={t('settings.processing.livePreviewsDesc')}
+                          tooltip={t('settings.processing.livePreviewsDesc')}
                         >
                           <Switch
                             checked={appSettings?.enableLivePreviews ?? true}
@@ -2045,7 +1890,7 @@ export default function SettingsPanel({
                               <div className="pl-4 border-l-2 border-border-color ml-1">
                                 <SettingItem
                                   label={t('settings.processing.livePreviewQuality')}
-                                  description={t('settings.processing.livePreviewQualityDesc')}
+                                  tooltip={t('settings.processing.livePreviewQualityDesc')}
                                 >
                                   <Dropdown
                                     onChange={(value: any) =>
@@ -2062,10 +1907,7 @@ export default function SettingsPanel({
                         </AnimatePresence>
                       </div>
 
-                      <SettingItem
-                        description={t('settings.processing.smallThumbnailResDesc')}
-                        label={t('settings.processing.smallThumbnailRes')}
-                      >
+                      <SettingItem label={t('settings.processing.smallThumbnailRes')}>
                         <Dropdown
                           onChange={(value: any) => handleProcessingSettingChange('smallThumbnailResolution', value)}
                           options={smallThumbnailResolutions}
@@ -2075,8 +1917,8 @@ export default function SettingsPanel({
                       </SettingItem>
 
                       <SettingItem
-                        description={t('settings.processing.mediumThumbnailResDesc')}
                         label={t('settings.processing.mediumThumbnailRes')}
+                        tooltip={t('settings.processing.mediumThumbnailResDesc')}
                       >
                         <Dropdown
                           onChange={(value: any) => handleProcessingSettingChange('mediumThumbnailResolution', value)}
@@ -2088,7 +1930,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.processing.alwaysDecodeRaw')}
-                        description={t('settings.processing.alwaysDecodeRawDesc')}
+                        tooltip={t('settings.processing.alwaysDecodeRawDesc')}
                       >
                         <Switch
                           checked={appSettings?.alwaysDecodeRawThumbnails ?? false}
@@ -2102,6 +1944,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.processing.wgpu')}
+                        tooltip={t('settings.processing.wgpuDesc')}
                         description={
                           osPlatform === 'android'
                             ? t('settings.processing.wgpuDescAndroid')
@@ -2109,7 +1952,7 @@ export default function SettingsPanel({
                               ? isWgpuSupported
                                 ? t('settings.processing.wgpuDescLinuxExperimental')
                                 : t('settings.processing.wgpuDescLinuxX11')
-                              : t('settings.processing.wgpuDescRecommended')
+                              : null
                         }
                       >
                         <Switch
@@ -2123,7 +1966,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.processing.backend')}
-                        description={t('settings.processing.backendDesc')}
+                        tooltip={t('settings.processing.backendDesc')}
                         status={
                           backendFallback &&
                           (backendFallback.retryPending
@@ -2160,9 +2003,11 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
+                      <FfmpegSetting />
+
                       <SettingItem
                         label={t('settings.processing.rawDecoding')}
-                        description={t('settings.processing.rawDecodingDesc')}
+                        tooltip={t('settings.processing.rawDecodingDesc')}
                         status={
                           rawDecodingUnavailable
                             ? t('settings.processing.rawDecodingUnavailable')
@@ -2192,7 +2037,7 @@ export default function SettingsPanel({
                       {osPlatform !== 'macos' && osPlatform !== 'windows' && (
                         <SettingItem
                           label={t('settings.processing.linuxCompat')}
-                          description={t('settings.processing.linuxCompatDesc')}
+                          tooltip={t('settings.processing.linuxCompatDesc')}
                         >
                           <Switch
                             checked={processingSettings.linuxGpuOptimization}
@@ -2205,7 +2050,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.processing.advanced.heading')}
-                        description={t('settings.processing.advanced.headingDesc')}
+                        tooltip={t('settings.processing.advanced.headingDesc')}
                       >
                         <div className="bg-bg-primary rounded-xl overflow-hidden">
                           <button
@@ -2236,7 +2081,7 @@ export default function SettingsPanel({
                                 <div className="px-4 pb-4 pt-4 border-t border-surface/50 space-y-8">
                                   <SettingItem
                                     label={t('settings.processing.workerThreads')}
-                                    description={t('settings.processing.workerThreadsDesc')}
+                                    tooltip={t('settings.processing.workerThreadsDesc')}
                                   >
                                     <Slider
                                       label={t('settings.processing.threads')}
@@ -2257,7 +2102,7 @@ export default function SettingsPanel({
 
                                   <SettingItem
                                     label={t('settings.processing.imageCache')}
-                                    description={t('settings.processing.imageCacheDesc')}
+                                    tooltip={t('settings.processing.imageCacheDesc')}
                                   >
                                     <Slider
                                       label={t('settings.processing.images')}
@@ -2275,7 +2120,7 @@ export default function SettingsPanel({
 
                                   <SettingItem
                                     label={t('settings.processing.advanced.exportThreads')}
-                                    description={t('settings.processing.advanced.exportThreadsDesc')}
+                                    tooltip={t('settings.processing.advanced.exportThreadsDesc')}
                                   >
                                     <Dropdown
                                       onChange={(value: any) =>
@@ -2289,7 +2134,7 @@ export default function SettingsPanel({
 
                                   <SettingItem
                                     label={t('settings.processing.advanced.exportMemoryLimit')}
-                                    description={t('settings.processing.advanced.exportMemoryLimitDesc')}
+                                    tooltip={t('settings.processing.advanced.exportMemoryLimitDesc')}
                                   >
                                     <Dropdown
                                       onChange={(value: any) =>
@@ -2323,16 +2168,13 @@ export default function SettingsPanel({
                         </>
                       )}
                     </div>
-                  </div>
+                  </SettingsSection>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.processing.display.title')}
-                    </Text>
-                    <div className="space-y-4">
+                  <SettingsSection title={t('settings.processing.display.title')}>
+                    <div className="space-y-8">
                       <SettingItem
                         label={t('settings.processing.colorManagement.profile')}
-                        description={t('settings.processing.colorManagement.profileDesc')}
+                        tooltip={t('settings.processing.colorManagement.profileDesc')}
                         status={displayColorStatus}
                       >
                         <Dropdown
@@ -2357,7 +2199,7 @@ export default function SettingsPanel({
                       {displayColorMode !== 'off' && (
                         <SettingItem
                           label={t('settings.processing.colorManagement.previewGamut')}
-                          description={t('settings.processing.colorManagement.previewGamutDesc')}
+                          tooltip={t('settings.processing.colorManagement.previewGamutDesc')}
                         >
                           <Dropdown
                             onChange={(value: string) =>
@@ -2372,7 +2214,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.processing.hdr.gainMaps')}
-                        description={t('settings.processing.hdr.gainMapsDesc')}
+                        tooltip={t('settings.processing.hdr.gainMapsDesc')}
                         status={
                           displayStatus &&
                           (!displayStatus.hdrSupported
@@ -2395,12 +2237,9 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
                     </div>
-                  </div>
+                  </SettingsSection>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.processing.preprocessing.title')}
-                    </Text>
+                  <SettingsSection title={t('settings.processing.preprocessing.title')}>
                     <div className="space-y-8">
                       {/* turn off highlights clipping setting for now - needs clean cleanup across other files.
                       <SettingItem
@@ -2424,7 +2263,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.processing.preprocessing.hotPixels')}
-                        description={t('settings.processing.preprocessing.hotPixelsDesc')}
+                        tooltip={t('settings.processing.preprocessing.hotPixelsDesc')}
                       >
                         <Switch
                           checked={processingSettings.removeHotPixels}
@@ -2436,7 +2275,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.processing.preprocessing.colorNr')}
-                        description={t('settings.processing.preprocessing.colorNrDesc')}
+                        tooltip={t('settings.processing.preprocessing.colorNrDesc')}
                       >
                         <Slider
                           label={t('settings.tagging.amount')}
@@ -2454,7 +2293,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.processing.preprocessing.sharpening')}
-                        description={t('settings.processing.preprocessing.sharpeningDesc')}
+                        tooltip={t('settings.processing.preprocessing.sharpeningDesc')}
                       >
                         <Slider
                           label={t('settings.tagging.amount')}
@@ -2472,7 +2311,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.processing.preprocessing.applyPreprocessing')}
-                        description={t('settings.processing.preprocessing.applyPreprocessingDesc')}
+                        tooltip={t('settings.processing.preprocessing.applyPreprocessingDesc')}
                       >
                         <Switch
                           checked={processingSettings.applyPreprocessingToNonRaws}
@@ -2485,7 +2324,7 @@ export default function SettingsPanel({
                       {osPlatform === 'macos' && (
                         <SettingItem
                           label={t('settings.processing.preprocessing.appleRaw9')}
-                          description={t('settings.processing.preprocessing.appleRaw9Desc')}
+                          tooltip={t('settings.processing.preprocessing.appleRaw9Desc')}
                         >
                           <Switch
                             checked={processingSettings.useAppleRaw9}
@@ -2511,7 +2350,7 @@ export default function SettingsPanel({
                       <div className="space-y-4">
                         <SettingItem
                           label={t('settings.processing.preprocessing.baselineExposure')}
-                          description={t('settings.processing.preprocessing.baselineExposureDesc')}
+                          tooltip={t('settings.processing.preprocessing.baselineExposureDesc')}
                         >
                           <Switch
                             checked={appSettings?.enableBaselineExposure ?? true}
@@ -2531,10 +2370,10 @@ export default function SettingsPanel({
                               exit={{ height: 0, opacity: 0 }}
                               transition={{ duration: 0.3, ease: 'easeInOut' }}
                             >
-                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
+                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-6">
                                 <SettingItem
                                   label={t('settings.processing.preprocessing.baselineExposureAmount')}
-                                  description={t('settings.processing.preprocessing.baselineExposureAmountDesc')}
+                                  tooltip={t('settings.processing.preprocessing.baselineExposureAmountDesc')}
                                 >
                                   <Slider
                                     label={t('settings.tagging.amount')}
@@ -2558,7 +2397,7 @@ export default function SettingsPanel({
 
                       <SettingItem
                         label={t('settings.processing.preprocessing.highlightPreservation')}
-                        description={t('settings.processing.preprocessing.highlightPreservationDesc')}
+                        tooltip={t('settings.processing.preprocessing.highlightPreservationDesc')}
                       >
                         <Switch
                           checked={appSettings?.compensateHighlightPreservation ?? true}
@@ -2573,7 +2412,7 @@ export default function SettingsPanel({
                       <div className="space-y-4">
                         <SettingItem
                           label={t('settings.processing.preprocessing.tonemapperOverride')}
-                          description={t('settings.processing.preprocessing.tonemapperOverrideDesc')}
+                          tooltip={t('settings.processing.preprocessing.tonemapperOverrideDesc')}
                         >
                           <Switch
                             checked={appSettings?.tonemapperOverrideEnabled ?? false}
@@ -2593,11 +2432,8 @@ export default function SettingsPanel({
                               exit={{ height: 0, opacity: 0 }}
                               transition={{ duration: 0.3, ease: 'easeInOut' }}
                             >
-                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-3">
-                                <SettingItem
-                                  label={t('settings.processing.preprocessing.defaultRawTonemapper')}
-                                  description={t('settings.processing.preprocessing.defaultRawTonemapperDesc')}
-                                >
+                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-6">
+                                <SettingItem label={t('settings.processing.preprocessing.defaultRawTonemapper')}>
                                   <Dropdown
                                     onChange={(value: any) =>
                                       onSettingsChange({ ...appSettings, defaultRawTonemapper: value })
@@ -2608,10 +2444,7 @@ export default function SettingsPanel({
                                   />
                                 </SettingItem>
 
-                                <SettingItem
-                                  label={t('settings.processing.preprocessing.defaultNonRawTonemapper')}
-                                  description={t('settings.processing.preprocessing.defaultNonRawTonemapperDesc')}
-                                >
+                                <SettingItem label={t('settings.processing.preprocessing.defaultNonRawTonemapper')}>
                                   <Dropdown
                                     onChange={(value: any) =>
                                       onSettingsChange({ ...appSettings, defaultNonRawTonemapper: value })
@@ -2627,19 +2460,16 @@ export default function SettingsPanel({
                         </AnimatePresence>
                       </div>
                     </div>
-                  </div>
+                  </SettingsSection>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.processing.editIn.title')}
-                    </Text>
+                  <SettingsSection
+                    title={t('settings.processing.editIn.title')}
+                    description={t('settings.processing.editIn.description')}
+                  >
                     <EditInAppsSettings appSettings={appSettings} onSettingsChange={onSettingsChange} />
-                  </div>
+                  </SettingsSection>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.data.title')}
-                    </Text>
+                  <SettingsSection title={t('settings.data.title')}>
                     <DataManagementSettings
                       appSettings={appSettings}
                       onLibraryRefresh={onLibraryRefresh}
@@ -2649,7 +2479,7 @@ export default function SettingsPanel({
                       onSettingsChange={onSettingsChange}
                       rootPaths={effectiveRootPaths}
                     />
-                  </div>
+                  </SettingsSection>
                 </motion.div>
               )}
 
@@ -2662,25 +2492,19 @@ export default function SettingsPanel({
                   transition={{ duration: 0.2 }}
                   className="space-y-10"
                 >
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.controls.title')}
-                    </Text>
+                  <SettingsSection title={t('settings.controls.title')}>
                     <div className="space-y-8">
-                      <div>
-                        <Text variant={TextVariants.heading} className="mb-2">
-                          {t('settings.controls.optimization')}
-                        </Text>
-                        <Text variant={TextVariants.small} className="mb-4">
-                          {t('settings.controls.optimizationDesc')}
-                        </Text>
+                      <SettingItem
+                        label={t('settings.controls.optimization')}
+                        tooltip={t('settings.controls.optimizationDesc')}
+                      >
                         <CanvasInputModeSwitch
                           mode={(appSettings?.canvasInputMode as 'mouse' | 'trackpad') || 'mouse'}
                           onModeChange={(value) => onSettingsChange({ ...appSettings, canvasInputMode: value })}
                         />
-                      </div>
+                      </SettingItem>
 
-                      <SettingItem label={t('settings.controls.zoom')} description={t('settings.controls.zoomDesc')}>
+                      <SettingItem label={t('settings.controls.zoom')} tooltip={t('settings.controls.zoomDesc')}>
                         <Slider
                           label={t('settings.controls.speed')}
                           min={0.1}
@@ -2696,7 +2520,7 @@ export default function SettingsPanel({
                       </SettingItem>
                       <SettingItem
                         label={t('settings.controls.zoomClick')}
-                        description={t('settings.controls.zoomClickInfo')}
+                        tooltip={t('settings.controls.zoomClickInfo')}
                       >
                         <Switch
                           checked={appSettings?.zoomPhotoToPixelClick ?? false}
@@ -2708,12 +2532,9 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
                     </div>
-                  </div>
+                  </SettingsSection>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.controls.speedEdit.title')}
-                    </Text>
+                  <SettingsSection title={t('settings.controls.speedEdit.title')}>
                     <div className="space-y-8">
                       <div>
                         <div className="flex items-end gap-6">
@@ -2784,20 +2605,21 @@ export default function SettingsPanel({
                         </div>
                       </SettingItem>
                     </div>
-                  </div>
+                  </SettingsSection>
 
-                  <div className="p-6 bg-surface rounded-xl shadow-md">
-                    <Text variant={TextVariants.title} color={TextColors.accent} className="mb-5">
-                      {t('settings.controls.keyboardTitle')}
-                    </Text>
+                  <SettingsSection title={t('settings.controls.keyboardTitle')}>
                     <div className="space-y-8">
-                      {' '}
                       {KEYBIND_SECTIONS.map((section) => {
                         const sectionDefs = KEYBIND_DEFINITIONS.filter((d) => d.section === section.id);
                         const userKb = appSettings?.keybinds || {};
                         return (
                           <div key={section.id}>
                             <Text variant={TextVariants.heading}>{t(section.label as any)}</Text>
+                            {section.hint && (
+                              <Text variant={TextVariants.small} className="mt-1">
+                                {t(section.hint)}
+                              </Text>
+                            )}
                             <div className="divide-y divide-border-color">
                               {sectionDefs.map((def) => (
                                 <KeybindRow
@@ -2821,7 +2643,7 @@ export default function SettingsPanel({
                         </Button>
                       </div>
                     </div>
-                  </div>
+                  </SettingsSection>
                 </motion.div>
               )}
             </AnimatePresence>

@@ -5,6 +5,7 @@ use crate::decode::hot_pixels::repair_hot_pixels;
 use crate::decode::white_balance::WhiteBalance;
 use crate::render::color_space::{GamutCompression, fit_gamut, gamut_limits, srgb_to_working};
 use crate::render::geometry::apply_orientation;
+use crate::render::image_processing::smoothstep;
 use anyhow::{Result, anyhow};
 use glam::Vec3;
 use image::{DynamicImage, ImageBuffer, Rgb};
@@ -114,12 +115,6 @@ fn srgb_to_linear(value: f32) -> f32 {
 fn smootherstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
     t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
-}
-
-#[inline]
-fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
-    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
 }
 
 #[inline]

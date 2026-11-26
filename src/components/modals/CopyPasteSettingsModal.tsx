@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import clsx from 'clsx';
 import { ADJUSTMENT_GROUPS, COPYABLE_ADJUSTMENT_KEYS, CopyPasteSettings, PasteMode } from '../../utils/adjustments';
 import Button from '../ui/Button';
+import SegmentedControl from '../ui/SegmentedControl';
 import Switch from '../ui/Switch';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { useModalGate } from '../../store/useUIStore';
 
 interface CopyPasteSettingsModalProps {
   isOpen: boolean;
@@ -24,105 +24,19 @@ const DEFAULT_SETTINGS: CopyPasteSettings = {
   autoSync: false,
 };
 
-interface PasteModeSwitchProps {
-  selectedMode: PasteMode;
-  onModeChange: (mode: PasteMode) => void;
-  isVisible: boolean;
-}
-
-const PasteModeSwitch = ({ selectedMode, onModeChange, isVisible }: PasteModeSwitchProps) => {
-  const { t } = useTranslation();
-  const [buttonRefs, setButtonRefs] = useState<Map<string, HTMLButtonElement>>(new Map());
-  const [bubbleStyle, setBubbleStyle] = useState({});
-  const containerRef = useRef<HTMLDivElement>(null);
-  const isInitialAnimation = useRef(true);
-
-  const pasteModeOptions = useMemo(
-    () => [
-      { id: PasteMode.Merge, label: t('modals.copyPaste.modeMerge') },
-      { id: PasteMode.Replace, label: t('modals.copyPaste.modeReplace') },
-    ],
-    [t],
-  );
-
-  useEffect(() => {
-    const selectedButton = buttonRefs.get(selectedMode);
-
-    if (!isVisible || !selectedButton || !containerRef.current) {
-      return;
-    }
-
-    const targetStyle = {
-      x: selectedButton.offsetLeft,
-      width: selectedButton.offsetWidth,
-    };
-
-    if (isInitialAnimation.current && containerRef.current.offsetWidth > 0) {
-      let initialX;
-      if (selectedMode === PasteMode.Replace) {
-        initialX = containerRef.current.offsetWidth;
-      } else {
-        initialX = -targetStyle.width;
-      }
-
-      setBubbleStyle({
-        x: [initialX, targetStyle.x],
-        width: targetStyle.width,
-      });
-      isInitialAnimation.current = false;
-    } else {
-      setBubbleStyle(targetStyle);
-    }
-  }, [selectedMode, buttonRefs, isVisible]);
-
-  useEffect(() => {
-    if (!isVisible) {
-      isInitialAnimation.current = true;
-    }
-  }, [isVisible]);
-
-  return (
-    <div ref={containerRef} className="relative flex w-full gap-1 bg-bg-primary p-1 rounded-md">
-      <motion.div
-        className="absolute top-1 bottom-1 z-0 bg-accent shadow-xs"
-        style={{ borderRadius: 6 }}
-        animate={bubbleStyle}
-        transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
-      />
-      {pasteModeOptions.map((option) => (
-        <button
-          key={option.id}
-          ref={(el) => {
-            if (el) {
-              const newRefs = new Map(buttonRefs);
-              if (newRefs.get(option.id) !== el) {
-                newRefs.set(option.id, el);
-                setButtonRefs(newRefs);
-              }
-            }
-          }}
-          onClick={() => onModeChange(option.id)}
-          className={clsx(
-            'relative flex-1 flex items-center justify-center gap-2 py-1.5 text-sm rounded-md transition-colors',
-            {
-              'text-text-primary hover:bg-surface': selectedMode !== option.id,
-              'text-button-text': selectedMode === option.id,
-            },
-          )}
-          style={{ WebkitTapHighlightColor: 'transparent' }}
-        >
-          <span className="relative z-10 flex items-center">{option.label}</span>
-        </button>
-      ))}
-    </div>
-  );
-};
-
 export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settings }: CopyPasteSettingsModalProps) {
   const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
+  useModalGate(isOpen);
   const [show, setShow] = useState(false);
   const [localSettings, setLocalSettings] = useState<CopyPasteSettings>(settings || DEFAULT_SETTINGS);
+  const pasteModeOptions = useMemo(
+    () => [
+      { id: PasteMode.Merge, label: t('modals.copyPaste.modeMerge'), tooltip: t('modals.copyPaste.descMerge') },
+      { id: PasteMode.Replace, label: t('modals.copyPaste.modeReplace'), tooltip: t('modals.copyPaste.descReplace') },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     if (isOpen) {
@@ -201,16 +115,11 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
             <Text variant={TextVariants.heading} className="block mb-2">
               {t('modals.copyPaste.pasteMode')}
             </Text>
-            <PasteModeSwitch
-              selectedMode={localSettings.mode}
-              onModeChange={(mode) => setLocalSettings((p) => ({ ...p, mode }))}
-              isVisible={show}
+            <SegmentedControl
+              options={pasteModeOptions}
+              value={localSettings.mode}
+              onChange={(mode) => setLocalSettings((p) => ({ ...p, mode }))}
             />
-            <Text variant={TextVariants.small} className="mt-2">
-              <b>{t('modals.copyPaste.modeMerge')}:</b> {t('modals.copyPaste.descMerge')}
-              <br />
-              <b>{t('modals.copyPaste.modeReplace')}:</b> {t('modals.copyPaste.descReplace')}
-            </Text>
           </div>
 
           <div>
@@ -222,9 +131,6 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
               checked={localSettings.autoSync}
               onChange={(checked) => setLocalSettings((p) => ({ ...p, autoSync: checked }))}
             />
-            <Text variant={TextVariants.small} className="mt-2">
-              {t('modals.copyPaste.autoSyncDesc')}
-            </Text>
           </div>
 
           <div>

@@ -3,16 +3,17 @@ use crate::app::state::{
     PreviewTarget, UploadedSource,
 };
 use crate::render::analytics::{AnalyticsFrame, AnalyticsPixels};
+use crate::render::gpu::compute::Slot;
 use crate::render::gpu::context::{GpuContext, lock_or_reset};
 use crate::render::gpu::display::{DisplayLayer, DisplayOutput, align_texture_dimension};
 use crate::render::gpu::processor::{
     AnalyticsReadback, GPU_IMAGE_CACHE_ENTRIES, GPU_IMAGE_CACHE_PIXELS, GPU_SOURCE_CACHE_ENTRIES,
     GpuProcessor, NEXT_GPU_IMAGE_ID, RenderOutputPrecision, RenderRequest, RenderedPixels,
-    analytics_readback_sender,
+    analytics_readback_sender, copy_to_readback,
 };
-use crate::render::source::RenderSource;
+use crate::render::source::{RenderSource, SourcePixels};
 use half::f16;
-use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
+use image::{DynamicImage, ImageBuffer, Rgba};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::time::Instant;
@@ -33,6 +34,9 @@ pub fn process_and_get_dynamic_image(
         RenderOutputPrecision::EightBit,
         None,
         None,
+        None,
+        None,
+        None,
     )
 }
 
@@ -51,6 +55,9 @@ pub fn process_and_get_dynamic_image_with_precision(
         request,
         caller_id,
         output_precision,
+        None,
+        None,
+        None,
         None,
         None,
     )
@@ -76,7 +83,40 @@ pub fn process_and_get_dynamic_image_with_analytics(
         output_precision,
         display_output,
         analytics_config,
+        None,
+        None,
+        None,
     )
+}
+
+pub type MaskPass<'a> = dyn Fn(&wgpu::TextureView, &wgpu::TextureView) -> Result<(), String> + 'a;
+
+#[allow(clippy::too_many_arguments)]
+pub fn process_to_texture(
+    context: &GpuContext,
+    state: &tauri::State<AppState>,
+    source: &RenderSource,
+    request: RenderRequest,
+    caller_id: &str,
+    output_precision: RenderOutputPrecision,
+    mask_pass: Option<&MaskPass>,
+    image_cache: &std::sync::Mutex<Option<GpuImageCache>>,
+) -> Result<Slot, String> {
+    let mut output = None;
+    process_and_get_dynamic_image_inner(
+        context,
+        state,
+        source,
+        request,
+        caller_id,
+        output_precision,
+        None,
+        None,
+        Some(&mut output),
+        mask_pass,
+        Some(image_cache),
+    )?;
+    output.ok_or_else(|| "The GPU render produced no texture".to_string())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -89,14 +129,17 @@ fn process_and_get_dynamic_image_inner(
     output_precision: RenderOutputPrecision,
     display_output: Option<DisplayOutput>,
     analytics_config: Option<AnalyticsConfig>,
+    texture_output: Option<&mut Option<Slot>>,
+    mask_pass: Option<&MaskPass>,
+    image_cache: Option<&std::sync::Mutex<Option<GpuImageCache>>>,
 ) -> Result<DynamicImage, String> {
     let start_time = Instant::now();
     let display_layer = display_output
         .filter(|output| output.target == PreviewTarget::Editor)
         .map(|output| output.layer);
-    let output_to_display = display_output.is_some();
+    let output_to_display = display_output.is_some() || texture_output.is_some();
     let (width, height) = source.size();
-    let source_size = source.image.dimensions();
+    let source_size = source.pixels.dimensions();
     let device = &context.device;
     let queue = &context.queue;
 
@@ -119,7 +162,7 @@ fn process_and_get_dynamic_image_inner(
             && e.source_identity == identity
     };
     let cache_target = display_output.map_or(PreviewTarget::Editor, |output| output.target);
-    let image_cache = state.gpu_image_cache_for(cache_target);
+    let image_cache = image_cache.unwrap_or_else(|| state.gpu_image_cache_for(cache_target));
     let mut processor_lock = lock_or_reset(&state.gpu_processor, "GPU processor");
     let mut cache_lock = lock_or_reset(image_cache, "GPU image cache");
 
@@ -169,7 +212,12 @@ fn process_and_get_dynamic_image_inner(
             Some(index) => cache.sources.remove(index),
             None => UploadedSource {
                 identity,
-                slot: crate::render::gpu::compute::upload_image(context, source.image),
+                slot: match source.pixels {
+                    SourcePixels::Cpu(image) => {
+                        crate::render::gpu::compute::upload_image(context, image)
+                    }
+                    SourcePixels::Gpu(slot) => slot.clone(),
+                },
             },
         };
         let input = source.render(context, &uploaded.slot)?;
@@ -211,6 +259,9 @@ fn process_and_get_dynamic_image_inner(
     let cache = cache.entries.last().unwrap();
     let mask_view =
         processor.mask_view(request.mask_bitmaps, width, height, request.mask_cache_key);
+    if let Some(pass) = mask_pass {
+        pass(&cache.texture_view, &mask_view)?;
+    }
     let motion = processor.motion_blurred(cache, &request, &mask_view)?;
     let (input, mask_view) = match &motion {
         Some(blurred) => (
@@ -219,6 +270,8 @@ fn process_and_get_dynamic_image_inner(
         ),
         None => (cache, mask_view),
     };
+    let pixelated = processor.pixelated(input, &request, &mask_view)?;
+    let input = pixelated.as_deref().unwrap_or(input);
 
     let skip_readback = output_to_display;
     let display_textures =
@@ -250,46 +303,18 @@ fn process_and_get_dynamic_image_inner(
     });
     let mut submit_final_encoder = false;
 
-    let mut async_readback_buffer: Option<wgpu::Buffer> = None;
-    let mut async_padded_bpr: u32 = 0;
+    let mut async_readback = None;
 
     if let (true, Some(display_textures)) = (analytics_config.is_some(), &display_textures) {
-        let bytes_per_pixel = if output_precision.is_high() { 8 } else { 4 };
-        let unpadded_bytes_per_row = bytes_per_pixel * out_w;
-        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
-        let padded_bytes_per_row = (unpadded_bytes_per_row + align - 1) & !(align - 1);
-        let output_buffer_size = (padded_bytes_per_row * out_h) as u64;
-
-        let output_buffer = processor.readback_buffer(output_buffer_size);
-
-        final_encoder.copy_texture_to_buffer(
-            wgpu::TexelCopyTextureInfo {
-                texture: &display_textures.working_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d {
-                    x: out_x,
-                    y: out_y,
-                    z: 0,
-                },
-                aspect: wgpu::TextureAspect::All,
-            },
-            wgpu::TexelCopyBufferInfo {
-                buffer: &output_buffer,
-                layout: wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(padded_bytes_per_row),
-                    rows_per_image: Some(out_h),
-                },
-            },
-            wgpu::Extent3d {
-                width: out_w,
-                height: out_h,
-                depth_or_array_layers: 1,
-            },
-        );
-
-        async_readback_buffer = Some(output_buffer);
-        async_padded_bpr = padded_bytes_per_row;
+        async_readback = Some(copy_to_readback(
+            device,
+            &processor.readback_pool,
+            &mut final_encoder,
+            &display_textures.working_texture,
+            (out_x, out_y),
+            (out_w, out_h),
+            if output_precision.is_high() { 8 } else { 4 },
+        ));
         submit_final_encoder = true;
     }
 
@@ -345,7 +370,9 @@ fn process_and_get_dynamic_image_inner(
     }
 
     if let Some(analytics) = analytics_config {
-        if let (Some(output_buffer), Some(submission)) = (async_readback_buffer, final_submission) {
+        if let (Some((output_buffer, row_stride)), Some(submission)) =
+            (async_readback, final_submission)
+        {
             let _ = analytics_readback_sender().send(AnalyticsReadback {
                 device: Arc::clone(&context.device),
                 buffer: output_buffer,
@@ -354,7 +381,7 @@ fn process_and_get_dynamic_image_inner(
                 analytics,
                 width: out_w,
                 height: out_h,
-                row_stride: async_padded_bpr as usize,
+                row_stride,
                 half_float: output_precision.is_high(),
                 peak: output_peak,
             });
@@ -417,6 +444,36 @@ fn process_and_get_dynamic_image_inner(
             [width, height],
             context.limits.max_texture_dimension_2d,
         );
+    }
+    if let (Some(output), Some(textures)) = (texture_output, &display_textures) {
+        let format = output_precision.texture_format();
+        *output = Some(crate::render::gpu::compute::encode(context, |enc| {
+            let slot = enc.texture("Look Output", (out_w, out_h), format);
+            enc.encoder.copy_texture_to_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &textures.working_texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d {
+                        x: out_x,
+                        y: out_y,
+                        z: 0,
+                    },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                wgpu::TexelCopyTextureInfo {
+                    texture: &slot.texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
+                },
+                wgpu::Extent3d {
+                    width: out_w,
+                    height: out_h,
+                    depth_or_array_layers: 1,
+                },
+            );
+            slot.detach()
+        })?);
     }
     if skip_readback {
         let duration = start_time.elapsed();

@@ -1,5 +1,14 @@
 use crate::render::color_space::{luminance, srgb_transfer};
 use rayon::prelude::*;
+use std::borrow::Cow;
+use std::ops::Range;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Interpolation {
+    Bilinear,
+    Bicubic,
+    Lanczos,
+}
 
 #[derive(Clone)]
 pub struct Raster {
@@ -82,12 +91,52 @@ impl Raster {
     pub fn bicubic(&self, x: f32, y: f32, out: &mut [f32]) {
         let x0f = x.floor();
         let y0f = y.floor();
-        let wx = cubic_weights(x - x0f);
-        let wy = cubic_weights(y - y0f);
-        let x0 = x0f as isize - 1;
-        let y0 = y0f as isize - 1;
+        self.separable(
+            &cubic_weights(x - x0f),
+            &cubic_weights(y - y0f),
+            x0f as isize - 1,
+            y0f as isize - 1,
+            out,
+        );
+    }
+
+    pub fn lanczos(&self, x: f32, y: f32, out: &mut [f32]) {
+        let x0f = x.floor();
+        let y0f = y.floor();
+        self.separable(
+            &lanczos_weights(x - x0f),
+            &lanczos_weights(y - y0f),
+            x0f as isize - 2,
+            y0f as isize - 2,
+            out,
+        );
+        out.iter_mut()
+            .take(self.channels)
+            .for_each(|v| *v = v.max(0.0));
+    }
+
+    pub fn sample(&self, interpolation: Interpolation, x: f32, y: f32, out: &mut [f32]) {
+        match interpolation {
+            Interpolation::Bilinear => self.bilinear(x, y, out),
+            Interpolation::Bicubic => self.bicubic(x, y, out),
+            Interpolation::Lanczos => self.lanczos(x, y, out),
+        }
+    }
+
+    fn separable<const N: usize>(
+        &self,
+        wx: &[f32; N],
+        wy: &[f32; N],
+        x0: isize,
+        y0: isize,
+        out: &mut [f32],
+    ) {
         let ch = self.channels;
-        if x0 >= 0 && y0 >= 0 && x0 + 3 < self.width as isize && y0 + 3 < self.height as isize {
+        if x0 >= 0
+            && y0 >= 0
+            && x0 + N as isize - 1 < self.width as isize
+            && y0 + N as isize - 1 < self.height as isize
+        {
             let mut sum = [0.0f32; 4];
             for (j, wyj) in wy.iter().enumerate() {
                 let row = self.index(x0 as usize, y0 as usize + j);
@@ -117,6 +166,21 @@ impl Raster {
             *value = sum;
         }
     }
+}
+
+#[inline]
+fn lanczos_weights(t: f32) -> [f32; 6] {
+    let mut weights = [0.0f32; 6];
+    for (i, weight) in weights.iter_mut().enumerate() {
+        let d = std::f32::consts::PI * (i as f32 - 2.0 - t);
+        *weight = if d.abs() < 1e-5 {
+            1.0
+        } else {
+            3.0 * d.sin() * (d / 3.0).sin() / (d * d)
+        };
+    }
+    let sum: f32 = weights.iter().sum();
+    weights.map(|w| w / sum)
 }
 
 #[inline]
@@ -154,7 +218,7 @@ pub fn gaussian_blur(src: &Raster, sigma: f32) -> Raster {
     convolve_separable(src, &gaussian_kernel(sigma))
 }
 
-fn convolve_row(input: &[f32], output: &mut [f32], width: usize, ch: usize, kernel: &[f32]) {
+pub fn convolve_row(input: &[f32], output: &mut [f32], width: usize, ch: usize, kernel: &[f32]) {
     let radius = kernel.len() / 2;
     output.iter_mut().for_each(|v| *v = 0.0);
     if width > 2 * radius {
@@ -645,9 +709,22 @@ fn coverage_rect(valid: &[&[f32]], width: usize, height: usize) -> Rect {
         .unwrap_or_else(|| Rect::full(width, height))
 }
 
-pub fn crop(image: &Raster, rect: &Rect) -> Raster {
+impl From<Raster> for Cow<'_, Raster> {
+    fn from(raster: Raster) -> Self {
+        Cow::Owned(raster)
+    }
+}
+
+impl<'a> From<&'a Raster> for Cow<'a, Raster> {
+    fn from(raster: &'a Raster) -> Self {
+        Cow::Borrowed(raster)
+    }
+}
+
+pub fn crop<'a>(image: impl Into<Cow<'a, Raster>>, rect: &Rect) -> Cow<'a, Raster> {
+    let image = image.into();
     if *rect == Rect::full(image.width, image.height) {
-        return image.clone();
+        return image;
     }
     let ch = image.channels;
     let mut out = Raster::new(rect.width, rect.height, ch);
@@ -658,7 +735,7 @@ pub fn crop(image: &Raster, rect: &Rect) -> Raster {
             let start = image.index(rect.x, rect.y + y);
             row.copy_from_slice(&image.data[start..start + rect.width * ch]);
         });
-    out
+    Cow::Owned(out)
 }
 
 pub fn srgb_encoded(image: &Raster) -> Raster {
@@ -677,6 +754,73 @@ pub fn srgb_decoded(mut image: Raster) -> Raster {
         .par_iter_mut()
         .for_each(|v| *v = transfer.decode(v.max(0.0)));
     image
+}
+
+#[derive(Clone, Copy)]
+pub struct Tiling {
+    pub size: usize,
+    pub margin: usize,
+    pub ramp: usize,
+}
+
+impl Tiling {
+    pub fn spans(&self, length: usize) -> Vec<(usize, usize)> {
+        if length <= self.size {
+            return vec![(0, length)];
+        }
+        let overlap = 2 * self.margin + self.ramp;
+        let count = (length - overlap).div_ceil(self.size - overlap);
+        let step = (length - self.size) as f64 / (count - 1) as f64;
+        (0..count)
+            .map(|i| ((i as f64 * step).round() as usize, self.size))
+            .collect()
+    }
+
+    pub fn weight(&self, position: usize, (start, size): (usize, usize), length: usize) -> f32 {
+        let mut distance = f32::INFINITY;
+        if start > 0 {
+            distance = distance.min((position - start) as f32 + 0.5);
+        }
+        if start + size < length {
+            distance = distance.min((start + size - position) as f32 - 0.5);
+        }
+        ((distance - self.margin as f32) / self.ramp as f32).clamp(0.0, 1.0)
+    }
+
+    pub fn covered(&self, span: (usize, usize), length: usize) -> Range<usize> {
+        let weighted = |x: &usize| self.weight(span.0 + x, span, length) > 0.0;
+        let start = (0..span.1).find(weighted).unwrap_or(span.1);
+        let end = (start..span.1).rfind(weighted).map_or(start, |x| x + 1);
+        start..end
+    }
+}
+
+pub fn tone_gray(gray: &Raster, gain: f32) -> Raster {
+    let transfer = srgb_transfer();
+    map_pixels(gray, 1, |p, o| {
+        let x = p[0].max(0.0) * gain;
+        o[0] = transfer.encode(x / (1.0 + x));
+    })
+}
+
+pub fn median(mut values: Vec<f32>) -> f32 {
+    if values.is_empty() {
+        return 0.0;
+    }
+    let middle = values.len() / 2;
+    *values
+        .select_nth_unstable_by(middle, |a, b| a.total_cmp(b))
+        .1
+}
+
+pub fn percentile(mut values: Vec<f32>, fraction: f64) -> f32 {
+    if values.is_empty() {
+        return 1.0;
+    }
+    let index = ((values.len() - 1) as f64 * fraction) as usize;
+    *values
+        .select_nth_unstable_by(index, |a, b| a.total_cmp(b))
+        .1
 }
 
 pub fn encoded_luminance(image: &Raster) -> Raster {

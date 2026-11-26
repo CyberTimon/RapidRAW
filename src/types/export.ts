@@ -133,11 +133,27 @@ export enum WatermarkAnchor {
   BottomRight = 'bottomRight',
 }
 
-interface WatermarkSettings {
-  path: string;
+export enum WatermarkSourceKind {
+  Image = 'image',
+  Text = 'text',
+}
+
+export interface TextWatermark {
+  text: string;
+  font: string | null;
+  weight: number;
+  color: string;
+}
+
+export type WatermarkSource =
+  { kind: WatermarkSourceKind.Image; path: string } | ({ kind: WatermarkSourceKind.Text } & TextWatermark);
+
+export interface WatermarkSettings {
+  source: WatermarkSource;
   anchor: WatermarkAnchor;
   scale: number;
-  spacing: number;
+  offsetX: number;
+  offsetY: number;
   opacity: number;
 }
 
@@ -212,7 +228,14 @@ export interface ExportPreset {
   watermarkAnchor: string;
   watermarkScale: number;
   watermarkSpacing: number;
+  watermarkOffsetX?: number;
+  watermarkOffsetY?: number;
   watermarkOpacity: number;
+  watermarkSource?: WatermarkSourceKind;
+  watermarkText?: string;
+  watermarkFont?: string | null;
+  watermarkFontWeight?: number;
+  watermarkColor?: string;
   lastExportPath?: string;
   destinationType?: string;
   subfolder?: string;

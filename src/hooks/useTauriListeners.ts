@@ -11,6 +11,8 @@ import { AiJobsStatus, JobKind, JobStatus, useProcessStore } from '../store/useP
 import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
+import { getVideo } from '../store/useVideoStore';
+import { photoEditorImage } from '../store/videoIntegration';
 import { adjustmentsFromMetadata, fetchImageDefaults } from '../utils/developDefaults';
 import { globalImageCache } from '../utils/ImageLRUCache';
 
@@ -92,7 +94,7 @@ export function useTauriListeners({
   });
 
   const refreshOpenUneditedImage = async () => {
-    const { selectedImage } = useEditorStore.getState();
+    const selectedImage = photoEditorImage();
     if (!selectedImage) return;
     const path = selectedImage.path;
     const [metadata, imageDefaults]: [{ adjustments: unknown }, ImageDefaults] = await Promise.all([
@@ -126,14 +128,16 @@ export function useTauriListeners({
     let aiTaggingJobId: string | null = null;
     const modelDownloadJobIds: Record<string, string> = {};
 
-    const refreshAfterExport = () => {
+    const refreshIfInside = (target: string | null) => {
       const currentPath = useLibraryStore.getState().currentFolderPath;
-      if (!currentPath || currentPath.startsWith('Album: ')) return;
-      const { destination, isOriginalFolder } = useProcessStore.getState().exportState;
-      const target = destination ?? (isOriginalFolder ? currentPath : null);
-      if (!target || !isPathInside(target, currentPath)) return;
+      if (!target || !currentPath || currentPath.startsWith('Album: ') || !isPathInside(target, currentPath)) return;
       refs.current.refreshAllFolderTrees();
       refs.current.refreshImageList();
+    };
+
+    const refreshAfterExport = () => {
+      const { destination, isOriginalFolder } = useProcessStore.getState().exportState;
+      refreshIfInside(destination ?? (isOriginalFolder ? useLibraryStore.getState().currentFolderPath : null));
     };
 
     const flushThumbnailBatch = () => {
@@ -310,15 +314,22 @@ export function useTauriListeners({
         const jobId = modelDownloadJobIds[name];
         if (isEffectActive && jobId) useProcessStore.getState().updateJob(jobId, { progress: { current, total } });
       }),
-      listen<{ name: string; error: string | null }>('ai-model-download-finish', (event) => {
+      listen<{ name: string; error: string | null; cancelled?: boolean }>('ai-model-download-finish', (event) => {
         if (!isEffectActive) return;
-        const { name, error } = event.payload;
+        const { name, error, cancelled } = event.payload;
         const jobId = modelDownloadJobIds[name];
         delete modelDownloadJobIds[name];
         if (jobId)
           useProcessStore
             .getState()
-            .updateJob(jobId, error ? { status: JobStatus.Error, error } : { status: JobStatus.Success });
+            .updateJob(
+              jobId,
+              cancelled
+                ? { status: JobStatus.Cancelled }
+                : error
+                  ? { status: JobStatus.Error, error }
+                  : { status: JobStatus.Success },
+            );
       }),
       listen<Progress>('indexing-started', (event) => {
         if (!isEffectActive) return;
@@ -371,6 +382,9 @@ export function useTauriListeners({
         if (!isEffectActive) return;
         useProcessStore.getState().setExportState({ status: Status.Cancelled });
         refreshAfterExport();
+      }),
+      listen<string>('video-frame-exported', (event) => {
+        if (isEffectActive) refreshIfInside(event.payload);
       }),
       listen('import-start', (event: any) => {
         if (isEffectActive)
@@ -498,8 +512,8 @@ export function useTauriListeners({
         'ai-job-result',
         (event) => {
           const { path, subMasks, maps, noResults } = event.payload;
-          const { selectedImage, patchesSentToBackend, setEditor } = useEditorStore.getState();
-          if (!isEffectActive || selectedImage?.path !== path) return;
+          const { patchesSentToBackend, setEditor } = useEditorStore.getState();
+          if (!isEffectActive || photoEditorImage()?.path !== path) return;
 
           noResults.forEach((noResult) => toast.error(`AI Mask: ${noResult}`));
           Object.keys(subMasks).forEach((id) => patchesSentToBackend.delete(id));
@@ -596,7 +610,7 @@ export function useTauriListeners({
       const sequence = ++analyticsSequence;
       const { path, sdrWhite, histogram, waveform } = await parseAnalyticsPacket(buffer);
       if (!isEffectActive || sequence < latestAppliedAnalytics) return;
-      if (path !== useEditorStore.getState().selectedImage?.path) return;
+      if (path !== useEditorStore.getState().selectedImage?.path && path !== getVideo().session?.path) return;
       latestAppliedAnalytics = sequence;
       const update: { histogram?: any; waveform?: WaveformData; scopeWhite: number } = { scopeWhite: sdrWhite };
       if (histogram) update.histogram = histogram;

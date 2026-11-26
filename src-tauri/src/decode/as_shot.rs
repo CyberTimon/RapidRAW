@@ -4,6 +4,7 @@ use crate::decode::white_balance::WhiteBalance;
 
 use crate::library::file_ops::read_file_mapped;
 use crate::library::sidecars::parse_virtual_path;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
@@ -11,7 +12,7 @@ use std::time::SystemTime;
 
 type Fingerprint = Option<(u64, Option<SystemTime>)>;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct AsShot {
     pub white_balance: WhiteBalance,
     pub exposure: RawExposure,
@@ -48,6 +49,14 @@ fn read_from_bytes(source_path: &str, file_bytes: &[u8]) -> Option<AsShot> {
     if is_raw_file(source_path) {
         return crate::decode::raw_processing::read_as_shot(file_bytes);
     }
+    if crate::decode::formats::is_video_file(source_path) {
+        let source_peak = crate::video::ffmpeg::probe(Path::new(source_path))
+            .map_or(1.0, |info| info.source_peak());
+        return Some(AsShot {
+            source_peak,
+            ..AsShot::reference()
+        });
+    }
     Some(AsShot {
         source_peak: crate::decode::hdr_source::source_peak(file_bytes),
         ..AsShot::reference()
@@ -64,24 +73,26 @@ fn fingerprint(source_path: &str) -> Fingerprint {
 }
 
 pub fn record_source_peak(path: &str, peak: f32) {
+    update(path, |cached| AsShot {
+        source_peak: peak,
+        ..cached.unwrap_or_else(AsShot::reference)
+    });
+}
+
+pub fn remember(path: &str, as_shot: AsShot) {
+    update(path, |_| as_shot);
+}
+
+fn update(path: &str, change: impl FnOnce(Option<AsShot>) -> AsShot) {
     let (source_path, _) = parse_virtual_path(path);
     let source_path = source_path.to_string_lossy().to_string();
     let fingerprint = fingerprint(&source_path);
     let mut cache = as_shot_cache().lock().unwrap();
-    let as_shot = cache
+    let cached = cache
         .get(&source_path)
         .filter(|(cached_fingerprint, _)| *cached_fingerprint == fingerprint)
-        .map_or_else(AsShot::reference, |(_, as_shot)| *as_shot);
-    cache.insert(
-        source_path,
-        (
-            fingerprint,
-            AsShot {
-                source_peak: peak,
-                ..as_shot
-            },
-        ),
-    );
+        .map(|(_, as_shot)| *as_shot);
+    cache.insert(source_path, (fingerprint, change(cached)));
 }
 
 fn cached_or_read(path: &str, read: impl FnOnce(&str) -> Option<AsShot>) -> AsShot {

@@ -1,11 +1,13 @@
+use reqwest::header::{CONTENT_RANGE, RANGE};
 use reqwest::multipart::{Form, Part};
-use reqwest::{Client, Method, RequestBuilder, Response};
+use reqwest::{Body, Client, Method, RequestBuilder, Response, StatusCode};
 use serde::de::{DeserializeOwned, Deserializer, Error as _};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::path::Path;
-use std::time::Duration;
-use tokio::io::AsyncWriteExt;
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::{Duration, Instant};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 fn with_cause(error: &dyn std::error::Error) -> String {
     let mut text = error.to_string();
@@ -15,6 +17,17 @@ fn with_cause(error: &dyn std::error::Error) -> String {
         source = cause.source();
     }
     text
+}
+
+fn range_start(response: &Response) -> Option<u64> {
+    let range = response.headers().get(CONTENT_RANGE)?.to_str().ok()?;
+    range
+        .strip_prefix("bytes ")?
+        .split('-')
+        .next()?
+        .trim()
+        .parse()
+        .ok()
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -35,6 +48,10 @@ pub struct Asset {
     pub is_trashed: bool,
     #[serde(default)]
     pub owner_id: String,
+    #[serde(default)]
+    pub visibility: Option<String>,
+    #[serde(default)]
+    pub checksum: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -126,11 +143,21 @@ fn asset_id<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Err
 
 const PAGE_SIZE: u32 = 1000;
 const PARALLEL_PAGES: u32 = 4;
+const READ_TIMEOUT: Duration = Duration::from_secs(30);
+const UPLOAD_CHUNK: usize = 64 * 1024;
+const ANSWER_WAIT: Duration = Duration::from_secs(180);
+const ANSWER_BYTES_PER_SECOND: u64 = 8 * 1024 * 1024;
+
+struct Sending {
+    at: Instant,
+    done: bool,
+}
 
 pub struct ImmichClient {
     base: String,
     api_key: String,
     http: Client,
+    uploads: Client,
 }
 
 impl ImmichClient {
@@ -139,21 +166,26 @@ impl ImmichClient {
         if !base.starts_with("http://") && !base.starts_with("https://") {
             return Err("The server address must start with http:// or https://".to_string());
         }
-        let http = Client::builder()
-            .connect_timeout(Duration::from_secs(10))
-            .read_timeout(Duration::from_secs(30))
+        let builder = || Client::builder().connect_timeout(Duration::from_secs(10));
+        let http = builder()
+            .read_timeout(READ_TIMEOUT)
             .build()
             .map_err(|e| e.to_string())?;
+        let uploads = builder().build().map_err(|e| e.to_string())?;
         Ok(Self {
             base,
             api_key: api_key.trim().to_string(),
             http,
+            uploads,
         })
     }
 
     fn request(&self, method: Method, path: &str) -> RequestBuilder {
-        self.http
-            .request(method, format!("{}/api{}", self.base, path))
+        self.request_on(&self.http, method, path)
+    }
+
+    fn request_on(&self, http: &Client, method: Method, path: &str) -> RequestBuilder {
+        http.request(method, format!("{}/api{}", self.base, path))
             .header("x-api-key", &self.api_key)
             .header("Accept", "application/json")
     }
@@ -163,6 +195,10 @@ impl ImmichClient {
             .send()
             .await
             .map_err(|e| format!("Immich is not reachable ({what}): {}", with_cause(&e)))?;
+        Self::accepted(response, what).await
+    }
+
+    async fn accepted(response: Response, what: &str) -> Result<Response, String> {
         let status = response.status();
         if status.is_success() {
             return Ok(response);
@@ -202,14 +238,16 @@ impl ImmichClient {
             .await
     }
 
+    pub async fn asset(&self, asset_id: &str) -> Result<Asset, String> {
+        self.json(
+            self.request(Method::GET, &format!("/assets/{asset_id}")),
+            "asset",
+        )
+        .await
+    }
+
     pub async fn owns(&self, asset_id: &str) -> Result<bool, String> {
-        let asset: Asset = self
-            .json(
-                self.request(Method::GET, &format!("/assets/{asset_id}")),
-                "asset",
-            )
-            .await?;
-        Ok(asset.owner_id == self.me().await?.id)
+        Ok(self.asset(asset_id).await?.owner_id == self.me().await?.id)
     }
 
     pub async fn albums(&self) -> Result<Vec<Album>, String> {
@@ -323,24 +361,78 @@ impl ImmichClient {
             .ok_or_else(|| "Immich did not confirm the saved edits".to_string())
     }
 
-    pub async fn download_original(&self, asset_id: &str, target: &Path) -> Result<(), String> {
-        let mut response = self
-            .send(
-                self.request(Method::GET, &format!("/assets/{asset_id}/original")),
-                "original download",
-            )
-            .await?;
-        let mut file = tokio::fs::File::create(target)
+    fn original_request(&self, asset_id: &str, from: u64) -> RequestBuilder {
+        let request = self.request(Method::GET, &format!("/assets/{asset_id}/original"));
+        if from > 0 {
+            request.header(RANGE, format!("bytes={from}-"))
+        } else {
+            request
+        }
+    }
+
+    pub async fn download_original(
+        &self,
+        asset_id: &str,
+        target: &Path,
+        mut progress: impl FnMut(u64, Option<u64>),
+    ) -> Result<(), String> {
+        const WHAT: &str = "original download";
+        let from = tokio::fs::metadata(target)
             .await
-            .map_err(|e| format!("Cannot write '{}': {e}", target.display()))?;
+            .map_or(0, |meta| meta.len());
+        let first = self
+            .original_request(asset_id, from)
+            .send()
+            .await
+            .map_err(|e| format!("Immich is not reachable ({WHAT}): {}", with_cause(&e)))?;
+        let resumes =
+            first.status() != StatusCode::PARTIAL_CONTENT || range_start(&first) == Some(from);
+        let mut response =
+            if from > 0 && (first.status() == StatusCode::RANGE_NOT_SATISFIABLE || !resumes) {
+                self.send(self.original_request(asset_id, 0), WHAT).await?
+            } else {
+                Self::accepted(first, WHAT).await?
+            };
+        let start = match response.status() {
+            StatusCode::PARTIAL_CONTENT => range_start(&response)
+                .filter(|start| *start == from && from > 0)
+                .ok_or("Immich sent an unexpected part of the file")?,
+            _ => 0,
+        };
+        let total = response.content_length().map(|length| start + length);
+        let mut file = if start > 0 {
+            tokio::fs::OpenOptions::new()
+                .append(true)
+                .open(target)
+                .await
+        } else {
+            tokio::fs::File::create(target).await
+        }
+        .map_err(|e| format!("Cannot write '{}': {e}", target.display()))?;
+        let mut written = start;
+        progress(written, total);
         while let Some(chunk) = response
             .chunk()
             .await
             .map_err(|e| format!("Download interrupted: {e}"))?
         {
             file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+            written += chunk.len() as u64;
+            progress(written, total);
         }
-        file.flush().await.map_err(|e| e.to_string())
+        file.flush().await.map_err(|e| e.to_string())?;
+        let stored = file.metadata().await.map_err(|e| e.to_string())?.len();
+        if stored != written {
+            drop(file);
+            let _ = tokio::fs::remove_file(target).await;
+            return Err("The download was damaged and has to start over".to_string());
+        }
+        match total {
+            Some(total) if total != written => Err(format!(
+                "Download interrupted after {written} of {total} bytes"
+            )),
+            _ => Ok(()),
+        }
     }
 
     pub async fn upload(
@@ -348,15 +440,40 @@ impl ImmichClient {
         path: &Path,
         created_at: &str,
         modified_at: &str,
+        progress: impl Fn(u64, u64) + Send + 'static,
     ) -> Result<UploadResult, String> {
         let file_name = path
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "export.jpg".to_string());
-        let bytes = tokio::fs::read(path)
-            .await
-            .map_err(|e| format!("Cannot read '{}': {e}", path.display()))?;
-        let part = Part::bytes(bytes)
+        let unreadable = |e: std::io::Error| format!("Cannot read '{}': {e}", path.display());
+        let file = tokio::fs::File::open(path).await.map_err(unreadable)?;
+        let length = file.metadata().await.map_err(unreadable)?.len();
+        let sending = Arc::new(Mutex::new(Sending {
+            at: Instant::now(),
+            done: false,
+        }));
+        let touched = Arc::clone(&sending);
+        let sent = move |sent: u64| {
+            *touched.lock().unwrap_or_else(PoisonError::into_inner) = Sending {
+                at: Instant::now(),
+                done: sent >= length,
+            };
+            progress(sent, length);
+        };
+        let chunks =
+            futures::stream::try_unfold((file, 0, sent), |(mut file, done, sent)| async move {
+                let mut chunk = vec![0; UPLOAD_CHUNK];
+                let read = file.read(&mut chunk).await?;
+                if read == 0 {
+                    return Ok::<_, std::io::Error>(None);
+                }
+                chunk.truncate(read);
+                let done = done + read as u64;
+                sent(done);
+                Ok(Some((chunk, (file, done, sent))))
+            });
+        let part = Part::stream_with_length(Body::wrap_stream(chunks), length)
             .file_name(file_name.clone())
             .mime_str(mime_for(&file_name))
             .map_err(|e| e.to_string())?;
@@ -365,11 +482,17 @@ impl ImmichClient {
             .text("fileModifiedAt", modified_at.to_string())
             .text("filename", file_name)
             .part("assetData", part);
-        self.json(
-            self.request(Method::POST, "/assets").multipart(form),
+        let upload = self.json(
+            self.request_on(&self.uploads, Method::POST, "/assets")
+                .multipart(form),
             "upload",
-        )
-        .await
+        );
+        tokio::select! {
+            uploaded = upload => uploaded,
+            () = stalled(&sending, ANSWER_WAIT + Duration::from_secs(length / ANSWER_BYTES_PER_SECOND)) => {
+                Err("Immich stopped answering during the upload".to_string())
+            }
+        }
     }
 
     pub async fn add_to_album(&self, album_id: &str, asset_ids: &[String]) -> Result<(), String> {
@@ -448,6 +571,24 @@ fn mime_for(file_name: &str) -> &'static str {
         "avif" => "image/avif",
         "jxl" => "image/jxl",
         "heic" | "heif" | "hif" => "image/heic",
+        "mp4" => "video/mp4",
+        "mov" => "video/quicktime",
+        "mkv" => "video/x-matroska",
+        "webm" => "video/webm",
         _ => "application/octet-stream",
+    }
+}
+
+async fn stalled(sending: &Mutex<Sending>, answer: Duration) {
+    loop {
+        let (idle, limit) = {
+            let sending = sending.lock().unwrap_or_else(PoisonError::into_inner);
+            let limit = if sending.done { answer } else { READ_TIMEOUT };
+            (sending.at.elapsed(), limit)
+        };
+        if idle >= limit {
+            return;
+        }
+        tokio::time::sleep(limit - idle).await;
     }
 }

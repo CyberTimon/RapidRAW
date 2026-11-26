@@ -1,4 +1,4 @@
-use crate::decode::formats::is_supported_image_file;
+use crate::decode::formats::{is_supported_image_file, is_video_project_file};
 use crate::library::albums::{add_to_album, sync_album_path_changes};
 use crate::library::sidecars::{parse_sidecar_name, parse_virtual_path};
 use crate::metadata::exif_processing;
@@ -262,6 +262,7 @@ pub fn duplicate_file(
     fs::copy(&source_path, &dest_path).map_err(|e| e.to_string())?;
 
     if source_sidecar_path.exists()
+        && !is_video_project_file(&source_path)
         && let Some(dest_str) = dest_path.to_str()
     {
         let (_, dest_sidecar_path) = parse_virtual_path(dest_str);
@@ -290,6 +291,9 @@ pub fn duplicate_file(
 
 fn find_all_associated_files(source_image_path: &Path) -> Result<Vec<PathBuf>, String> {
     let mut associated_files = vec![source_image_path.to_path_buf()];
+    if is_video_project_file(source_image_path) {
+        return Ok(associated_files);
+    }
 
     let mut rrexif_name = source_image_path
         .file_name()
@@ -427,7 +431,7 @@ pub async fn move_files(
     source_paths: Vec<String>,
     destination_folder: String,
     app_handle: AppHandle,
-) -> Result<(), String> {
+) -> Result<HashMap<String, String>, String> {
     let dest_path = Path::new(&destination_folder);
     if !dest_path.is_dir() {
         return Err(format!(
@@ -521,7 +525,7 @@ pub async fn move_files(
     renames.retain(|source, _| moved.contains(Path::new(source)));
     sync_album_path_changes(&app_handle, Some(&renames), None, None);
 
-    result
+    result.map(|_| renames)
 }
 
 #[tauri::command]
@@ -680,11 +684,16 @@ pub fn delete_files_with_associated(
 
     let mut stems_by_dir: HashMap<PathBuf, HashSet<String>> = HashMap::new();
     let mut deletions = HashSet::new();
+    let mut files_to_trash = HashSet::new();
 
     for path_str in &paths {
         deletions.insert(path_str.clone());
         let (source_path, _) = parse_virtual_path(path_str);
-        if let (Some(stem), Some(parent)) = (
+        if is_video_project_file(&source_path) {
+            if source_path.is_file() {
+                files_to_trash.insert(source_path);
+            }
+        } else if let (Some(stem), Some(parent)) = (
             source_path.file_stem().and_then(|s| s.to_str()),
             source_path.parent(),
         ) {
@@ -694,12 +703,6 @@ pub fn delete_files_with_associated(
                 .insert(stem.to_string());
         }
     }
-
-    if stems_by_dir.is_empty() {
-        return Ok(());
-    }
-
-    let mut files_to_trash = HashSet::new();
 
     for (parent_dir, stems_to_delete) in stems_by_dir {
         if let Ok(entries) = fs::read_dir(parent_dir) {
@@ -1073,6 +1076,10 @@ pub fn rename_files(
     let mut sidecar_operations: Vec<Vec<(PathBuf, PathBuf)>> = Vec::new();
     for (original_path, new_path) in &operations {
         let mut image_sidecars = Vec::new();
+        if is_video_project_file(original_path) {
+            sidecar_operations.push(image_sidecars);
+            continue;
+        }
         let parent = original_path
             .parent()
             .ok_or("Could not get parent directory")?;

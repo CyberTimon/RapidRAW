@@ -9,11 +9,13 @@ import Editor from '../panel/Editor';
 import BottomBar from '../panel/BottomBar';
 import Resizer from '../ui/Resizer';
 import { MobilePanelSwitcher } from '../panel/PanelSwitcher';
+import ClipBar from '../video/ClipBar';
 
 import { useEditorStore } from '../../store/useEditorStore';
-import { isFilmstripDocked, useUIStore } from '../../store/useUIStore';
+import { isFilmstripDocked, usableActivePanel, useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useProcessStore } from '../../store/useProcessStore';
+import { useLookEditable, useVideoKind } from '../../store/videoIntegration';
 import { getImageFlag } from '../../utils/imageFlags';
 
 import { ImageFile } from '../../types/library';
@@ -27,6 +29,7 @@ interface EditorViewProps {
   isAndroid: boolean;
   compactEditorPanelHeight: number;
   compactEditorPanelCollapsedHeight: number;
+  timelineMaxHeight: number;
   thumbnailAspectRatio: ThumbnailAspectRatio;
   sortedImageList: ImageFile[];
   createResizeHandler: (stateKey: string, startSize: number) => (e: ReactPointerEvent<HTMLDivElement>) => void;
@@ -79,6 +82,7 @@ export default function EditorView({
   isAndroid,
   compactEditorPanelHeight,
   compactEditorPanelCollapsedHeight,
+  timelineMaxHeight,
   thumbnailAspectRatio,
   sortedImageList,
   createResizeHandler,
@@ -108,6 +112,8 @@ export default function EditorView({
     isInstantTransition,
     uiVisibility,
     bottomPanelHeight,
+    timelineHeight,
+    timelineCollapsed,
     activePanel,
     isFilmstripInSidePanel,
     isDraggingFilmstrip,
@@ -118,7 +124,9 @@ export default function EditorView({
       isInstantTransition: state.isInstantTransition,
       uiVisibility: state.uiVisibility,
       bottomPanelHeight: state.bottomPanelHeight,
-      activePanel: state.activePanel,
+      timelineHeight: state.timelineHeight,
+      timelineCollapsed: state.timelineCollapsed,
+      activePanel: usableActivePanel(state),
       isFilmstripInSidePanel: layoutMode === 'full' && isFilmstripDocked(state),
       isDraggingFilmstrip: state.activeLayoutDragItem === Panel.Filmstrip,
       setUI: state.setUI,
@@ -133,6 +141,12 @@ export default function EditorView({
       isViewLoading: state.isViewLoading,
     })),
   );
+
+  const videoKind = useVideoKind();
+  const hasVideoTimeline = videoKind === 'project';
+  const hasClipBar = videoKind === 'clip';
+  const isLookEditable = useLookEditable();
+  const bottomHeight = hasVideoTimeline ? Math.min(timelineHeight, timelineMaxHeight) : bottomPanelHeight;
 
   const { isCopied, isPasted } = useProcessStore(
     useShallow((state) => ({
@@ -152,15 +166,15 @@ export default function EditorView({
 
   const editorBottomBarComponent = (
     <BottomBar
-      filmstripHeight={bottomPanelHeight}
+      filmstripHeight={bottomHeight}
       imageList={sortedImageList}
       imageRatings={imageRatings}
       isCopied={isCopied}
-      isCopyDisabled={!selectedImage}
-      isFilmstripVisible={uiVisibility.filmstrip}
+      isCopyDisabled={!selectedImage || !isLookEditable}
+      isFilmstripVisible={hasVideoTimeline ? !timelineCollapsed : uiVisibility.filmstrip}
       isLoading={isViewLoading}
       isPasted={isPasted}
-      isPasteDisabled={useEditorStore.getState().copiedAdjustments === null}
+      isPasteDisabled={useEditorStore.getState().copiedAdjustments === null || !isLookEditable}
       isRatingDisabled={!selectedImage}
       isResizing={isResizing}
       multiSelectedPaths={multiSelectedPaths}
@@ -179,7 +193,7 @@ export default function EditorView({
       selectedImage={selectedImage ?? undefined}
       showFilmstrip={layoutMode !== 'compact'}
       layoutMode={layoutMode}
-      showZoomControls={!isAndroid}
+      showZoomControls={!isAndroid && videoKind !== 'project'}
       thumbnailAspectRatio={thumbnailAspectRatio}
       totalImages={sortedImageList.length}
     />
@@ -192,23 +206,37 @@ export default function EditorView({
         !isResizing && !isInstantTransition && 'transition-all duration-300 ease-in-out',
       )}
       style={{
-        maxHeight: isFullScreen ? '0px' : '500px',
+        maxHeight: isFullScreen ? '0px' : hasVideoTimeline ? `${bottomHeight + 100}px` : '500px',
         opacity: isFullScreen ? 0 : 1,
       }}
     >
       {layoutMode !== 'compact' &&
-        (isFilmstripInSidePanel ? (
+        (isFilmstripInSidePanel && !hasVideoTimeline ? (
           <div className="h-2 shrink-0" />
         ) : (
           <Resizer
             direction={Orientation.Horizontal}
-            onMouseDown={createResizeHandler('bottom', bottomPanelHeight)}
-            onDoubleClick={createResizeResetHandler('bottom')}
+            onMouseDown={createResizeHandler(hasVideoTimeline ? 'timeline' : 'bottom', bottomHeight)}
+            onDoubleClick={createResizeResetHandler(hasVideoTimeline ? 'timeline' : 'bottom')}
           />
         ))}
       {editorBottomBarComponent}
     </div>
   );
+
+  const clipBarNode = hasClipBar ? (
+    <div
+      className={clsx(
+        'shrink-0 overflow-hidden',
+        !isResizing && !isInstantTransition && 'transition-all duration-300 ease-in-out',
+      )}
+      style={{ maxHeight: isFullScreen ? 0 : 56, opacity: isFullScreen ? 0 : 1 }}
+    >
+      <div className={layoutMode === 'compact' ? undefined : 'pt-2'}>
+        <ClipBar compact={layoutMode === 'compact'} />
+      </div>
+    </div>
+  ) : null;
 
   const editorMobilePanelNode =
     layoutMode === 'compact' ? (
@@ -258,6 +286,7 @@ export default function EditorView({
           {isFilmstripInSidePanel && isDraggingFilmstrip && <FilmstripDropzone height={bottomPanelHeight} />}
         </AnimatePresence>
       </div>
+      {clipBarNode}
       {layoutMode === 'compact' ? editorMobilePanelNode : editorBottomBarNode}
     </div>
   );

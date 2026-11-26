@@ -1,19 +1,22 @@
 use crate::ai::processing::{CachedDepthMap, Esam3Features, ImageEmbeddings};
+use crate::effects::maps::EffectMapKind;
 use crate::masks::face::FaceAnalysis;
 use anyhow::Result;
 use ndarray::{Array, IxDyn};
-use ort::editor::{Graph, Model, Node, ONNX_DOMAIN, Opset, Outlet};
-use ort::execution_providers::{CPUExecutionProvider, ExecutionProviderDispatch};
+use once_cell::sync::OnceCell;
+use ort::editor::{Graph, Model, Node, ONNX_DOMAIN, Opset};
+use ort::environment::Environment;
+use ort::ep::CPU;
 use ort::memory::Allocator;
-use ort::session::{Output, Session};
-use ort::tensor::{Shape, SymbolicDimensions, TensorElementType};
-use ort::value::{Tensor, ValueType};
+use ort::session::Session;
+use ort::session::builder::{AutoDevicePolicy, SessionBuilder};
+use ort::value::{Outlet, Shape, SymbolicDimensions, Tensor, TensorElementType, ValueType};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager};
@@ -150,6 +153,12 @@ const GPU_FAILED: u8 = 2;
 const GPU_DISABLED: u8 = 3;
 
 static GPU_STATUS: AtomicU8 = AtomicU8::new(GPU_IDLE);
+
+const PARKED_SESSION_IDLE: Duration = Duration::from_secs(30);
+
+static PARKED_SESSIONS: Mutex<Vec<(EffectMapKind, Session, Instant)>> = Mutex::new(Vec::new());
+
+static REAPING_SESSIONS: AtomicBool = AtomicBool::new(false);
 
 struct ModelAsset {
     filename: &'static str,
@@ -371,7 +380,7 @@ impl AiModels {
     }
 
     fn gpu_inference(&self) -> bool {
-        self.use_gpu && gpu_allowed_on_platform() && gpu_execution_provider().is_some()
+        self.use_gpu && birefnet_gpu_allowed() && gpu_provider_available()
     }
 
     pub fn birefnet(&self) -> Result<SharedSession> {
@@ -380,7 +389,7 @@ impl AiModels {
         } else {
             BIREFNET_FP32_FILENAME
         };
-        self.session(&self.birefnet, filename, gpu_allowed_on_platform())
+        self.session(&self.birefnet, filename, birefnet_gpu_allowed())
     }
 
     pub fn esam3_image_encoder(&self) -> Result<SharedSession> {
@@ -401,6 +410,15 @@ impl AiModels {
 
     pub fn depth_anything(&self) -> Result<SharedSession> {
         self.session(&self.depth_anything, DEPTH_FILENAME, true)
+    }
+
+    fn depth_anything_stream(&self) -> Result<Session> {
+        build_session(
+            &self.models_dir.join(DEPTH_FILENAME),
+            SessionKind::Persistent,
+            self.use_gpu,
+            None,
+        )
     }
 
     pub fn face_landmarks(&self) -> Result<SharedSession> {
@@ -503,6 +521,20 @@ enum SessionKind {
     Persistent,
 }
 
+static ENVIRONMENT: OnceCell<Environment> = OnceCell::new();
+
+fn environment() -> ort::Result<&'static Environment> {
+    ENVIRONMENT.get_or_try_init(|| {
+        let environment = ort::init().with_name("AI").build()?;
+        crate::register_exit_handler();
+        Ok(environment)
+    })
+}
+
+pub fn session_builder() -> ort::Result<SessionBuilder> {
+    Ok(Session::builder(environment()?)?.with_auto_device(AutoDevicePolicy::PreferCPU)?)
+}
+
 #[cfg(target_os = "windows")]
 fn high_performance_dml_device_id() -> Option<i32> {
     use windows::Win32::Graphics::Dxgi::{
@@ -528,38 +560,105 @@ fn high_performance_dml_device_id() -> Option<i32> {
 }
 
 #[cfg(target_os = "windows")]
-fn gpu_execution_provider() -> Option<ExecutionProviderDispatch> {
-    Some(
-        ort::execution_providers::DirectMLExecutionProvider::default()
-            .with_device_id(high_performance_dml_device_id().unwrap_or(0))
-            .build()
-            .error_on_failure(),
-    )
+fn add_gpu_provider(builder: SessionBuilder) -> ort::Result<SessionBuilder> {
+    let directml = ort::ep::DirectML::default()
+        .with_device_id(high_performance_dml_device_id().unwrap_or(0))
+        .build()
+        .error_on_failure();
+    Ok(builder.with_execution_providers([directml])?)
 }
 
 #[cfg(target_os = "macos")]
-fn gpu_execution_provider() -> Option<ExecutionProviderDispatch> {
-    use ort::execution_providers::coreml::{CoreMLComputeUnits, CoreMLModelFormat};
+fn add_gpu_provider(builder: SessionBuilder) -> ort::Result<SessionBuilder> {
+    use ort::ep::coreml::{ComputeUnits, ModelFormat};
 
-    Some(
-        ort::execution_providers::CoreMLExecutionProvider::default()
-            .with_model_format(CoreMLModelFormat::MLProgram)
-            .with_compute_units(CoreMLComputeUnits::All)
-            .build()
-            .error_on_failure(),
-    )
+    let coreml = ort::ep::CoreML::default()
+        .with_model_format(ModelFormat::MLProgram)
+        .with_compute_units(ComputeUnits::All)
+        .build()
+        .error_on_failure();
+    Ok(builder.with_execution_providers([coreml])?)
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
-fn gpu_execution_provider() -> Option<ExecutionProviderDispatch> {
-    None
+#[cfg(target_os = "linux")]
+const WEBGPU_EP: &str = "WebGpuExecutionProvider";
+
+#[cfg(target_os = "linux")]
+const WEBGPU_PLUGIN_LIBRARY: &str = "libonnxruntime_providers_webgpu.so";
+
+#[cfg(target_os = "linux")]
+fn webgpu_devices(environment: &Environment) -> impl Iterator<Item = ort::device::Device<'_>> {
+    environment
+        .devices()
+        .filter(|device| device.ep().is_ok_and(|ep| ep == WEBGPU_EP))
+}
+
+#[cfg(target_os = "linux")]
+fn register_webgpu_plugin(environment: &Environment) -> bool {
+    let path = std::env::var_os("ORT_DYLIB_PATH")
+        .map(|runtime| Path::new(&runtime).with_file_name(WEBGPU_PLUGIN_LIBRARY))
+        .unwrap_or_else(|| PathBuf::from(WEBGPU_PLUGIN_LIBRARY));
+    let reason = if !path.exists() {
+        format!("{} is missing", path.display())
+    } else if let Err(e) = environment.register_ep_library(WEBGPU_EP, &path) {
+        e.to_string()
+    } else if webgpu_devices(environment).next().is_none() {
+        "no WebGPU adapter was found".to_string()
+    } else {
+        log::info!("AI models use WebGPU through {}", path.display());
+        return true;
+    };
+    log::warn!(
+        "WebGPU acceleration for AI models is unavailable: {}",
+        reason
+    );
+    false
+}
+
+#[cfg(target_os = "linux")]
+fn webgpu_device() -> Option<ort::device::Device<'static>> {
+    static REGISTERED: OnceCell<bool> = OnceCell::new();
+    let environment = environment().ok()?;
+    if !*REGISTERED.get_or_init(|| register_webgpu_plugin(environment)) {
+        return None;
+    }
+    webgpu_devices(environment).next()
+}
+
+#[cfg(target_os = "linux")]
+fn add_gpu_provider(builder: SessionBuilder) -> ort::Result<SessionBuilder> {
+    let device = webgpu_device().ok_or_else(|| ort::Error::new("No WebGPU adapter"))?;
+    let options = [(
+        format!("{}.powerPreference", WEBGPU_EP),
+        "high-performance".to_string(),
+    )];
+    Ok(builder.with_devices([device], Some(&options[..]))?)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+fn add_gpu_provider(builder: SessionBuilder) -> ort::Result<SessionBuilder> {
+    Ok(builder)
+}
+
+#[cfg(target_os = "linux")]
+fn gpu_provider_available() -> bool {
+    webgpu_device().is_some()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn gpu_provider_available() -> bool {
+    cfg!(any(target_os = "windows", target_os = "macos"))
 }
 
 fn gpu_allowed_on_platform() -> bool {
     !cfg!(target_os = "macos")
 }
 
-type GpuModelPatch = fn() -> ort::Result<(Model, Vec<Output>)>;
+fn birefnet_gpu_allowed() -> bool {
+    gpu_allowed_on_platform() && !cfg!(target_os = "linux")
+}
+
+type ModelPatch = fn() -> ort::Result<Model>;
 
 fn i64_initializer(values: &[i64]) -> ort::Result<Tensor<i64>> {
     let mut tensor = Tensor::<i64>::new(&Allocator::default(), [values.len()])?;
@@ -570,17 +669,11 @@ fn i64_initializer(values: &[i64]) -> ort::Result<Tensor<i64>> {
 fn create_session(
     model_path: &Path,
     kind: SessionKind,
-    gpu_provider: Option<ExecutionProviderDispatch>,
-    gpu_patch: Option<GpuModelPatch>,
+    use_gpu: bool,
+    patch: Option<ModelPatch>,
     fixed_dims: &[(&str, i64)],
-) -> Result<Session> {
-    let use_gpu = gpu_provider.is_some();
-    let cpu_provider = CPUExecutionProvider::default()
-        .with_arena_allocator(kind == SessionKind::Persistent)
-        .build();
-    let providers: Vec<_> = gpu_provider.into_iter().chain([cpu_provider]).collect();
-
-    let mut builder = Session::builder()?;
+) -> ort::Result<Session> {
+    let mut builder = session_builder()?;
     if use_gpu || kind == SessionKind::OneShot {
         builder = builder.with_memory_pattern(false)?;
     }
@@ -590,17 +683,21 @@ fn create_session(
     for &(name, size) in fixed_dims {
         builder = builder.with_dimension_override(name, size)?;
     }
-    let builder = builder.with_execution_providers(providers)?;
-    match gpu_patch {
+    if use_gpu {
+        builder = add_gpu_provider(builder)?;
+    }
+    let cpu = CPU::default()
+        .with_arena_allocator(kind == SessionKind::Persistent)
+        .build();
+    let mut builder = builder.with_execution_providers([cpu])?;
+    match patch {
         Some(patch) => {
-            let (model, outputs) = patch()?;
+            let model = patch()?;
             let mut session = builder.edit_from_file(model_path)?;
             session.apply_model(&model)?;
-            let mut session = session.into_session()?;
-            session.outputs = outputs;
-            Ok(session)
+            session.into_session()
         }
-        None => Ok(builder.commit_from_file(model_path)?),
+        None => builder.commit_from_file(model_path),
     }
 }
 
@@ -608,23 +705,20 @@ fn build_session(
     model_path: &Path,
     kind: SessionKind,
     use_gpu: bool,
-    gpu_patch: Option<GpuModelPatch>,
+    patch: Option<ModelPatch>,
 ) -> Result<Session> {
-    build_session_with_dims(model_path, kind, use_gpu, gpu_patch, &[])
+    build_session_with_dims(model_path, kind, use_gpu, patch, &[])
 }
 
 fn build_session_with_dims(
     model_path: &Path,
     kind: SessionKind,
     use_gpu: bool,
-    gpu_patch: Option<GpuModelPatch>,
+    patch: Option<ModelPatch>,
     fixed_dims: &[(&str, i64)],
 ) -> Result<Session> {
-    if use_gpu
-        && GPU_STATUS.load(Ordering::Acquire) < GPU_FAILED
-        && let Some(gpu_provider) = gpu_execution_provider()
-    {
-        match create_session(model_path, kind, Some(gpu_provider), gpu_patch, fixed_dims) {
+    if use_gpu && GPU_STATUS.load(Ordering::Acquire) < GPU_FAILED && gpu_provider_available() {
+        match create_session(model_path, kind, true, patch, fixed_dims) {
             Ok(session) => {
                 let _ = GPU_STATUS.compare_exchange(
                     GPU_IDLE,
@@ -641,7 +735,7 @@ fn build_session_with_dims(
             ),
         }
     }
-    create_session(model_path, kind, None, None, fixed_dims)
+    Ok(create_session(model_path, kind, false, patch, fixed_dims)?)
 }
 
 pub fn gpu_acceleration_enabled(app_handle: &tauri::AppHandle) -> bool {
@@ -661,6 +755,7 @@ pub fn gpu_inference<T>(result: ort::Result<T>) -> Result<T> {
                 "GPU inference failed, using the CPU for AI models from now on: {}",
                 e
             );
+            PARKED_SESSIONS.lock().unwrap().clear();
         }
         e.into()
     })
@@ -670,6 +765,7 @@ pub fn reset_ai_sessions(ai_state_mutex: &Mutex<Option<AiState>>) {
     if let Some(ai_state) = ai_state_mutex.lock().unwrap().as_mut() {
         ai_state.release_sessions();
     }
+    PARKED_SESSIONS.lock().unwrap().clear();
     GPU_STATUS.store(GPU_IDLE, Ordering::Release);
 }
 
@@ -686,14 +782,14 @@ fn get_models_dir(app_handle: &tauri::AppHandle) -> Result<PathBuf> {
     Ok(models_dir)
 }
 
-fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
-    if bytes.is_empty() {
-        return Err(anyhow::anyhow!(
-            "Downloaded asset for {} was empty",
-            dest.display()
-        ));
-    }
+type Cancelled<'a> = &'a (dyn Fn() -> bool + Sync);
 
+async fn download_model(
+    app_handle: &tauri::AppHandle,
+    asset: &ModelAsset,
+    dest: &Path,
+    cancelled: Cancelled<'_>,
+) -> Result<()> {
     let parent = dest.parent().ok_or_else(|| {
         anyhow::anyhow!(
             "Cannot determine parent directory for downloaded asset {}",
@@ -701,17 +797,51 @@ fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
         )
     })?;
     fs::create_dir_all(parent)?;
-
     let file_name = dest
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| anyhow::anyhow!("Invalid downloaded asset path {}", dest.display()))?;
     let tmp_path = dest.with_file_name(format!(".{}.download", file_name));
 
-    {
+    let written = async {
+        let mut response = reqwest::get(asset.url).await?.error_for_status()?;
+        let total = response.content_length().unwrap_or(0);
         let mut file = fs::File::create(&tmp_path)?;
-        file.write_all(bytes)?;
+        let mut written = 0u64;
+        let mut last_progress = Instant::now();
+        let report = |current: u64| {
+            let _ = app_handle.emit(
+                "ai-model-download-progress",
+                serde_json::json!({ "name": asset.name, "current": current, "total": total }),
+            );
+        };
+        while let Some(chunk) = response.chunk().await? {
+            if cancelled() {
+                anyhow::bail!("Download cancelled");
+            }
+            file.write_all(&chunk)?;
+            written += chunk.len() as u64;
+            if total > 0 && last_progress.elapsed() >= Duration::from_millis(200) {
+                last_progress = Instant::now();
+                report(written);
+            }
+        }
+        if total > 0 {
+            report(written);
+        }
         file.sync_all()?;
+        anyhow::Ok(written)
+    }
+    .await;
+    let written = written.inspect_err(|_| {
+        let _ = fs::remove_file(&tmp_path);
+    })?;
+    if written == 0 {
+        let _ = fs::remove_file(&tmp_path);
+        return Err(anyhow::anyhow!(
+            "Downloaded asset for {} was empty",
+            dest.display()
+        ));
     }
 
     fs::rename(&tmp_path, dest).or_else(|rename_error| -> std::io::Result<()> {
@@ -724,28 +854,6 @@ fn persist_downloaded_asset(dest: &Path, bytes: &[u8]) -> Result<()> {
         }
     })?;
     Ok(())
-}
-
-async fn download_model(
-    app_handle: &tauri::AppHandle,
-    asset: &ModelAsset,
-    dest: &Path,
-) -> Result<()> {
-    let mut response = reqwest::get(asset.url).await?.error_for_status()?;
-    let total = response.content_length().unwrap_or(0);
-    let mut bytes = Vec::with_capacity(total as usize);
-    let mut last_progress = Instant::now();
-    while let Some(chunk) = response.chunk().await? {
-        bytes.extend_from_slice(&chunk);
-        if total > 0 && last_progress.elapsed() >= Duration::from_millis(200) {
-            last_progress = Instant::now();
-            let _ = app_handle.emit(
-                "ai-model-download-progress",
-                serde_json::json!({ "name": asset.name, "current": bytes.len(), "total": total }),
-            );
-        }
-    }
-    persist_downloaded_asset(dest, &bytes)
 }
 
 fn verify_sha256(path: &Path, expected_hash: &str) -> Result<bool> {
@@ -772,6 +880,15 @@ async fn download_and_verify_model(
     models_dir: &Path,
     asset: &ModelAsset,
 ) -> Result<()> {
+    download_and_verify_model_until(app_handle, models_dir, asset, &|| false).await
+}
+
+async fn download_and_verify_model_until(
+    app_handle: &tauri::AppHandle,
+    models_dir: &Path,
+    asset: &ModelAsset,
+    cancelled: Cancelled<'_>,
+) -> Result<()> {
     let dest_path = models_dir.join(asset.filename);
     let is_valid = match asset.sha256 {
         Some(expected_hash) => verify_sha256(&dest_path, expected_hash)?,
@@ -785,7 +902,7 @@ async fn download_and_verify_model(
         }
         let _ = app_handle.emit("ai-model-download-start", asset.name);
         let download_result = async {
-            download_model(app_handle, asset, &dest_path).await?;
+            download_model(app_handle, asset, &dest_path, cancelled).await?;
             if let Some(expected_hash) = asset.sha256
                 && !verify_sha256(&dest_path, expected_hash)?
             {
@@ -802,6 +919,7 @@ async fn download_and_verify_model(
             serde_json::json!({
                 "name": asset.name,
                 "error": download_result.as_ref().err().map(|e| e.to_string()),
+                "cancelled": download_result.is_err() && cancelled(),
             }),
         );
         download_result?;
@@ -828,9 +946,6 @@ pub async fn get_or_init_ai_models(
     let models = match cached_ai_state(ai_state_mutex, |state| state.models.clone()) {
         Some(models) => models,
         None => {
-            let _ = ort::init().with_name("AI").commit();
-            crate::register_exit_handler();
-
             let models = Arc::new(AiModels {
                 models_dir: get_models_dir(app_handle)?,
                 use_gpu: gpu_acceleration_enabled(app_handle),
@@ -867,6 +982,60 @@ pub async fn get_or_init_ai_models(
     Ok(models)
 }
 
+const SPEECH_DIR: &str = "parakeet-tdt-0.6b-v3";
+
+const SPEECH_ASSETS: [ModelAsset; 4] = [
+    ModelAsset {
+        filename: "parakeet-tdt-0.6b-v3/vocab.txt",
+        url: "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/parakeet-tdt-0.6b-v3/vocab.txt?download=true",
+        sha256: Some("d58544679ea4bc6ac563d1f545eb7d474bd6cfa467f0a6e2c1dc1c7d37e3c35d"),
+        name: "Speech Recognition",
+    },
+    ModelAsset {
+        filename: "parakeet-tdt-0.6b-v3/nemo128.onnx",
+        url: "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/parakeet-tdt-0.6b-v3/nemo128.onnx?download=true",
+        sha256: Some("a9fde1486ebfcc08f328d75ad4610c67835fea58c73ba57e3209a6f6cf019e9f"),
+        name: "Speech Recognition",
+    },
+    ModelAsset {
+        filename: "parakeet-tdt-0.6b-v3/decoder_joint-model.int8.onnx",
+        url: "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/parakeet-tdt-0.6b-v3/decoder_joint-model.int8.onnx?download=true",
+        sha256: Some("eea7483ee3d1a30375daedc8ed83e3960c91b098812127a0d99d1c8977667a70"),
+        name: "Speech Recognition",
+    },
+    ModelAsset {
+        filename: "parakeet-tdt-0.6b-v3/encoder-model.int8.onnx",
+        url: "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/parakeet-tdt-0.6b-v3/encoder-model.int8.onnx?download=true",
+        sha256: Some("6139d2fa7e1b086097b277c7149725edbab89cc7c7ae64b23c741be4055aff09"),
+        name: "Speech Recognition",
+    },
+];
+
+static SPEECH_DOWNLOAD: TokioMutex<bool> = TokioMutex::const_new(false);
+
+pub fn speech_model_downloaded(app_handle: &tauri::AppHandle) -> bool {
+    get_models_dir(app_handle).is_ok_and(|models_dir| {
+        SPEECH_ASSETS
+            .iter()
+            .all(|asset| models_dir.join(asset.filename).exists())
+    })
+}
+
+pub async fn get_or_download_speech_model(
+    app_handle: &tauri::AppHandle,
+    cancelled: Cancelled<'_>,
+) -> Result<PathBuf> {
+    let models_dir = get_models_dir(app_handle)?;
+    let mut verified = SPEECH_DOWNLOAD.lock().await;
+    if !*verified {
+        for asset in &SPEECH_ASSETS {
+            download_and_verify_model_until(app_handle, &models_dir, asset, cancelled).await?;
+        }
+        *verified = true;
+    }
+    Ok(models_dir.join(SPEECH_DIR))
+}
+
 pub async fn get_or_init_denoise_model(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
@@ -889,7 +1058,6 @@ pub async fn get_or_init_denoise_model(
     let models_dir = get_models_dir(app_handle)?;
     download_and_verify_model(app_handle, &models_dir, &DENOISE_ASSET).await?;
 
-    let _ = ort::init().with_name("AI-Denoise").commit();
     let model_path = models_dir.join(DENOISE_FILENAME);
     let session = build_session(
         &model_path,
@@ -898,8 +1066,6 @@ pub async fn get_or_init_denoise_model(
         Some(denoise_crop_as_slice),
     )?;
     let denoise_model = Arc::new(Mutex::new(session));
-
-    crate::register_exit_handler();
 
     ai_state_mutex
         .lock()
@@ -932,7 +1098,6 @@ pub async fn get_or_init_upscale_model(
     let models_dir = get_models_dir(app_handle)?;
     download_and_verify_model(app_handle, &models_dir, &UPSCALE_ASSET).await?;
 
-    let _ = ort::init().with_name("AI-Upscale").commit();
     let tile = crate::ai::tiling::UPSCALE_TILE_SIZE as i64;
     let session = build_session_with_dims(
         &models_dir.join(UPSCALE_FILENAME),
@@ -942,8 +1107,6 @@ pub async fn get_or_init_upscale_model(
         &UPSCALE_SPATIAL_DIMS.map(|dim| (dim, tile)),
     )?;
     let upscale_model = Arc::new(Mutex::new(session));
-
-    crate::register_exit_handler();
 
     ai_state_mutex
         .lock()
@@ -975,7 +1138,6 @@ pub async fn get_or_init_clip_models(
     download_and_verify_model(app_handle, &models_dir, &CLIP_TOKENIZER_ASSET).await?;
     let clip_tokenizer_path = models_dir.join(CLIP_TOKENIZER_FILENAME);
 
-    let _ = ort::init().with_name("AI-Tagging").commit();
     let clip_model_path = models_dir.join(CLIP_MODEL_FILENAME);
     let model = Mutex::new(build_session(
         &clip_model_path,
@@ -985,8 +1147,6 @@ pub async fn get_or_init_clip_models(
     )?);
     let tokenizer =
         Tokenizer::from_file(clip_tokenizer_path).map_err(|e| anyhow::anyhow!(e.to_string()))?;
-
-    crate::register_exit_handler();
 
     let clip_models = Arc::new(ClipModels { model, tokenizer });
 
@@ -1017,12 +1177,9 @@ pub async fn get_or_init_lama_model(
     let models_dir = get_models_dir(app_handle)?;
     download_and_verify_model(app_handle, &models_dir, &LAMA_ASSET).await?;
 
-    let _ = ort::init().with_name("AI-Inpainting").commit();
     let model_path = models_dir.join(LAMA_FILENAME);
     let session = build_session(&model_path, SessionKind::OneShot, false, None)?;
     let lama_model = Arc::new(Mutex::new(session));
-
-    crate::register_exit_handler();
 
     ai_state_mutex
         .lock()
@@ -1033,45 +1190,67 @@ pub async fn get_or_init_lama_model(
     Ok(lama_model)
 }
 
-pub async fn get_or_init_normal_model(
+async fn normal_model_stream(
+    app_handle: &tauri::AppHandle,
+    ai_init_lock: &TokioMutex<()>,
+) -> Result<Session> {
+    let models_dir = get_models_dir(app_handle)?;
+    {
+        let _guard = ai_init_lock.lock().await;
+        download_and_verify_model(app_handle, &models_dir, &NORMAL_ASSET).await?;
+    }
+    build_session(
+        &models_dir.join(NORMAL_FILENAME),
+        SessionKind::Persistent,
+        gpu_allowed_on_platform() && gpu_acceleration_enabled(app_handle),
+        None,
+    )
+}
+
+pub async fn effect_map_session(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
     ai_init_lock: &TokioMutex<()>,
-) -> Result<Arc<Mutex<Session>>> {
-    if let Some(normal_model) = cached_ai_state(ai_state_mutex, |state| state.normal_model.clone())
-    {
-        return Ok(normal_model);
+    kind: EffectMapKind,
+) -> Result<Session> {
+    let parked = {
+        let mut parked = PARKED_SESSIONS.lock().unwrap();
+        parked
+            .iter()
+            .position(|(parked, ..)| *parked == kind)
+            .map(|index| parked.swap_remove(index).1)
+    };
+    if let Some(session) = parked {
+        return Ok(session);
     }
-
-    let _guard = ai_init_lock.lock().await;
-
-    if let Some(normal_model) = cached_ai_state(ai_state_mutex, |state| state.normal_model.clone())
-    {
-        return Ok(normal_model);
+    match kind {
+        EffectMapKind::Depth => {
+            get_or_init_ai_models(app_handle, ai_state_mutex, ai_init_lock, AiMaskModel::Depth)
+                .await?
+                .depth_anything_stream()
+        }
+        EffectMapKind::Normal => normal_model_stream(app_handle, ai_init_lock).await,
     }
+}
 
-    let models_dir = get_models_dir(app_handle)?;
-    download_and_verify_model(app_handle, &models_dir, &NORMAL_ASSET).await?;
+pub fn park_effect_map_session(kind: EffectMapKind, session: Session) {
+    let mut parked = PARKED_SESSIONS.lock().unwrap();
+    parked.push((kind, session, Instant::now()));
+    if !REAPING_SESSIONS.swap(true, Ordering::Relaxed) {
+        std::thread::spawn(reap_parked_sessions);
+    }
+}
 
-    let _ = ort::init().with_name("AI-Normal").commit();
-    let model_path = models_dir.join(NORMAL_FILENAME);
-    let session = build_session(
-        &model_path,
-        SessionKind::OneShot,
-        gpu_allowed_on_platform() && gpu_acceleration_enabled(app_handle),
-        None,
-    )?;
-    let normal_model = Arc::new(Mutex::new(session));
-
-    crate::register_exit_handler();
-
-    ai_state_mutex
-        .lock()
-        .unwrap()
-        .get_or_insert_with(AiState::default)
-        .normal_model = Some(normal_model.clone());
-
-    Ok(normal_model)
+fn reap_parked_sessions() {
+    loop {
+        std::thread::sleep(PARKED_SESSION_IDLE);
+        let mut parked = PARKED_SESSIONS.lock().unwrap();
+        parked.retain(|(.., since)| since.elapsed() < PARKED_SESSION_IDLE);
+        if parked.is_empty() {
+            REAPING_SESSIONS.store(false, Ordering::Relaxed);
+            return;
+        }
+    }
 }
 
 const ESAM3_PROMPT_TOKENS: usize = 16;
@@ -1090,7 +1269,6 @@ pub struct AiState {
     pub upscale_model: Option<Arc<Mutex<Session>>>,
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
-    pub normal_model: Option<Arc<Mutex<Session>>>,
     pub embeddings: Option<ImageEmbeddings>,
     pub esam3_features: Option<Arc<Esam3Features>>,
     pub face_analysis: Option<Arc<FaceAnalysis>>,
@@ -1104,7 +1282,6 @@ impl AiState {
         self.upscale_model = None;
         self.clip_models = None;
         self.lama_model = None;
-        self.normal_model = None;
     }
 }
 
@@ -1128,7 +1305,9 @@ fn cached_ai_state<T>(
     ai_state.as_ref().and_then(get)
 }
 
-fn denoise_crop_as_slice() -> ort::Result<(Model, Vec<Output>)> {
+pub const DENOISE_OUTPUT: &str = "denoised";
+
+fn denoise_crop_as_slice() -> ort::Result<Model> {
     let output_type = ValueType::Tensor {
         ty: TensorElementType::Float32,
         shape: Shape::new([1, 3, -1, -1]),
@@ -1144,18 +1323,12 @@ fn denoise_crop_as_slice() -> ort::Result<(Model, Vec<Output>)> {
         ONNX_DOMAIN,
         "crop_slice",
         ["conv2d_9", "crop_starts", "crop_ends", "crop_axes"],
-        ["denoised"],
+        [DENOISE_OUTPUT],
         [],
     )?)?;
-    graph.set_outputs([Outlet::new("denoised", &output_type)?])?;
+    graph.set_outputs([Outlet::new(DENOISE_OUTPUT, output_type)])?;
 
     let mut model = Model::new([Opset::new(ONNX_DOMAIN, 18)?])?;
-    model.add_graph(graph)?;
-    Ok((
-        model,
-        vec![Output {
-            name: "denoised".to_string(),
-            output_type,
-        }],
-    ))
+    model.set_graph(graph)?;
+    Ok(model)
 }

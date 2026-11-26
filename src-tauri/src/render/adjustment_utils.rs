@@ -328,6 +328,7 @@ const LEGACY_SECTION_TOOLS: &[(&str, &[&str])] = &[
         &[
             "creative",
             "motionBlur",
+            "pixelate",
             "lensBlur",
             "relight",
             "fog",

@@ -1,0 +1,12 @@
+RapidRAW uses the FFmpeg libraries (https://ffmpeg.org) to read, play and export video.
+
+Version: FFmpeg 9.0.2, LGPL builds. Windows and Linux use the builds from BtbN/FFmpeg-Builds
+(https://github.com/BtbN/FFmpeg-Builds, release autobuild-2026-10-31-12-59, n9.0.2-39-g7adfbe40dc).
+macOS uses a build made with src-tauri/scripts/ffmpeg/build-archives.sh from the RapidRAW repository.
+
+FFmpeg is licensed under the GNU Lesser General Public License version 2.1 or later
+(see LGPL-2.1.txt). The libraries are not modified and are loaded at runtime from the
+"ffmpeg" folder next to this one, so they can be replaced with another compatible build.
+The FFmpeg source code for this version is available at https://git.ffmpeg.org/ffmpeg.git
+(tag n9.0.2) and the build scripts at https://github.com/BtbN/FFmpeg-Builds.
+The licenses of the libraries bundled inside the FFmpeg build are listed in ffmpeg/LICENSE.txt.

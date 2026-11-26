@@ -217,6 +217,7 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "motionBlurHighlights",
         "motionBlurDepthEnabled",
         "motionBlurDepth",
+        "pixelateAmount",
         "relightEnabled",
         "relightLights",
         "relightAmbient",
@@ -333,9 +334,23 @@ pub struct ExportPreset {
     pub enable_watermark: bool,
     pub watermark_path: Option<String>,
     pub watermark_anchor: Option<String>,
-    pub watermark_scale: u32,
-    pub watermark_spacing: u32,
-    pub watermark_opacity: u32,
+    pub watermark_scale: f32,
+    pub watermark_spacing: f32,
+    #[serde(default)]
+    pub watermark_offset_x: Option<f32>,
+    #[serde(default)]
+    pub watermark_offset_y: Option<f32>,
+    pub watermark_opacity: f32,
+    #[serde(default)]
+    pub watermark_source: Option<String>,
+    #[serde(default)]
+    pub watermark_text: Option<String>,
+    #[serde(default)]
+    pub watermark_font: Option<String>,
+    #[serde(default)]
+    pub watermark_font_weight: Option<u16>,
+    #[serde(default)]
+    pub watermark_color: Option<String>,
     #[serde(default)]
     pub export_masks: Option<bool>,
     #[serde(default)]
@@ -399,9 +414,16 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             enable_watermark: false,
             watermark_path: None,
             watermark_anchor: Some("bottomRight".to_string()),
-            watermark_scale: 10,
-            watermark_spacing: 5,
-            watermark_opacity: 75,
+            watermark_scale: 10.0,
+            watermark_spacing: 5.0,
+            watermark_offset_x: None,
+            watermark_offset_y: None,
+            watermark_opacity: 75.0,
+            watermark_source: None,
+            watermark_text: None,
+            watermark_font: None,
+            watermark_font_weight: None,
+            watermark_color: None,
             export_masks: Some(false),
             export_original: Some(false),
             original_crop: Some(true),
@@ -440,9 +462,16 @@ pub fn default_export_presets() -> Vec<ExportPreset> {
             enable_watermark: false,
             watermark_path: None,
             watermark_anchor: Some("bottomRight".to_string()),
-            watermark_scale: 10,
-            watermark_spacing: 5,
-            watermark_opacity: 75,
+            watermark_scale: 10.0,
+            watermark_spacing: 5.0,
+            watermark_offset_x: None,
+            watermark_offset_y: None,
+            watermark_opacity: 75.0,
+            watermark_source: None,
+            watermark_text: None,
+            watermark_font: None,
+            watermark_font_weight: None,
+            watermark_color: None,
             export_masks: Some(false),
             export_original: Some(false),
             original_crop: Some(true),
@@ -591,6 +620,10 @@ pub fn default_thumbnail_cache_limit_gb() -> u32 {
     10
 }
 
+pub fn default_video_cache_limit_gb() -> u32 {
+    50
+}
+
 pub fn default_tagging_shortcuts_option() -> Option<Vec<String>> {
     Some(vec![
         "portrait".to_string(),
@@ -726,6 +759,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub ai_upscale_cache_limit_gb: Option<u32>,
     #[serde(default)]
+    pub video_cache_limit_gb: Option<u32>,
+    #[serde(default)]
     pub export_worker_threads: Option<u32>,
     #[serde(default)]
     pub export_memory_limit: Option<u32>,
@@ -799,6 +834,12 @@ pub struct AppSettings {
     pub adjustment_layout: AdjustmentLayout,
     #[serde(default)]
     pub workspace: WorkspaceState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_workspace: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_export: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub video_media_pool: Option<Value>,
     #[serde(default)]
     pub immich: crate::integrations::immich::ImmichSettings,
     #[serde(default)]
@@ -949,6 +990,7 @@ impl Default for AppSettings {
             thumbnail_cache_limit_gb: Some(default_thumbnail_cache_limit_gb()),
             ai_maps_cache_limit_gb: Some(default_ai_maps_cache_limit_gb()),
             ai_upscale_cache_limit_gb: Some(default_ai_upscale_cache_limit_gb()),
+            video_cache_limit_gb: Some(default_video_cache_limit_gb()),
             export_worker_threads: None,
             export_memory_limit: None,
             enable_baseline_exposure: default_enable_baseline_exposure(),
@@ -985,6 +1027,9 @@ impl Default for AppSettings {
             edit_in_apps: Vec::new(),
             adjustment_layout: AdjustmentLayout::default(),
             workspace: WorkspaceState::default(),
+            video_workspace: None,
+            video_export: None,
+            video_media_pool: None,
             immich: crate::integrations::immich::ImmichSettings::default(),
             develop_defaults: Default::default(),
             slider_reset_target: None,

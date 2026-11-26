@@ -1,8 +1,8 @@
 use crate::app::settings::{AppSettings, load_settings};
-use crate::app::state::{AppState, LoadedImage, PreviewTarget};
+use crate::app::state::{AppState, LoadedImage};
 use crate::decode::avif::ContainerColor;
 use crate::decode::baseline_exposure::BaselineOptions;
-use crate::decode::formats::is_raw_file;
+use crate::decode::formats::{is_raw_file, is_video_file};
 use crate::decode::hdr_source::{self, GainMap, HdrTransfer};
 use crate::decode::white_balance::WhiteBalance;
 
@@ -12,7 +12,7 @@ use crate::masks::generation::{MaskDefinition, SubMask, generate_mask_bitmap};
 use crate::metadata::sidecar::ImageMetadata;
 use crate::metadata::{exif_processing, sidecar};
 use crate::render::adjustment_utils::effective_baseline_exposure;
-use crate::render::cache_utils::{DecodeFingerprint, FlightRole, clear_preview_slot};
+use crate::render::cache_utils::{DecodeFingerprint, FlightRole, clear_source_caches};
 use crate::render::color_space::{
     OutputColorSpace, fit_gamut, srgb_decode, srgb_encode, srgb_to_working, srgb_transfer,
     working_profile,
@@ -24,7 +24,10 @@ use anyhow::{Context, Result, anyhow};
 use base64::{Engine as _, engine::general_purpose};
 use exif::{Reader as ExifReader, Tag};
 use glam::{DMat3, Mat3, Vec3};
-use image::{DynamicImage, GenericImageView, ImageDecoder, ImageReader, Rgb32FImage, imageops};
+use image::{
+    DynamicImage, GenericImageView, ImageBuffer, ImageDecoder, ImageReader, Luma, Rgb32FImage,
+    imageops,
+};
 use moxcms::{
     CicpColorPrimaries, CmsError, ColorProfile, DataColorSpace, Layout, RenderingIntent,
     ToneReprCurve, TransformF32Executor, TransformOptions,
@@ -82,8 +85,12 @@ pub fn load_and_composite(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<(DynamicImage, f32)> {
-    let base_image =
-        load_base_image_from_bytes(bytes, path, use_fast_raw_dev, settings, cancel_token)?;
+    let base_image = if is_video_file(path) {
+        crate::video::poster_frame(Path::new(path), crate::video::poster_seconds(adjustments))
+            .map_err(|e| anyhow!(e))?
+    } else {
+        load_base_image_from_bytes(bytes, path, use_fast_raw_dev, settings, cancel_token)?
+    };
     let (base_w, base_h) = base_image.dimensions();
     let decode_scale = if use_fast_raw_dev && is_raw_file(path) {
         crate::decode::raw_processing::get_fast_demosaic_scale_factor(bytes, base_w, base_h)
@@ -118,8 +125,12 @@ fn prepare_reduced_base_image<'a>(
     path: &str,
     adjustments: &Value,
 ) -> Result<Cow<'a, DynamicImage>> {
-    let denoised = crate::ai::denoise::apply_ai_denoise(base_image, path, adjustments);
-    let upscaled = crate::ai::upscale::apply_ai_upscale(base_image, denoised, path, adjustments);
+    let upscaled = if is_video_file(path) {
+        Cow::Borrowed(base_image)
+    } else {
+        let denoised = crate::ai::denoise::apply_ai_denoise(base_image, path, adjustments);
+        crate::ai::upscale::apply_ai_upscale(base_image, denoised, path, adjustments)
+    };
     let prepared = crate::adjustments::negative_conversion::apply_negative_conversion(
         upscaled,
         is_raw_file(path),
@@ -144,6 +155,11 @@ pub fn load_base_image_from_bytes(
     let sharpening_amount = settings.raw_preprocessing_sharpening.unwrap_or(0.35);
     let apply_to_non_raws = settings.apply_preprocessing_to_non_raws.unwrap_or(false);
     let remove_hot_pixels = settings.remove_hot_pixels.unwrap_or(true);
+
+    if is_video_file(path_for_ext_check) {
+        return crate::video::poster_frame(Path::new(path_for_ext_check), None)
+            .map_err(|e| anyhow!(e));
+    }
 
     crate::metadata::sidecar::persist_exif_if_missing(
         Path::new(path_for_ext_check),
@@ -455,7 +471,7 @@ fn primaries_profile(primaries: zenavif::ColorPrimaries) -> Option<ColorProfile>
     }
 }
 
-fn primaries_to_working(primaries: zenavif::ColorPrimaries) -> Mat3 {
+pub(crate) fn primaries_to_working(primaries: zenavif::ColorPrimaries) -> Mat3 {
     match primaries {
         zenavif::ColorPrimaries::SMPTE432 => OutputColorSpace::DisplayP3.working_matrix().inverse(),
         zenavif::ColorPrimaries::BT2020 => OutputColorSpace::Rec2020.working_matrix().inverse(),
@@ -647,22 +663,68 @@ fn convert_hdr_to_working(image: &mut Rgb32FImage, hdr: &HdrSource) {
     );
 }
 
-pub fn load_image_with_orientation(
-    bytes: &[u8],
-    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
-) -> Result<(DynamicImage, Option<f32>)> {
-    let Decoded {
+fn working_image(
+    Decoded {
         mut rgb,
         profile,
         hdr,
-    } = decode_with_orientation(bytes, &cancel_token)?;
+    }: Decoded,
+) -> (DynamicImage, Option<f32>) {
     let linear_peak = matches!(hdr, Some(HdrSource::Linear { .. }))
         .then(|| hdr_source::linear_peak(rgb.as_raw()));
     match &hdr {
         Some(hdr) => convert_hdr_to_working(&mut rgb, hdr),
         None => convert_to_working(&mut rgb, profile.as_ref()),
     }
-    Ok((DynamicImage::ImageRgb32F(rgb), linear_peak))
+    (DynamicImage::ImageRgb32F(rgb), linear_peak)
+}
+
+pub fn container_image_to_working(rgb: Rgb32FImage, color: ContainerColor) -> DynamicImage {
+    working_image(decode_container(rgb, color)).0
+}
+
+pub fn load_image_with_orientation(
+    bytes: &[u8],
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<(DynamicImage, Option<f32>)> {
+    Ok(working_image(decode_with_orientation(
+        bytes,
+        &cancel_token,
+    )?))
+}
+
+pub fn decode_alpha(bytes: &[u8]) -> Option<ImageBuffer<Luma<f32>, Vec<f32>>> {
+    let mut reader = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .ok()?;
+    reader.no_limits();
+    let decoder = reader.into_decoder().ok()?;
+    if !decoder.color_type().has_alpha() {
+        return None;
+    }
+    let image = DynamicImage::from_decoder(decoder).ok()?;
+    let exif = ExifReader::new()
+        .read_from_container(&mut Cursor::new(bytes))
+        .ok();
+    let image = match exif_orientation(exif.as_ref()) {
+        Some(orientation) => apply_orientation(image, orientation),
+        None => image,
+    };
+    let (width, height) = image.dimensions();
+    let mut alpha = vec![0.0f32; width as usize * height as usize];
+    alpha
+        .par_chunks_exact_mut(width.max(1) as usize)
+        .enumerate()
+        .for_each(|(y, line)| {
+            let row = image.crop_imm(0, y as u32, width, 1).to_luma_alpha32f();
+            for (value, pixel) in line.iter_mut().zip(row.pixels()) {
+                *value = pixel[1].clamp(0.0, 1.0);
+            }
+        });
+    if alpha.iter().all(|value| *value >= 1.0) {
+        return None;
+    }
+    ImageBuffer::from_raw(width, height, alpha)
 }
 
 pub struct GainLayer {
@@ -822,6 +884,12 @@ pub fn gain_layer_for(
 }
 
 pub fn load_display_image(bytes: &[u8], path: &str) -> Result<DynamicImage> {
+    if is_video_file(path) {
+        let mut image =
+            crate::video::poster_frame(Path::new(path), None).map_err(|e| anyhow!(e))?;
+        apply_working_display_to_srgb(&mut image, false);
+        return Ok(image);
+    }
     crate::metadata::sidecar::persist_exif_if_missing(Path::new(path), path, bytes);
     let Decoded {
         mut rgb,
@@ -1447,6 +1515,9 @@ pub fn decode_pristine(
             path_str
         ));
     }
+    if is_video_file(source_path) {
+        return crate::video::decode_pristine(source_path);
+    }
     let decode = |bytes: &[u8]| -> Result<(DynamicImage, HashMap<String, String>), String> {
         if is_cancelled(&cancel_token) {
             return Err("Load cancelled".to_string());
@@ -1559,6 +1630,7 @@ pub async fn load_image(
     let source_path_str = source_path.to_string_lossy().to_string();
     let _preload_guard = state.image_preloader.begin_load(&source_path_str);
 
+    state.image_load_epoch.fetch_add(1, Ordering::SeqCst);
     let my_generation = state.load_image_generation.fetch_add(1, Ordering::SeqCst) + 1;
     let cancel_token = Some((state.load_image_generation.clone(), my_generation));
 
@@ -1567,27 +1639,9 @@ pub async fn load_image(
             .original_image
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = None;
-        for target in PreviewTarget::ALL {
-            clear_preview_slot(&state, target);
-        }
-        *state
-            .full_warped_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
-        crate::render::cache_utils::clear_preview_stage_caches(&state);
-
-        state
-            .mask_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clear();
+        clear_source_caches(&state);
         state
             .patch_cache
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clear();
-        state
-            .uncropped_source_cache
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clear();
@@ -1645,6 +1699,8 @@ pub async fn load_image(
         is_raw,
         as_shot,
         has_gain_map: !is_raw && file_has_gain_map(&source_path),
+        source_time: None,
+        lens_source: None,
     });
 
     crate::ai::jobs::prioritize(&app_handle, &path);

@@ -20,6 +20,7 @@ import {
 } from '../../utils/adjustments';
 import { AppSettings } from '../../types/settings';
 import Text from '../ui/Text';
+import SegmentedControl from '../ui/SegmentedControl';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
@@ -266,6 +267,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
                   <ColorWheel
                     defaultValue={INITIAL_ADJUSTMENTS.colorGrading.midtones}
                     label={t('adjustments.color.grading.midtones')}
+                    liveKey="colorGrading.midtones"
                     onChange={(val: HueSatLum) => handleChange(ColorGrading.Midtones, val)}
                     value={colorGrading.midtones}
                     onDragStateChange={onDragStateChange}
@@ -278,6 +280,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
                   <ColorWheel
                     defaultValue={INITIAL_ADJUSTMENTS.colorGrading.shadows}
                     label={t('adjustments.color.grading.shadows')}
+                    liveKey="colorGrading.shadows"
                     onChange={(val: HueSatLum) => handleChange(ColorGrading.Shadows, val)}
                     value={colorGrading.shadows}
                     onDragStateChange={onDragStateChange}
@@ -288,6 +291,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
                   <ColorWheel
                     defaultValue={INITIAL_ADJUSTMENTS.colorGrading.highlights}
                     label={t('adjustments.color.grading.highlights')}
+                    liveKey="colorGrading.highlights"
                     onChange={(val: HueSatLum) => handleChange(ColorGrading.Highlights, val)}
                     value={colorGrading.highlights}
                     onDragStateChange={onDragStateChange}
@@ -309,6 +313,7 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
                 <ColorWheel
                   defaultValue={INITIAL_ADJUSTMENTS.colorGrading.global}
                   label={t('adjustments.color.grading.global')}
+                  liveKey="colorGrading.global"
                   onChange={(val: HueSatLum) => handleChange(ColorGrading.Global, val)}
                   value={colorGrading.global || INITIAL_ADJUSTMENTS.colorGrading.global}
                   onDragStateChange={onDragStateChange}
@@ -528,22 +533,15 @@ const MonochromePanel = ({ adjustments, setAdjustments, onDragStateChange }: Col
       <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-2">
         {t('adjustments.color.monochrome.film')}
       </Text>
-      <div className="grid grid-cols-2 gap-1.5">
-        {Object.values(MonochromeFilm).map((film) => (
-          <button
-            key={film}
-            onClick={() => handleChange('monochromeFilm', film)}
-            className={`px-2 py-1.5 rounded-md text-xs text-left truncate transition-colors ${
-              activeFilm === film
-                ? 'bg-accent text-button-text font-semibold'
-                : 'bg-bg-secondary text-text-secondary hover:text-text-primary hover:bg-bg-secondary/80'
-            }`}
-            data-tooltip={t(`adjustments.color.monochrome.filmDescriptions.${film}`)}
-          >
-            {t(`adjustments.color.monochrome.films.${film}`)}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        options={Object.values(MonochromeFilm).map((film) => ({
+          id: film,
+          label: t(`adjustments.color.monochrome.films.${film}`),
+          tooltip: t(`adjustments.color.monochrome.filmDescriptions.${film}`),
+        }))}
+        value={activeFilm}
+        onChange={(film) => handleChange('monochromeFilm', film)}
+      />
       <div className="mt-4">
         <Text color={TextColors.primary} weight={TextWeights.medium} className="mb-3">
           {t('adjustments.color.monochrome.filter')}

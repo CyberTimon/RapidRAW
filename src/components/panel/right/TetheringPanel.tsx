@@ -27,6 +27,7 @@ import clsx from 'clsx';
 import { useShallow } from 'zustand/react/shallow';
 
 import Text from '../../ui/Text';
+import PanelHeader from '../../ui/PanelHeader';
 import Button from '../../ui/Button';
 import Switch from '../../ui/Switch';
 import Dropdown from '../../ui/Dropdown';
@@ -608,18 +609,15 @@ export default function TetheringPanel({ onLibraryRefresh, onImageSelect }: Teth
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-3 flex justify-between items-center shrink-0 border-b border-surface">
-        <Text variant={TextVariants.title}>{t('tethering.title')}</Text>
-        <div className="flex items-center gap-1">
-          <button
-            className={clsx('p-2 rounded-full hover:bg-surface transition-colors', isDetecting && 'animate-spin')}
-            onClick={() => detectCameras(false)}
-            data-tooltip={t('tethering.scanTooltip')}
-          >
-            <RefreshCw size={18} />
-          </button>
-        </div>
-      </div>
+      <PanelHeader title={t('tethering.title')}>
+        <button
+          className={clsx('p-2 rounded-full hover:bg-surface transition-colors', isDetecting && 'animate-spin')}
+          onClick={() => detectCameras(false)}
+          data-tooltip={t('tethering.scanTooltip')}
+        >
+          <RefreshCw size={18} />
+        </button>
+      </PanelHeader>
 
       <div className="grow overflow-y-auto p-3 flex flex-col gap-5 custom-scrollbar">
         <div>

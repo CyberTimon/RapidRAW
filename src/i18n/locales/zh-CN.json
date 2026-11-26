@@ -198,6 +198,7 @@
       "lut": "LUT",
       "midpoint": "中点",
       "motionBlur": "运动模糊",
+      "pixelate": "像素化",
       "motionBlurAngle": "角度",
       "motionBlurDepth": "深度",
       "motionBlurHighlights": "高光",
@@ -213,7 +214,8 @@
         "linear": "线性",
         "smooth": "平滑",
         "spin": "旋转",
-        "zoom": "缩放"
+        "zoom": "缩放",
+        "shutter": "快门"
       },
       "relight": "重新打光",
       "relightAddLight": "添加灯光",
@@ -225,7 +227,6 @@
       "relightDuplicateLight": "复制灯光",
       "relightElevation": "仰角",
       "relightFalloff": "衰减",
-      "relightHint": "添加或选择一个灯光，然后在图像上点击或拖动以放置。",
       "relightIntensity": "强度",
       "relightLight": "灯光 {{index}}",
       "relightRemoveLight": "移除灯光",
@@ -243,7 +244,12 @@
       "roundness": "圆度",
       "size": "大小",
       "spatial": "空间",
-      "vignette": "暗角"
+      "vignette": "暗角",
+      "motionBlurShutter": "快门角度",
+      "analyzingClip": "正在分析片段",
+      "relightPosition": "位置",
+      "motionBlurFootage": "画面运动",
+      "motionBlurFootageTooltip": "模糊画面内的运动，而不仅是片段动画"
     }
   },
   "contextMenus": {
@@ -359,11 +365,14 @@
       "addCopiedToAlbum_one": "将复制的图像添加到相册",
       "addCopiedToAlbum_other": "将 {{count}} 张复制的图像添加到相册",
       "deleteRejected": "删除已拒绝的图像",
+      "newVideoProject": "新建视频项目",
       "refreshView": "刷新视图"
     },
     "merge": {
       "focusStack": "焦距合成",
-      "title": "合并"
+      "title": "合并",
+      "burstDenoise": "连拍降噪",
+      "longExposure": "长曝光"
     },
     "tagging": {
       "addTagTooltip": "添加标签",
@@ -412,7 +421,12 @@
       "showExplorer": "在文件资源管理器中显示",
       "superResolution_one": "RapidRes (2x)",
       "superResolution_other": "RapidRes (2x)",
-      "virtualCopy": "虚拟副本"
+      "openVideoProject": "打开项目",
+      "videoProject": "视频项目",
+      "virtualCopy": "虚拟副本",
+      "addToNamedProject": "添加到 {{name}}",
+      "renameFile_one": "重命名",
+      "renameFile_other": "重命名 {{count}} 个文件"
     },
     "toasts": {
       "couldNotShowExplorer": "无法在文件资源管理器中显示文件：{{err}}",
@@ -432,6 +446,58 @@
       "failedMoveError": "移动失败：{{err}}",
       "failedMoveInvalid": "移动失败：未找到目标组或目标组无效。",
       "failedRemoveImages": "移除图像失败：{{err}}"
+    },
+    "videos": {
+      "copy_one": "复制视频",
+      "copy_other": "复制 {{count}} 个视频",
+      "delete_one": "删除视频",
+      "delete_other": "删除 {{count}} 个视频",
+      "export_one": "导出视频",
+      "export_other": "导出 {{count}} 个视频",
+      "rename_one": "重命名视频",
+      "rename_other": "重命名 {{count}} 个视频",
+      "pasteAdjustments_one": "粘贴调整",
+      "pasteAdjustments_other": "粘贴调整到 {{count}} 个视频",
+      "resetAdjustments_one": "重置调整",
+      "resetAdjustments_other": "重置 {{count}} 个视频的调整",
+      "removeFromAlbum_one": "从相册中移除",
+      "removeFromAlbum_other": "从相册中移除 {{count}} 个视频",
+      "copyHere_one": "复制视频至此",
+      "copyHere_other": "复制 {{count}} 个视频至此",
+      "moveHere_one": "移动视频至此",
+      "moveHere_other": "移动 {{count}} 个视频至此",
+      "addCopiedToAlbum_one": "将复制的视频添加到相册",
+      "addCopiedToAlbum_other": "将 {{count}} 个复制的视频添加到相册",
+      "edit": "编辑视频",
+      "duplicate": "创建视频副本"
+    },
+    "files": {
+      "copy_one": "复制文件",
+      "copy_other": "复制 {{count}} 个文件",
+      "delete_one": "删除文件",
+      "delete_other": "删除 {{count}} 个文件",
+      "export_one": "导出文件",
+      "export_other": "导出 {{count}} 个文件",
+      "pasteAdjustments_one": "粘贴调整",
+      "pasteAdjustments_other": "粘贴调整到 {{count}} 个文件",
+      "resetAdjustments_one": "重置调整",
+      "resetAdjustments_other": "重置 {{count}} 个文件的调整",
+      "removeFromAlbum_one": "从相册中移除",
+      "removeFromAlbum_other": "从相册中移除 {{count}} 个文件",
+      "copyHere_one": "复制文件至此",
+      "copyHere_other": "复制 {{count}} 个文件至此",
+      "moveHere_one": "移动文件至此",
+      "moveHere_other": "移动 {{count}} 个文件至此",
+      "addCopiedToAlbum_one": "将复制的文件添加到相册",
+      "addCopiedToAlbum_other": "将 {{count}} 个复制的文件添加到相册"
+    },
+    "projects": {
+      "copy_one": "复制项目",
+      "copy_other": "复制 {{count}} 个项目",
+      "rename_one": "重命名项目",
+      "rename_other": "重命名 {{count}} 个项目",
+      "delete_one": "删除项目",
+      "delete_other": "删除 {{count}} 个项目"
     }
   },
   "editor": {
@@ -494,8 +560,6 @@
         "cloneTooltip": "精确复制来源，包括其亮度和颜色",
         "dragSource": "拖动以移动来源",
         "healTooltip": "复制来源的纹理，并使其融入周围的亮度和颜色",
-        "hintActive": "拖动来源轮廓以选择像素的来源位置。每一笔新的涂抹都会成为独立的区域。按住 Shift 可添加到当前区域。",
-        "hintEmpty": "在污点、电线或干扰物上涂抹，会自动找到合适的来源。",
         "mode": "模式",
         "newSource": "查找其他来源"
       },
@@ -548,8 +612,10 @@
         "aiEdit_one": "AI 编辑 {{count}}",
         "aiEdit_other": "AI 编辑 {{count}}",
         "clone": "克隆 {{count}}",
+        "clone_one": "克隆 {{count}}",
         "clone_other": "克隆 {{count}}",
         "heal": "修复 {{count}}",
+        "heal_one": "修复 {{count}}",
         "heal_other": "修复 {{count}}",
         "invertedName": "{{name}} 反转",
         "liquify": "液化 {{count}}",
@@ -559,6 +625,7 @@
         "quickErase_one": "快速擦除 {{count}}",
         "quickErase_other": "快速擦除 {{count}}",
         "retouch": "修饰 {{count}}",
+        "retouch_one": "修饰 {{count}}",
         "retouch_other": "修饰 {{count}}"
       },
       "resetInpaintingTooltip": "重置图像修复",
@@ -569,16 +636,13 @@
         "cancelGeneration": "取消生成",
         "componentPropertiesTitle": "{{name}} 属性",
         "downloading": "下载中：",
-        "fastInpaintDesc": "基于周围像素填充选区。",
         "generateWithAiButton": "使用 AI 生成",
         "generating": "生成中...",
-        "generativeDesc": "描述您想要在选定区域生成的内容。",
         "generativeReplaceTitle": "生成式替换",
         "inpaintSelectionButton": "修复选区",
         "invertComponent": "反转组件",
         "invertSelection": "反转选区",
         "placeholder": "例如，一片花海",
-        "quickEraseDesc": "填充选区以移除对象。",
         "selectionPropertiesTitle": "选区属性",
         "useBasicInpaint": "使用基础图像修复"
       },
@@ -695,21 +759,20 @@
       "rotationHeading": "旋转",
       "title": "裁剪与变换",
       "tooltips": {
-        "autoStraighten": "自动拉直（Shift+S）",
+        "autoStraighten": "自动拉直",
         "compositionOverlay": "构图叠加",
         "flipHoriz": "水平翻转图像",
         "flipVert": "垂直翻转图像",
         "lens": "镜头畸变校正",
-        "overlayDetails": "叠加：{{name}}{{rotateHint}}",
         "resetFineRotation": "重置精细旋转",
-        "rotateHint": "（Shift+O 旋转）",
         "rotateLeft": "逆时针旋转 90°",
         "rotateRight": "顺时针旋转 90°",
-        "straighten": "拉直工具（S）",
+        "straighten": "拉直工具",
         "switchOrientation": "切换方向",
         "switchToLandscape": "切换为横向",
         "switchToPortrait": "切换为纵向",
-        "transform": "透视和梯形校正"
+        "transform": "透视和梯形校正",
+        "overlayName": "叠加：{{name}}"
       }
     },
     "externalEdit": {
@@ -785,7 +848,9 @@
         "feather": "羽化",
         "globalFeather": "全局羽化",
         "grow": "扩展",
-        "tolerance": "容差"
+        "tolerance": "容差",
+        "roundness": "圆度",
+        "points": "路径"
       },
       "patches": {
         "copyName": "{{name}} 副本",
@@ -830,6 +895,11 @@
       "tooltips": {
         "addToCurrent": "将 {{name}} 添加到当前蒙版或创建新蒙版（右键单击）",
         "createNew": "创建新 {{name}} 蒙版"
+      },
+      "pen": {
+        "makeCorner": "转为角点",
+        "makeSmooth": "转为平滑点",
+        "deletePoint": "删除点"
       }
     },
     "metadata": {
@@ -916,7 +986,7 @@
         "unsetDefaultForCamera": "不再作为 {{camera}} 的默认值"
       },
       "status": {
-        "empty": "尚未保存预设。创建您自己的预设、从文件导入或探索社区预设。",
+        "empty": "尚无预设。",
         "getCommunity": "获取社区预设",
         "loading": "加载预设中..."
       },
@@ -948,15 +1018,8 @@
     },
     "switcher": {
       "tooltips": {
-        "adjust": "调整",
-        "crop": "裁剪",
-        "export": "导出",
         "filmstrip": "胶片条",
-        "info": "信息",
-        "inpaint": "修复",
-        "masks": "蒙版",
-        "presets": "预设",
-        "tethering": "联机拍摄"
+        "mediaPool": "项目"
       }
     },
     "toasts": {
@@ -968,14 +1031,14 @@
       "tooltips": {
         "aperture": "光圈",
         "backToLibrary": "返回图库",
-        "compare": "前后对比（B）或模式（右键）",
+        "compare": "前后对比或模式（右键）",
         "focalLength": "焦距",
-        "fullscreen": "切换全屏（F）",
+        "fullscreen": "切换全屏",
         "hdr": "在此屏幕上显示 HDR，除非开启 HDR 输出，否则不影响导出",
         "iso": "ISO",
-        "redo": "重做（Ctrl+Y）或历史记录（右键单击）",
+        "redo": "重做或历史记录（右键单击）",
         "shutterSpeed": "快门速度",
-        "undo": "撤销（Ctrl+Z）或历史记录（右键单击）"
+        "undo": "撤销或历史记录（右键单击）"
       },
       "vc": "VC"
     },
@@ -1113,23 +1176,20 @@
     "title": "导出",
     "watermark": {
       "addWatermark": "添加水印",
-      "anchors": {
-        "bottomCenter": "底部居中",
-        "bottomLeft": "左下角",
-        "bottomRight": "右下角",
-        "center": "居中",
-        "centerLeft": "左侧居中",
-        "centerRight": "右侧居中",
-        "topCenter": "顶部居中",
-        "topLeft": "左上角",
-        "topRight": "右上角"
-      },
-      "logoText": "标志",
       "opacity": "不透明度",
-      "previewText": "预览",
-      "scale": "缩放",
-      "spacing": "间距",
-      "watermarkImage": "水印图像"
+      "watermarkImage": "水印图像",
+      "size": "大小",
+      "margin": "边距",
+      "resetPlacement": "重置位置",
+      "unreadable": "无法读取此图像。",
+      "sources": {
+        "image": "图像",
+        "text": "文本"
+      },
+      "textPlaceholder": "水印文本",
+      "font": "字体",
+      "weight": "字重",
+      "color": "颜色"
     }
   },
   "immich": {
@@ -1166,8 +1226,8 @@
       "apiKey": "API 密钥",
       "apiKeyDesc": "在 Immich 的“帐户设置 → API 密钥”中创建，并授予以下权限：album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
       "connected": "已以 {{user}} 身份连接 (Immich {{version}})",
-      "description": "在图库中浏览 Immich 服务器上的照片并直接编辑。原始文件会在打开时下载，编辑内容会保存到 Immich，因此在每台电脑上看起来都一样。",
-      "keyInFile": "已保存在仅你可读取的文件中：没有可用的凭据存储。在 KDE 中，请在 KDE 钱包设置里启用 Secret Service 接口，然后重新保存。",
+      "description": "浏览并编辑 Immich 服务器上的照片。",
+      "keyInFile": "由于没有可用的凭据存储，已保存在仅你可读取的文件中。",
       "keyInStore": "已保存在系统凭据存储中。",
       "save": "保存",
       "saved": "已保存。",
@@ -1175,7 +1235,9 @@
       "serverUrlDesc": "你在浏览器中打开 Immich 时使用的地址。",
       "test": "测试连接",
       "title": "Immich",
-      "working": "处理中…"
+      "working": "处理中…",
+      "tooltip": "原始文件会在打开时下载。编辑内容保存在 Immich 中，因此在每台电脑上都一致。",
+      "keyInFileTooltip": "在 KDE 中，请在 KDE 钱包设置里启用 Secret Service 接口，然后重新保存。"
     },
     "sync": {
       "offline": "离线",
@@ -1226,6 +1288,7 @@
       "thumbnailPaused": "AI 处理已暂停",
       "thumbnailPending": "等待 AI 处理",
       "title": "AI 处理",
+      "unprocessed_one": "{{count}} 张图像需要 AI 处理",
       "unprocessed_other": "{{count}} 张图像需要 AI 处理",
       "waiting": "正在准备 AI 处理…"
     },
@@ -1251,10 +1314,8 @@
       "altThumbnailLoading": "缩略图加载中",
       "aperture": "光圈",
       "cameraSettings": "相机设置",
-      "clickThumbnailsHint": "在右侧边栏中单击缩略图以将它们添加到比较视图中。",
       "colorLabel": "颜色标签",
       "dimensions": "尺寸",
-      "doubleClickToEditHint": "双击缩略图即可在编辑器中打开。",
       "focalLength": "焦距",
       "iso": "ISO",
       "metadata": "元数据",
@@ -1271,7 +1332,8 @@
       "vc": "VC"
     },
     "filterExit": {
-      "hiddenMultiple_other": "{{count}} 张图像已不再符合筛选条件",
+      "hiddenMultiple_one": "{{count}} 张图像不再符合筛选条件",
+      "hiddenMultiple_other": "{{count}} 张图像不再符合筛选条件",
       "hiddenSingle": "{{name}} 已不再符合筛选条件",
       "undo": "撤销"
     },
@@ -1308,7 +1370,6 @@
     },
     "folders": {
       "addFolder": "添加文件夹",
-      "albumsEmpty": "右键单击以创建相册。",
       "collapseSection": "折叠 {{section}}",
       "expandSection": "展开 {{section}}",
       "loading": "加载文件夹中...",
@@ -1318,7 +1379,8 @@
       "sections": {
         "albums": "相册",
         "folders": "文件夹",
-        "pinned": "已固定"
+        "pinned": "已固定",
+        "recentProjects": "最近项目"
       },
       "sort": {
         "created": "创建日期",
@@ -1335,7 +1397,8 @@
         "navBack": "后退",
         "navForward": "前进",
         "sortFolders": "对文件夹排序"
-      }
+      },
+      "noAlbums": "无相册"
     },
     "grid": {
       "columns": {
@@ -1347,7 +1410,9 @@
         "name": "名称",
         "rating": "评分",
         "shutter": "快门"
-      }
+      },
+      "emptyFolder": "此文件夹中没有图像。",
+      "emptyAlbum": "此相册中没有图像。"
     },
     "header": {
       "cancel": "取消",
@@ -1422,8 +1487,8 @@
       "clear": "清除",
       "copyError": "点击复制",
       "empty": "没有进行中的任务",
-      "emptyHint": "导出、导入、文件传输和 AI 任务会显示在这里。",
       "errorCopied": "错误已复制到剪贴板",
+      "images_one": "{{count}} 张图片",
       "images_other": "{{count}} 张图片",
       "kinds": {
         "aiTagging": "AI 标签",
@@ -1431,12 +1496,18 @@
         "export": "导出",
         "import": "导入",
         "modelDownload": "AI 模型下载",
-        "move": "移动文件"
+        "move": "移动文件",
+        "immichDownload": "Immich 下载"
       },
       "openInLibrary": "在图库中打开",
       "recent": "最近",
+      "skipped_one": "已跳过 {{count}} 张",
       "skipped_other": "已跳过 {{count}} 张",
-      "title": "任务"
+      "title": "任务",
+      "transferred": "{{current}} / {{total}}",
+      "rate": "{{size}}/s",
+      "remaining": "剩余 {{time}}",
+      "cancelDownload": "取消下载"
     },
     "reject": {
       "deleteConfirm": "删除已拒绝",
@@ -1532,7 +1603,9 @@
       "retouch": "修饰",
       "sky": "天空",
       "subject": "主体",
-      "text": "文本"
+      "text": "文本",
+      "rectangle": "矩形",
+      "pen": "钢笔"
     }
   },
   "menus": {
@@ -1581,9 +1654,8 @@
       "confirm": "确认"
     },
     "copyPaste": {
-      "autoSyncDesc": "自动将调整应用于所有选定的图像。",
-      "autoSyncLabel": "启用自动同步",
-      "autoSyncTitle": "自动同步调整",
+      "autoSyncLabel": "应用到所有选中的图像",
+      "autoSyncTitle": "自动同步",
       "cancel": "取消",
       "descMerge": "添加您复制的更改，保留其他设置不变。",
       "descReplace": "覆盖所有选中的设置，其余重置为默认值。",
@@ -1610,6 +1682,7 @@
         "motionBlur": "运动模糊",
         "negativeConversion": "负片转换",
         "noiseReduction": "降噪",
+        "pixelate": "像素化",
         "presence": "质感",
         "relight": "重新打光",
         "sharpness": "锐度",
@@ -1642,12 +1715,12 @@
       "actionDelete": "移至回收站",
       "actionRateZero": "将评分设为 1 星",
       "actionReject": "标记为已拒绝",
-      "applyButton_one": "应用到 1 张图像",
+      "applyButton_one": "应用到 {{count}} 张图像",
       "applyButton_other": "应用到 {{count}} 张图像",
       "bestImage": "最佳图像",
       "blurryImagesTab": "模糊图像",
       "blurThreshold": "模糊阈值",
-      "blurThresholdDesc": "锐度评分低于此值的图像将被标记。值越高越严格。",
+      "blurThresholdDesc": "标记锐度评分低于阈值的图像",
       "cancel": "取消",
       "close": "关闭",
       "cullingFailed": "筛选失败",
@@ -1665,7 +1738,7 @@
       "sharpness": "锐度：{{sharpness}}",
       "similarGroupsTab": "相似组",
       "similarityThreshold": "相似度阈值",
-      "similarityThresholdDesc": "值越低越严格（完全重复）。值越高越宽松（近似重复）。建议值 24-32。",
+      "similarityThresholdDesc": "阈值低时仅将完全重复的图像分组，阈值高时也会将近似重复的图像分组",
       "startCulling": "开始筛选",
       "starting": "启动中...",
       "title": "筛选图像"
@@ -1678,11 +1751,12 @@
       "failed": "焦距合成失败",
       "method": "方法",
       "methodDetail": "细节",
-      "methodHint": "细节可保留毛发和刚毛等最细微的结构。平滑可带来更柔和的过渡和更少的噪点。",
       "methodSmooth": "平滑",
       "processing": "正在合成焦距",
       "savedSuccess": "焦距合成已成功保存！",
-      "title": "焦距合成"
+      "title": "焦距合成",
+      "methodDetailHint": "保留毛发和刷毛等最细微的结构",
+      "methodSmoothHint": "过渡更柔和，噪点更少"
     },
     "hdr": {
       "description": "将您的包围曝光合并为一张高动态范围图像。",
@@ -1762,7 +1836,6 @@
     "panorama": {
       "autoProjectionUsed": "正在使用：{{projection}}",
       "boundaryWarp": "边界变形",
-      "boundaryWarpHint": "拉伸边缘以填满画面，而不是将其裁掉。",
       "description": "将您的重叠图像合并为一张无缝全景图。",
       "descriptionWithCount": "将 {{count}} 张重叠图像合并为一张无缝全景图。",
       "descriptionWithCount_one": "将 {{count}} 张重叠图像合并为一张无缝全景图。",
@@ -1792,7 +1865,9 @@
       "titleMultiple": "重命名 {{count}} 张图像",
       "titleMultiple_one": "重命名 {{count}} 张图像",
       "titleMultiple_other": "重命名 {{count}} 张图像",
-      "titleSingle": "重命名图像"
+      "titleSingle": "重命名图像",
+      "titleFiles_one": "重命名文件",
+      "titleFiles_other": "重命名 {{count}} 个文件"
     },
     "renameFolder": {
       "cancel": "取消",
@@ -1830,6 +1905,26 @@
       "yAxis": "Y 轴",
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "缩小"
+    },
+    "burstDenoise": {
+      "title": "连拍降噪",
+      "description": "将一组曝光相同的连拍合并为一张更干净的图像。",
+      "descriptionWithCount_one": "将 {{count}} 张连拍帧合并为一张更干净的图像。",
+      "descriptionWithCount_other": "将 {{count}} 张连拍帧合并为一张更干净的图像。",
+      "failed": "连拍降噪失败",
+      "processing": "正在合并连拍",
+      "savedSuccess": "连拍已成功保存！"
+    },
+    "longExposure": {
+      "title": "长曝光",
+      "description": "将一组连拍混合为一张长曝光图像，让水流、云彩和车流呈现流动感，同时保持场景清晰。",
+      "descriptionWithCount_one": "将 {{count}} 张连拍帧混合为一张长曝光图像。",
+      "descriptionWithCount_other": "将 {{count}} 张连拍帧混合为一张长曝光图像。",
+      "failed": "长曝光失败",
+      "processing": "正在创建长曝光",
+      "savedSuccess": "长曝光已成功保存！",
+      "smoothMotion": "平滑运动",
+      "smoothMotionHint": "填补帧与帧之间的时间，让移动的物体留下连续的轨迹。"
     }
   },
   "settings": {
@@ -1846,7 +1941,7 @@
       },
       "notAssigned": "未分配",
       "optimization": "输入设备优化",
-      "optimizationDesc": "选择您用于平移和缩放画布的主要输入设备。",
+      "optimizationDesc": "针对鼠标或触控板优化画布的平移和缩放。",
       "pressKey": "按下按键...（Esc 清除）",
       "resetDefaults": "全部重置为默认值",
       "speed": "速度",
@@ -1874,19 +1969,19 @@
       "title": "鼠标控制",
       "zoom": "缩放速度倍率",
       "zoomClick": "缩放照片至 100%",
-      "zoomClickDesc": "点击时将编辑器中的照片缩放至 100%",
-      "zoomClickInfo": "点击照片可立即缩放至 100%（1:1 像素），以评估清晰度和噪点。禁用时，点击会逐步放大。",
-      "zoomDesc": "调整使用滚轮或捏合手势时画布缩放的速度。"
+      "zoomClickDesc": "单击时缩放至 100%",
+      "zoomClickInfo": "单击照片会直接缩放至 100%，以检查清晰度和噪点。关闭时，单击会逐步放大。",
+      "zoomDesc": "使用滚轮或捏合手势时画布缩放的速度。"
     },
     "data": {
       "aiTags": "清除 AI 标签",
-      "aiTagsDesc": "从根文件夹中的所有图像移除 AI 生成的标签。你自己添加的标签会保留。",
+      "aiTagsDesc": "从根文件夹中的照片移除 AI 标签。你自己的标签会保留。",
       "allTags": "清除所有标签",
-      "allTagsDesc": "从根文件夹中的所有图像移除 AI 生成的标签和用户添加的标签。颜色标记会保留。",
+      "allTagsDesc": "从根文件夹中的照片移除所有标签。颜色标签会保留。",
       "clear": "清除",
       "delete": "删除",
       "deleteEdits": "删除所有编辑",
-      "deleteEditsDesc": "删除所有根文件夹中的 .rrdata 附属文件（你的编辑）。此操作无法撤销。",
+      "deleteEditsDesc": "删除根文件夹中的所有 .rrdata 附属文件。此操作无法撤销。",
       "libraryAndWorkspace": "图库与工作区",
       "limit": "上限",
       "modals": {
@@ -1909,12 +2004,16 @@
         "metadataMessage": "确定要清除元数据缓存吗？\n\n浏览时会重新从文件中读取元数据。",
         "modelsMessage": "确定要移除已下载的 AI 模型吗？\n\n下次使用 AI 功能时会重新下载。",
         "resetLayoutMessage": "是否确定要重置工作区布局？所有停靠的面板、宽度和切换器位置都将恢复为默认值。",
-        "sidecarMessage": "您确定要删除所有附属文件吗？\n\n这将永久删除所有活动根文件夹及其子文件夹中所有图像的所有编辑数据。"
+        "sidecarMessage": "您确定要删除所有附属文件吗？\n\n这将永久删除所有活动根文件夹及其子文件夹中所有图像的所有编辑数据。",
+        "videoProxiesMessage": "确定要清除视频代理吗？\n\n使用代理时会重新创建。",
+        "videoReversedMessage": "确定要清除倒放片段吗？\n\n倒放片段会在下次使用时重新准备。",
+        "videoAnalysisMessage": "确定要清除视频分析吗？\n\n稳定、逐帧跟随的 AI 蒙版、节拍和胶片条都需要重新分析。",
+        "videoTimelapsesMessage": "确定要清除延时摄影吗？\n\n延时摄影会在下次使用时根据其照片重新渲染。"
       },
       "noFolders": "未选择文件夹",
       "refresh": "刷新",
       "reset": "重置",
-      "resetLayoutDesc": "将面板停靠区、侧边分割条、高度和面板切换器恢复为默认布局。",
+      "resetLayoutDesc": "将面板停靠区、尺寸和切换器恢复为默认布局。",
       "resetLayoutTitle": "重置工作区布局",
       "show": "显示",
       "statuses": {
@@ -1941,7 +2040,7 @@
         "aiUpscale": "RapidRes",
         "aiUpscaleDesc": "缓存的 RapidRes 2 倍放大结果。",
         "immich": "Immich",
-        "immichDesc": "已下载的原片。达到上限后会删除最久未使用的原片；你的编辑会保留。",
+        "immichDesc": "已下载的原片。达到上限时最旧的先删除；你的编辑会保留。",
         "logs": "日志",
         "logsDesc": "用于排查问题的应用日志文件。每次启动时清空。",
         "metadata": "元数据",
@@ -1949,7 +2048,17 @@
         "models": "AI 模型",
         "modelsDesc": "首次使用 AI 功能时按需下载。",
         "thumbnails": "缩略图",
-        "thumbnailsDesc": "浏览时会自动重新生成。"
+        "thumbnailsDesc": "浏览时会自动重新生成。",
+        "videoProxies": "视频代理",
+        "videoProxiesDesc": "用于流畅播放的轻量副本。需要时会重新创建。",
+        "videoReversed": "倒放片段",
+        "videoReversedDesc": "倒放片段的反向副本。",
+        "videoAnalysis": "视频分析",
+        "videoAnalysisDesc": "稳定、AI 蒙版、节拍、胶片条和嵌套音频。",
+        "videoTimelapses": "延时摄影",
+        "videoTimelapsesDesc": "为延时摄影冲洗的照片序列。需要时会重新渲染。",
+        "video": "视频缓存",
+        "immichProjects": "其中 {{size}} 为视频项目保留。"
       },
       "storageTitle": "存储",
       "title": "数据管理",
@@ -1957,42 +2066,39 @@
     },
     "general": {
       "createXmp": "创建缺失的 XMP 文件",
-      "createXmpDesc": "如果图像没有对应的 XMP 附属文件，则自动创建一个。",
       "createXmpMissing": "缺失时创建 XMP",
       "displayEditIcon": "显示编辑图标",
-      "displayEditIconDesc": "在已编辑的缩略图上显示一个小滑块图标。",
       "enableFocusMode": "启用专注模式",
       "enableNeutralGreyCanvas": "启用中性灰背景",
       "enableOsTitlebar": "启用系统标题栏",
       "enableToolFocusMode": "启用工具专注模式",
       "enableXmpSync": "启用 XMP 同步",
       "focusMode": "专注模式",
-      "focusModeDesc": "在您打开新面板时自动关闭其他面板，帮助您保持专注。",
+      "focusModeDesc": "打开一个面板时关闭其他面板。",
       "folderImageCounts": "文件夹图像计数",
-      "folderImageCountsDesc": "悬停在文件夹树时显示文件夹内的图像数量。",
+      "folderImageCountsDesc": "在文件夹树中悬停于文件夹上时显示。",
       "font": "字体",
-      "fontDesc": "更改应用程序字体。",
       "hideCollapsedPanels": "隐藏折叠的面板",
-      "hideCollapsedPanelsDesc": "折叠的侧边面板将完全隐藏，而不是留下一道窄条。可通过底部栏或键盘快捷键重新打开。",
+      "hideCollapsedPanelsDesc": "折叠的侧边面板会消失，而不是留下一道窄条。可通过底部栏或其快捷键重新打开。",
       "nativeTitlebar": "原生标题栏",
-      "nativeTitlebarDesc": "使用系统默认的窗口标题栏，而非 RapidRAW 的自定义标题栏。",
+      "nativeTitlebarDesc": "使用系统窗口标题栏，而非 RapidRAW 自带的标题栏。",
       "neutralGreyCanvas": "中性灰画布",
-      "neutralGreyCanvasDesc": "使用中性灰画布，以便在不更改应用主题的情况下进行更准确的色彩和曝光分级。",
+      "neutralGreyCanvasDesc": "无论使用何种主题，都在中性灰背景上显示照片，便于判断色彩和曝光。",
       "poppins": "Poppins",
       "showImageCounts": "显示图像计数",
       "system": "系统默认",
       "theme": "主题",
-      "themeDesc": "更改应用程序的外观和风格。",
       "title": "通用设置",
       "toolFocusMode": "工具专注模式",
-      "toolFocusModeDesc": "展开某个工具时，自动折叠同一面板中的其他工具。",
+      "toolFocusModeDesc": "展开某个工具时，折叠同一面板中的其他工具。",
       "uiScale": "界面缩放",
       "uiScaleCompact": "紧凑",
       "uiScaleDefault": "默认",
-      "uiScaleDesc": "独立于系统显示缩放，调整界面大小。紧凑尺寸可在小尺寸笔记本屏幕上显示更多内容。",
+      "uiScaleDesc": "独立于系统显示缩放。紧凑尺寸可在小屏幕上显示更多内容。",
       "uiScaleLarge": "大",
       "xmpSync": "XMP 元数据同步",
-      "xmpSyncDesc": "将评分、颜色标签和标签同步到标准 XMP 附属文件，以便与其他照片编辑器兼容。"
+      "xmpSyncDesc": "将评分、颜色标签和标签与 XMP 附属文件同步。",
+      "showEditIcon": "在已编辑的缩略图上显示"
     },
     "keybinds": {
       "actions": {
@@ -2050,27 +2156,98 @@
         "toggle_viewer_window": "切换第二窗口",
         "undo": "撤销调整",
         "unflag": "取消标记",
+        "video_add_marker": "添加或移除标记",
+        "video_back_second": "后退 1 秒",
+        "video_back_second_alt": "后退 1 秒（备用）",
+        "video_clear_range": "清除入点和出点",
+        "video_copy": "复制所选内容",
+        "video_delete": "删除所选内容",
+        "video_delete_alt": "删除所选内容（备用）",
+        "video_duplicate": "创建所选内容的副本",
+        "video_forward_second": "前进 1 秒",
+        "video_forward_second_alt": "前进 1 秒（备用）",
+        "video_go_end": "跳到结尾",
+        "video_go_start": "跳到开头",
+        "video_jump_back": "回跳并播放",
+        "video_loop": "切换循环播放",
+        "video_nest": "嵌套所选内容",
+        "video_next_edit": "下一个编辑点",
+        "video_next_frame": "下一帧",
+        "video_next_frame_alt": "下一帧（备用）",
+        "video_next_marker": "下一个标记",
+        "video_nudge_left": "向左微移 1 帧",
+        "video_nudge_left_more": "向左微移 5 帧",
+        "video_nudge_right": "向右微移 1 帧",
+        "video_nudge_right_more": "向右微移 5 帧",
+        "video_paste": "在播放头处粘贴",
+        "video_pause": "暂停",
+        "video_play": "播放",
+        "video_play_in_out": "从入点播放到出点",
+        "video_play_pause": "播放/暂停",
+        "video_prev_edit": "上一个编辑点",
+        "video_prev_frame": "上一帧",
+        "video_prev_frame_alt": "上一帧（备用）",
+        "video_prev_marker": "上一个标记",
+        "video_redo": "重做",
+        "video_redo_alt": "重做（备用）",
+        "video_ripple_delete": "删除并封闭间隙",
+        "video_ripple_delete_alt": "删除并封闭间隙（备用）",
+        "video_select_all": "选择所有片段",
+        "video_set_in": "设置入点",
+        "video_set_out": "设置出点",
+        "video_split": "在播放头处分割",
+        "video_split_all": "在播放头处分割所有轨道",
+        "video_toggle_snapping": "切换吸附",
+        "video_trim_end": "将片段结尾修剪到播放头",
+        "video_trim_start": "将片段开头修剪到播放头",
+        "video_undo": "撤销",
+        "video_unnest": "取消嵌套",
+        "video_zoom_fit": "时间线适应窗口",
+        "video_zoom_in": "放大时间线",
+        "video_zoom_out": "缩小时间线",
         "zoom_100": "缩放到 100%",
         "zoom_fit": "缩放以适应",
         "zoom_in": "放大",
         "zoom_in_step": "放大（步进）",
         "zoom_out": "缩小",
-        "zoom_out_step": "缩小（步进）"
+        "zoom_out_step": "缩小（步进）",
+        "video_export_frame": "导出帧",
+        "video_copy_adjustments": "复制调整",
+        "video_paste_adjustments": "将调整粘贴到所选内容",
+        "video_freeze_frame": "在播放头处定格",
+        "video_insert": "在播放头处插入当前媒体",
+        "video_overwrite": "在播放头处用当前媒体覆盖",
+        "video_save_project": "保存项目",
+        "video_prev_keyframe": "上一个关键帧",
+        "video_next_keyframe": "下一个关键帧",
+        "video_select_at_playhead": "选择播放头处的片段",
+        "video_add_title": "添加标题",
+        "video_toggle_keyframe": "添加或移除关键帧",
+        "video_record_keyframes": "录制关键帧",
+        "video_panel_project": "切换项目面板",
+        "video_panel_inspector": "切换检查器面板",
+        "video_panel_effects": "切换标题和转场面板",
+        "video_panel_captions": "切换字幕面板",
+        "video_panel_mixer": "切换音频混合器面板"
       },
       "sections": {
         "editing": "编辑",
         "library": "图库",
         "panels": "面板",
         "rating": "评分与标签",
-        "view": "视图"
-      }
+        "videoEditing": "视频编辑",
+        "videoPlayback": "视频播放",
+        "videoTimeline": "视频时间线",
+        "view": "视图",
+        "videoPanels": "视频面板"
+      },
+      "videoHint": "在视频项目中，这些按键优先于上方的照片快捷键。"
     },
     "language": "语言",
-    "languageDesc": "更改应用程序语言。",
     "lenses": {
       "addButton": "添加到我的镜头",
       "addNew": "添加新镜头",
-      "description": "创建您常用的镜头列表，以便在镜头校正面板中快速访问。",
+      "description": "手动镜头校正的快捷选项。",
       "manufacturerPlaceholder": "选择制造商",
       "modelPlaceholder": "选择镜头型号",
       "noLenses": "尚未添加镜头。",
@@ -2082,26 +2259,20 @@
       "advanced": {
         "auto": "自动",
         "exportMemoryLimit": "导出内存上限",
-        "exportMemoryLimitDesc": "批量导出可使用的空闲内存比例。调低可在大型导出期间保持其他应用流畅。",
+        "exportMemoryLimitDesc": "批量导出可使用的空闲内存比例。调低可让其他应用保持流畅。",
         "exportThreads": "并行导出",
-        "exportThreadsDesc": "同时导出的图像数量。“自动”会根据你的 CPU 选择合适的值。如果大型导出失败或显卡显存较小，请调低。",
+        "exportThreadsDesc": "同时导出的图像数量。“自动”会根据你的 CPU 选择；如果大型导出失败或显卡显存较小，请调低。",
         "heading": "高级",
-        "headingDesc": "缩略图、缓存和导出的性能调整。默认值适合大多数用户。",
+        "headingDesc": "缩略图、缓存和导出的性能调整。默认值适合大多数系统。",
         "title": "高级设置"
       },
       "ai": {
         "aiFree": {
-          "description": "关闭所有 AI 功能。所有与 AI 相关的控件都会从界面中隐藏，RapidRAW 将作为纯传统的 RAW 编辑器运行。",
-          "feature1": "界面中不显示 AI 蒙版、镜头模糊或生成式编辑",
-          "feature2": "现有的 AI 编辑仍会正常渲染",
-          "feature3": "更简洁、更专注的界面",
+          "description": "隐藏所有 AI 控件。已有的 AI 编辑仍会渲染。",
           "title": "无 AI"
         },
         "cloud": {
-          "description": "对于那些想要更简单解决方案的用户，可选订阅提供与自托管相同的高质量结果，无需任何麻烦。这是最方便的选择，也是支持本项目的最佳方式。",
-          "feature1": "最大便利，无需设置",
-          "feature2": "与自托管相同的结果",
-          "feature3": "无需强大硬件",
+          "description": "通过订阅在 RapidRAW 服务器上运行生成式编辑。",
           "signedIn": {
             "active": "云端订阅已激活",
             "inactive": "无有效订阅",
@@ -2121,32 +2292,28 @@
             "retry": "重试连接",
             "unsupported": "云端登录目前仅在桌面设备上可用。"
           },
-          "title": "云端服务"
+          "title": "云端服务",
+          "tooltip": "无需设置或强大的 GPU，即可获得与自托管相同的结果，同时也是对本项目的支持。"
         },
         "connector": {
           "address": "AI 连接器地址",
-          "addressDesc": "输入您正在运行的 AI 连接器实例的地址和端口。这是使用生成式 AI 功能所必需的。",
-          "description": "对于拥有强大 GPU 且希望最大程度控制的用户，可以将 RapidRAW 连接到您自己的连接器服务器。这为您提供了技术工作流的完全控制。",
+          "addressDesc": "正在运行的 AI Connector 的地址和端口。",
+          "description": "使用你自己的 ComfyUI 服务器进行生成式编辑和自定义工作流。",
           "failed": "连接失败。",
-          "feature1": "使用您自己的 ComfyUI 实例",
-          "feature2": "免费的进阶生成式编辑",
-          "feature3": "自定义工作流选择",
           "success": "连接成功！",
           "test": "测试",
           "testing": "测试中...",
-          "title": "自托管（RapidRAW AI 连接器）"
+          "title": "自托管（RapidRAW AI 连接器）",
+          "tooltip": "免费，但需要性能足够的 GPU 和正在运行的 ComfyUI。"
         },
         "cpu": {
-          "description": "直接集成到 RapidRAW 中，这些功能完全在您的计算机上运行。它们快速、免费且无需设置，非常适合日常加速工作流程。",
-          "feature1": "AI 蒙版（主体、天空、前景）",
-          "feature2": "自动图像标签",
-          "feature3": "简单的本地生成式替换",
+          "description": "在这台电脑上运行蒙版、标签和简单的生成式替换。",
           "gpuAcceleration": "GPU 加速",
-          "gpuAccelerationDesc": "在显卡上运行降噪、蒙版、深度图和法线图以及标签等内置 AI 功能，大幅提升速度。如果遇到崩溃或 AI 结果不正确，请关闭此选项。",
+          "gpuAccelerationDesc": "在显卡上运行降噪、蒙版、深度图和标签。如果 AI 功能崩溃或结果异常，请关闭此选项。",
           "gpuAccelerationLabel": "为 AI 模型使用 GPU",
           "title": "内置 AI"
         },
-        "description": "RapidRAW 的 AI 专为灵活性而设计。选择您理想的工作流程，从快速的本地工具到强大的自托管。",
+        "description": "选择 AI 功能的运行位置。",
         "providers": {
           "aiConnector": "AI 连接器",
           "aiFree": "无 AI",
@@ -2156,10 +2323,10 @@
         "title": "生成式 AI"
       },
       "alwaysDecodeRaw": "始终解码 RAW",
-      "alwaysDecodeRawDesc": "强制对缩略图进行完整的 RAW 解码，而不是使用内置的 JPEG 预览。如果您的缩略图在颜色或对比度上与打开的图像不同，请启用此选项。",
+      "alwaysDecodeRawDesc": "为缩略图解码 RAW 文件，而不是使用内嵌的 JPEG。如果缩略图与打开的照片不同，请开启此选项。",
       "alwaysDecodeRawLabel": "始终为缩略图解码 RAW",
       "backend": "处理后端",
-      "backendDesc": "选择图形 API。推荐使用「自动」。在某些系统上可能解决崩溃问题。",
+      "backendDesc": "用于处理的图形 API。除非其他选项能解决崩溃问题，否则请保持“自动”。",
       "backendFallback": "{{failed}} 在此 GPU 上启动时崩溃，因此暂时使用 {{using}}。",
       "backendFallbackRetry": "重新尝试 {{failed}}",
       "backendFallbackRetryPending": "下次启动时将重新尝试 {{failed}}。",
@@ -2176,12 +2343,12 @@
         "modeCustom": "自定义 ICC 配置文件",
         "modeOff": "关闭",
         "previewGamut": "预览色域",
-        "previewGamutDesc": "请与导出所用的色彩空间保持一致。sRGB 显示 sRGB 或网页导出的效果。广色域还会显示显示器能呈现的超出 sRGB 的颜色，例如 Display P3 或 Adobe RGB 导出。",
+        "previewGamutDesc": "与导出所用的色彩空间保持一致：网页导出用 sRGB，Display P3 或 Adobe RGB 导出用广色域。",
         "previewGamutSrgb": "sRGB",
         "previewGamutWide": "广色域",
         "previewGamutWideSpace": "广色域（{{space}}）",
         "profile": "显示器配置文件",
-        "profileDesc": "将编辑器预览转换为显示器的色彩配置文件，使颜色在已校准和广色域显示器上准确显示。导出不受影响。",
+        "profileDesc": "将预览转换为显示器的色彩配置文件。导出不受影响。",
         "statusInvalid": "无法加载此配置文件。",
         "statusNone": "未找到显示器配置文件。预览以 sRGB 显示。",
         "statusProfile": "正在使用 {{name}}。",
@@ -2191,33 +2358,34 @@
       },
       "defaultAdjustments": {
         "addCamera": "添加相机…",
-        "applyToNonRaw": "同时应用于 JPEG、TIFF、PNG 等非 RAW 文件",
-        "applyToNonRawDesc": "关闭时仅 RAW 文件使用这些默认值。相机直出的 JPEG 通常已处理并校正，再次应用可能会过度。",
+        "applyToNonRaw": "同时应用于非 RAW 文件",
+        "applyToNonRawDesc": "包括 JPEG、TIFF 和 PNG。相机直出的 JPEG 通常已经过处理，默认值可能会导致处理过度。",
         "autoLensCorrection": "自动镜头校正",
-        "autoLensCorrectionDesc": "根据从每张图像元数据中识别出的镜头配置文件，校正畸变、色差和暗角。",
+        "autoLensCorrectionDesc": "根据每张照片元数据中的镜头配置文件，校正畸变、色差和暗角。",
         "cameraDefaults": "按相机设置默认值",
-        "cameraDefaultsDesc": "为特定相机的图像设置单独的预设。未列出的相机使用上面的默认预设，镜头校正适用于所有相机。",
-        "cameraPresetMissing": "所选预设已被删除，因此该相机的图像重新使用所有相机的预设。",
-        "description": "设置未编辑图像的初始值以及“重置调整”恢复到的值；已编辑的图像保留各自的设置。设置默认值后，RAW 缩略图将重新渲染而不使用相机内嵌预览，因此首次加载较慢。",
+        "cameraDefaultsDesc": "这些相机拍摄的照片使用各自的预设；其他相机使用默认预设。",
+        "cameraPresetMissing": "所选预设已被删除，因此该相机使用默认预设。",
+        "description": "设置默认值后，RAW 缩略图将重新渲染而不使用内嵌预览，因此首次加载较慢。",
         "lensCorrection": "镜头校正",
-        "noCamerasFound": "未找到其他相机。请打开包含该相机图像的文件夹，或在编辑其图像时右键单击预设。",
+        "noCamerasFound": "在打开的文件夹中未找到其他相机。",
         "noPreset": "无（中性）",
         "preset": "默认预设",
-        "presetDesc": "应用于所有未编辑的图像。蒙版、裁剪和变换只适合创建它们的图像，因此会被跳过。",
-        "presetMissing": "所选预设已被删除，因此未编辑的图像重新使用中性值。",
+        "presetDesc": "应用于未编辑的照片，并用于“重置调整”。",
+        "presetMissing": "所选预设已被删除，因此未编辑的照片使用中性值。",
         "removeCamera": "移除相机",
         "sameAsAllCameras": "与所有相机相同",
         "scope": "应用于",
         "sliderReset": "滑块重置",
         "sliderResetDefaults": "默认调整",
-        "sliderResetDesc": "通过双击或快速编辑等方式重置滑块时恢复到的值。蒙版滑块始终重置为中性值。",
+        "sliderResetDesc": "双击或快速编辑时滑块恢复到的值。蒙版滑块始终重置为中性值。",
         "sliderResetNeutral": "中性值",
-        "title": "默认调整"
+        "title": "默认调整",
+        "presetTooltip": "蒙版、裁剪和变换只适合创建它们的照片，因此会被跳过。"
       },
       "display": {
         "title": "显示"
       },
-      "dynamicDesc": "编辑器根据显示器实际像素密度渲染预览。这确保每个细节都以 1:1 像素精度呈现，在缩放和检查焦点时提供最大清晰度。",
+      "dynamicDesc": "匹配显示器的像素密度，缩放时呈现 1:1 细节。",
       "editIn": {
         "add": "添加程序",
         "args": "参数（{file} = 图像路径）",
@@ -2234,30 +2402,33 @@
         "title": "在其他程序中编辑"
       },
       "enableLivePreviews": "启用实时预览",
+      "ffmpeg": "FFmpeg",
+      "ffmpegBundledDesc": "视频使用内置的 FFmpeg {{version}}。",
+      "ffmpegMissing": "无法加载 FFmpeg 库，因此视频保持隐藏。",
       "hdr": {
         "gainMaps": "HDR 照片",
         "gainMapsAuto": "自动",
-        "gainMapsDesc": "带有 HDR 增益图的照片（例如新款手机拍摄的照片）会在屏幕允许的范围内显示 HDR 高光。HDR 导出使用导出设置中的余量，其他导出显示普通照片。“始终为 SDR”会忽略 HDR 数据。",
+        "gainMapsDesc": "在屏幕允许的范围内显示增益图照片（例如新款手机拍摄的照片）的 HDR 高光。导出遵循导出设置。",
         "gainMapsNever": "始终以 SDR 打开",
         "statusActive": "此显示器处于 HDR 模式。在编辑器工具栏中开启 HDR 即可预览。",
-        "statusInactive": "此显示器未处于 HDR 模式。请在系统显示设置中开启 HDR 以查看效果。",
+        "statusInactive": "此显示器未处于 HDR 模式。请在系统显示设置中开启 HDR。",
         "statusUnsupported": "HDR 需要 WGPU 直接渲染；在 Linux 上还需要支持 HDR 的 Wayland 会话。"
       },
       "highDpi": "高 DPI 渲染",
-      "highDpiDesc": "以屏幕原生 {{dpr}}x 物理像素分辨率渲染预览。产生最清晰的预览，但会显著增加内存使用。",
-      "highDpiDescStandard": "此设置仅影响高 DPI 显示器。您当前的显示器为标准分辨率。",
+      "highDpiDesc": "以屏幕原生 {{dpr}}x 像素密度渲染。最清晰，但会占用更多内存。",
+      "highDpiDescStandard": "仅影响高 DPI 显示器。此显示器为标准分辨率。",
       "imageCache": "已解码图像缓存",
-      "imageCacheDesc": "保存在内存中的全分辨率图像最大数量。较高的值可使最近编辑的图像之间切换即时完成，但会显著增加内存使用。",
+      "imageCacheDesc": "保存在内存中的全分辨率图像。数值越大，在最近的图像之间切换越即时，但占用内存越多。",
       "images": "张图像",
       "linuxCompat": "Linux 兼容模式",
-      "linuxCompatDesc": "通过共享内存而不是 GPU 缓冲区共享来传输网页视图，以规避窗口空白等 GPU 驱动问题。X11 上的 Nvidia GPU 已自动应用此方案，因此仅在窗口仍然空白或显示异常时才启用此选项。",
+      "linuxCompatDesc": "规避导致窗口空白的 GPU 驱动错误。X11 上的 Nvidia 已自动应用此方案。",
       "linuxCompatLabel": "启用兼容模式",
       "livePreviewQuality": "实时预览质量",
-      "livePreviewQualityDesc": "控制拖动滑块时图像的分辨率和压缩。较低的质量可显著提高响应速度。",
+      "livePreviewQualityDesc": "拖动滑块时的分辨率和压缩。“性能优先”响应更快。",
       "livePreviews": "实时交互式预览",
-      "livePreviewsDesc": "拖动滑块时立即更新预览。如果界面在调整时感觉卡顿，请禁用此选项。",
+      "livePreviewsDesc": "拖动滑块时更新预览。如果调整时感觉卡顿，请关闭此选项。",
       "mediumThumbnailRes": "编辑器缩略图分辨率",
-      "mediumThumbnailResDesc": "在编辑器中加载完整图像时显示的预览分辨率。",
+      "mediumThumbnailResDesc": "完整图像加载时在编辑器中显示的预览。",
       "modes": {
         "dynamic": "动态",
         "static": "固定分辨率"
@@ -2265,19 +2436,17 @@
       "nativeDpi": "以原生 DPI 渲染",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9 引擎",
-        "appleRaw9Desc": "使用 Apple 的 Core Image RAW 9 解码器冲洗 RAW 文件。它在神经网络引擎 (Neural Engine) 上一步完成去马赛克和降噪。需要 macOS 27 或更高版本以及支持的相机；不支持的文件将自动使用内置解码器。比默认解码器慢。缩略图不受影响。",
+        "appleRaw9Desc": "使用 Apple 的 Core Image 解码，可在神经网络引擎上降噪，但速度较慢。需要 macOS 27 和受支持的相机；其他文件使用内置解码器。",
         "applyPreprocessing": "对非 RAW 图像应用预处理",
-        "applyPreprocessingDesc": "如果启用，上述基础颜色降噪和预锐化也将应用于标准格式。",
+        "applyPreprocessingDesc": "同时将基础降噪和预锐化应用于 JPEG、PNG 及其他非 RAW 文件。",
         "baselineExposure": "基础曝光",
         "baselineExposureAmount": "基础量",
         "baselineExposureAmountDesc": "添加到 RAW 文件的曝光量。darktable 使用 +0.7 EV。",
-        "baselineExposureDesc": "将 RAW 文件提亮一个固定值；如有 DNG BaselineExposure 标签，则改用该标签的值。",
+        "baselineExposureDesc": "将 RAW 文件提亮一个固定值；如有 DNG BaselineExposure 标签，则使用该标签的值。",
         "colorNr": "基础颜色降噪",
-        "colorNrDesc": "在管线早期应用交叉双边滤波器以去除彩色噪点。值越高 = 降噪越强。",
+        "colorNrDesc": "在 RAW 处理管线早期去除彩色噪点。",
         "defaultNonRawTonemapper": "默认非 RAW 色调映射",
-        "defaultNonRawTonemapperDesc": "应用于非 RAW 图像（如 JPEG、PNG）的色调映射器。",
         "defaultRawTonemapper": "默认 RAW 色调映射",
-        "defaultRawTonemapperDesc": "应用于 RAW 图像的色调映射器。",
         "enableAppleRaw9": "对 RAW 文件使用 Apple RAW 9",
         "enableBaselineExposure": "对 RAW 文件应用基础曝光",
         "enableHighlightPreservation": "补偿相机的高光保护模式",
@@ -2285,11 +2454,11 @@
         "enablePreprocessingNonRaws": "对非 RAW 图像启用",
         "enableTonemapperOverride": "启用色调映射覆盖",
         "highlightPreservation": "高光保护补偿",
-        "highlightPreservationDesc": "恢复相机高光保护模式（如富士 DR200/DR400、尼康动态 D-Lighting）降低的曝光。",
+        "highlightPreservationDesc": "恢复由富士 DR200/DR400 或尼康动态 D-Lighting 等模式降低的曝光。",
         "highlightRecovery": "RAW 高光恢复",
         "highlightRecoveryDesc": "控制从 RAW 文件的裁剪高光中恢复细节的程度。较高的值可恢复更多细节，但可能引入紫色伪影。",
         "hotPixels": "热像素去除",
-        "hotPixelsDesc": "解码 RAW 文件时自动修复传感器上的热像素、卡滞像素和坏点。仅替换孤立的单个像素，因此星星和细小高光会被保留。",
+        "hotPixelsDesc": "修复 RAW 文件中传感器的热像素、卡滞像素和坏点。仅替换孤立的像素，因此星星会被保留。",
         "linearOptions": {
           "auto": "自动",
           "gamma": "应用 Gamma",
@@ -2297,26 +2466,26 @@
           "skip_calib": "跳过校准"
         },
         "linearRaw": "线性 RAW 处理",
-        "linearRawDesc": "修复某些 DNG 文件中的色偏或粉色色调。控制如何处理已处理的 LinearRAW 数据。",
+        "linearRawDesc": "修复某些 DNG 文件中的色偏或粉色色调。",
         "sharpening": "基础预锐化",
-        "sharpeningDesc": "在管线早期应用柔和的细节增强。值越高 = 锐化越强。",
+        "sharpeningDesc": "在 RAW 处理管线早期进行轻度锐化。",
         "title": "图像预处理",
         "tonemapperOptions": {
           "agx": "AgX",
           "basic": "基础"
         },
         "tonemapperOverride": "全局色调映射覆盖",
-        "tonemapperOverrideDesc": "为所有图像全局强制使用特定的色调映射器，从调整面板中隐藏色调映射器开关。"
+        "tonemapperOverrideDesc": "对所有图像使用同一个色调映射器，并隐藏调整面板中的色调映射器开关。"
       },
       "previewRes": "预览分辨率",
-      "previewResDesc": "确定预览的最大分辨率。较低的值可显著提高性能。",
+      "previewResDesc": "预览的最大尺寸。数值越低越快。",
       "previewStrategy": "预览渲染策略",
       "qualities": {
         "high": "高质量",
         "performance": "性能优先"
       },
       "rawDecoding": "RAW 解码",
-      "rawDecodingDesc": "选择在何处解码 RAW 文件。「自动」使用 GPU，并在 GPU 无法处理您的图像时切换到 CPU。「GPU」始终先尝试 GPU。「CPU」较慢，但适用于所有系统。",
+      "rawDecodingDesc": "“自动”使用 GPU，当 GPU 无法处理某个文件时回退到 CPU。CPU 较慢，但适用于所有系统。",
       "rawDecodingFallback": "GPU 处理大型 RAW 文件失败，因此 {{megapixels}} MP 及以上的文件暂时在 CPU 上显影。",
       "rawDecodingFallbackRetry": "重新尝试 GPU",
       "rawDecodingOptions": {
@@ -2326,24 +2495,21 @@
       },
       "rawDecodingUnavailable": "此 GPU 无法运行 RAW 解码，因此 RAW 文件在 CPU 上解码。",
       "renderScale": "渲染分辨率缩放",
-      "renderScaleDesc": "相对于显示器缩放渲染分辨率。较低的值可在高分辨率屏幕上提高性能，但会牺牲一些清晰度。",
-      "restartRequired": "处理引擎的更改需要重启应用程序才能生效。",
+      "renderScaleDesc": "相对于显示器。在高分辨率屏幕上，数值越低越快，但清晰度会降低。",
+      "restartRequired": "重启 RapidRAW 以应用这些更改。",
       "saveRelaunch": "保存并重新启动",
       "smallThumbnailRes": "网格缩略图分辨率",
-      "smallThumbnailResDesc": "图库网格中显示的缩略图分辨率。",
-      "staticDesc": "编辑器以固定分辨率渲染图像。此模式最快且最一致，非常适合低端硬件，优先考虑流畅性能而非像素完美的缩放。",
+      "staticDesc": "以固定尺寸渲染。速度最快，最适合较慢的硬件。",
       "threads": "线程数",
-      "thumbnailRes": "缩略图分辨率",
-      "thumbnailResDesc": "确定生成的图库缩略图的分辨率。较高的值可在加载时产生更清晰的图像。",
       "title": "处理引擎",
       "wgpu": "WGPU 直接渲染",
-      "wgpuDescAndroid": "绕过浏览器编码，实现即时响应的实时预览。（在 Android 上已禁用：原生 WGPU 表面创建目前不支持与移动端 Webview 同时运行。）",
+      "wgpuDescAndroid": "在 Android 上不可用。",
       "wgpuDescLinuxExperimental": "在 Linux 上为实验性功能，可能不稳定。",
       "wgpuDescLinuxX11": "在 X11 上不可用。",
-      "wgpuDescRecommended": "绕过浏览器编码，实现即时响应的实时预览。强烈推荐以获得最佳性能。",
       "wgpuLabel": "启用直接 WGPU 渲染",
       "workerThreads": "缩略图工作线程数",
-      "workerThreadsDesc": "用于生成缩略图的并行线程数。较高的值可加快图库加载速度，但会占用更多 CPU 和内存。"
+      "workerThreadsDesc": "线程越多，文件夹加载越快，但占用的 CPU 和内存也越多。",
+      "wgpuDesc": "直接在 GPU 上绘制预览，而不经过网页视图，从而获得更快的实时预览。"
     },
     "tagging": {
       "addCustomPlaceholder": "添加自定义 AI 标签（逗号分隔）...",
@@ -2351,21 +2517,20 @@
       "addShortcutsPlaceholder": "添加快捷方式（逗号分隔）...",
       "addShortcutTooltip": "添加快捷方式",
       "aiTagging": "AI 标签",
-      "aiTaggingDesc": "使用 AI（CLIP）模型启用自动图像标签。这将下载额外的模型，并在浏览文件夹时影响性能。标签用于搜索文件夹。",
+      "aiTaggingDesc": "使用本地 CLIP 模型为照片添加标签以便搜索。会下载模型，并减慢文件夹浏览速度。",
       "amount": "数量",
       "automaticAiTagging": "自动 AI 标签",
       "clearCustomTooltip": "清除 AI 标签列表",
-      "clearShortcutsTooltip": "清除快捷方式标签列表",
+      "clearShortcutsTooltip": "清除标签快捷方式",
       "customList": "自定义 AI 标签列表",
-      "customListDesc": "如果提供，AI 将仅使用此列表中的标签，覆盖 RapidRAW 内置的标签列表。标签功能仅支持英文。",
+      "customListDesc": "设置后，AI 标签仅使用这些标签，而非内置列表。仅支持英文。",
       "maxAiTags": "最大 AI 标签数",
-      "maxAiTagsDesc": "每张图像生成的最大标签数量。",
-      "noCustomTags": "无自定义 AI 标签（使用内置列表）",
+      "noCustomTags": "无自定义 AI 标签，使用内置列表",
       "noShortcuts": "未添加快捷方式",
       "removeCustomTooltip": "移除标签 \"{{tag}}\"",
       "removeShortcutTooltip": "移除快捷方式 \"{{shortcut}}\"",
       "shortcuts": "标签快捷方式",
-      "shortcutsDesc": "将出现在标签上下文菜单中作为快捷方式的标签列表。",
+      "shortcutsDesc": "标签上下文菜单中提供的标签。",
       "title": "标签"
     },
     "thanks": {
@@ -2375,12 +2540,14 @@
         "darktable": "为部分参考实现提供了指导。",
         "depth": "为强大的单目深度估计模型提供支持，实现了 AI 深度蒙版功能。",
         "efficientsam3": "为提供从 SAM 3 蒸馏而来的高效提示式分割模型，用于 AI 天空和文本蒙版。",
+        "ffmpeg": "感谢提供解码、播放和导出视频与音频的库（LGPL）。",
         "lama": "为强大且简单的图像修复模型提供支持，实现了内容感知填充和对象移除。",
         "lensfun": "为无价的开源库和全面的数据库提供支持，实现了自动镜头校正。",
         "libgphoto2": "感谢提供全面的相机通信库，为 RapidRAW 的联机拍摄与远程控制子系统提供支持。",
         "mediapipe": "感谢其快速的面部关键点和分割模型，为 AI 面部蒙版提供支持。",
         "negpy": "为负片转换逻辑提供了灵感。",
         "nind": "为 AI 模型提供支持，驱动了 RapidRAW 中的 AI 降噪功能。",
+        "parakeet": "感谢提供用于自动生成视频字幕的语音识别模型（CC BY 4.0，ONNX 导出由 istupakov 完成）。",
         "rawler": "为优秀的 Rust 库提供支持，构成了本项目 RAW 文件处理的基础。",
         "sam2": "为提供基础模型，用于 AI 主体检测功能。",
         "span": "RapidRAW 的 AI 2 倍放大功能 RapidRes 的基础 AI 模型，由 RapidRAW 针对自身的 RAW 处理流程进行微调（作者 Philip Hofmann，CC BY 4.0）。",
@@ -2542,6 +2709,836 @@
         "showClipping": "显示裁剪警告",
         "vectorscope": "矢量示波器"
       }
+    },
+    "fontPicker": {
+      "default": "默认",
+      "system": "系统",
+      "search": "搜索字体",
+      "weights": {
+        "100": "极细",
+        "200": "特细",
+        "300": "细体",
+        "400": "常规",
+        "500": "中等",
+        "600": "半粗",
+        "700": "粗体",
+        "800": "特粗",
+        "900": "极粗"
+      }
+    },
+    "errors": {
+      "retry": "重试",
+      "causes": {
+        "gpuMemory": "显存不足。",
+        "permission": "权限被拒绝。",
+        "missingFile": "文件不存在。",
+        "diskFull": "磁盘已满。",
+        "offline": "无网络连接。",
+        "missingFolder": "文件夹不存在。"
+      }
+    }
+  },
+  "video": {
+    "captions": {
+      "add": "添加",
+      "backdrop": "背景框",
+      "bold": "粗体",
+      "color": "颜色",
+      "delete": "删除字幕",
+      "downloading": "正在下载模型… {{percent}}%",
+      "editText": "编辑文本",
+      "empty": "尚无字幕。",
+      "exportSrt": "导出 SRT",
+      "exportVtt": "导出 VTT",
+      "failed": "无法创建字幕。",
+      "generate": "从音频生成",
+      "generateHint": "离线运行，支持 25 种欧洲语言。",
+      "import": "导入…",
+      "importEmpty": "此文件中没有字幕。",
+      "mergeWithNext": "与下一条合并",
+      "modelHint": "首次运行需下载 670 MB。",
+      "newCaption": "字幕",
+      "noSpeech": "未检测到语音。",
+      "position": "位置",
+      "show": "显示",
+      "size": "大小",
+      "style": "样式",
+      "subtitles": "字幕文件",
+      "title": "字幕",
+      "transcribing": "正在转录… {{percent}}%",
+      "importFailed": "无法导入字幕。",
+      "exportFailed": "无法导出字幕。",
+      "replaceTitle": "替换字幕",
+      "replaceMessage_one": "现有字幕将被替换。",
+      "replaceMessage_other": "现有的 {{count}} 条字幕将被替换。",
+      "replace": "替换",
+      "append": "追加",
+      "files": "字幕文件"
+    },
+    "clip": {
+      "mute": "静音",
+      "speed": "速度",
+      "unmute": "取消静音"
+    },
+    "clipBar": {
+      "history": {
+        "trim": "修剪"
+      },
+      "mute": "静音",
+      "openInTimeline": "在时间线中打开",
+      "position": "位置",
+      "setThumbnail": "设为缩略图",
+      "thumbnailFrame": "缩略图",
+      "trimEnd": "修剪结尾，双击重置",
+      "trimStart": "修剪开头，双击重置",
+      "unmute": "取消静音",
+      "thumbnailSet": "缩略图已更新"
+    },
+    "effectsPanel": {
+      "add": "添加",
+      "title": "标题和转场",
+      "transitions": "转场"
+    },
+    "export": {
+      "backToPhotos": "返回照片",
+      "button": "导出视频",
+      "codecNoHdr": "不支持 HDR",
+      "codecUnavailable": "在此电脑上不可用",
+      "dynamicRange": {
+        "hlg": "HDR",
+        "pq": "HDR10",
+        "sdr": "SDR"
+      },
+      "dynamicRangeHint": {
+        "hlg": "最适合手机和电视。",
+        "pq": "适用于 YouTube 和 HDR 电视。",
+        "sdr": "在任何设备上播放效果一致。"
+      },
+      "emptyTimeline": "时间线为空。",
+      "exportVideos": "导出视频",
+      "exported_one": "已导出 {{count}} 个视频",
+      "exported_other": "已导出 {{count}} 个视频",
+      "hardwareEncoding": "GPU 编码",
+      "mixedNote_one": "{{count}} 个视频将单独导出。",
+      "mixedNote_other": "{{count}} 个视频将单独导出。",
+      "original": "原始",
+      "progress": "正在导出… {{percent}}%",
+      "progressBatch": "正在导出第 {{current}} 个，共 {{total}} 个 · {{percent}}%",
+      "quality": {
+        "high": "高",
+        "low": "小",
+        "medium": "中"
+      },
+      "saveTitle": "保存视频",
+      "sections": {
+        "dynamicRange": "动态范围",
+        "format": "格式",
+        "quality": "质量",
+        "resolution": "分辨率",
+        "span": "范围",
+        "preset": "预设",
+        "loudness": "响度",
+        "frameRate": "帧率",
+        "audio": "音频"
+      },
+      "selectFolder_one": "选择文件夹以导出 {{count}} 个视频",
+      "selectFolder_other": "选择文件夹以导出 {{count}} 个视频",
+      "span": {
+        "all": "整个时间线",
+        "range": "入点到出点（{{from}} – {{to}}）"
+      },
+      "unreadable": "无法读取此视频。",
+      "videoCount_one": "{{count}} 个视频",
+      "videoCount_other": "{{count}} 个视频",
+      "videoFile": "视频",
+      "preset": {
+        "custom": "自定义",
+        "youtube": "YouTube",
+        "youtubeShorts": "YouTube Shorts",
+        "instagramReels": "Instagram Reels",
+        "instagramPost": "Instagram 帖子",
+        "tiktok": "TikTok",
+        "archive": "存档（ProRes）"
+      },
+      "presetHint": "适用于 {{aspect}}，最高 {{fps}} fps。",
+      "archiveHint": "任意宽高比和帧率，无压缩音频。",
+      "aspectMismatch": "你的画布不是 {{aspect}}。",
+      "useAspect": "使用 {{aspect}}",
+      "loudness": {
+        "off": "关"
+      },
+      "loudnessHint": {
+        "off": "保持混音电平不变。",
+        "streaming": "流媒体默认值。峰值保持在 −1 dBTP 以下。",
+        "podcast": "播客和 Apple Music。峰值保持在 −1 dBTP 以下。",
+        "broadcast": "EBU R128 广播标准。峰值保持在 −1 dBTP 以下。"
+      },
+      "measuring": "正在测量响度… {{percent}}%",
+      "container": "封装格式",
+      "containers": {
+        "mp4": "MP4 (.mp4)",
+        "mov": "QuickTime (.mov)",
+        "mkv": "Matroska (.mkv)",
+        "webm": "WebM (.webm)"
+      },
+      "rateControl": {
+        "quality": "恒定质量",
+        "bitrate": "目标码率"
+      },
+      "rateControlHint": {
+        "quality": "质量保持稳定。文件大小取决于素材。",
+        "bitrate": "文件大小可预测。质量取决于素材。"
+      },
+      "bitrate": "码率",
+      "mbps": "Mbps",
+      "kbps": "{{value}} kbps",
+      "fps": "{{fps}} fps",
+      "originalRate": "原始（{{fps}} fps）",
+      "proResQuality": {
+        "high": "422 HQ",
+        "medium": "422",
+        "low": "422 LT"
+      },
+      "size": "尺寸",
+      "width": "宽度",
+      "height": "高度",
+      "lockAspect": "锁定宽高比",
+      "audioCodec": "编解码器",
+      "audioCodecs": {
+        "aac": "AAC",
+        "opus": "Opus",
+        "pcm": "PCM"
+      },
+      "buttonMultiple_one": "导出 {{count}} 个视频",
+      "buttonMultiple_other": "导出 {{count}} 个视频",
+      "uploading": "正在上传到 Immich… {{percent}}%",
+      "keptLocally": "未上传到 Immich（{{reason}}）。已保存到 {{folder}}。"
+    },
+    "inspector": {
+      "addKeyframe": "添加关键帧",
+      "align": {
+        "center": "居中对齐",
+        "left": "左对齐",
+        "right": "右对齐"
+      },
+      "animIn": "入场",
+      "animOut": "出场",
+      "animation": "动画",
+      "audio": "音频",
+      "backdrop": "背景框",
+      "background": "背景",
+      "blendMode": "混合模式",
+      "blendModes": {
+        "add": "相加",
+        "darken": "变暗",
+        "difference": "差值",
+        "lighten": "变亮",
+        "multiply": "正片叠底",
+        "normal": "正常",
+        "overlay": "叠加",
+        "screen": "滤色",
+        "softLight": "柔光"
+      },
+      "bold": "粗体",
+      "cameraLog": "相机 Log",
+      "cameraLogs": {
+        "none": "无",
+        "sLog3Cine": "Sony S-Log3 / S-Gamut3.Cine",
+        "sLog3": "Sony S-Log3 / S-Gamut3",
+        "vLog": "Panasonic V-Log",
+        "cLog3": "Canon Log 3",
+        "logC3": "ARRI LogC3",
+        "logC4": "ARRI LogC4",
+        "fLog2": "Fujifilm F-Log2",
+        "nLog": "Nikon N-Log",
+        "appleLog": "Apple Log",
+        "sLog2": "Sony S-Log2 / S-Gamut",
+        "dLog": "DJI D-Log / D-Gamut",
+        "dLogM": "DJI D-Log M"
+      },
+      "canvas": "画布",
+      "color": "颜色",
+      "compress": "平衡音量",
+      "curves": {
+        "bullet": "子弹时间",
+        "flashIn": "闪进",
+        "flashOut": "闪出",
+        "hero": "英雄时刻",
+        "jumpCut": "跳接",
+        "glide": "滑行",
+        "none": "无",
+        "custom": "自定义"
+      },
+      "denoise": "降噪",
+      "detachAudio": "分离音频",
+      "direction": "方向",
+      "directions": {
+        "down": "向下",
+        "left": "向左",
+        "right": "向右",
+        "up": "向上"
+      },
+      "duration": "时长",
+      "editLook": "编辑调整",
+      "eq": {
+        "high": "高音",
+        "low": "低音",
+        "mid": "中音"
+      },
+      "fade": "淡入淡出",
+      "fadeIn": "淡入",
+      "fadeOut": "淡出",
+      "crossfade": "交叉淡化",
+      "fill": "填充",
+      "fit": "适应",
+      "flipHorizontal": "水平翻转",
+      "flipVertical": "垂直翻转",
+      "font": "字体",
+      "frameRate": "帧率",
+      "highCut": "高切",
+      "interpolation": {
+        "blend": "帧混合",
+        "flow": "光流",
+        "none": "关"
+      },
+      "italic": "斜体",
+      "look": "调整",
+      "lowCut": "低切",
+      "makeUnique": "取消链接调整",
+      "mute": "静音",
+      "nextKeyframe": "下一个关键帧",
+      "opacity": "不透明度",
+      "original": "原始",
+      "positionX": "位置 X",
+      "positionY": "位置 Y",
+      "previousKeyframe": "上一个关键帧",
+      "removeKeyframe": "移除关键帧",
+      "resolution": "分辨率",
+      "rotation": "旋转",
+      "scale": "缩放",
+      "selectedCount_one": "已选择 {{count}} 个片段",
+      "selectedCount_other": "已选择 {{count}} 个片段",
+      "sharedLook_one": "与其他 {{count}} 个片段共享",
+      "sharedLook_other": "与其他 {{count}} 个片段共享",
+      "size": "大小",
+      "solid": "颜色",
+      "speed": "速度",
+      "speedCurve": "速度曲线",
+      "text": "文本",
+      "textPlaceholder": "文本",
+      "timing": "时间",
+      "title": "检查器",
+      "transform": "变换",
+      "transition": "转场",
+      "types": {
+        "adjustment": "调整图层",
+        "audio": "音频",
+        "clip": "片段",
+        "solid": "纯色",
+        "title": "标题"
+      },
+      "volume": "音量",
+      "lineHeight": "行高",
+      "letterSpacing": "字间距",
+      "outline": "描边",
+      "outlineColor": "描边颜色",
+      "shadow": "阴影",
+      "blurFill": "模糊",
+      "reverse": "倒放",
+      "reversePreparing": "正在准备倒放… {{percent}}%",
+      "reverseFailed": "无法倒放此片段",
+      "sameShape": "片段已与画布形状相同，因此“适应”和“填充”效果一样。",
+      "noSelection": "未选择片段",
+      "trackMatte": "轨道遮罩",
+      "mattes": {
+        "none": "无",
+        "alpha": "Alpha",
+        "luma": "亮度"
+      },
+      "invertMatte": "反转",
+      "motionBlur": "运动模糊",
+      "shutter": "快门",
+      "duck": "对白闪避",
+      "duckAmount": "闪避量",
+      "resetCurve": "重置曲线",
+      "matteNoSource": "上方轨道上没有内容。",
+      "frameInterpolation": "帧插值",
+      "cameraLogDetected": "{{name}}（已检测）",
+      "cornerPin": "边角定位",
+      "views": {
+        "video": "视频",
+        "audio": "音频"
+      },
+      "speedPreset": "预设",
+      "type": "类型",
+      "start": "开始",
+      "end": "结束",
+      "cornerRadius": "圆角",
+      "captionCount_one": "已选择 {{count}} 条字幕",
+      "captionCount_other": "已选择 {{count}} 条字幕"
+    },
+    "jobs": {
+      "cancel": "取消",
+      "kinds": {
+        "proxy": "代理",
+        "stabilize": "稳定",
+        "reverse": "倒放",
+        "timelapse": "延时摄影",
+        "depth": "深度",
+        "surfaces": "表面",
+        "tracking": "跟踪",
+        "aiMasks": "AI 蒙版",
+        "reframe": "自动重新构图",
+        "export": "视频导出",
+        "loudness": "响度",
+        "captions": "转录",
+        "beats": "节拍检测",
+        "upload": "Immich 上传"
+      }
+    },
+    "keyframes": {
+      "record": "录制关键帧",
+      "shape": "形状关键帧",
+      "stop": "停止动画",
+      "title": "关键帧",
+      "recording": "正在录制",
+      "stopRecording": "停止录制关键帧",
+      "delete": "删除关键帧",
+      "deleteAll": "删除所有关键帧",
+      "allValues": "所有值",
+      "transform": "变换关键帧",
+      "ease": {
+        "linear": "线性",
+        "easeIn": "缓入",
+        "easeOut": "缓出",
+        "easeInOut": "缓入缓出",
+        "hold": "保持",
+        "custom": "自定义"
+      },
+      "easing": "缓动",
+      "editCurve": "编辑曲线",
+      "keyframe": "关键帧",
+      "value": "值"
+    },
+    "markers": {
+      "add": "添加标记",
+      "addHere": "在此处添加标记",
+      "color": "颜色",
+      "colors": {
+        "blue": "蓝色",
+        "green": "绿色",
+        "orange": "橙色",
+        "purple": "紫色",
+        "red": "红色",
+        "yellow": "黄色"
+      },
+      "delete": "删除标记",
+      "marker": "标记",
+      "rename": "重命名",
+      "remove": "移除标记"
+    },
+    "maskTracking": {
+      "aiFollow": "逐帧跟随",
+      "aiFollowing": "跟随每一帧。",
+      "lost": "目标丢失。请尝试细节更丰富的区域。",
+      "noShape": "请先绘制形状或画笔蒙版。",
+      "title": "跟踪蒙版",
+      "aiFollowPartial": "跟随片段的一部分。",
+      "mask": "蒙版",
+      "custom": "自定义",
+      "maskArea": "跟踪蒙版下方的区域",
+      "customArea": "跟踪你在视频上放置的区域"
+    },
+    "mediaPool": {
+      "addToProject": "添加到项目",
+      "addToTimeline": "添加到时间线",
+      "emptyProject": "尚无媒体。",
+      "import": "导入…",
+      "inProject": "已在项目中",
+      "locate": "定位文件…",
+      "mediaFiles": "媒体文件",
+      "missing": "缺失",
+      "noMatches": "无匹配项",
+      "remove": "从项目中移除",
+      "search": "搜索",
+      "insertAtPlayhead": "在播放头处插入",
+      "overwriteAtPlayhead": "在播放头处覆盖",
+      "all": "全部",
+      "unused": "未使用",
+      "used": "已在时间线中使用",
+      "groupBy": "分组方式",
+      "show": "显示",
+      "filterByType": "按类型过滤",
+      "resetFilters": "重置过滤器",
+      "sort": {
+        "imported": "导入顺序",
+        "name": "名称",
+        "date": "日期",
+        "duration": "时长",
+        "type": "类型"
+      },
+      "group": {
+        "none": "无",
+        "type": "类型",
+        "folder": "文件夹"
+      },
+      "sizes": {
+        "small": "小",
+        "medium": "中",
+        "large": "大"
+      },
+      "kinds": {
+        "video": "视频",
+        "image": "照片",
+        "audio": "音频",
+        "sequence": "序列"
+      },
+      "itemCount_one": "{{count}} 项",
+      "itemCount_other": "{{count}} 项",
+      "newBin": "新建素材箱",
+      "openBin": "打开",
+      "renameBin": "重命名",
+      "deleteBin": "删除素材箱",
+      "moveToBin": "移至素材箱",
+      "emptyBin": "此素材箱为空",
+      "history": {
+        "newBin": "新建素材箱",
+        "renameBin": "重命名素材箱",
+        "deleteBin": "删除素材箱",
+        "moveBin": "移动素材箱",
+        "moveToBin": "移至素材箱"
+      }
+    },
+    "mixer": {
+      "master": "主控",
+      "pan": "声像",
+      "solo": "独奏",
+      "title": "音频混合器",
+      "volume": "音量",
+      "peak": "峰值",
+      "momentary": "瞬时",
+      "shortTerm": "短期",
+      "integrated": "综合",
+      "integratedHint": "自开始播放以来的响度",
+      "target": "导出目标 {{lufs}} LUFS"
+    },
+    "motion": {
+      "analysisFailed": "无法分析此片段。",
+      "analyzing": "正在分析… {{percent}}%",
+      "levels": {
+        "minimal": "低",
+        "off": "关",
+        "recommended": "中",
+        "strong": "高"
+      },
+      "lost": "目标丢失。请尝试更大的框。",
+      "stabilize": "稳定",
+      "tracking": "跟随对象",
+      "trackMotion": "选择对象",
+      "followScale": "缩放和旋转"
+    },
+    "nesting": {
+      "back": "返回",
+      "nest": "嵌套",
+      "open": "打开嵌套片段",
+      "refused": {
+        "empty": "请至少选择一个视频片段。",
+        "gap": "请选择主轨道上相邻的片段。"
+      },
+      "unnest": "取消嵌套",
+      "name_one": "嵌套 {{count}}",
+      "name_other": "嵌套 {{count}}"
+    },
+    "timeline": {
+      "addTitle": "添加标题",
+      "adjustmentLayer": "调整图层",
+      "clearRange": "清除入点和出点",
+      "copy": "复制",
+      "delete": "删除",
+      "detachAudio": "分离音频",
+      "duplicate": "创建副本",
+      "fit": "适应",
+      "hideBeats": "隐藏节拍",
+      "crossfade": "交叉淡化",
+      "removeCrossfade": "移除交叉淡化",
+      "hideTrack": "隐藏轨道",
+      "join": "合并片段",
+      "lockTrack": "锁定轨道",
+      "loop": "循环",
+      "main": "主轨道",
+      "makeLookUnique": "取消链接调整",
+      "missing": "缺失",
+      "nextFrame": "下一帧",
+      "paste": "粘贴",
+      "playInToOut": "从入点播放到出点",
+      "playbackSettings": "播放质量",
+      "previousFrame": "上一帧",
+      "quality": {
+        "auto": "自动",
+        "full": "完整",
+        "half": "二分之一",
+        "quarter": "四分之一"
+      },
+      "qualityShort": {
+        "auto": "自动",
+        "full": "完整",
+        "half": "1/2",
+        "quarter": "1/4"
+      },
+      "rippleDelete": "删除并封闭间隙",
+      "setIn": "设置入点",
+      "setOut": "设置出点",
+      "showBeats": "显示节拍",
+      "showTrack": "显示轨道",
+      "snapping": "吸附",
+      "solid": "纯色",
+      "toEnd": "跳到结尾",
+      "toStart": "跳到开头",
+      "transition": "转场",
+      "trimHint": "拖动以修剪，{{alt}}+拖动以滚动编辑",
+      "unlockTrack": "解锁轨道",
+      "useProxies": "使用代理",
+      "zoom": "缩放",
+      "zoomIn": "放大",
+      "zoomOut": "缩小",
+      "saveAsPreset": "保存为预设",
+      "link": "链接",
+      "unlink": "取消链接",
+      "freezeFrame": "定格",
+      "reverse": "倒放",
+      "split": "分割",
+      "removeTransition": "移除转场",
+      "slipHint": "拖动以在片段内滑移媒体，或 {{alt}}+拖动片段",
+      "deleteGap": "删除间隙",
+      "closeAllGaps": "封闭所有间隙",
+      "dragIn": "拖动以移动入点",
+      "dragOut": "拖动以移动出点",
+      "collapse": "折叠时间线",
+      "expand": "展开时间线"
+    },
+    "titles": {
+      "presets": {
+        "lowerThird": "下三分之一字幕",
+        "title": "标题"
+      },
+      "text": "文本"
+    },
+    "toasts": {
+      "invalidProject": "不是 RapidRAW 视频项目。",
+      "openFailed": "无法打开项目。",
+      "playbackFailed": "无法播放。",
+      "saveFailed": "无法保存项目。",
+      "timelapseFailed": "无法创建延时摄影。",
+      "analysisFailed": "无法分析片段。",
+      "probeFailed_one": "无法读取 {{file}}。",
+      "probeFailed_other": "无法读取 {{count}} 个文件。",
+      "aiMasksFailed": "无法更新 AI 蒙版。",
+      "reframeFailed": "无法对片段重新构图。",
+      "frameFailed": "无法显示此帧。",
+      "needsGpuRenderer": "视频编辑需要 GPU 渲染器。"
+    },
+    "tracking": {
+      "backward": "向后",
+      "both": "双向",
+      "forward": "向前",
+      "track": "跟踪",
+      "progress": "正在跟踪… {{percent}}%",
+      "cancel": "取消",
+      "noClip": "请将播放头移到视频片段上。",
+      "tracked": "已跟踪 {{duration}}。",
+      "remove": "移除",
+      "position": "位置",
+      "planar": "平面",
+      "pinToPlane": "固定到平面",
+      "notConvex": "平面轮廓自相交。"
+    },
+    "transitions": {
+      "blur": "模糊",
+      "dipToBlack": "黑场过渡",
+      "dipToWhite": "白场过渡",
+      "dissolve": "溶解",
+      "iris": "圆形划像",
+      "none": "无",
+      "push": "推入",
+      "slide": "滑动",
+      "spin": "旋转",
+      "whip": "甩镜",
+      "wipe": "擦除",
+      "zoom": "缩放",
+      "fade": "淡化",
+      "pop": "弹出",
+      "typewriter": "打字机",
+      "words": "逐词"
+    },
+    "frame": {
+      "export": "导出帧",
+      "saved": "已保存 {{file}}",
+      "failed": "无法导出帧。"
+    },
+    "lookTarget": {
+      "alsoSelected": "面板仅编辑此片段。在时间线中使用“粘贴调整”会应用到所有选中的片段。",
+      "noCrop": "调整图层无法裁剪。",
+      "photoOnly": "AI 编辑仅适用于照片片段。",
+      "offline": "此片段的媒体处于离线状态。"
+    },
+    "viewer": {
+      "clipOnly": "仅片段",
+      "clipOnlyHint": "标题和其他图层已隐藏",
+      "goToClip": "转到片段",
+      "showProgram": "显示节目"
+    },
+    "montage": {
+      "kenBurns": "Ken Burns",
+      "kenBurnsOptions": {
+        "zoomIn": "放大",
+        "zoomOut": "缩小",
+        "panLeft": "向左平移",
+        "panRight": "向右平移",
+        "random": "随机",
+        "none": "无"
+      },
+      "cutToBeat": "按节拍剪辑",
+      "everyBeat_one": "每拍",
+      "everyBeat_other": "每 {{count}} 拍",
+      "beatsPerCut": "每次剪辑的节拍数",
+      "arrange": "排列",
+      "layouts": {
+        "sideBySide": "并排",
+        "stack": "堆叠",
+        "grid": "网格",
+        "pictureInPicture": "画中画",
+        "fullFrame": "全画面"
+      },
+      "mixed": "混合",
+      "beatsFailed": "无法检测节拍。",
+      "noBeats": "未找到节拍。",
+      "customLayout": "自定义布局"
+    },
+    "presets": {
+      "applyToSelection": "应用到所选片段"
+    },
+    "project": {
+      "media": "媒体",
+      "settings": "设置",
+      "rename": "重命名",
+      "namePlaceholder": "项目名称",
+      "untitled": "未命名项目",
+      "exit": "退出项目",
+      "save": "保存",
+      "unsaved": "未保存",
+      "saveChanges": "是否保存对“{{name}}”的更改？",
+      "dontSave": "不保存",
+      "openProject": "打开项目…",
+      "projects": "项目",
+      "openRecent": "打开最近的项目",
+      "noRecent": "无最近项目",
+      "removeFromRecent": "从最近项目中移除",
+      "more": "更多…",
+      "saveAs": "项目另存为"
+    },
+    "proxies": {
+      "title": "代理",
+      "hint": "用于流畅播放的较小副本。导出始终使用原始文件。",
+      "notNeeded": "你的媒体无需代理即可流畅播放。",
+      "status": "状态",
+      "creatingCount_one": "正在创建 {{count}} 个代理 · {{percent}}%",
+      "creatingCount_other": "正在创建 {{count}} 个代理 · {{percent}}%",
+      "createAll": "创建代理",
+      "create": "创建代理",
+      "ready": "代理已就绪",
+      "queued": "代理已排队",
+      "creating": "正在创建代理… {{percent}}%",
+      "readyCount_one": "已就绪 {{ready}}/{{count}}",
+      "readyCount_other": "已就绪 {{ready}}/{{count}}"
+    },
+    "playback": {
+      "closeCrop": "关闭裁剪以播放",
+      "play": "播放",
+      "pause": "暂停"
+    },
+    "masks": {
+      "cutout": "抠像",
+      "cutoutHint": "使片段在此蒙版之外透明。",
+      "colorKey": "颜色键",
+      "colorKeyHint": "同时移除背景色，例如绿幕。",
+      "keyColors": {
+        "green": "绿色",
+        "blue": "蓝色",
+        "custom": "自定义"
+      },
+      "keyColor": "键控颜色",
+      "pickColor": "从屏幕拾取",
+      "tolerance": "容差",
+      "softness": "柔和度",
+      "spill": "溢色"
+    },
+    "audio": {
+      "equalizer": "均衡器",
+      "enhance": "增强",
+      "off": "关",
+      "resetEqualizer": "重置均衡器",
+      "compressorInfo": "阈值 {{threshold}} · 比率 {{ratio}}:1"
+    },
+    "timelapse": {
+      "create": "创建延时摄影",
+      "frameRate": "帧率",
+      "deflicker": "去闪烁",
+      "destination": "添加到",
+      "newProject": "新建项目",
+      "createButton": "创建",
+      "name": "{{name}} 延时摄影",
+      "section": "延时摄影",
+      "photos": "照片",
+      "rendering": "正在渲染… {{percent}}%",
+      "failed": "无法渲染延时摄影。",
+      "retry": "重试",
+      "mixed": "无法混用 RAW 和非 RAW 照片。",
+      "cancelled": "渲染已取消。",
+      "failedPhoto": "无法渲染 {{file}}。",
+      "photoCount_one": "{{count}} 张照片",
+      "photoCount_other": "{{count}} 张照片",
+      "summary_one": "{{count}} 张照片 · {{duration}}",
+      "summary_other": "{{count}} 张照片 · {{duration}}",
+      "missingPhoto": "找不到 {{file}}。"
+    },
+    "reframe": {
+      "action": "自动重新构图",
+      "clips": "自动重新构图片段",
+      "progress": "正在重新构图… {{percent}}%",
+      "done": "已重新构图"
+    },
+    "history": {
+      "add_one": "添加{{type}}",
+      "add_other": "添加 {{count}} 项",
+      "delete_one": "删除{{type}}",
+      "delete_other": "删除 {{count}} 项",
+      "move_one": "移动{{type}}",
+      "move_other": "移动 {{count}} 项",
+      "trim_one": "修剪{{type}}",
+      "trim_other": "修剪 {{count}} 项",
+      "edit_one": "编辑{{type}}",
+      "edit_other": "编辑 {{count}} 项",
+      "speed": "更改速度",
+      "transition": "编辑转场",
+      "split": "分割",
+      "join": "合并",
+      "timeline": "编辑时间线",
+      "nest": "嵌套",
+      "unnest": "取消嵌套",
+      "captions": "编辑字幕",
+      "marker": {
+        "add": "添加标记",
+        "delete": "删除标记",
+        "edit": "编辑标记"
+      },
+      "media": {
+        "add": "添加媒体",
+        "delete": "移除媒体",
+        "edit": "编辑媒体"
+      },
+      "settings": "项目设置",
+      "tracks": "编辑轨道",
+      "project": "编辑项目"
     }
   }
 }

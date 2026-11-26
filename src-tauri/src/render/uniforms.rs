@@ -167,7 +167,7 @@ pub struct GlobalAdjustments {
     pub red_curve_count: u32,
     pub green_curve_count: u32,
     pub blue_curve_count: u32,
-    _pad_end1: f32,
+    pub pixelate: f32,
     _pad_end2: f32,
     _pad_end3: f32,
     _pad_end4: f32,
@@ -216,7 +216,7 @@ pub struct MaskAdjustments {
     pub color_grading_global: ColorGradeSettings,
     pub color_grading_blending: f32,
     pub color_grading_balance: f32,
-    _pad5: f32,
+    pub pixelate: f32,
     _pad6: f32,
 
     pub hsl: [HslColor; 8],
@@ -844,7 +844,7 @@ fn get_global_adjustments_from_json(
         red_curve_count: red_points.len() as u32,
         green_curve_count: green_points.len() as u32,
         blue_curve_count: blue_points.len() as u32,
-        _pad_end1: 0.0,
+        pixelate: get_val("pixelate", "pixelateAmount", 1.0, None),
         _pad_end2: 0.0,
         _pad_end3: 0.0,
         _pad_end4: 0.0,
@@ -998,7 +998,7 @@ fn get_mask_adjustments_from_json(
         } else {
             0.0
         },
-        _pad5: 0.0,
+        pixelate: get_val("pixelate", "pixelateAmount", 1.0),
         _pad6: 0.0,
 
         hsl: if color_mixer_visible {

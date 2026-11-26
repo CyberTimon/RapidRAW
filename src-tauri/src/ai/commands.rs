@@ -4,12 +4,18 @@ use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 
 use base64::{Engine as _, engine::general_purpose};
-use image::{DynamicImage, GenericImageView, GrayImage, ImageFormat};
+use image::{
+    DynamicImage, EncodableLayout, GenericImageView, GrayImage, ImageBuffer, ImageFormat,
+    PixelWithColorType,
+};
 use serde::Serialize;
 use serde_json::{Value, json};
 
 use crate::ai::connector;
-use crate::ai::models::{AiMaskModel, AiModels, AiState, get_or_init_ai_models};
+use crate::ai::models::{
+    AiMaskModel, AiModels, AiState, effect_map_session, get_or_init_ai_models,
+    park_effect_map_session,
+};
 use crate::ai::processing::{
     AiDepthMaskParameters, AiFaceMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters,
     AiSubjectMaskParameters, AiTextMaskParameters, CachedDepthMap, ESAM3_FACE_SCORE_THRESHOLD,
@@ -51,13 +57,33 @@ pub fn cancel_ai_task(task_id: String, state: tauri::State<'_, AppState>) -> Res
     Ok(())
 }
 
-fn encode_to_base64_png(image: &GrayImage) -> Result<String, String> {
+pub(crate) fn encode_png<P>(image: &ImageBuffer<P, Vec<P::Subpixel>>) -> Result<Vec<u8>, String>
+where
+    P: PixelWithColorType,
+    [P::Subpixel]: EncodableLayout,
+{
     let mut buf = Cursor::new(Vec::new());
     image
         .write_to(&mut buf, ImageFormat::Png)
         .map_err(|e| e.to_string())?;
-    let base64_str = general_purpose::STANDARD.encode(buf.get_ref());
-    Ok(format!("data:image/png;base64,{}", base64_str))
+    Ok(buf.into_inner())
+}
+
+pub(crate) fn png_data_url(png: &[u8]) -> String {
+    format!(
+        "data:image/png;base64,{}",
+        general_purpose::STANDARD.encode(png)
+    )
+}
+
+pub(crate) fn data_url_bytes(data_url: &str) -> Option<Vec<u8>> {
+    general_purpose::STANDARD
+        .decode(data_url.split_once(',').map_or(data_url, |(_, data)| data))
+        .ok()
+}
+
+pub(crate) fn encode_to_base64_png(image: &GrayImage) -> Result<String, String> {
+    Ok(png_data_url(&encode_png(image)?))
 }
 
 #[derive(Clone, Copy)]
@@ -434,7 +460,7 @@ fn cached_image_embeddings(
     Ok(embeddings)
 }
 
-fn unrotate_box(
+pub(crate) fn unrotate_box(
     start_point: (f64, f64),
     end_point: (f64, f64),
     (img_w, img_h): (u32, u32),
@@ -924,17 +950,18 @@ pub async fn generate_effect_map(
             )
         }
         EffectMapKind::Normal => {
-            let session = crate::ai::models::get_or_init_normal_model(
-                app_handle,
-                &state.ai_state,
-                &state.ai_init_lock,
-            )
-            .await
-            .map_err(|e| e.to_string())?;
-            DynamicImage::ImageRgba8(
-                crate::ai::processing::run_normal_model(source_image, &session)
+            let session = Mutex::new(
+                effect_map_session(app_handle, &state.ai_state, &state.ai_init_lock, kind)
+                    .await
                     .map_err(|e| e.to_string())?,
-            )
+            );
+            let normals = crate::ai::processing::run_normal_model(source_image, &session)
+                .map_err(|e| e.to_string())?;
+            park_effect_map_session(
+                kind,
+                session.into_inner().unwrap_or_else(|e| e.into_inner()),
+            );
+            DynamicImage::ImageRgba8(normals)
         }
     };
 
@@ -989,7 +1016,7 @@ pub async fn get_depth_preview(
         crate::effects::maps::build_depth_preview(
             &loaded_image.image,
             loaded_image.is_raw,
-            &loaded_image.path,
+            loaded_image.lens_path(),
             &js_adjustments,
             map_key.as_deref(),
             map_data.as_deref(),

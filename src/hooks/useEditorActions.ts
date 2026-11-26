@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import debounce from 'lodash.debounce';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 import { TFunction } from 'i18next';
 import { SignalHigh, SignalLow, SignalMedium } from 'lucide-react';
-import { useEditorStore, debouncedSetHistory, getZoomContentSize } from '../store/useEditorStore';
+import { useEditorStore, debouncedSave, debouncedSetHistory, getZoomContentSize } from '../store/useEditorStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { adjustmentsFromMetadata, getDefaultAdjustmentsFor } from '../utils/developDefaults';
@@ -17,9 +16,9 @@ import {
   CROP_GEOMETRY_KEYS,
   INITIAL_ADJUSTMENTS,
   LENS_CORRECTION_AUTO,
-  COPYABLE_ADJUSTMENT_KEYS,
+  copyableAdjustments,
   isSameCropGeometry,
-  PasteMode,
+  pastePatch,
   getActiveTools,
   mergeActiveTools,
   normalizeLoadedAdjustments,
@@ -33,15 +32,15 @@ import { Option, Panel } from '../types/ui';
 import { SelectedImage } from '../types/editor';
 import { globalImageCache } from '../utils/ImageLRUCache';
 import { getDevicePixelRatio } from '../utils/displayScale';
+import {
+  photoEditorImage,
+  programCanvas,
+  routeLookCopy,
+  routeLookPaste,
+  routeLookPatch,
+} from '../store/videoIntegration';
 
-export { debouncedSetHistory };
-
-export const debouncedSave = debounce((path: string, adjustmentsToSave: Adjustments) => {
-  invoke(Invokes.SaveMetadataAndUpdateThumbnail, { path, adjustments: adjustmentsToSave }).catch((err) => {
-    console.error('Auto-save failed:', err);
-    toast.error(`Failed to save changes: ${err}`);
-  });
-}, 300);
+export { debouncedSave, debouncedSetHistory };
 
 const AUTO_ADJUST_MODE_ICONS: Record<AutoAdjustMode, any> = {
   [AutoAdjustMode.Subtle]: SignalLow,
@@ -166,7 +165,8 @@ const getCompareState = (mode: CompareMode, adjustments: Adjustments) =>
     : { showOriginal: false, previewOverride: null, compareView: mode };
 
 export const reloadAdjustmentsForPaths = async (paths: string[]) => {
-  const { selectedImage, setEditor, resetHistory } = useEditorStore.getState();
+  const { setEditor, resetHistory } = useEditorStore.getState();
+  const selectedImage = photoEditorImage();
   const { libraryActivePath, setLibrary } = useLibraryStore.getState();
   if (selectedImage && paths.includes(selectedImage.path)) {
     const meta: any = await invoke(Invokes.LoadMetadata, { path: selectedImage.path });
@@ -205,6 +205,13 @@ export const cancelCrop = () => {
       });
     }
   }
+};
+
+export const adjustmentsCopySource = () => {
+  const selectedImage = photoEditorImage();
+  const { libraryActivePath, multiSelectedPaths } = useLibraryStore.getState();
+  const editingPath = useUIStore.getState().activeView === 'editor' ? selectedImage?.path : undefined;
+  return editingPath || libraryActivePath || multiSelectedPaths[0] || selectedImage?.path;
 };
 
 export function useEditorActions() {
@@ -350,7 +357,8 @@ export function useEditorActions() {
       invoke(Invokes.ResetAdjustmentsForPaths, { paths: pathsToReset, toNeutral })
         .then(async () => {
           const { libraryActivePath, setLibrary } = useLibraryStore.getState();
-          const { selectedImage, resetHistory } = useEditorStore.getState();
+          const { resetHistory } = useEditorStore.getState();
+          const selectedImage = photoEditorImage();
           if (libraryActivePath && pathsToReset.includes(libraryActivePath))
             resetTarget(libraryActivePath)
               .then((adjustments) => setLibrary({ libraryActiveAdjustments: adjustments }))
@@ -416,6 +424,7 @@ export function useEditorActions() {
 
   const handleEnableAdjustments = useCallback(
     (paths: string[], patch: Partial<Adjustments>) => {
+      if (routeLookPatch(patch)) return;
       const { selectedImage } = useEditorStore.getState();
       const editingPath = useUIStore.getState().activeView === 'editor' ? selectedImage?.path : undefined;
       const batchPaths = paths.filter((path) => path !== editingPath);
@@ -432,14 +441,13 @@ export function useEditorActions() {
   );
 
   const handleCopyAdjustments = useCallback(async (pathOrEvent?: string | any) => {
+    if (routeLookCopy()) return;
     const pathOverride = typeof pathOrEvent === 'string' ? pathOrEvent : undefined;
-    const { selectedImage, adjustments } = useEditorStore.getState();
-    const { libraryActivePath, multiSelectedPaths } = useLibraryStore.getState();
+    const { adjustments } = useEditorStore.getState();
+    const selectedImage = photoEditorImage();
     let sourceAdjustments: any = null;
 
-    const editingPath = useUIStore.getState().activeView === 'editor' ? selectedImage?.path : undefined;
-    const pathToCopyFrom =
-      pathOverride || editingPath || libraryActivePath || multiSelectedPaths[0] || selectedImage?.path;
+    const pathToCopyFrom = pathOverride || adjustmentsCopySource();
 
     if (selectedImage && pathToCopyFrom === selectedImage.path) {
       sourceAdjustments = adjustments;
@@ -455,13 +463,7 @@ export function useEditorActions() {
 
     if (!sourceAdjustments) return;
 
-    const adjustmentsToCopy: any = {};
-
-    for (const key of COPYABLE_ADJUSTMENT_KEYS) {
-      if (Object.prototype.hasOwnProperty.call(sourceAdjustments, key)) {
-        adjustmentsToCopy[key] = structuredClone(sourceAdjustments[key]);
-      }
-    }
+    const adjustmentsToCopy = copyableAdjustments(sourceAdjustments);
     const copiedAdjustmentsDefaults = pathToCopyFrom
       ? await getDefaultAdjustmentsFor(pathToCopyFrom).catch(() => null)
       : null;
@@ -471,31 +473,20 @@ export function useEditorActions() {
 
   const handlePasteAdjustments = useCallback(
     (paths?: string[]) => {
-      const { copiedAdjustments, copiedAdjustmentsDefaults, selectedImage } = useEditorStore.getState();
+      if (routeLookPaste()) return;
+      const { copiedAdjustments, copiedAdjustmentsDefaults } = useEditorStore.getState();
+      const selectedImage = photoEditorImage();
       const { multiSelectedPaths } = useLibraryStore.getState();
       const { appSettings } = useSettingsStore.getState();
       const { setProcess } = useProcessStore.getState();
 
       if (!copiedAdjustments || !appSettings) return;
 
-      const { mode, includedAdjustments } = appSettings.copyPasteSettings ?? {
-        mode: PasteMode.Merge,
-        includedAdjustments: COPYABLE_ADJUSTMENT_KEYS,
-      };
-      const adjustmentsToApply: Partial<Adjustments> = {};
-
-      for (const key of includedAdjustments) {
-        if (Object.prototype.hasOwnProperty.call(copiedAdjustments, key)) {
-          const value = copiedAdjustments[key as keyof Adjustments];
-          if (mode === PasteMode.Merge) {
-            const defaultValue = (copiedAdjustmentsDefaults ?? INITIAL_ADJUSTMENTS)[key as keyof Adjustments];
-            if (JSON.stringify(value) !== JSON.stringify(defaultValue))
-              adjustmentsToApply[key as keyof Adjustments] = value;
-          } else {
-            adjustmentsToApply[key as keyof Adjustments] = value;
-          }
-        }
-      }
+      const adjustmentsToApply = pastePatch(
+        copiedAdjustments,
+        copiedAdjustmentsDefaults,
+        appSettings.copyPasteSettings,
+      );
 
       if (Object.keys(adjustmentsToApply).length === 0) {
         setProcess({ isPasted: true });
@@ -535,7 +526,7 @@ export function useEditorActions() {
     const dpr = getDevicePixelRatio();
     let targetZoomPercent: number;
 
-    const { width: contentWidth, height: contentHeight } = getZoomContentSize(editorState);
+    const { width: contentWidth, height: contentHeight } = getZoomContentSize(editorState, programCanvas());
 
     if (fitToWindow) {
       if (contentWidth > 0 && contentHeight > 0 && baseRenderSize.width > 0 && baseRenderSize.height > 0) {

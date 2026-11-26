@@ -2,7 +2,7 @@ use crate::ai::processing::{
     AiDepthMaskParameters, AiForegroundMaskParameters, AiSkyMaskParameters, AiSubjectMaskParameters,
 };
 
-use crate::masks::morphology::{GrowFeatherParameters, apply_grow_and_feather};
+use crate::masks::morphology::{GrowFeatherParameters, apply_grow_and_feather, gaussian_blur_mask};
 use crate::masks::transform::{TransformParams, transform_full_mask};
 use base64::{Engine as _, engine::general_purpose};
 use image::GrayImage;
@@ -64,6 +64,8 @@ pub fn generate_ai_sky_bitmap(
     Some(mask)
 }
 
+const UPSAMPLED_DEPTH_SMOOTHING: f32 = 0.5;
+
 pub fn generate_ai_depth_bitmap(
     params_value: &Value,
     width: u32,
@@ -75,6 +77,7 @@ pub fn generate_ai_depth_bitmap(
     let grow_feather: GrowFeatherParameters =
         serde_json::from_value(params_value.clone()).unwrap_or_default();
     let data_url = params.mask_data_base64?;
+    let mask_scale = params_value["maskScale"].as_f64().unwrap_or(1.0) as f32;
 
     let tf = TransformParams {
         rotation: params.rotation.unwrap_or(0.0),
@@ -83,11 +86,14 @@ pub fn generate_ai_depth_bitmap(
         orientation_steps: params.orientation_steps.unwrap_or(0),
         width,
         height,
-        scale,
+        scale: scale / mask_scale,
         crop_offset,
     };
 
-    let depth_map = generate_ai_bitmap_from_base64(&data_url, &tf)?;
+    let mut depth_map = generate_ai_bitmap_from_base64(&data_url, &tf)?;
+    if mask_scale < 1.0 {
+        depth_map = gaussian_blur_mask(&depth_map, tf.scale * UPSAMPLED_DEPTH_SMOOTHING);
+    }
 
     let (w, h) = depth_map.dimensions();
 

@@ -139,6 +139,7 @@ pub fn sync_album_path_changes(
     deletions: Option<&HashSet<String>>,
     folder_rename: Option<(&str, &str)>,
 ) {
+    crate::video::project_files::follow_moved_projects(app_handle, renames, folder_rename);
     let _albums = lock_albums();
     if let Ok(mut tree) = get_albums(app_handle.clone()) {
         let mut changed = false;

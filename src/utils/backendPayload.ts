@@ -1,4 +1,6 @@
+import { invoke } from '@tauri-apps/api/core';
 import { useEditorStore } from '../store/useEditorStore';
+import { Invokes } from '../types/invokes';
 import { Adjustments } from './adjustments';
 
 const CACHED_EFFECT_MAP_PREFIX = '__cached__:';
@@ -21,12 +23,36 @@ const getEffectMapId = (value: string): number => {
   return id;
 };
 
+let sentEpoch = 0;
+let cacheResets = 0;
+
+export const forgetSentPatches = () => {
+  sentEpoch += 1;
+  useEditorStore.getState().patchesSentToBackend.clear();
+};
+
+const resettingPatchCache = async <T>(command: string, args?: Record<string, unknown>): Promise<T> => {
+  forgetSentPatches();
+  cacheResets += 1;
+  try {
+    return await invoke<T>(command, args);
+  } finally {
+    cacheResets -= 1;
+    forgetSentPatches();
+  }
+};
+
+export const loadImage = <T>(path: string) => resettingPatchCache<T>(Invokes.LoadImage, { path });
+
+export const clearSessionCaches = () => resettingPatchCache<void>('clear_session_caches');
+
 export interface AdjustmentsPayload {
   payload: any;
   markSent(): void;
 }
 
 export const prepareAdjustmentsPayload = (adjustments: Adjustments): AdjustmentsPayload => {
+  const epoch = sentEpoch;
   const { lensBlurDepthMap, fogDepthMap, motionBlurDepthMap, relightNormalMap, aiPatches, ...rest } = adjustments;
   const payload: any = structuredClone(rest);
   payload.aiPatches = Array.isArray(aiPatches)
@@ -102,6 +128,7 @@ export const prepareAdjustmentsPayload = (adjustments: Adjustments): Adjustments
   return {
     payload,
     markSent: () => {
+      if (epoch !== sentEpoch || cacheResets > 0) return;
       const sent = useEditorStore.getState().patchesSentToBackend;
       newlySent.forEach((id) => sent.add(id));
     },

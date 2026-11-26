@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,7 @@ use crate::platform::main_window::{
 };
 use crate::render::cache_utils::clear_preview_slot;
 use crate::render::color_space::OutputColorSpace;
-use crate::render::gpu::context::current_gpu_context;
+use crate::render::gpu::context::{GpuContext, current_gpu_context};
 use crate::render::gpu::display::{DisplayView, WgpuDisplay};
 use crate::render::hdr::Headroom;
 
@@ -31,6 +31,8 @@ const OVERSAMPLE_LIMIT: u32 = 2;
 const UNDERSAMPLE_LIMIT: f32 = 0.8;
 static RESIZE_GENERATION: AtomicU64 = AtomicU64::new(0);
 static RENDER_GENERATION: AtomicU64 = AtomicU64::new(0);
+static ATTACHED: AtomicBool = AtomicBool::new(false);
+static VIDEO_EPOCH: AtomicU64 = AtomicU64::new(0);
 #[cfg(not(target_os = "android"))]
 const VIEWER_STATE_FILE: &str = "viewer_window_state.json";
 #[cfg(not(target_os = "android"))]
@@ -276,6 +278,51 @@ pub fn record_viewer_frame(
     }
 }
 
+pub fn video_epoch() -> u64 {
+    VIDEO_EPOCH.load(Ordering::Acquire)
+}
+
+pub fn show_video_frame(
+    app_handle: &AppHandle,
+    context: &GpuContext,
+    view: &wgpu::TextureView,
+    size: [f32; 2],
+    epoch: u64,
+) {
+    if !ATTACHED.load(Ordering::Acquire) {
+        return;
+    }
+    let takeover = {
+        let mut display = context
+            .viewer_display
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        match display.as_mut() {
+            Some(display) if VIDEO_EPOCH.load(Ordering::Acquire) == epoch => {
+                display.show_video(&context.device, &context.queue, view, size)
+            }
+            _ => return,
+        }
+    };
+    if takeover {
+        viewer_state(&app_handle.state::<AppState>()).session = ViewerSession::default();
+        notify_viewer(app_handle, "viewer-info");
+    }
+}
+
+fn release_video(app_handle: &AppHandle) {
+    VIDEO_EPOCH.fetch_add(1, Ordering::AcqRel);
+    if let Some(ctx) = current_gpu_context(&app_handle.state::<AppState>())
+        && let Some(display) = ctx
+            .viewer_display
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_mut()
+    {
+        display.clear_video(&ctx.device, &ctx.queue);
+    }
+}
+
 pub fn set_viewer_background(app_handle: &AppHandle, color: [f32; 4]) {
     let state = app_handle.state::<AppState>();
     {
@@ -320,11 +367,14 @@ pub fn handle_viewer_resized(window: &tauri::Window, size: tauri::PhysicalSize<u
 }
 
 fn release_viewer_display(app_handle: &AppHandle) {
+    ATTACHED.store(false, Ordering::Release);
     if let Some(ctx) = current_gpu_context(&app_handle.state::<AppState>()) {
-        ctx.viewer_display
+        let display = ctx
+            .viewer_display
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .take();
+        drop(display);
     }
 }
 
@@ -349,12 +399,15 @@ pub fn handle_viewer_destroyed(app_handle: &AppHandle) {
 }
 
 pub fn handle_close_requested(window: &tauri::Window, api: &tauri::CloseRequestApi) {
-    match window.label() {
-        VIEWER_LABEL => api.prevent_close(),
-        "main" => {}
-        _ => return,
+    if window.label() != VIEWER_LABEL {
+        return;
     }
-    let app_handle = window.app_handle().clone();
+    api.prevent_close();
+    close_viewer_later(window.app_handle());
+}
+
+pub fn close_viewer_later(app_handle: &AppHandle) {
+    let app_handle = app_handle.clone();
     std::thread::spawn(move || close_viewer(&app_handle));
 }
 
@@ -429,6 +482,7 @@ fn place_viewer(app_handle: &AppHandle, window: &tauri::WebviewWindow) -> Option
 fn attach_viewer_display(
     app_handle: &AppHandle,
     window: &tauri::WebviewWindow,
+    settings: &crate::app::settings::AppSettings,
 ) -> Result<(), String> {
     let state = app_handle.state::<AppState>();
     let ctx = crate::render::gpu::context::get_or_init_gpu_context(&state, app_handle)?;
@@ -448,6 +502,9 @@ fn attach_viewer_display(
     display.flush(&ctx.device, &ctx.queue);
     *ctx.viewer_display.lock().unwrap_or_else(|e| e.into_inner()) = Some(display);
     crate::render::gpu::display::invalidate_displays();
+    crate::render::gpu::display::refresh_displays(app_handle, &ctx, settings);
+    crate::render::gpu::display::frame_output_changed();
+    ATTACHED.store(true, Ordering::Release);
     Ok(())
 }
 
@@ -485,7 +542,7 @@ pub async fn open_viewer_window(title: String, app_handle: AppHandle) -> Result<
         apply_saved_ui_scale(&window, &settings);
 
         if settings.wgpu_renderer_enabled()
-            && let Err(e) = attach_viewer_display(&app_handle, &window)
+            && let Err(e) = attach_viewer_display(&app_handle, &window, &settings)
         {
             let _ = window.destroy();
             return Err(e);
@@ -510,6 +567,13 @@ pub async fn open_viewer_window(title: String, app_handle: AppHandle) -> Result<
 #[tauri::command]
 pub async fn close_viewer_window(app_handle: AppHandle) -> Result<(), String> {
     tokio::task::spawn_blocking(move || close_viewer(&app_handle))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn release_viewer_video(app_handle: AppHandle) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || release_video(&app_handle))
         .await
         .map_err(|e| e.to_string())
 }

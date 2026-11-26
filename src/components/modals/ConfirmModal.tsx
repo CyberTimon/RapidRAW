@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { useModalGate } from '../../store/useUIStore';
 
 interface ConfirmModalProps {
   cancelText?: string;
@@ -13,6 +14,8 @@ interface ConfirmModalProps {
   message?: string;
   onClose(): void;
   onConfirm?(): void;
+  onSecondary?(): void;
+  secondaryText?: string;
   title?: string;
 }
 
@@ -24,10 +27,13 @@ export default function ConfirmModal({
   message,
   onClose,
   onConfirm,
+  onSecondary,
+  secondaryText,
   title,
 }: ConfirmModalProps) {
   const { t } = useTranslation();
   const [isMounted, setIsMounted] = useState(false);
+  useModalGate(isOpen);
   const [show, setShow] = useState(false);
 
   const resolvedCancelText = cancelText || t('modals.confirm.cancel');
@@ -55,6 +61,11 @@ export default function ConfirmModal({
     }
     onClose();
   }, [onConfirm, onClose]);
+
+  const handleSecondary = useCallback(() => {
+    onSecondary?.();
+    onClose();
+  }, [onSecondary, onClose]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -102,8 +113,17 @@ export default function ConfirmModal({
         <Text variant={TextVariants.title} id="confirm-modal-title" className="mb-4">
           {title}
         </Text>
-        <Text className="mb-6 whitespace-pre-wrap">{message}</Text>
+        {message && <Text className="mb-6 whitespace-pre-wrap">{message}</Text>}
         <div className="flex justify-end gap-3 mt-5">
+          {secondaryText && (
+            <Button
+              className="mr-auto bg-bg-primary shadow-transparent hover:bg-bg-primary text-white shadow-none focus:outline-hidden focus:ring-0"
+              onClick={handleSecondary}
+              variant="ghost"
+            >
+              {secondaryText}
+            </Button>
+          )}
           <Button
             className="bg-bg-primary shadow-transparent hover:bg-bg-primary text-white shadow-none focus:outline-hidden focus:ring-0"
             onClick={onClose}

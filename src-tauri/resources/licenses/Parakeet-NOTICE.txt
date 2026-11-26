@@ -1,0 +1,8 @@
+RapidRAW creates automatic video captions with the speech recognition model
+Parakeet TDT 0.6B v3 by NVIDIA (https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3).
+
+The model is licensed under the Creative Commons Attribution 4.0 International
+license (CC-BY-4.0, https://creativecommons.org/licenses/by/4.0/).
+RapidRAW downloads the ONNX export by istupakov
+(https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx) without modifications
+when captions are generated for the first time.

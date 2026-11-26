@@ -27,16 +27,41 @@ import { Panel } from '../../../types/ui';
 import { RenderSize } from '../../../hooks/useImageRenderSize';
 import { useDelayedLoading } from '../../../hooks/useDelayedLoading';
 import { useTranslation } from 'react-i18next';
+import {
+  isVideoPlaying as isPlaybackRunning,
+  pausePlayback,
+  sampleMaskReference,
+  useFollowEpoch,
+  useMaskFrameTime,
+  useVideoPlaying,
+} from '../../../store/videoIntegration';
+import { TrackedContainer, mapParameters, maskWarp, unmapUpdate } from '../../../utils/video/maskTracking';
 import { useEditorStore, WgpuPhase } from '../../../store/useEditorStore';
 import { MIXER_SAMPLE_SCREEN_SIZE, useHslMixerPicker } from '../../../hooks/useHslMixerPicker';
-import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
+import { isPanelVisible, usableActivePanel, useUIStore } from '../../../store/useUIStore';
 import CompositionOverlays from './overlays/CompositionOverlays';
+import VideoCanvasOverlay from '../../video/VideoCanvasOverlay';
+import MaskTrackArea from '../../video/MaskTrackArea';
 import CropRotateArea from './overlays/CropRotateArea';
 import RelightLightShape, { RelightBasis } from './overlays/RelightLightShape';
 import CenterMarkerShape, { CENTER_MARKERS } from './overlays/CenterMarkerShape';
 import CloneSourceOverlay from './overlays/CloneSourceOverlay';
+import {
+  PenMaskShape,
+  PlaneEllipseShape,
+  PlaneRectangleShape,
+  RectangleMaskShape,
+  ShapeEvent,
+  ShapeParameters,
+} from './overlays/ShapeMaskOverlay';
+import { PenPoint, newPenPoint } from '../../../utils/maskShapes';
 import { countPatchesOfType, createSubMask, getStrokeCenter } from '../../../utils/maskUtils';
-import { calculateStraightenAngle, getCropViewLayout, resolveAspectRatio } from '../../../utils/cropUtils';
+import {
+  calculateStraightenAngle,
+  getCropViewLayout,
+  getOrientedDimensions,
+  resolveAspectRatio,
+} from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
 import {
   getWhiteBalanceMode,
@@ -940,6 +965,41 @@ const MaskOverlay = memo(
       [subMask.id, onMaskInteractionEnd, onUpdate],
     );
 
+    const handleShapeInteractionStart = useCallback(
+      (e: ShapeEvent) => {
+        isDragging.current = true;
+        onMaskInteractionStart(e);
+      },
+      [onMaskInteractionStart],
+    );
+
+    const handleShapeLiveChange = useCallback(
+      (parameters: ShapeParameters) => {
+        onPreviewUpdate?.(subMask.id, { parameters });
+        onUpdate(subMask.id, { parameters });
+      },
+      [onPreviewUpdate, onUpdate, subMask.id],
+    );
+
+    const handleShapeChange = useCallback(
+      (parameters: ShapeParameters) => {
+        updateP(parameters);
+        handleShapeLiveChange(parameters);
+      },
+      [updateP, handleShapeLiveChange],
+    );
+
+    const handleShapeInteractionEnd = useCallback(() => {
+      isDragging.current = false;
+      onMaskInteractionEnd();
+      onUpdate(subMask.id, { parameters: pRef.current });
+    }, [subMask.id, onMaskInteractionEnd, onUpdate]);
+
+    const handleShapeHover = useCallback(
+      (hovered: boolean) => (hovered ? onMaskMouseEnter() : onMaskMouseLeave()),
+      [onMaskMouseEnter, onMaskMouseLeave],
+    );
+
     if (!subMask.visible) {
       return null;
     }
@@ -959,6 +1019,36 @@ const MaskOverlay = memo(
       strokeScaleEnabled: false,
       strokeWidth: isSelected ? 3 : 2,
     };
+
+    if (subMask.type === Mask.Rectangle || subMask.type === Mask.Pen || (subMask.type === Mask.Radial && p.plane)) {
+      const ShapeMask =
+        subMask.type === Mask.Pen
+          ? PenMaskShape
+          : subMask.type === Mask.Radial
+            ? PlaneEllipseShape
+            : p.plane
+              ? PlaneRectangleShape
+              : RectangleMaskShape;
+      return (
+        <ShapeMask
+          parameters={p}
+          cropX={cropX}
+          cropY={cropY}
+          scale={scale}
+          zoomScale={zoomScale}
+          isSelected={isSelected}
+          isToolActive={isToolActive}
+          outline={commonProps}
+          onSelect={handleSelect}
+          onInteractionStart={handleShapeInteractionStart}
+          onLiveChange={handleShapeLiveChange}
+          onChange={handleShapeChange}
+          onInteractionEnd={handleShapeInteractionEnd}
+          onHover={handleShapeHover}
+          getPointer={getPointer}
+        />
+      );
+    }
 
     if (subMask.type === Mask.AiSubject || subMask.type === Mask.QuickEraser) {
       const { startX, startY, endX, endY } = p;
@@ -1432,7 +1522,7 @@ const ImageCanvas = memo(
     setIsMaskTouchInteracting,
     showOriginal,
     uncroppedAdjustedPreviewUrl,
-    updateSubMask,
+    updateSubMask: updateStoredSubMask,
     isWbPickerActive = false,
     onWbPicked,
     setAdjustments,
@@ -1447,6 +1537,41 @@ const ImageCanvas = memo(
     subscribeViewTransform,
   }: ImageCanvasProps) => {
     const interactivePatch = useEditorStore((state) => state.interactivePatch);
+    const isVideoPlaying = useVideoPlaying();
+    const maskContainer = isMasking
+      ? (adjustments.masks.find((c: MaskContainer) => c.id === activeMaskContainerId) as TrackedContainer | undefined)
+      : undefined;
+    const maskTrack = maskContainer?.track;
+    const maskTime = useMaskFrameTime(maskContainer, true);
+    const followEpoch = useFollowEpoch();
+    const maskTrackWarp = useMemo(() => {
+      const frame = getOrientedDimensions(
+        selectedImage.width || 0,
+        selectedImage.height || 0,
+        adjustments.orientationSteps ?? 0,
+      );
+      return maskWarp(maskTrack, maskTime, frame.width, frame.height);
+    }, [maskTrack, adjustments.orientationSteps, selectedImage.width, selectedImage.height, maskTime, followEpoch]);
+    const storedParameters = useCallback(
+      (id: string | null, parameters: SubMask['parameters']) => {
+        const stored =
+          maskTrackWarp && parameters
+            ? adjustments.masks.flatMap((c: MaskContainer) => c.subMasks).find((sm: SubMask) => sm.id === id)
+            : null;
+        return stored && maskTrackWarp && parameters
+          ? unmapUpdate(stored.type, stored.parameters, parameters, maskTrackWarp)
+          : parameters;
+      },
+      [maskTrackWarp, adjustments.masks],
+    );
+    const updateSubMask = useCallback(
+      (id: string | null, data: Partial<SubMask>) =>
+        updateStoredSubMask(
+          id,
+          data.parameters ? { ...data, parameters: storedParameters(id, data.parameters) } : data,
+        ),
+      [storedParameters, updateStoredSubMask],
+    );
     const isGuidedPerspectiveActive = useEditorStore((state) => state.isGuidedPerspectiveActive);
     const isRelightPickerActive = useEditorStore((state) => state.isRelightPickerActive);
     const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
@@ -1792,6 +1917,25 @@ const ImageCanvas = memo(
       return null;
     }, [activeContainer, activeMaskId, activeAiSubMaskId, isMasking, isAiEditing]);
 
+    const handlePreviewUpdate = useCallback(
+      (id: string, preview: Partial<SubMask>) => {
+        if (!activeContainer || !onLiveMaskPreview) return;
+        onLiveMaskPreview({
+          ...activeContainer,
+          subMasks: activeContainer.subMasks.map((sm: SubMask) =>
+            sm.id === id
+              ? {
+                  ...sm,
+                  ...preview,
+                  parameters: preview.parameters ? storedParameters(id, preview.parameters) : sm.parameters,
+                }
+              : sm,
+          ),
+        });
+      },
+      [activeContainer, onLiveMaskPreview, storedParameters],
+    );
+
     const effectiveImageDimensions = useMemo(() => {
       const steps = adjustments.orientationSteps || 0;
       const w = selectedImage.width || 0;
@@ -1941,12 +2085,12 @@ const ImageCanvas = memo(
     const isToolActive = isBrushActive || isAiSubjectActive || isInitialDrawing || isParametricActive;
 
     useEffect(() => {
-      if (maskOverlay && (isMasking || isAiEditing)) {
+      if (maskOverlay && (isMasking || isAiEditing) && !isVideoPlaying) {
         setDisplayedMaskOverlay(maskOverlay);
       } else {
         setDisplayedMaskOverlay(null);
       }
-    }, [maskOverlay, isMasking, isAiEditing]);
+    }, [maskOverlay, isMasking, isAiEditing, isVideoPlaying]);
 
     useEffect(() => {
       if (isToolActive) {
@@ -1993,6 +2137,19 @@ const ImageCanvas = memo(
       const otherMasks = activeContainer.subMasks.filter((m: SubMask) => m.id !== activeId);
       return selectedMask ? [...otherMasks, selectedMask] : activeContainer.subMasks;
     }, [activeContainer, activeMaskId, activeAiSubMaskId, isMasking, isAiEditing]);
+
+    const warpedSubMasks = useMemo(
+      () =>
+        maskTrackWarp && isMasking
+          ? new Map<string, SubMask>(
+              sortedSubMasks.map((subMask: SubMask) => [
+                subMask.id,
+                { ...subMask, parameters: mapParameters(subMask.type, subMask.parameters, maskTrackWarp) },
+              ]),
+            )
+          : null,
+      [sortedSubMasks, maskTrackWarp, isMasking],
+    );
 
     const directPatchMarkers = useMemo(() => {
       const markers: any[] = [];
@@ -2387,7 +2544,7 @@ const ImageCanvas = memo(
       };
     }, [mapRelightUvToCanvas, selectedImage?.width, selectedImage?.height]);
 
-    const showRelightLights = isRelightPickerActive && isRelightToolOpen;
+    const showRelightLights = isRelightPickerActive && isRelightToolOpen && !isVideoPlaying;
 
     useEffect(() => {
       if (isRelightPickerActive && !isRelightToolOpen) {
@@ -2573,6 +2730,9 @@ const ImageCanvas = memo(
           return;
         }
 
+        const toolPanel = usableActivePanel(useUIStore.getState());
+        if ((toolPanel === Panel.Masks || toolPanel === Panel.Ai) && isPlaybackRunning()) pausePlayback();
+
         if (e.evt && e.evt.cancelable) e.evt.preventDefault();
 
         if (isGuidedPerspectiveActive && isCropping) {
@@ -2634,7 +2794,14 @@ const ImageCanvas = memo(
           delete newParams.isInitialDraw;
 
           const activeId = isMasking ? activeMaskId : activeAiSubMaskId;
-          updateSubMask(activeId, { parameters: newParams });
+          const sampling = sampleMaskReference(adjustments, x, y);
+          if (sampling) {
+            void sampling.then((reference) =>
+              updateSubMask(activeId, { parameters: { ...newParams, reference: reference ?? undefined } }),
+            );
+          } else {
+            updateSubMask(activeId, { parameters: newParams });
+          }
           return;
         }
 
@@ -2670,6 +2837,16 @@ const ImageCanvas = memo(
               endY: y,
               range: 0,
             };
+          } else if (activeSubMask.type === Mask.Rectangle) {
+            initialParams = { ...initialParams, centerX: x, centerY: y, width: 0, height: 0, rotation: 0 };
+          } else if (activeSubMask.type === Mask.Pen) {
+            const activeId = isMasking ? activeMaskId : activeAiSubMaskId;
+            const shown =
+              maskTrackWarp && isMasking
+                ? mapParameters(activeSubMask.type, activeSubMask.parameters, maskTrackWarp)
+                : activeSubMask.parameters;
+            initialParams = { ...shown, points: [...(shown.points ?? []), newPenPoint({ x, y })] };
+            updateSubMask(activeId, { parameters: initialParams });
           }
 
           setLocalInitialDrawParams(initialParams);
@@ -2805,6 +2982,8 @@ const ImageCanvas = memo(
         isMixerPickerActive,
         startMixerPick,
         isInitialDrawing,
+        maskTrackWarp,
+        effectiveZoomScale,
         isBrushActive,
         isCloneOrHealActive,
         isDirectPatchActive,
@@ -2961,23 +3140,31 @@ const ImageCanvas = memo(
             updatedParams.endX = dragStartPointer.current.x - px * handleDist;
             updatedParams.endY = dragStartPointer.current.y - py * handleDist;
             updatedParams.range = R;
+          } else if (activeSubMask.type === Mask.Rectangle) {
+            const square = !!(e.evt ?? e).shiftKey;
+            const side = Math.max(Math.abs(distX), Math.abs(distY));
+            const dx = square ? Math.sign(distX) * side : distX;
+            const dy = square ? Math.sign(distY) * side : distY;
+            updatedParams.centerX = dragStartPointer.current.x + dx / 2;
+            updatedParams.centerY = dragStartPointer.current.y + dy / 2;
+            updatedParams.width = Math.abs(dx);
+            updatedParams.height = Math.abs(dy);
+          } else if (activeSubMask.type === Mask.Pen) {
+            const points: Array<PenPoint> = [...updatedParams.points];
+            const last = points[points.length - 1];
+            points[points.length - 1] = {
+              ...last,
+              outX: x - last.x,
+              outY: y - last.y,
+              inX: last.x - x,
+              inY: last.y - y,
+            };
+            updatedParams.points = points;
           }
 
           setLocalInitialDrawParams(updatedParams);
 
-          if (onLiveMaskPreview && activeContainer && activeSubMask) {
-            const previewSubMask = {
-              ...activeSubMask,
-              parameters: updatedParams,
-            };
-            const previewContainer = {
-              ...activeContainer,
-              subMasks: activeContainer.subMasks.map((sm: SubMask) =>
-                sm.id === activeSubMask.id ? previewSubMask : sm,
-              ),
-            };
-            onLiveMaskPreview(previewContainer);
-          }
+          handlePreviewUpdate(activeSubMask.id, { parameters: updatedParams });
 
           const activeId = isMasking ? activeMaskId : activeAiSubMaskId;
           if (activeId) {
@@ -3059,7 +3246,7 @@ const ImageCanvas = memo(
             });
 
             triggerDirectPatch(activeId);
-          } else if (onLiveMaskPreview && activeContainer && activeSubMask && isBrushActive) {
+          } else if (activeSubMask && isBrushActive) {
             const { scale } = imageRenderSize;
 
             const imageSpaceLine: DrawnLine = {
@@ -3074,22 +3261,9 @@ const ImageCanvas = memo(
             };
 
             const existingLines = activeSubMask.parameters?.lines || [];
-            const previewSubMask = {
-              ...activeSubMask,
-              parameters: {
-                ...activeSubMask.parameters,
-                lines: [...existingLines, imageSpaceLine],
-              },
-            };
-
-            const previewContainer = {
-              ...activeContainer,
-              subMasks: activeContainer.subMasks.map((sm: SubMask) =>
-                sm.id === activeSubMask.id ? previewSubMask : sm,
-              ),
-            };
-
-            onLiveMaskPreview(previewContainer);
+            handlePreviewUpdate(activeSubMask.id, {
+              parameters: { ...activeSubMask.parameters, lines: [...existingLines, imageSpaceLine] },
+            });
           }
           if (e.evt && e.evt.cancelable) e.evt.preventDefault();
         }
@@ -3216,6 +3390,13 @@ const ImageCanvas = memo(
         isDrawing.current = false;
         const activeId = isMasking ? activeMaskId : activeAiSubMaskId;
 
+        if (activeSubMask.type === Mask.Pen) {
+          if (localInitialDrawParams) updateSubMask(activeId, { parameters: localInitialDrawParams });
+          setLocalInitialDrawParams(null);
+          dragStartPointer.current = null;
+          return;
+        }
+
         const newParams = { ...localInitialDrawParams };
         delete newParams.isInitialDraw;
         const minDrawnSize = 10 / (imageRenderSize.scale * effectiveZoomScale);
@@ -3236,6 +3417,15 @@ const ImageCanvas = memo(
             newParams.endY = dragStartPointer.current!.y;
             newParams.range = 100;
           }
+        } else if (
+          activeSubMask.type === Mask.Rectangle &&
+          (newParams.width < minDrawnSize || newParams.height < minDrawnSize)
+        ) {
+          const size = Math.min(effectiveImageDimensions.width, effectiveImageDimensions.height) * 0.25;
+          newParams.centerX = dragStartPointer.current!.x;
+          newParams.centerY = dragStartPointer.current!.y;
+          newParams.width = size;
+          newParams.height = size;
         }
 
         updateSubMask(activeId, { parameters: newParams });
@@ -3589,20 +3779,9 @@ const ImageCanvas = memo(
       cursorStyle,
     ]);
 
-    const handlePreviewUpdate = useCallback(
-      (id: string, subMaskPreview: Partial<SubMask>) => {
-        if (!activeContainer || !onLiveMaskPreview) return;
-        const previewContainer = {
-          ...activeContainer,
-          subMasks: activeContainer.subMasks.map((sm: SubMask) => (sm.id === id ? { ...sm, ...subMaskPreview } : sm)),
-        };
-        onLiveMaskPreview(previewContainer);
-      },
-      [activeContainer, onLiveMaskPreview],
-    );
-
     const handleMaskInteractionStart = useCallback(
       (e?: any) => {
+        if (isPlaybackRunning()) pausePlayback();
         setIsMaskInteractionActive(true);
         setEditor({ isSliderDragging: true });
         const eventType = e?.evt?.type;
@@ -3735,6 +3914,14 @@ const ImageCanvas = memo(
                   />
                 </svg>
               )}
+
+              <VideoCanvasOverlay
+                style={imageBoxStyle}
+                imageWidth={imageRenderSize.width}
+                imageHeight={imageRenderSize.height}
+                transformScale={transformScale}
+                setIsMaskHovered={setIsMaskHovered}
+              />
             </div>
           </div>
         </div>
@@ -3819,6 +4006,19 @@ const ImageCanvas = memo(
                       >
                         <Layer listening={!showOriginal}>
                           <Group ref={setMaskViewGroup}>
+                            <MaskTrackArea
+                              container={maskContainer}
+                              warp={maskTrackWarp}
+                              frame={effectiveImageDimensions}
+                              cropX={cropX}
+                              cropY={cropY}
+                              scale={imageRenderSize.scale}
+                              zoomScale={effectiveZoomScale}
+                              hidden={isShowingOriginal}
+                              disabled={isToolActive}
+                              getPointer={getCanvasPointer}
+                              setIsMaskHovered={setIsMaskHovered}
+                            />
                             {(isMasking || isAiEditing) &&
                               activeContainer &&
                               sortedSubMasks.map((subMask: SubMask) => {
@@ -3826,7 +4026,7 @@ const ImageCanvas = memo(
                                 const renderSubMask =
                                   subMask.id === activeId && localInitialDrawParams
                                     ? { ...subMask, parameters: localInitialDrawParams }
-                                    : subMask;
+                                    : (warpedSubMasks?.get(subMask.id) ?? subMask);
 
                                 const isDirectPatch =
                                   renderSubMask.type === Mask.Clone ||

@@ -198,6 +198,7 @@
       "lut": "LUT",
       "midpoint": "中點",
       "motionBlur": "動態模糊",
+      "pixelate": "像素化",
       "motionBlurAngle": "角度",
       "motionBlurDepth": "深度",
       "motionBlurHighlights": "亮部",
@@ -213,7 +214,8 @@
         "linear": "線性",
         "smooth": "平滑",
         "spin": "旋轉",
-        "zoom": "縮放"
+        "zoom": "縮放",
+        "shutter": "快門"
       },
       "relight": "重新打光",
       "relightAddLight": "新增燈光",
@@ -225,7 +227,6 @@
       "relightDuplicateLight": "複製燈光",
       "relightElevation": "仰角",
       "relightFalloff": "衰減",
-      "relightHint": "新增或選取一個燈光，然後在影像上點擊或拖曳以放置。",
       "relightIntensity": "強度",
       "relightLight": "燈光 {{index}}",
       "relightRemoveLight": "移除燈光",
@@ -243,7 +244,12 @@
       "roundness": "圓度",
       "size": "大小",
       "spatial": "空間",
-      "vignette": "暗角"
+      "vignette": "暗角",
+      "motionBlurShutter": "快門角度",
+      "analyzingClip": "正在分析片段",
+      "relightPosition": "位置",
+      "motionBlurFootage": "畫面運動",
+      "motionBlurFootageTooltip": "模糊畫面內的運動，而不只是片段動畫"
     }
   },
   "contextMenus": {
@@ -359,11 +365,14 @@
       "addCopiedToAlbum_one": "將複製的影像新增到相簿",
       "addCopiedToAlbum_other": "將 {{count}} 張複製的影像新增到相簿",
       "deleteRejected": "刪除已拒絕的影像",
+      "newVideoProject": "新增影片專案",
       "refreshView": "重新整理檢視"
     },
     "merge": {
       "focusStack": "焦距合成",
-      "title": "合併"
+      "title": "合併",
+      "burstDenoise": "連拍降噪",
+      "longExposure": "長曝光"
     },
     "tagging": {
       "addTagTooltip": "新增標籤",
@@ -412,7 +421,12 @@
       "showExplorer": "在檔案資源管理器中顯示",
       "superResolution_one": "RapidRes (2x)",
       "superResolution_other": "RapidRes (2x)",
-      "virtualCopy": "虛擬副本"
+      "openVideoProject": "開啟專案",
+      "videoProject": "影片專案",
+      "virtualCopy": "虛擬副本",
+      "addToNamedProject": "新增至 {{name}}",
+      "renameFile_one": "重新命名",
+      "renameFile_other": "重新命名 {{count}} 個檔案"
     },
     "toasts": {
       "couldNotShowExplorer": "無法在檔案資源管理器中顯示檔案：{{err}}",
@@ -432,6 +446,58 @@
       "failedMoveError": "移動失敗：{{err}}",
       "failedMoveInvalid": "移動失敗：未找到目標組或目標組無效。",
       "failedRemoveImages": "移除影像失敗：{{err}}"
+    },
+    "videos": {
+      "copy_one": "複製影片",
+      "copy_other": "複製 {{count}} 個影片",
+      "delete_one": "刪除影片",
+      "delete_other": "刪除 {{count}} 個影片",
+      "export_one": "匯出影片",
+      "export_other": "匯出 {{count}} 個影片",
+      "rename_one": "重新命名影片",
+      "rename_other": "重新命名 {{count}} 個影片",
+      "pasteAdjustments_one": "貼上調整",
+      "pasteAdjustments_other": "貼上調整到 {{count}} 個影片",
+      "resetAdjustments_one": "重置調整",
+      "resetAdjustments_other": "重置 {{count}} 個影片的調整",
+      "removeFromAlbum_one": "從相簿中移除",
+      "removeFromAlbum_other": "從相簿中移除 {{count}} 個影片",
+      "copyHere_one": "複製影片至此",
+      "copyHere_other": "複製 {{count}} 個影片至此",
+      "moveHere_one": "移動影片至此",
+      "moveHere_other": "移動 {{count}} 個影片至此",
+      "addCopiedToAlbum_one": "將複製的影片新增到相簿",
+      "addCopiedToAlbum_other": "將 {{count}} 個複製的影片新增到相簿",
+      "edit": "編輯影片",
+      "duplicate": "建立影片副本"
+    },
+    "files": {
+      "copy_one": "複製檔案",
+      "copy_other": "複製 {{count}} 個檔案",
+      "delete_one": "刪除檔案",
+      "delete_other": "刪除 {{count}} 個檔案",
+      "export_one": "匯出檔案",
+      "export_other": "匯出 {{count}} 個檔案",
+      "pasteAdjustments_one": "貼上調整",
+      "pasteAdjustments_other": "貼上調整到 {{count}} 個檔案",
+      "resetAdjustments_one": "重置調整",
+      "resetAdjustments_other": "重置 {{count}} 個檔案的調整",
+      "removeFromAlbum_one": "從相簿中移除",
+      "removeFromAlbum_other": "從相簿中移除 {{count}} 個檔案",
+      "copyHere_one": "複製檔案至此",
+      "copyHere_other": "複製 {{count}} 個檔案至此",
+      "moveHere_one": "移動檔案至此",
+      "moveHere_other": "移動 {{count}} 個檔案至此",
+      "addCopiedToAlbum_one": "將複製的檔案新增到相簿",
+      "addCopiedToAlbum_other": "將 {{count}} 個複製的檔案新增到相簿"
+    },
+    "projects": {
+      "copy_one": "複製專案",
+      "copy_other": "複製 {{count}} 個專案",
+      "rename_one": "重新命名專案",
+      "rename_other": "重新命名 {{count}} 個專案",
+      "delete_one": "刪除專案",
+      "delete_other": "刪除 {{count}} 個專案"
     }
   },
   "editor": {
@@ -494,8 +560,6 @@
         "cloneTooltip": "精確複製來源，包括其亮度與顏色",
         "dragSource": "拖曳以移動來源",
         "healTooltip": "複製來源的紋理，並使其融入周圍的亮度與顏色",
-        "hintActive": "拖曳來源輪廓以選擇像素的來源位置。每一筆新的塗抹都會成為獨立的區域。按住 Shift 可加入目前的區域。",
-        "hintEmpty": "在污點、電線或干擾物上塗抹，會自動找到合適的來源。",
         "mode": "模式",
         "newSource": "尋找其他來源"
       },
@@ -548,8 +612,10 @@
         "aiEdit_one": "AI 編輯 {{count}}",
         "aiEdit_other": "AI 編輯 {{count}}",
         "clone": "仿製 {{count}}",
+        "clone_one": "仿製 {{count}}",
         "clone_other": "仿製 {{count}}",
         "heal": "修復 {{count}}",
+        "heal_one": "修復 {{count}}",
         "heal_other": "修復 {{count}}",
         "invertedName": "{{name}} 反轉",
         "liquify": "液化 {{count}}",
@@ -559,6 +625,7 @@
         "quickErase_one": "快速擦除 {{count}}",
         "quickErase_other": "快速擦除 {{count}}",
         "retouch": "修飾 {{count}}",
+        "retouch_one": "修飾 {{count}}",
         "retouch_other": "修飾 {{count}}"
       },
       "resetInpaintingTooltip": "重置影像修復",
@@ -569,16 +636,13 @@
         "cancelGeneration": "取消生成",
         "componentPropertiesTitle": "{{name}} 屬性",
         "downloading": "下載中：",
-        "fastInpaintDesc": "基於周圍畫素填充選區。",
         "generateWithAiButton": "使用 AI 生成",
         "generating": "生成中...",
-        "generativeDesc": "描述您想要在選定區域生成的內容。",
         "generativeReplaceTitle": "生成式替換",
         "inpaintSelectionButton": "修復選區",
         "invertComponent": "反轉元件",
         "invertSelection": "反轉選區",
         "placeholder": "例如，一片花海",
-        "quickEraseDesc": "填充選區以移除物件。",
         "selectionPropertiesTitle": "選區屬性",
         "useBasicInpaint": "使用基礎影像修復"
       },
@@ -695,21 +759,20 @@
       "rotationHeading": "旋轉",
       "title": "裁剪與變換",
       "tooltips": {
-        "autoStraighten": "自動拉直（Shift+S）",
+        "autoStraighten": "自動拉直",
         "compositionOverlay": "構圖疊加",
         "flipHoriz": "水平翻轉影像",
         "flipVert": "垂直翻轉影像",
         "lens": "鏡頭畸變校正",
-        "overlayDetails": "疊加：{{name}}{{rotateHint}}",
         "resetFineRotation": "重置精細旋轉",
-        "rotateHint": "（Shift+O 旋轉）",
         "rotateLeft": "逆時針旋轉 90°",
         "rotateRight": "順時針旋轉 90°",
-        "straighten": "拉直工具（S）",
+        "straighten": "拉直工具",
         "switchOrientation": "切換方向",
         "switchToLandscape": "切換為橫向",
         "switchToPortrait": "切換為縱向",
-        "transform": "透視和梯形校正"
+        "transform": "透視和梯形校正",
+        "overlayName": "疊加：{{name}}"
       }
     },
     "externalEdit": {
@@ -785,7 +848,9 @@
         "feather": "羽化",
         "globalFeather": "全域羽化",
         "grow": "擴張",
-        "tolerance": "容差"
+        "tolerance": "容差",
+        "roundness": "圓度",
+        "points": "路徑"
       },
       "patches": {
         "copyName": "{{name}} 副本",
@@ -830,6 +895,11 @@
       "tooltips": {
         "addToCurrent": "將 {{name}} 新增到當前遮色片或建立新遮色片（右鍵單擊）",
         "createNew": "建立新 {{name}} 遮色片"
+      },
+      "pen": {
+        "makeCorner": "轉為角點",
+        "makeSmooth": "轉為平滑點",
+        "deletePoint": "刪除點"
       }
     },
     "metadata": {
@@ -916,7 +986,7 @@
         "unsetDefaultForCamera": "不再作為 {{camera}} 的預設值"
       },
       "status": {
-        "empty": "尚未儲存預設。建立您自己的預設、從檔案匯入或探索社群預設。",
+        "empty": "尚無預設集。",
         "getCommunity": "取得社群預設",
         "loading": "載入預設中..."
       },
@@ -948,15 +1018,8 @@
     },
     "switcher": {
       "tooltips": {
-        "adjust": "調整",
-        "crop": "裁剪",
-        "export": "匯出",
         "filmstrip": "膠片條",
-        "info": "資訊",
-        "inpaint": "修復",
-        "masks": "遮色片",
-        "presets": "預設",
-        "tethering": "連線拍攝"
+        "mediaPool": "專案"
       }
     },
     "toasts": {
@@ -968,14 +1031,14 @@
       "tooltips": {
         "aperture": "光圈",
         "backToLibrary": "返回相簿",
-        "compare": "前後對比（B）或模式（右鍵）",
+        "compare": "前後對比或模式（按右鍵）",
         "focalLength": "焦距",
-        "fullscreen": "切換全屏（F）",
+        "fullscreen": "切換全螢幕",
         "hdr": "在此螢幕上顯示 HDR，除非開啟 HDR 輸出，否則不影響匯出",
         "iso": "ISO",
-        "redo": "重做（Ctrl+Y）或歷史記錄（右鍵單擊）",
+        "redo": "重做或歷史記錄（按右鍵）",
         "shutterSpeed": "快門速度",
-        "undo": "復原（Ctrl+Z）或歷史記錄（右鍵單擊）"
+        "undo": "復原或歷史記錄（按右鍵）"
       },
       "vc": "VC"
     },
@@ -1113,23 +1176,20 @@
     "title": "匯出",
     "watermark": {
       "addWatermark": "新增水印",
-      "anchors": {
-        "bottomCenter": "底部置中",
-        "bottomLeft": "左下角",
-        "bottomRight": "右下角",
-        "center": "置中",
-        "centerLeft": "左側置中",
-        "centerRight": "右側置中",
-        "topCenter": "頂部置中",
-        "topLeft": "左上角",
-        "topRight": "右上角"
-      },
-      "logoText": "標誌",
       "opacity": "不透明度",
-      "previewText": "預覽",
-      "scale": "縮放",
-      "spacing": "間距",
-      "watermarkImage": "水印影像"
+      "watermarkImage": "水印影像",
+      "size": "大小",
+      "margin": "邊界",
+      "resetPlacement": "重設位置",
+      "unreadable": "無法讀取此影像。",
+      "sources": {
+        "image": "影像",
+        "text": "文字"
+      },
+      "textPlaceholder": "浮水印文字",
+      "font": "字型",
+      "weight": "粗細",
+      "color": "顏色"
     }
   },
   "immich": {
@@ -1166,8 +1226,8 @@
       "apiKey": "API 金鑰",
       "apiKeyDesc": "請在 Immich 的「帳戶設定 → API 金鑰」中建立，並授予以下權限：album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
       "connected": "已以 {{user}} 身分連線 (Immich {{version}})",
-      "description": "在圖庫中瀏覽 Immich 伺服器上的照片並直接編輯。原始檔會在開啟時下載，編輯內容會儲存到 Immich，因此在每台電腦上看起來都一樣。",
-      "keyInFile": "已儲存在只有你能讀取的檔案中：沒有可用的認證資訊儲存區。在 KDE 中，請在 KDE 錢包設定裡啟用 Secret Service 介面，然後重新儲存。",
+      "description": "瀏覽並編輯 Immich 伺服器上的照片。",
+      "keyInFile": "由於沒有可用的認證資訊儲存區，已儲存在只有你能讀取的檔案中。",
       "keyInStore": "已儲存在系統的認證資訊儲存區。",
       "save": "儲存",
       "saved": "已儲存。",
@@ -1175,7 +1235,9 @@
       "serverUrlDesc": "你在瀏覽器中開啟 Immich 時使用的位址。",
       "test": "測試連線",
       "title": "Immich",
-      "working": "處理中…"
+      "working": "處理中…",
+      "tooltip": "原始檔會在開啟時下載。編輯內容儲存在 Immich 中，因此在每台電腦上都一致。",
+      "keyInFileTooltip": "在 KDE 中，請在 KDE 錢包設定裡啟用 Secret Service 介面，然後重新儲存。"
     },
     "sync": {
       "offline": "離線",
@@ -1226,6 +1288,7 @@
       "thumbnailPaused": "AI 處理已暫停",
       "thumbnailPending": "等待 AI 處理",
       "title": "AI 處理",
+      "unprocessed_one": "{{count}} 張影像需要 AI 處理",
       "unprocessed_other": "{{count}} 張影像需要 AI 處理",
       "waiting": "正在準備 AI 處理…"
     },
@@ -1251,10 +1314,8 @@
       "altThumbnailLoading": "縮圖載入中",
       "aperture": "光圈",
       "cameraSettings": "相機設定",
-      "clickThumbnailsHint": "按一下右側邊欄中的縮圖，將其新增至比較檢視中。",
       "colorLabel": "顏色標籤",
       "dimensions": "尺寸",
-      "doubleClickToEditHint": "按兩下縮圖即可在編輯器中開啟。",
       "focalLength": "焦距",
       "iso": "ISO",
       "metadata": "中繼資料",
@@ -1271,7 +1332,8 @@
       "vc": "VC"
     },
     "filterExit": {
-      "hiddenMultiple_other": "{{count}} 張影像已不再符合篩選條件",
+      "hiddenMultiple_one": "{{count}} 張影像不再符合篩選條件",
+      "hiddenMultiple_other": "{{count}} 張影像不再符合篩選條件",
       "hiddenSingle": "{{name}} 已不再符合篩選條件",
       "undo": "復原"
     },
@@ -1308,7 +1370,6 @@
     },
     "folders": {
       "addFolder": "新增資料夾",
-      "albumsEmpty": "右鍵單擊以建立相簿。",
       "collapseSection": "摺疊 {{section}}",
       "expandSection": "展開 {{section}}",
       "loading": "載入資料夾中...",
@@ -1318,7 +1379,8 @@
       "sections": {
         "albums": "相簿",
         "folders": "資料夾",
-        "pinned": "已固定"
+        "pinned": "已固定",
+        "recentProjects": "最近的專案"
       },
       "sort": {
         "created": "建立日期",
@@ -1335,7 +1397,8 @@
         "navBack": "後退",
         "navForward": "前進",
         "sortFolders": "對資料夾排序"
-      }
+      },
+      "noAlbums": "沒有相簿"
     },
     "grid": {
       "columns": {
@@ -1347,7 +1410,9 @@
         "name": "名稱",
         "rating": "評分",
         "shutter": "快門"
-      }
+      },
+      "emptyFolder": "此資料夾中沒有影像。",
+      "emptyAlbum": "此相簿中沒有影像。"
     },
     "header": {
       "cancel": "取消",
@@ -1422,8 +1487,8 @@
       "clear": "清除",
       "copyError": "點擊複製",
       "empty": "沒有進行中的工作",
-      "emptyHint": "匯出、匯入、檔案傳輸和 AI 工作會顯示在這裡。",
       "errorCopied": "錯誤已複製到剪貼簿",
+      "images_one": "{{count}} 張圖片",
       "images_other": "{{count}} 張圖片",
       "kinds": {
         "aiTagging": "AI 標籤",
@@ -1431,12 +1496,18 @@
         "export": "匯出",
         "import": "匯入",
         "modelDownload": "AI 模型下載",
-        "move": "移動檔案"
+        "move": "移動檔案",
+        "immichDownload": "Immich 下載"
       },
       "openInLibrary": "在圖庫中開啟",
       "recent": "最近",
+      "skipped_one": "已略過 {{count}} 張",
       "skipped_other": "已略過 {{count}} 張",
-      "title": "工作"
+      "title": "工作",
+      "transferred": "{{current}} / {{total}}",
+      "rate": "{{size}}/s",
+      "remaining": "剩餘 {{time}}",
+      "cancelDownload": "取消下載"
     },
     "reject": {
       "deleteConfirm": "刪除已拒絕",
@@ -1532,7 +1603,9 @@
       "retouch": "修飾",
       "sky": "天空",
       "subject": "主體",
-      "text": "文字"
+      "text": "文字",
+      "rectangle": "矩形",
+      "pen": "鋼筆"
     }
   },
   "menus": {
@@ -1581,9 +1654,8 @@
       "confirm": "確認"
     },
     "copyPaste": {
-      "autoSyncDesc": "自動將調整套用於所有選取的影像。",
-      "autoSyncLabel": "啟用自動同步",
-      "autoSyncTitle": "自動同步調整",
+      "autoSyncLabel": "套用到所有選取的影像",
+      "autoSyncTitle": "自動同步",
       "cancel": "取消",
       "descMerge": "新增您複製的更改，保留其他設定不變。",
       "descReplace": "覆蓋所有選中的設定，其餘重置為預設值。",
@@ -1610,6 +1682,7 @@
         "motionBlur": "動態模糊",
         "negativeConversion": "負片轉換",
         "noiseReduction": "降噪",
+        "pixelate": "像素化",
         "presence": "質感",
         "relight": "重新打光",
         "sharpness": "銳度",
@@ -1642,12 +1715,12 @@
       "actionDelete": "移至垃圾桶",
       "actionRateZero": "將評分設為 1 星",
       "actionReject": "標記為已拒絕",
-      "applyButton_one": "應用到 1 張影像",
-      "applyButton_other": "應用到 {{count}} 張影像",
+      "applyButton_one": "套用到 {{count}} 張影像",
+      "applyButton_other": "套用到 {{count}} 張影像",
       "bestImage": "最佳影像",
       "blurryImagesTab": "模糊影像",
       "blurThreshold": "模糊臨界值",
-      "blurThresholdDesc": "銳度評分低於此值的影像將被標記。值越高越嚴格。",
+      "blurThresholdDesc": "標記銳度評分低於臨界值的影像",
       "cancel": "取消",
       "close": "關閉",
       "cullingFailed": "篩選失敗",
@@ -1665,7 +1738,7 @@
       "sharpness": "銳度：{{sharpness}}",
       "similarGroupsTab": "相似組",
       "similarityThreshold": "相似度臨界值",
-      "similarityThresholdDesc": "值越低越嚴格（完全重複）。值越高越寬鬆（近似重複）。建議值 24-32。",
+      "similarityThresholdDesc": "臨界值低時只會將完全重複的影像分組，臨界值高時也會將近似重複的影像分組",
       "startCulling": "開始篩選",
       "starting": "啟動中...",
       "title": "篩選影像"
@@ -1678,11 +1751,12 @@
       "failed": "焦距合成失敗",
       "method": "方法",
       "methodDetail": "細節",
-      "methodHint": "細節可保留毛髮和剛毛等最細微的結構。平滑可帶來更柔和的過渡與更少的雜訊。",
       "methodSmooth": "平滑",
       "processing": "正在合成焦距",
       "savedSuccess": "焦距合成已成功儲存！",
-      "title": "焦距合成"
+      "title": "焦距合成",
+      "methodDetailHint": "保留毛髮與刷毛等最細微的結構",
+      "methodSmoothHint": "過渡更柔和，雜訊更少"
     },
     "hdr": {
       "description": "將您的包圍曝光合併為一張高動態範圍影像。",
@@ -1762,7 +1836,6 @@
     "panorama": {
       "autoProjectionUsed": "使用中：{{projection}}",
       "boundaryWarp": "邊界變形",
-      "boundaryWarpHint": "延展邊緣以填滿畫面，而非將其裁掉。",
       "description": "將您的重疊影像合併為一張無縫全景圖。",
       "descriptionWithCount": "將 {{count}} 張重疊影像合併為一張無縫全景圖。",
       "descriptionWithCount_one": "將 {{count}} 張重疊影像合併為一張無縫全景圖。",
@@ -1792,7 +1865,9 @@
       "titleMultiple": "重新命名 {{count}} 張影像",
       "titleMultiple_one": "重新命名 {{count}} 張影像",
       "titleMultiple_other": "重新命名 {{count}} 張影像",
-      "titleSingle": "重新命名影像"
+      "titleSingle": "重新命名影像",
+      "titleFiles_one": "重新命名檔案",
+      "titleFiles_other": "重新命名 {{count}} 個檔案"
     },
     "renameFolder": {
       "cancel": "取消",
@@ -1830,6 +1905,26 @@
       "yAxis": "Y 軸",
       "zoomInTooltip": "放大",
       "zoomOutTooltip": "縮小"
+    },
+    "burstDenoise": {
+      "title": "連拍降噪",
+      "description": "將一組曝光相同的連拍合併為一張更乾淨的影像。",
+      "descriptionWithCount_one": "將 {{count}} 張連拍影格合併為一張更乾淨的影像。",
+      "descriptionWithCount_other": "將 {{count}} 張連拍影格合併為一張更乾淨的影像。",
+      "failed": "連拍降噪失敗",
+      "processing": "正在合併連拍",
+      "savedSuccess": "連拍已成功儲存！"
+    },
+    "longExposure": {
+      "title": "長曝光",
+      "description": "將一組連拍混合成一張長曝光影像，讓水流、雲朵與車流呈現流動感，同時保持場景清晰。",
+      "descriptionWithCount_one": "將 {{count}} 張連拍影格混合成一張長曝光影像。",
+      "descriptionWithCount_other": "將 {{count}} 張連拍影格混合成一張長曝光影像。",
+      "failed": "長曝光失敗",
+      "processing": "正在建立長曝光",
+      "savedSuccess": "長曝光已成功儲存！",
+      "smoothMotion": "平滑運動",
+      "smoothMotionHint": "填補影格之間的時間，讓移動的物體留下連續的軌跡。"
     }
   },
   "settings": {
@@ -1846,7 +1941,7 @@
       },
       "notAssigned": "未分配",
       "optimization": "輸入裝置最佳化",
-      "optimizationDesc": "選擇您用於平移和縮放畫布的主要輸入裝置。",
+      "optimizationDesc": "針對滑鼠或觸控板調整畫布的平移與縮放。",
       "pressKey": "按下按鍵...（Esc 清除）",
       "resetDefaults": "全部重置為預設值",
       "speed": "速度",
@@ -1874,19 +1969,19 @@
       "title": "滑鼠控制",
       "zoom": "縮放速度倍率",
       "zoomClick": "縮放照片至 100%",
-      "zoomClickDesc": "點擊時將編輯器中的照片縮放至 100%",
-      "zoomClickInfo": "點擊照片可立即縮放至 100%（1:1 像素），以評估清晰度和雜訊。停用時，點擊會逐步放大。",
-      "zoomDesc": "調整使用滾輪或捏合手勢時畫布縮放的速度。"
+      "zoomClickDesc": "按一下時縮放至 100%",
+      "zoomClickInfo": "按一下照片會直接縮放至 100%，以檢查清晰度與雜訊。關閉時，按一下會逐步放大。",
+      "zoomDesc": "使用滾輪或捏合手勢時畫布縮放的速度。"
     },
     "data": {
       "aiTags": "清除 AI 標籤",
-      "aiTagsDesc": "從根資料夾中的所有影像移除 AI 產生的標籤。你自行加入的標籤會保留。",
+      "aiTagsDesc": "從根資料夾中的照片移除 AI 標籤。你自行加入的標籤會保留。",
       "allTags": "清除所有標籤",
-      "allTagsDesc": "從根資料夾中的所有影像移除 AI 產生的標籤和使用者加入的標籤。顏色標記會保留。",
+      "allTagsDesc": "從根資料夾中的照片移除所有標籤。顏色標籤會保留。",
       "clear": "清除",
       "delete": "刪除",
       "deleteEdits": "刪除所有編輯",
-      "deleteEditsDesc": "刪除所有根資料夾中的 .rrdata 附屬檔案（你的編輯）。此操作無法復原。",
+      "deleteEditsDesc": "刪除根資料夾中的所有 .rrdata 附屬檔案。此操作無法復原。",
       "libraryAndWorkspace": "圖庫與工作區",
       "limit": "上限",
       "modals": {
@@ -1909,12 +2004,16 @@
         "metadataMessage": "確定要清除中繼資料快取嗎？\n\n瀏覽時會重新從檔案讀取中繼資料。",
         "modelsMessage": "確定要移除已下載的 AI 模型嗎？\n\n下次使用 AI 功能時會重新下載。",
         "resetLayoutMessage": "確定要重設工作區版面配置嗎？所有停靠的面板、寬度和切換器位置都將還原為預設值。",
-        "sidecarMessage": "您確定要刪除所有附屬檔案嗎？\n\n這將永久刪除所有活動根資料夾及其子資料夾中所有影像的所有編輯資料。"
+        "sidecarMessage": "您確定要刪除所有附屬檔案嗎？\n\n這將永久刪除所有活動根資料夾及其子資料夾中所有影像的所有編輯資料。",
+        "videoProxiesMessage": "確定要清除影片代理嗎？\n\n使用代理時會重新建立。",
+        "videoReversedMessage": "確定要清除倒轉片段嗎？\n\n倒轉片段會在下次使用時重新準備。",
+        "videoAnalysisMessage": "確定要清除影片分析嗎？\n\n穩定、逐影格跟隨的 AI 遮色片、節拍和膠片條都需要重新分析。",
+        "videoTimelapsesMessage": "確定要清除縮時攝影嗎？\n\n縮時攝影會在下次使用時從其照片重新算繪。"
       },
       "noFolders": "未選擇資料夾",
       "refresh": "重新整理",
       "reset": "重設",
-      "resetLayoutDesc": "將面板停靠區、側邊分割條、高度和面板切換器還原為預設的版面配置。",
+      "resetLayoutDesc": "將面板停靠區、尺寸和切換器還原為預設的版面配置。",
       "resetLayoutTitle": "重設工作區版面配置",
       "show": "顯示",
       "statuses": {
@@ -1941,7 +2040,7 @@
         "aiUpscale": "RapidRes",
         "aiUpscaleDesc": "快取的 RapidRes 2 倍放大結果。",
         "immich": "Immich",
-        "immichDesc": "已下載的原始檔。達到上限後會刪除最久未使用的原始檔；你的編輯會保留。",
+        "immichDesc": "已下載的原始檔。達到上限時會先刪除最舊的；你的編輯會保留。",
         "logs": "記錄檔",
         "logsDesc": "用於疑難排解的應用程式記錄檔。每次啟動時清空。",
         "metadata": "中繼資料",
@@ -1949,7 +2048,17 @@
         "models": "AI 模型",
         "modelsDesc": "首次使用 AI 功能時依需求下載。",
         "thumbnails": "縮圖",
-        "thumbnailsDesc": "瀏覽時會自動重新產生。"
+        "thumbnailsDesc": "瀏覽時會自動重新產生。",
+        "videoProxies": "影片代理",
+        "videoProxiesDesc": "用於流暢播放的輕量副本。需要時會重新建立。",
+        "videoReversed": "倒轉片段",
+        "videoReversedDesc": "倒轉片段的反向副本。",
+        "videoAnalysis": "影片分析",
+        "videoAnalysisDesc": "穩定、AI 遮色片、節拍、膠片條和巢狀音訊。",
+        "videoTimelapses": "縮時攝影",
+        "videoTimelapsesDesc": "為縮時攝影沖洗的照片序列。需要時會重新算繪。",
+        "video": "影片快取",
+        "immichProjects": "其中 {{size}} 為影片專案保留。"
       },
       "storageTitle": "儲存空間",
       "title": "資料管理",
@@ -1957,42 +2066,39 @@
     },
     "general": {
       "createXmp": "建立缺失的 XMP 檔案",
-      "createXmpDesc": "如果影像沒有對應的 XMP 附屬檔案，則自動建立一個。",
       "createXmpMissing": "缺失時建立 XMP",
       "displayEditIcon": "顯示編輯圖示",
-      "displayEditIconDesc": "在已編輯的縮圖上顯示一個小滑桿圖示。",
       "enableFocusMode": "啟用專注模式",
       "enableNeutralGreyCanvas": "啟用中性灰背景",
       "enableOsTitlebar": "啟用系統標題欄",
       "enableToolFocusMode": "啟用工具專注模式",
       "enableXmpSync": "啟用 XMP 同步",
       "focusMode": "專注模式",
-      "focusModeDesc": "在您開啟新面板時自動關閉其他面板，幫助您保持專注。",
+      "focusModeDesc": "開啟一個面板時關閉其他面板。",
       "folderImageCounts": "資料夾影像計數",
-      "folderImageCountsDesc": "懸停在資料夾樹時顯示資料夾內的影像數量。",
+      "folderImageCountsDesc": "在資料夾樹中將游標停在資料夾上時顯示。",
       "font": "字型",
-      "fontDesc": "更改應用程式字型。",
       "hideCollapsedPanels": "隱藏折疊的面板",
-      "hideCollapsedPanelsDesc": "折疊的側邊面板將完全隱藏，而不是留下一道窄條。可透過底部列或鍵盤快捷鍵重新開啟。",
+      "hideCollapsedPanelsDesc": "收合的側邊面板會消失，而不是留下一道窄條。可透過底部列或其快速鍵重新開啟。",
       "nativeTitlebar": "原生標題欄",
-      "nativeTitlebarDesc": "使用系統預設的視窗標題欄，而非 RapidRAW 的自定義標題欄。",
+      "nativeTitlebarDesc": "使用系統視窗標題列，而非 RapidRAW 自己的標題列。",
       "neutralGreyCanvas": "中性灰畫布",
-      "neutralGreyCanvasDesc": "使用中性灰畫布，以便在不更改應用程式主題的情況下進行更準確的色彩和曝光分級。",
+      "neutralGreyCanvasDesc": "無論使用哪種主題，都在中性灰背景上顯示照片，方便判斷色彩與曝光。",
       "poppins": "Poppins",
       "showImageCounts": "顯示影像計數",
       "system": "系統預設",
       "theme": "主題",
-      "themeDesc": "更改應用程式的外觀和風格。",
       "title": "通用設定",
       "toolFocusMode": "工具專注模式",
-      "toolFocusModeDesc": "展開某個工具時，自動收合同一面板中的其他工具。",
+      "toolFocusModeDesc": "展開某個工具時，收合同一面板中的其他工具。",
       "uiScale": "介面縮放",
       "uiScaleCompact": "精簡",
       "uiScaleDefault": "預設",
-      "uiScaleDesc": "獨立於系統顯示縮放，調整介面大小。精簡尺寸可在小尺寸筆電螢幕上顯示更多內容。",
+      "uiScaleDesc": "不受系統顯示縮放影響。精簡尺寸可在小螢幕上顯示更多內容。",
       "uiScaleLarge": "大",
       "xmpSync": "XMP 後設資料同步",
-      "xmpSyncDesc": "將評分、顏色標籤和標籤同步到標準 XMP 附屬檔案，以便與其他照片編輯器相容。"
+      "xmpSyncDesc": "將評分、顏色標籤和標籤與 XMP 附屬檔案同步。",
+      "showEditIcon": "在已編輯的縮圖上顯示"
     },
     "keybinds": {
       "actions": {
@@ -2050,27 +2156,98 @@
         "toggle_viewer_window": "切換第二視窗",
         "undo": "復原調整",
         "unflag": "取消標記",
+        "video_add_marker": "新增或移除標記",
+        "video_back_second": "後退 1 秒",
+        "video_back_second_alt": "後退 1 秒（替代）",
+        "video_clear_range": "清除入點和出點",
+        "video_copy": "複製選取項目",
+        "video_delete": "刪除選取項目",
+        "video_delete_alt": "刪除選取項目（替代）",
+        "video_duplicate": "建立選取項目的副本",
+        "video_forward_second": "前進 1 秒",
+        "video_forward_second_alt": "前進 1 秒（替代）",
+        "video_go_end": "跳至結尾",
+        "video_go_start": "跳至開頭",
+        "video_jump_back": "回跳並播放",
+        "video_loop": "切換循環播放",
+        "video_nest": "將選取項目巢狀化",
+        "video_next_edit": "下一個編輯點",
+        "video_next_frame": "下一個影格",
+        "video_next_frame_alt": "下一個影格（替代）",
+        "video_next_marker": "下一個標記",
+        "video_nudge_left": "向左微移 1 個影格",
+        "video_nudge_left_more": "向左微移 5 個影格",
+        "video_nudge_right": "向右微移 1 個影格",
+        "video_nudge_right_more": "向右微移 5 個影格",
+        "video_paste": "在播放磁頭處貼上",
+        "video_pause": "暫停",
+        "video_play": "播放",
+        "video_play_in_out": "從入點播放到出點",
+        "video_play_pause": "播放/暫停",
+        "video_prev_edit": "上一個編輯點",
+        "video_prev_frame": "上一個影格",
+        "video_prev_frame_alt": "上一個影格（替代）",
+        "video_prev_marker": "上一個標記",
+        "video_redo": "重做",
+        "video_redo_alt": "重做（替代）",
+        "video_ripple_delete": "刪除並關閉間隙",
+        "video_ripple_delete_alt": "刪除並關閉間隙（替代）",
+        "video_select_all": "選取所有片段",
+        "video_set_in": "設定入點",
+        "video_set_out": "設定出點",
+        "video_split": "在播放磁頭處分割",
+        "video_split_all": "在播放磁頭處分割所有軌道",
+        "video_toggle_snapping": "切換靠齊",
+        "video_trim_end": "將片段結尾修剪至播放磁頭",
+        "video_trim_start": "將片段開頭修剪至播放磁頭",
+        "video_undo": "復原",
+        "video_unnest": "取消巢狀",
+        "video_zoom_fit": "時間軸符合視窗",
+        "video_zoom_in": "放大時間軸",
+        "video_zoom_out": "縮小時間軸",
         "zoom_100": "縮放到 100%",
         "zoom_fit": "縮放以適應",
         "zoom_in": "放大",
         "zoom_in_step": "放大（步進）",
         "zoom_out": "縮小",
-        "zoom_out_step": "縮小（步進）"
+        "zoom_out_step": "縮小（步進）",
+        "video_export_frame": "匯出影格",
+        "video_copy_adjustments": "複製調整",
+        "video_paste_adjustments": "將調整貼上至選取項目",
+        "video_freeze_frame": "在播放磁頭處停格",
+        "video_insert": "在播放磁頭處插入目前媒體",
+        "video_overwrite": "在播放磁頭處以目前媒體覆寫",
+        "video_save_project": "儲存專案",
+        "video_prev_keyframe": "上一個關鍵影格",
+        "video_next_keyframe": "下一個關鍵影格",
+        "video_select_at_playhead": "選取播放磁頭處的片段",
+        "video_add_title": "新增標題",
+        "video_toggle_keyframe": "新增或移除關鍵影格",
+        "video_record_keyframes": "錄製關鍵影格",
+        "video_panel_project": "切換專案面板",
+        "video_panel_inspector": "切換檢閱器面板",
+        "video_panel_effects": "切換標題與轉場面板",
+        "video_panel_captions": "切換字幕面板",
+        "video_panel_mixer": "切換音訊混合器面板"
       },
       "sections": {
         "editing": "編輯",
         "library": "相簿",
         "panels": "面板",
         "rating": "評分與標籤",
-        "view": "檢視"
-      }
+        "videoEditing": "影片編輯",
+        "videoPlayback": "影片播放",
+        "videoTimeline": "影片時間軸",
+        "view": "檢視",
+        "videoPanels": "影片面板"
+      },
+      "videoHint": "在影片專案中，這些按鍵優先於上方的照片快速鍵。"
     },
     "language": "語言",
-    "languageDesc": "更改應用程式語言。",
     "lenses": {
       "addButton": "新增到我的鏡頭",
       "addNew": "新增新鏡頭",
-      "description": "建立您常用的鏡頭列表，以便在鏡頭校正面板中快速訪問。",
+      "description": "手動鏡頭校正的快速選項。",
       "manufacturerPlaceholder": "選擇製造商",
       "modelPlaceholder": "選擇鏡頭型號",
       "noLenses": "尚未新增鏡頭。",
@@ -2082,26 +2259,20 @@
       "advanced": {
         "auto": "自動",
         "exportMemoryLimit": "匯出記憶體上限",
-        "exportMemoryLimitDesc": "批次匯出可使用的可用記憶體比例。調低可在大型匯出期間讓其他應用程式保持流暢。",
+        "exportMemoryLimitDesc": "批次匯出可使用的可用記憶體比例。調低可讓其他應用程式保持流暢。",
         "exportThreads": "並行匯出",
-        "exportThreadsDesc": "同時匯出的影像數量。「自動」會依據你的 CPU 選擇合適的值。如果大型匯出失敗或顯示卡記憶體較少，請調低。",
+        "exportThreadsDesc": "同時匯出的影像數量。「自動」會依據你的 CPU 決定；如果大型匯出失敗或顯示卡記憶體較少，請調低。",
         "heading": "進階",
-        "headingDesc": "縮圖、快取與匯出的效能調整。預設值適合大多數使用者。",
+        "headingDesc": "縮圖、快取與匯出的效能調整。預設值適合大多數系統。",
         "title": "進階設定"
       },
       "ai": {
         "aiFree": {
-          "description": "關閉所有 AI 功能。所有與 AI 相關的控制項都會從介面中隱藏，RapidRAW 將作為純傳統的 RAW 編輯器運作。",
-          "feature1": "介面中不顯示 AI 遮色片、鏡頭模糊或生成式編輯",
-          "feature2": "現有的 AI 編輯仍會正常呈現",
-          "feature3": "更簡潔、更專注的介面",
+          "description": "隱藏所有 AI 控制項。現有的 AI 編輯仍會算繪。",
           "title": "無 AI"
         },
         "cloud": {
-          "description": "對於那些想要更簡單解決方案的使用者，可選訂閱提供與自託管相同的高品質結果，無需任何麻煩。這是最方便的選擇，也是支援本專案的最佳方式。",
-          "feature1": "最大便利，無需設定",
-          "feature2": "與自託管相同的結果",
-          "feature3": "無需強大硬體",
+          "description": "透過訂閱在 RapidRAW 伺服器上執行生成式編輯。",
           "signedIn": {
             "active": "雲端訂閱已啟用",
             "inactive": "無有效訂閱",
@@ -2121,32 +2292,28 @@
             "retry": "重試連線",
             "unsupported": "雲端登入目前僅在桌面裝置上可用。"
           },
-          "title": "雲端服務"
+          "title": "雲端服務",
+          "tooltip": "不需設定或高階 GPU，即可獲得與自行架設相同的結果，同時也能支持本專案。"
         },
         "connector": {
           "address": "AI 聯結器地址",
-          "addressDesc": "輸入您正在執行的 AI 聯結器實例的地址和連接埠。這是使用生成式 AI 功能所必需的。",
-          "description": "對於擁有強大 GPU 且希望最大程度控制的使用者，可以將 RapidRAW 連線到您自己的聯結器伺服器。這為您提供了技術工作流的完全控制。",
+          "addressDesc": "正在執行的 AI Connector 的位址和連接埠。",
+          "description": "使用你自己的 ComfyUI 伺服器進行生成式編輯和自訂工作流程。",
           "failed": "連線失敗。",
-          "feature1": "使用您自己的 ComfyUI 實例",
-          "feature2": "免費的進階生成式編輯",
-          "feature3": "自定義工作流選擇",
           "success": "連線成功！",
           "test": "測試",
           "testing": "測試中...",
-          "title": "自託管（RapidRAW AI 聯結器）"
+          "title": "自託管（RapidRAW AI 聯結器）",
+          "tooltip": "免費，但需要效能足夠的 GPU 和正在執行的 ComfyUI。"
         },
         "cpu": {
-          "description": "直接整合到 RapidRAW 中，這些功能完全在您的計算機上執行。它們快速、免費且無需設定，非常適合日常加速工作流程。",
-          "feature1": "AI 遮色片（主體、天空、前景）",
-          "feature2": "自動影像標籤",
-          "feature3": "簡單的本機生成式替換",
+          "description": "在這台電腦上執行遮色片、標籤和簡單的生成式取代。",
           "gpuAcceleration": "GPU 加速",
-          "gpuAccelerationDesc": "在顯示卡上執行降噪、遮罩、深度圖與法線圖以及標籤等內建 AI 功能，大幅提升速度。如果遇到當機或 AI 結果不正確，請關閉此選項。",
+          "gpuAccelerationDesc": "在顯示卡上執行降噪、遮色片、深度圖和標籤。如果 AI 功能當機或結果異常，請關閉此選項。",
           "gpuAccelerationLabel": "為 AI 模型使用 GPU",
           "title": "內建 AI"
         },
-        "description": "RapidRAW 的 AI 專為靈活性而設計。選擇您理想的工作流程，從快速的本地工具到強大的自託管。",
+        "description": "選擇 AI 功能的執行位置。",
         "providers": {
           "aiConnector": "AI 聯結器",
           "aiFree": "無 AI",
@@ -2156,10 +2323,10 @@
         "title": "生成式 AI"
       },
       "alwaysDecodeRaw": "始終解碼 RAW",
-      "alwaysDecodeRawDesc": "強制對縮圖進行完整的 RAW 解碼，而不是使用內建的 JPEG 預覽。如果您的縮圖在顏色或對比度上與打開的影像不同，請啟用此選項。",
+      "alwaysDecodeRawDesc": "為縮圖解碼 RAW 檔案，而不是使用內嵌的 JPEG。如果縮圖與開啟的照片不同，請開啟此選項。",
       "alwaysDecodeRawLabel": "始終為縮圖解碼 RAW",
       "backend": "處理後端",
-      "backendDesc": "選擇圖形 API。推薦使用「自動」。在某些系統上可能解決崩潰問題。",
+      "backendDesc": "用於處理的圖形 API。除非其他選項能解決當機問題，否則請保持「自動」。",
       "backendFallback": "{{failed}} 在此 GPU 上啟動時當機，因此暫時使用 {{using}}。",
       "backendFallbackRetry": "重新嘗試 {{failed}}",
       "backendFallbackRetryPending": "下次啟動時將重新嘗試 {{failed}}。",
@@ -2176,12 +2343,12 @@
         "modeCustom": "自訂 ICC 描述檔",
         "modeOff": "關閉",
         "previewGamut": "預覽色域",
-        "previewGamutDesc": "請與匯出所用的色彩空間保持一致。sRGB 顯示 sRGB 或網頁匯出的效果。廣色域還會顯示螢幕能呈現的超出 sRGB 的顏色，例如 Display P3 或 Adobe RGB 匯出。",
+        "previewGamutDesc": "與匯出所用的色彩空間保持一致：網頁匯出用 sRGB，Display P3 或 Adobe RGB 匯出用廣色域。",
         "previewGamutSrgb": "sRGB",
         "previewGamutWide": "廣色域",
         "previewGamutWideSpace": "廣色域（{{space}}）",
         "profile": "螢幕描述檔",
-        "profileDesc": "將編輯器預覽轉換為螢幕的色彩描述檔，讓顏色在已校色與廣色域螢幕上正確顯示。匯出不受影響。",
+        "profileDesc": "將預覽轉換為螢幕的色彩描述檔。匯出不受影響。",
         "statusInvalid": "無法載入此描述檔。",
         "statusNone": "找不到螢幕描述檔。預覽以 sRGB 顯示。",
         "statusProfile": "正在使用 {{name}}。",
@@ -2191,33 +2358,34 @@
       },
       "defaultAdjustments": {
         "addCamera": "新增相機…",
-        "applyToNonRaw": "同時套用於 JPEG、TIFF、PNG 等非 RAW 檔案",
-        "applyToNonRawDesc": "關閉時僅 RAW 檔案使用這些預設值。相機直出的 JPEG 通常已處理並校正，再次套用可能會過度。",
+        "applyToNonRaw": "同時套用於非 RAW 檔案",
+        "applyToNonRawDesc": "包括 JPEG、TIFF 和 PNG。相機直出的 JPEG 通常已經過處理，預設值可能會導致處理過度。",
         "autoLensCorrection": "自動鏡頭校正",
-        "autoLensCorrectionDesc": "依據從每張影像中繼資料辨識出的鏡頭描述檔，校正變形、色差與暗角。",
+        "autoLensCorrectionDesc": "依據每張照片中繼資料中的鏡頭描述檔，校正變形、色差與暗角。",
         "cameraDefaults": "依相機設定預設值",
-        "cameraDefaultsDesc": "為特定相機的影像設定專屬的預設集。未列出的相機使用上方的預設預設集，鏡頭校正適用於所有相機。",
-        "cameraPresetMissing": "所選預設集已被刪除，因此此相機的影像重新使用所有相機的預設集。",
-        "description": "設定未編輯影像的初始值以及「重置調整」恢復到的值；已編輯的影像會保留各自的設定。設定預設值後，RAW 縮圖會重新算繪而不使用相機內嵌預覽，因此首次載入較慢。",
+        "cameraDefaultsDesc": "這些相機拍攝的照片使用各自的預設集；其他相機使用預設預設集。",
+        "cameraPresetMissing": "所選預設集已被刪除，因此此相機使用預設預設集。",
+        "description": "設定預設值後，RAW 縮圖會重新算繪而不使用內嵌預覽，因此首次載入較慢。",
         "lensCorrection": "鏡頭校正",
-        "noCamerasFound": "找不到其他相機。請開啟包含該相機影像的資料夾，或在編輯其影像時於預設集上按右鍵。",
+        "noCamerasFound": "在開啟的資料夾中找不到其他相機。",
         "noPreset": "無（中性）",
         "preset": "預設預設集",
-        "presetDesc": "套用於所有未編輯的影像。遮罩、裁切與變形只適合建立它們的影像，因此會被略過。",
-        "presetMissing": "所選預設集已被刪除，因此未編輯的影像重新使用中性值。",
+        "presetDesc": "套用於未編輯的照片，並供「重置調整」使用。",
+        "presetMissing": "所選預設集已被刪除，因此未編輯的照片使用中性值。",
         "removeCamera": "移除相機",
         "sameAsAllCameras": "與所有相機相同",
         "scope": "套用於",
         "sliderReset": "滑桿重置",
         "sliderResetDefaults": "預設調整",
-        "sliderResetDesc": "透過雙擊或快速編輯等方式重置滑桿時恢復到的值。遮罩滑桿一律重置為中性值。",
+        "sliderResetDesc": "按兩下或在快速編輯中重設滑桿時恢復的值。遮色片滑桿一律重設為中性值。",
         "sliderResetNeutral": "中性值",
-        "title": "預設調整"
+        "title": "預設調整",
+        "presetTooltip": "遮色片、裁切與變形只適合建立它們的照片，因此會被略過。"
       },
       "display": {
         "title": "顯示"
       },
-      "dynamicDesc": "編輯器根據顯示器實際畫素密度渲染預覽。這確保每個細節都以 1:1 畫素精度呈現，在縮放和檢查焦點時提供最大清晰度。",
+      "dynamicDesc": "配合螢幕的像素密度，縮放時呈現 1:1 細節。",
       "editIn": {
         "add": "新增程式",
         "args": "參數（{file} = 影像路徑）",
@@ -2234,30 +2402,33 @@
         "title": "在其他程式中編輯"
       },
       "enableLivePreviews": "啟用即時預覽",
+      "ffmpeg": "FFmpeg",
+      "ffmpegBundledDesc": "影片使用內建的 FFmpeg {{version}}。",
+      "ffmpegMissing": "無法載入 FFmpeg 程式庫，因此影片會保持隱藏。",
       "hdr": {
         "gainMaps": "HDR 相片",
         "gainMapsAuto": "自動",
-        "gainMapsDesc": "含有 HDR 增益圖的照片（例如新款手機拍攝的照片）會在螢幕允許的範圍內顯示 HDR 亮部。HDR 匯出會使用匯出設定中的餘裕，其他匯出則顯示一般照片。「一律為 SDR」會忽略 HDR 資料。",
+        "gainMapsDesc": "在螢幕允許的範圍內顯示增益圖照片（例如新款手機拍攝的照片）的 HDR 亮部。匯出依照匯出設定。",
         "gainMapsNever": "一律以 SDR 開啟",
         "statusActive": "此螢幕處於 HDR 模式。在編輯器工具列中開啟 HDR 即可預覽。",
-        "statusInactive": "此顯示器未處於 HDR 模式。請在系統顯示設定中開啟 HDR 以查看效果。",
+        "statusInactive": "此顯示器未處於 HDR 模式。請在系統顯示設定中開啟 HDR。",
         "statusUnsupported": "HDR 需要 WGPU 直接渲染；在 Linux 上還需要支援 HDR 的 Wayland 工作階段。"
       },
       "highDpi": "高 DPI 渲染",
-      "highDpiDesc": "以螢幕原生 {{dpr}}x 物理畫素解析度渲染預覽。產生最清晰的預覽，但會顯著增加記憶體使用。",
-      "highDpiDescStandard": "此設定僅影響高 DPI 顯示器。您當前的顯示器為標準解析度。",
+      "highDpiDesc": "以螢幕原生 {{dpr}}x 像素密度算繪。最清晰，但會使用更多記憶體。",
+      "highDpiDescStandard": "僅影響高 DPI 顯示器。此顯示器為標準解析度。",
       "imageCache": "已解碼影像快取",
-      "imageCacheDesc": "儲存在記憶體中的全解析度影像最大數量。較高的值可使最近編輯的影像之間切換即時完成，但會顯著增加記憶體使用。",
+      "imageCacheDesc": "保留在記憶體中的全解析度影像。數值越高，在最近的影像之間切換越即時，但會使用更多記憶體。",
       "images": "張影像",
       "linuxCompat": "Linux 相容模式",
-      "linuxCompatDesc": "透過共享記憶體而非 GPU 緩衝區共享來傳輸網頁視圖，以規避視窗空白等 GPU 驅動問題。X11 上的 Nvidia GPU 已自動套用此方案，因此僅在視窗仍然空白或顯示異常時才啟用此選項。",
+      "linuxCompatDesc": "規避導致視窗空白的 GPU 驅動程式錯誤。X11 上的 Nvidia 已自動套用此方案。",
       "linuxCompatLabel": "啟用相容模式",
       "livePreviewQuality": "即時預覽品質",
-      "livePreviewQualityDesc": "控制拖動滑桿時影像的解析度和壓縮。較低的品質可顯著提高反應速度。",
+      "livePreviewQualityDesc": "拖曳滑桿時的解析度與壓縮。「效能優先」反應更快。",
       "livePreviews": "即時互動式預覽",
-      "livePreviewsDesc": "拖動滑桿時立即更新預覽。如果介面在調整時感覺卡頓，請停用此選項。",
+      "livePreviewsDesc": "拖曳滑桿時更新預覽。如果調整時感覺延遲，請關閉此選項。",
       "mediumThumbnailRes": "編輯器縮圖解析度",
-      "mediumThumbnailResDesc": "在編輯器中載入完整影像時顯示的預覽解析度。",
+      "mediumThumbnailResDesc": "完整影像載入時在編輯器中顯示的預覽。",
       "modes": {
         "dynamic": "動態",
         "static": "固定解析度"
@@ -2265,19 +2436,17 @@
       "nativeDpi": "以原生 DPI 渲染",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9 引擎",
-        "appleRaw9Desc": "使用 Apple 的 Core Image RAW 9 解碼器沖洗 RAW 檔案。它在神經網路引擎 (Neural Engine) 上一步完成去馬賽克與降噪。需要 macOS 27 或更高版本以及支援的相機；不支援的檔案將自動使用內建解碼器。比預設解碼器慢。縮圖不受影響。",
+        "appleRaw9Desc": "使用 Apple 的 Core Image 解碼，可在神經網路引擎上降噪，但速度較慢。需要 macOS 27 和支援的相機；其他檔案使用內建解碼器。",
         "applyPreprocessing": "對非 RAW 影像應用預處理",
-        "applyPreprocessingDesc": "如果啟用，上述基礎顏色降噪和預銳化也將應用於標準格式。",
+        "applyPreprocessingDesc": "同時將基礎降噪與預銳化套用於 JPEG、PNG 及其他非 RAW 檔案。",
         "baselineExposure": "基礎曝光",
         "baselineExposureAmount": "基礎量",
         "baselineExposureAmountDesc": "加到 RAW 檔案的曝光量。darktable 使用 +0.7 EV。",
-        "baselineExposureDesc": "將 RAW 檔案提亮一個固定值；如有 DNG BaselineExposure 標籤，則改用該標籤的值。",
+        "baselineExposureDesc": "將 RAW 檔案提亮一個固定值；如有 DNG BaselineExposure 標籤，則使用該標籤的值。",
         "colorNr": "基礎顏色降噪",
-        "colorNrDesc": "在管線早期應用交叉雙邊濾波器以去除彩色噪點。值越高 = 降噪越強。",
+        "colorNrDesc": "在 RAW 處理流程早期去除彩色雜訊。",
         "defaultNonRawTonemapper": "預設非 RAW 色調映射",
-        "defaultNonRawTonemapperDesc": "應用於非 RAW 影像（如 JPEG、PNG）的色調映射器。",
         "defaultRawTonemapper": "預設 RAW 色調映射",
-        "defaultRawTonemapperDesc": "應用於 RAW 影像的色調映射器。",
         "enableAppleRaw9": "對 RAW 檔案使用 Apple RAW 9",
         "enableBaselineExposure": "對 RAW 檔案套用基礎曝光",
         "enableHighlightPreservation": "補償相機的高光保護模式",
@@ -2285,11 +2454,11 @@
         "enablePreprocessingNonRaws": "對非 RAW 影像啟用",
         "enableTonemapperOverride": "啟用色調映射覆蓋",
         "highlightPreservation": "高光保護補償",
-        "highlightPreservationDesc": "恢復相機高光保護模式（如富士 DR200/DR400、Nikon 動態 D-Lighting）降低的曝光。",
+        "highlightPreservationDesc": "恢復由富士 DR200/DR400 或 Nikon 動態 D-Lighting 等模式降低的曝光。",
         "highlightRecovery": "RAW 亮部恢復",
         "highlightRecoveryDesc": "控制從 RAW 檔案的裁剪亮部中恢復細節的程度。較高的值可恢復更多細節，但可能引入紫色偽影。",
         "hotPixels": "熱像素移除",
-        "hotPixelsDesc": "解碼 RAW 檔案時自動修復感光元件上的熱像素、卡住像素與壞點。僅替換孤立的單一像素，因此星星與細小高光會被保留。",
+        "hotPixelsDesc": "修復 RAW 檔案中感光元件的熱像素、卡住像素與壞點。僅替換孤立的像素，因此星星會被保留。",
         "linearOptions": {
           "auto": "自動",
           "gamma": "應用 Gamma",
@@ -2297,26 +2466,26 @@
           "skip_calib": "跳過校準"
         },
         "linearRaw": "線性 RAW 處理",
-        "linearRawDesc": "修復某些 DNG 檔案中的色偏或粉色色調。控制如何處理已處理的 LinearRAW 資料。",
+        "linearRawDesc": "修復某些 DNG 檔案中的色偏或粉紅色調。",
         "sharpening": "基礎預銳化",
-        "sharpeningDesc": "在管線早期應用柔和的細節增強。值越高 = 銳化越強。",
+        "sharpeningDesc": "在 RAW 處理流程早期進行輕度銳化。",
         "title": "影像預處理",
         "tonemapperOptions": {
           "agx": "AgX",
           "basic": "基礎"
         },
         "tonemapperOverride": "全域色調映射覆蓋",
-        "tonemapperOverrideDesc": "為所有影像全域強制使用特定的色調映射器，從調整面板中隱藏色調映射器開關。"
+        "tonemapperOverrideDesc": "對所有影像使用同一個色調映射器，並隱藏調整面板中的色調映射器切換開關。"
       },
       "previewRes": "預覽解析度",
-      "previewResDesc": "確定預覽的最大解析度。較低的值可顯著提高效能。",
+      "previewResDesc": "預覽的最大尺寸。數值越低越快。",
       "previewStrategy": "預覽渲染策略",
       "qualities": {
         "high": "高品質",
         "performance": "效能優先"
       },
       "rawDecoding": "RAW 解碼",
-      "rawDecodingDesc": "選擇在何處解碼 RAW 檔案。「自動」使用 GPU，並在 GPU 無法處理您的影像時切換到 CPU。「GPU」始終先嘗試 GPU。「CPU」較慢，但適用於所有系統。",
+      "rawDecodingDesc": "「自動」使用 GPU，當 GPU 無法處理某個檔案時改用 CPU。CPU 較慢，但適用於所有系統。",
       "rawDecodingFallback": "GPU 處理大型 RAW 檔案失敗，因此 {{megapixels}} MP 以上的檔案暫時在 CPU 上顯影。",
       "rawDecodingFallbackRetry": "重新嘗試 GPU",
       "rawDecodingOptions": {
@@ -2326,24 +2495,21 @@
       },
       "rawDecodingUnavailable": "此 GPU 無法執行 RAW 解碼，因此 RAW 檔案在 CPU 上解碼。",
       "renderScale": "渲染解析度縮放",
-      "renderScaleDesc": "相對於顯示器縮放渲染解析度。較低的值可在高解析度螢幕上提高效能，但會犧牲一些清晰度。",
-      "restartRequired": "處理引擎的更改需要重啟應用程式才能生效。",
+      "renderScaleDesc": "相對於顯示器。在高解析度螢幕上，數值越低越快，但清晰度會降低。",
+      "restartRequired": "重新啟動 RapidRAW 以套用這些變更。",
       "saveRelaunch": "儲存並重新啟動",
       "smallThumbnailRes": "網格縮圖解析度",
-      "smallThumbnailResDesc": "圖庫網格中顯示的縮圖解析度。",
-      "staticDesc": "編輯器以固定解析度渲染影像。此模式最快且最一致，非常適合低端硬體，優先考慮流暢效能而非畫素完美的縮放。",
+      "staticDesc": "以固定尺寸算繪。速度最快，最適合較慢的硬體。",
       "threads": "執行緒數",
-      "thumbnailRes": "縮圖解析度",
-      "thumbnailResDesc": "確定生成的相簿縮圖的解析度。較高的值可在載入時產生更清晰的影像。",
       "title": "處理引擎",
       "wgpu": "WGPU 直接渲染",
-      "wgpuDescAndroid": "繞過瀏覽器編碼，實現即時回應的即時預覽。（在 Android 上已停用：原生 WGPU 表面建立目前不支援與移動端 Webview 同時執行。）",
+      "wgpuDescAndroid": "Android 上無法使用。",
       "wgpuDescLinuxExperimental": "在 Linux 上為實驗性功能，可能不穩定。",
       "wgpuDescLinuxX11": "在 X11 上無法使用。",
-      "wgpuDescRecommended": "繞過瀏覽器編碼，實現即時回應的即時預覽。強烈推薦以獲得最佳效能。",
       "wgpuLabel": "啟用直接 WGPU 渲染",
       "workerThreads": "縮圖工作執行緒數",
-      "workerThreadsDesc": "用於生成縮圖的並行執行緒數。較高的值可加快相簿載入速度，但會佔用更多 CPU 和記憶體。"
+      "workerThreadsDesc": "執行緒越多，資料夾載入越快，但會佔用更多 CPU 和記憶體。",
+      "wgpuDesc": "直接在 GPU 上繪製預覽，而不經過網頁檢視，以獲得更快的即時預覽。"
     },
     "tagging": {
       "addCustomPlaceholder": "新增自定義 AI 標籤（逗號分隔）...",
@@ -2351,21 +2517,20 @@
       "addShortcutsPlaceholder": "新增快捷方式（逗號分隔）...",
       "addShortcutTooltip": "新增快捷方式",
       "aiTagging": "AI 標籤",
-      "aiTaggingDesc": "使用 AI（CLIP）模型啟用自動影像標籤。這將下載額外的模型，並在瀏覽資料夾時影響效能。標籤用於搜尋資料夾。",
+      "aiTaggingDesc": "使用本機 CLIP 模型為照片加上標籤以便搜尋。會下載模型，並使資料夾瀏覽變慢。",
       "amount": "數量",
       "automaticAiTagging": "自動 AI 標籤",
       "clearCustomTooltip": "清除 AI 標籤列表",
-      "clearShortcutsTooltip": "清除快捷方式標籤列表",
+      "clearShortcutsTooltip": "清除標籤捷徑",
       "customList": "自定義 AI 標籤列表",
-      "customListDesc": "如果提供，AI 將僅使用此列表中的標籤，覆蓋 RapidRAW 內建的標籤列表。標籤功能僅支援英文。",
+      "customListDesc": "設定後，AI 標籤只會使用這些標籤，而非內建清單。僅支援英文。",
       "maxAiTags": "最大 AI 標籤數",
-      "maxAiTagsDesc": "每張影像生成的最大標籤數量。",
-      "noCustomTags": "無自定義 AI 標籤（使用內建列表）",
+      "noCustomTags": "沒有自訂 AI 標籤，使用內建清單",
       "noShortcuts": "未新增快捷方式",
       "removeCustomTooltip": "移除標籤 \"{{tag}}\"",
       "removeShortcutTooltip": "移除快捷方式 \"{{shortcut}}\"",
       "shortcuts": "標籤快捷方式",
-      "shortcutsDesc": "將出現在標籤上下文選單中作為快捷方式的標籤列表。",
+      "shortcutsDesc": "標籤右鍵選單中提供的標籤。",
       "title": "標籤"
     },
     "thanks": {
@@ -2375,12 +2540,14 @@
         "darktable": "為部分參考實現提供了指導。",
         "depth": "為強大的單目深度估計模型提供支援，實現了 AI 深度遮色片功能。",
         "efficientsam3": "為提供從 SAM 3 蒸餾而來的高效提示式分割模型，用於 AI 天空和文字遮罩。",
+        "ffmpeg": "感謝提供解碼、播放和匯出影片與音訊的程式庫（LGPL）。",
         "lama": "為強大且簡單的影像修復模型提供支援，實現了內容感知填充和物件移除。",
         "lensfun": "為無價的開源庫和全面的資料庫提供支援，實現了自動鏡頭校正。",
         "libgphoto2": "感謝提供全面的相機通訊函式庫，為 RapidRAW 的連線拍攝與遠端控制子系統提供支援。",
         "mediapipe": "感謝其快速的臉部特徵點與分割模型，為 AI 臉部遮罩提供支援。",
         "negpy": "為負片轉換邏輯提供了靈感。",
         "nind": "為 AI 模型提供支援，驅動了 RapidRAW 中的 AI 降噪功能。",
+        "parakeet": "感謝提供用於自動產生影片字幕的語音辨識模型（CC BY 4.0，ONNX 匯出由 istupakov 完成）。",
         "rawler": "為優秀的 Rust 庫提供支援，構成了本專案 RAW 檔案處理的基礎。",
         "sam2": "為提供基礎模型，用於 AI 主體檢測功能。",
         "span": "RapidRAW 的 AI 2 倍放大功能 RapidRes 的基礎 AI 模型，由 RapidRAW 針對自身的 RAW 處理流程進行微調（作者 Philip Hofmann，CC BY 4.0）。",
@@ -2542,6 +2709,836 @@
         "showClipping": "顯示裁剪警告",
         "vectorscope": "向量示波器"
       }
+    },
+    "fontPicker": {
+      "default": "預設",
+      "system": "系統",
+      "search": "搜尋字型",
+      "weights": {
+        "100": "極細",
+        "200": "特細",
+        "300": "細體",
+        "400": "一般",
+        "500": "中等",
+        "600": "半粗",
+        "700": "粗體",
+        "800": "特粗",
+        "900": "極粗"
+      }
+    },
+    "errors": {
+      "retry": "重試",
+      "causes": {
+        "gpuMemory": "GPU 記憶體不足。",
+        "permission": "權限遭拒。",
+        "missingFile": "檔案不存在。",
+        "diskFull": "磁碟已滿。",
+        "offline": "沒有網路連線。",
+        "missingFolder": "資料夾不存在。"
+      }
+    }
+  },
+  "video": {
+    "captions": {
+      "add": "新增",
+      "backdrop": "背景框",
+      "bold": "粗體",
+      "color": "顏色",
+      "delete": "刪除字幕",
+      "downloading": "正在下載模型… {{percent}}%",
+      "editText": "編輯文字",
+      "empty": "尚無字幕。",
+      "exportSrt": "匯出 SRT",
+      "exportVtt": "匯出 VTT",
+      "failed": "無法建立字幕。",
+      "generate": "從音訊產生",
+      "generateHint": "離線執行，支援 25 種歐洲語言。",
+      "import": "匯入…",
+      "importEmpty": "此檔案中沒有字幕。",
+      "mergeWithNext": "與下一則合併",
+      "modelHint": "首次執行需下載 670 MB。",
+      "newCaption": "字幕",
+      "noSpeech": "未偵測到語音。",
+      "position": "位置",
+      "show": "顯示",
+      "size": "大小",
+      "style": "樣式",
+      "subtitles": "字幕檔案",
+      "title": "字幕",
+      "transcribing": "正在轉錄… {{percent}}%",
+      "importFailed": "無法匯入字幕。",
+      "exportFailed": "無法匯出字幕。",
+      "replaceTitle": "取代字幕",
+      "replaceMessage_one": "現有字幕將被取代。",
+      "replaceMessage_other": "現有的 {{count}} 則字幕將被取代。",
+      "replace": "取代",
+      "append": "附加",
+      "files": "字幕檔案"
+    },
+    "clip": {
+      "mute": "靜音",
+      "speed": "速度",
+      "unmute": "取消靜音"
+    },
+    "clipBar": {
+      "history": {
+        "trim": "修剪"
+      },
+      "mute": "靜音",
+      "openInTimeline": "在時間軸中開啟",
+      "position": "位置",
+      "setThumbnail": "設為縮圖",
+      "thumbnailFrame": "縮圖",
+      "trimEnd": "修剪結尾，按兩下重設",
+      "trimStart": "修剪開頭，按兩下重設",
+      "unmute": "取消靜音",
+      "thumbnailSet": "縮圖已更新"
+    },
+    "effectsPanel": {
+      "add": "新增",
+      "title": "標題與轉場",
+      "transitions": "轉場"
+    },
+    "export": {
+      "backToPhotos": "返回照片",
+      "button": "匯出影片",
+      "codecNoHdr": "不支援 HDR",
+      "codecUnavailable": "這台電腦上無法使用",
+      "dynamicRange": {
+        "hlg": "HDR",
+        "pq": "HDR10",
+        "sdr": "SDR"
+      },
+      "dynamicRangeHint": {
+        "hlg": "最適合手機和電視。",
+        "pq": "適用於 YouTube 和 HDR 電視。",
+        "sdr": "在任何裝置上播放效果都一致。"
+      },
+      "emptyTimeline": "時間軸是空的。",
+      "exportVideos": "匯出影片",
+      "exported_one": "已匯出 {{count}} 個影片",
+      "exported_other": "已匯出 {{count}} 個影片",
+      "hardwareEncoding": "GPU 編碼",
+      "mixedNote_one": "{{count}} 個影片將分別匯出。",
+      "mixedNote_other": "{{count}} 個影片將分別匯出。",
+      "original": "原始",
+      "progress": "正在匯出… {{percent}}%",
+      "progressBatch": "正在匯出第 {{current}} 個，共 {{total}} 個 · {{percent}}%",
+      "quality": {
+        "high": "高",
+        "low": "小",
+        "medium": "中"
+      },
+      "saveTitle": "儲存影片",
+      "sections": {
+        "dynamicRange": "動態範圍",
+        "format": "格式",
+        "quality": "品質",
+        "resolution": "解析度",
+        "span": "範圍",
+        "preset": "預設集",
+        "loudness": "響度",
+        "frameRate": "影格速率",
+        "audio": "音訊"
+      },
+      "selectFolder_one": "選取資料夾以匯出 {{count}} 個影片",
+      "selectFolder_other": "選取資料夾以匯出 {{count}} 個影片",
+      "span": {
+        "all": "整個時間軸",
+        "range": "入點至出點（{{from}} – {{to}}）"
+      },
+      "unreadable": "無法讀取此影片。",
+      "videoCount_one": "{{count}} 個影片",
+      "videoCount_other": "{{count}} 個影片",
+      "videoFile": "影片",
+      "preset": {
+        "custom": "自訂",
+        "youtube": "YouTube",
+        "youtubeShorts": "YouTube Shorts",
+        "instagramReels": "Instagram Reels",
+        "instagramPost": "Instagram 貼文",
+        "tiktok": "TikTok",
+        "archive": "封存（ProRes）"
+      },
+      "presetHint": "適用於 {{aspect}}，最高 {{fps}} fps。",
+      "archiveHint": "任意長寬比與影格速率，未壓縮音訊。",
+      "aspectMismatch": "你的畫布不是 {{aspect}}。",
+      "useAspect": "使用 {{aspect}}",
+      "loudness": {
+        "off": "關"
+      },
+      "loudnessHint": {
+        "off": "保持混音音量不變。",
+        "streaming": "串流預設值。峰值維持在 −1 dBTP 以下。",
+        "podcast": "Podcast 和 Apple Music。峰值維持在 −1 dBTP 以下。",
+        "broadcast": "EBU R128 廣播標準。峰值維持在 −1 dBTP 以下。"
+      },
+      "measuring": "正在測量響度… {{percent}}%",
+      "container": "容器格式",
+      "containers": {
+        "mp4": "MP4 (.mp4)",
+        "mov": "QuickTime (.mov)",
+        "mkv": "Matroska (.mkv)",
+        "webm": "WebM (.webm)"
+      },
+      "rateControl": {
+        "quality": "固定品質",
+        "bitrate": "目標位元速率"
+      },
+      "rateControlHint": {
+        "quality": "品質保持一致。檔案大小取決於素材。",
+        "bitrate": "檔案大小可預測。品質取決於素材。"
+      },
+      "bitrate": "位元速率",
+      "mbps": "Mbps",
+      "kbps": "{{value}} kbps",
+      "fps": "{{fps}} fps",
+      "originalRate": "原始（{{fps}} fps）",
+      "proResQuality": {
+        "high": "422 HQ",
+        "medium": "422",
+        "low": "422 LT"
+      },
+      "size": "尺寸",
+      "width": "寬度",
+      "height": "高度",
+      "lockAspect": "鎖定長寬比",
+      "audioCodec": "編解碼器",
+      "audioCodecs": {
+        "aac": "AAC",
+        "opus": "Opus",
+        "pcm": "PCM"
+      },
+      "buttonMultiple_one": "匯出 {{count}} 個影片",
+      "buttonMultiple_other": "匯出 {{count}} 個影片",
+      "uploading": "正在上傳到 Immich… {{percent}}%",
+      "keptLocally": "未上傳到 Immich（{{reason}}）。已儲存到 {{folder}}。"
+    },
+    "inspector": {
+      "addKeyframe": "新增關鍵影格",
+      "align": {
+        "center": "置中對齊",
+        "left": "靠左對齊",
+        "right": "靠右對齊"
+      },
+      "animIn": "進場",
+      "animOut": "退場",
+      "animation": "動畫",
+      "audio": "音訊",
+      "backdrop": "背景框",
+      "background": "背景",
+      "blendMode": "混合模式",
+      "blendModes": {
+        "add": "增加",
+        "darken": "變暗",
+        "difference": "差異化",
+        "lighten": "變亮",
+        "multiply": "色彩增值",
+        "normal": "正常",
+        "overlay": "覆蓋",
+        "screen": "濾色",
+        "softLight": "柔光"
+      },
+      "bold": "粗體",
+      "cameraLog": "相機 Log",
+      "cameraLogs": {
+        "none": "無",
+        "sLog3Cine": "Sony S-Log3 / S-Gamut3.Cine",
+        "sLog3": "Sony S-Log3 / S-Gamut3",
+        "vLog": "Panasonic V-Log",
+        "cLog3": "Canon Log 3",
+        "logC3": "ARRI LogC3",
+        "logC4": "ARRI LogC4",
+        "fLog2": "Fujifilm F-Log2",
+        "nLog": "Nikon N-Log",
+        "appleLog": "Apple Log",
+        "sLog2": "Sony S-Log2 / S-Gamut",
+        "dLog": "DJI D-Log / D-Gamut",
+        "dLogM": "DJI D-Log M"
+      },
+      "canvas": "畫布",
+      "color": "顏色",
+      "compress": "平衡音量",
+      "curves": {
+        "bullet": "子彈時間",
+        "flashIn": "閃進",
+        "flashOut": "閃出",
+        "hero": "英雄時刻",
+        "jumpCut": "跳接",
+        "glide": "滑行",
+        "none": "無",
+        "custom": "自訂"
+      },
+      "denoise": "降噪",
+      "detachAudio": "分離音訊",
+      "direction": "方向",
+      "directions": {
+        "down": "向下",
+        "left": "向左",
+        "right": "向右",
+        "up": "向上"
+      },
+      "duration": "持續時間",
+      "editLook": "編輯調整",
+      "eq": {
+        "high": "高音",
+        "low": "低音",
+        "mid": "中音"
+      },
+      "fade": "淡入淡出",
+      "fadeIn": "淡入",
+      "fadeOut": "淡出",
+      "crossfade": "交叉淡化",
+      "fill": "填滿",
+      "fit": "符合",
+      "flipHorizontal": "水平翻轉",
+      "flipVertical": "垂直翻轉",
+      "font": "字型",
+      "frameRate": "影格速率",
+      "highCut": "高切",
+      "interpolation": {
+        "blend": "影格混合",
+        "flow": "光流",
+        "none": "關"
+      },
+      "italic": "斜體",
+      "look": "調整",
+      "lowCut": "低切",
+      "makeUnique": "取消連結調整",
+      "mute": "靜音",
+      "nextKeyframe": "下一個關鍵影格",
+      "opacity": "不透明度",
+      "original": "原始",
+      "positionX": "位置 X",
+      "positionY": "位置 Y",
+      "previousKeyframe": "上一個關鍵影格",
+      "removeKeyframe": "移除關鍵影格",
+      "resolution": "解析度",
+      "rotation": "旋轉",
+      "scale": "縮放",
+      "selectedCount_one": "已選取 {{count}} 個片段",
+      "selectedCount_other": "已選取 {{count}} 個片段",
+      "sharedLook_one": "與其他 {{count}} 個片段共用",
+      "sharedLook_other": "與其他 {{count}} 個片段共用",
+      "size": "大小",
+      "solid": "顏色",
+      "speed": "速度",
+      "speedCurve": "速度曲線",
+      "text": "文字",
+      "textPlaceholder": "文字",
+      "timing": "時間",
+      "title": "檢閱器",
+      "transform": "變形",
+      "transition": "轉場",
+      "types": {
+        "adjustment": "調整圖層",
+        "audio": "音訊",
+        "clip": "片段",
+        "solid": "純色",
+        "title": "標題"
+      },
+      "volume": "音量",
+      "lineHeight": "行高",
+      "letterSpacing": "字距",
+      "outline": "外框",
+      "outlineColor": "外框顏色",
+      "shadow": "陰影",
+      "blurFill": "模糊",
+      "reverse": "倒轉",
+      "reversePreparing": "正在準備倒轉… {{percent}}%",
+      "reverseFailed": "無法倒轉此片段",
+      "sameShape": "片段已與畫布形狀相同，因此「符合」與「填滿」的效果一樣。",
+      "noSelection": "未選取片段",
+      "trackMatte": "軌道遮色片",
+      "mattes": {
+        "none": "無",
+        "alpha": "Alpha",
+        "luma": "亮度"
+      },
+      "invertMatte": "反轉",
+      "motionBlur": "動態模糊",
+      "shutter": "快門",
+      "duck": "對白迴避",
+      "duckAmount": "迴避量",
+      "resetCurve": "重設曲線",
+      "matteNoSource": "上方軌道沒有任何內容。",
+      "frameInterpolation": "影格插補",
+      "cameraLogDetected": "{{name}}（已偵測）",
+      "cornerPin": "邊角固定",
+      "views": {
+        "video": "影片",
+        "audio": "音訊"
+      },
+      "speedPreset": "預設集",
+      "type": "類型",
+      "start": "開始",
+      "end": "結束",
+      "cornerRadius": "圓角",
+      "captionCount_one": "已選取 {{count}} 則字幕",
+      "captionCount_other": "已選取 {{count}} 則字幕"
+    },
+    "jobs": {
+      "cancel": "取消",
+      "kinds": {
+        "proxy": "代理",
+        "stabilize": "穩定",
+        "reverse": "倒轉",
+        "timelapse": "縮時攝影",
+        "depth": "深度",
+        "surfaces": "表面",
+        "tracking": "追蹤",
+        "aiMasks": "AI 遮色片",
+        "reframe": "自動重新構圖",
+        "export": "影片匯出",
+        "loudness": "響度",
+        "captions": "轉錄",
+        "beats": "節拍偵測",
+        "upload": "Immich 上傳"
+      }
+    },
+    "keyframes": {
+      "record": "錄製關鍵影格",
+      "shape": "形狀關鍵影格",
+      "stop": "停止動畫",
+      "title": "關鍵影格",
+      "recording": "錄製中",
+      "stopRecording": "停止錄製關鍵影格",
+      "delete": "刪除關鍵影格",
+      "deleteAll": "刪除所有關鍵影格",
+      "allValues": "所有值",
+      "transform": "變形關鍵影格",
+      "ease": {
+        "linear": "線性",
+        "easeIn": "緩入",
+        "easeOut": "緩出",
+        "easeInOut": "緩入緩出",
+        "hold": "保持",
+        "custom": "自訂"
+      },
+      "easing": "緩動",
+      "editCurve": "編輯曲線",
+      "keyframe": "關鍵影格",
+      "value": "值"
+    },
+    "markers": {
+      "add": "新增標記",
+      "addHere": "在此新增標記",
+      "color": "顏色",
+      "colors": {
+        "blue": "藍色",
+        "green": "綠色",
+        "orange": "橙色",
+        "purple": "紫色",
+        "red": "紅色",
+        "yellow": "黃色"
+      },
+      "delete": "刪除標記",
+      "marker": "標記",
+      "rename": "重新命名",
+      "remove": "移除標記"
+    },
+    "maskTracking": {
+      "aiFollow": "逐影格跟隨",
+      "aiFollowing": "跟隨每個影格。",
+      "lost": "目標遺失。請嘗試細節較多的區域。",
+      "noShape": "請先繪製形狀或筆刷遮色片。",
+      "title": "追蹤遮色片",
+      "aiFollowPartial": "跟隨片段的一部分。",
+      "mask": "遮色片",
+      "custom": "自訂",
+      "maskArea": "追蹤遮色片下方的區域",
+      "customArea": "追蹤你在影片上放置的區域"
+    },
+    "mediaPool": {
+      "addToProject": "新增至專案",
+      "addToTimeline": "新增至時間軸",
+      "emptyProject": "尚無媒體。",
+      "import": "匯入…",
+      "inProject": "已在專案中",
+      "locate": "尋找檔案…",
+      "mediaFiles": "媒體檔案",
+      "missing": "遺失",
+      "noMatches": "沒有相符項目",
+      "remove": "從專案中移除",
+      "search": "搜尋",
+      "insertAtPlayhead": "在播放磁頭處插入",
+      "overwriteAtPlayhead": "在播放磁頭處覆寫",
+      "all": "全部",
+      "unused": "未使用",
+      "used": "已在時間軸中使用",
+      "groupBy": "分組方式",
+      "show": "顯示",
+      "filterByType": "按類型過濾",
+      "resetFilters": "重設過濾器",
+      "sort": {
+        "imported": "匯入順序",
+        "name": "名稱",
+        "date": "日期",
+        "duration": "持續時間",
+        "type": "類型"
+      },
+      "group": {
+        "none": "無",
+        "type": "類型",
+        "folder": "資料夾"
+      },
+      "sizes": {
+        "small": "小",
+        "medium": "中",
+        "large": "大"
+      },
+      "kinds": {
+        "video": "影片",
+        "image": "照片",
+        "audio": "音訊",
+        "sequence": "序列"
+      },
+      "itemCount_one": "{{count}} 個項目",
+      "itemCount_other": "{{count}} 個項目",
+      "newBin": "新增素材箱",
+      "openBin": "開啟",
+      "renameBin": "重新命名",
+      "deleteBin": "刪除素材箱",
+      "moveToBin": "移至素材箱",
+      "emptyBin": "此素材箱是空的",
+      "history": {
+        "newBin": "新增素材箱",
+        "renameBin": "重新命名素材箱",
+        "deleteBin": "刪除素材箱",
+        "moveBin": "移動素材箱",
+        "moveToBin": "移至素材箱"
+      }
+    },
+    "mixer": {
+      "master": "主控",
+      "pan": "聲像",
+      "solo": "獨奏",
+      "title": "音訊混合器",
+      "volume": "音量",
+      "peak": "峰值",
+      "momentary": "瞬時",
+      "shortTerm": "短期",
+      "integrated": "整合",
+      "integratedHint": "自開始播放以來的響度",
+      "target": "匯出目標 {{lufs}} LUFS"
+    },
+    "motion": {
+      "analysisFailed": "無法分析此片段。",
+      "analyzing": "正在分析… {{percent}}%",
+      "levels": {
+        "minimal": "低",
+        "off": "關",
+        "recommended": "中",
+        "strong": "高"
+      },
+      "lost": "目標遺失。請嘗試更大的框。",
+      "stabilize": "穩定",
+      "tracking": "跟隨物件",
+      "trackMotion": "選取物件",
+      "followScale": "縮放與旋轉"
+    },
+    "nesting": {
+      "back": "返回",
+      "nest": "巢狀",
+      "open": "開啟巢狀片段",
+      "refused": {
+        "empty": "請至少選取一個影片片段。",
+        "gap": "請選取主軌道上相鄰的片段。"
+      },
+      "unnest": "取消巢狀",
+      "name_one": "巢狀 {{count}}",
+      "name_other": "巢狀 {{count}}"
+    },
+    "timeline": {
+      "addTitle": "新增標題",
+      "adjustmentLayer": "調整圖層",
+      "clearRange": "清除入點和出點",
+      "copy": "複製",
+      "delete": "刪除",
+      "detachAudio": "分離音訊",
+      "duplicate": "建立副本",
+      "fit": "符合",
+      "hideBeats": "隱藏節拍",
+      "crossfade": "交叉淡化",
+      "removeCrossfade": "移除交叉淡化",
+      "hideTrack": "隱藏軌道",
+      "join": "合併片段",
+      "lockTrack": "鎖定軌道",
+      "loop": "循環播放",
+      "main": "主軌道",
+      "makeLookUnique": "取消連結調整",
+      "missing": "遺失",
+      "nextFrame": "下一個影格",
+      "paste": "貼上",
+      "playInToOut": "從入點播放到出點",
+      "playbackSettings": "播放品質",
+      "previousFrame": "上一個影格",
+      "quality": {
+        "auto": "自動",
+        "full": "完整",
+        "half": "二分之一",
+        "quarter": "四分之一"
+      },
+      "qualityShort": {
+        "auto": "自動",
+        "full": "完整",
+        "half": "1/2",
+        "quarter": "1/4"
+      },
+      "rippleDelete": "刪除並關閉間隙",
+      "setIn": "設定入點",
+      "setOut": "設定出點",
+      "showBeats": "顯示節拍",
+      "showTrack": "顯示軌道",
+      "snapping": "靠齊",
+      "solid": "純色",
+      "toEnd": "跳至結尾",
+      "toStart": "跳至開頭",
+      "transition": "轉場",
+      "trimHint": "拖曳以修剪，{{alt}}+拖曳以滾動編輯",
+      "unlockTrack": "解除鎖定軌道",
+      "useProxies": "使用代理",
+      "zoom": "縮放",
+      "zoomIn": "放大",
+      "zoomOut": "縮小",
+      "saveAsPreset": "儲存為預設集",
+      "link": "連結",
+      "unlink": "取消連結",
+      "freezeFrame": "停格",
+      "reverse": "倒轉",
+      "split": "分割",
+      "removeTransition": "移除轉場",
+      "slipHint": "拖曳以在片段內滑移媒體，或 {{alt}}+拖曳片段",
+      "deleteGap": "刪除間隙",
+      "closeAllGaps": "關閉所有間隙",
+      "dragIn": "拖曳以移動入點",
+      "dragOut": "拖曳以移動出點",
+      "collapse": "收合時間軸",
+      "expand": "展開時間軸"
+    },
+    "titles": {
+      "presets": {
+        "lowerThird": "下三分之一標題",
+        "title": "標題"
+      },
+      "text": "文字"
+    },
+    "toasts": {
+      "invalidProject": "不是 RapidRAW 影片專案。",
+      "openFailed": "無法開啟專案。",
+      "playbackFailed": "無法播放。",
+      "saveFailed": "無法儲存專案。",
+      "timelapseFailed": "無法建立縮時攝影。",
+      "analysisFailed": "無法分析片段。",
+      "probeFailed_one": "無法讀取 {{file}}。",
+      "probeFailed_other": "無法讀取 {{count}} 個檔案。",
+      "aiMasksFailed": "無法更新 AI 遮色片。",
+      "reframeFailed": "無法對片段重新構圖。",
+      "frameFailed": "無法顯示此影格。",
+      "needsGpuRenderer": "影片編輯需要 GPU 算繪器。"
+    },
+    "tracking": {
+      "backward": "向後",
+      "both": "雙向",
+      "forward": "向前",
+      "track": "追蹤",
+      "progress": "正在追蹤… {{percent}}%",
+      "cancel": "取消",
+      "noClip": "請將播放磁頭移到影片片段上。",
+      "tracked": "已追蹤 {{duration}}。",
+      "remove": "移除",
+      "position": "位置",
+      "planar": "平面",
+      "pinToPlane": "固定至平面",
+      "notConvex": "平面輪廓自我交叉。"
+    },
+    "transitions": {
+      "blur": "模糊",
+      "dipToBlack": "淡化至黑色",
+      "dipToWhite": "淡化至白色",
+      "dissolve": "溶解",
+      "iris": "圓形劃像",
+      "none": "無",
+      "push": "推入",
+      "slide": "滑動",
+      "spin": "旋轉",
+      "whip": "甩鏡",
+      "wipe": "擦拭",
+      "zoom": "縮放",
+      "fade": "淡化",
+      "pop": "彈出",
+      "typewriter": "打字機",
+      "words": "逐字"
+    },
+    "frame": {
+      "export": "匯出影格",
+      "saved": "已儲存 {{file}}",
+      "failed": "無法匯出影格。"
+    },
+    "lookTarget": {
+      "alsoSelected": "面板只會編輯此片段。在時間軸中使用「貼上調整」會套用到所有選取的片段。",
+      "noCrop": "調整圖層無法裁切。",
+      "photoOnly": "AI 編輯僅適用於照片片段。",
+      "offline": "此片段的媒體已離線。"
+    },
+    "viewer": {
+      "clipOnly": "僅片段",
+      "clipOnlyHint": "標題和其他圖層已隱藏",
+      "goToClip": "前往片段",
+      "showProgram": "顯示節目"
+    },
+    "montage": {
+      "kenBurns": "Ken Burns",
+      "kenBurnsOptions": {
+        "zoomIn": "放大",
+        "zoomOut": "縮小",
+        "panLeft": "向左平移",
+        "panRight": "向右平移",
+        "random": "隨機",
+        "none": "無"
+      },
+      "cutToBeat": "依節拍剪輯",
+      "everyBeat_one": "每拍",
+      "everyBeat_other": "每 {{count}} 拍",
+      "beatsPerCut": "每次剪輯的節拍數",
+      "arrange": "排列",
+      "layouts": {
+        "sideBySide": "並排",
+        "stack": "堆疊",
+        "grid": "網格",
+        "pictureInPicture": "子母畫面",
+        "fullFrame": "全畫面"
+      },
+      "mixed": "混合",
+      "beatsFailed": "無法偵測節拍。",
+      "noBeats": "找不到節拍。",
+      "customLayout": "自訂版面配置"
+    },
+    "presets": {
+      "applyToSelection": "套用到選取的片段"
+    },
+    "project": {
+      "media": "媒體",
+      "settings": "設定",
+      "rename": "重新命名",
+      "namePlaceholder": "專案名稱",
+      "untitled": "未命名專案",
+      "exit": "離開專案",
+      "save": "儲存",
+      "unsaved": "未儲存",
+      "saveChanges": "要儲存對「{{name}}」的變更嗎？",
+      "dontSave": "不要儲存",
+      "openProject": "開啟專案…",
+      "projects": "專案",
+      "openRecent": "開啟最近的專案",
+      "noRecent": "沒有最近的專案",
+      "removeFromRecent": "從最近的專案中移除",
+      "more": "更多…",
+      "saveAs": "專案另存新檔"
+    },
+    "proxies": {
+      "title": "代理",
+      "hint": "用於流暢播放的較小副本。匯出一律使用原始檔。",
+      "notNeeded": "你的媒體不需代理即可流暢播放。",
+      "status": "狀態",
+      "creatingCount_one": "正在建立 {{count}} 個代理 · {{percent}}%",
+      "creatingCount_other": "正在建立 {{count}} 個代理 · {{percent}}%",
+      "createAll": "建立代理",
+      "create": "建立代理",
+      "ready": "代理已就緒",
+      "queued": "代理已排入佇列",
+      "creating": "正在建立代理… {{percent}}%",
+      "readyCount_one": "已就緒 {{ready}}/{{count}}",
+      "readyCount_other": "已就緒 {{ready}}/{{count}}"
+    },
+    "playback": {
+      "closeCrop": "關閉裁切以播放",
+      "play": "播放",
+      "pause": "暫停"
+    },
+    "masks": {
+      "cutout": "去背",
+      "cutoutHint": "讓片段在此遮色片以外的區域變透明。",
+      "colorKey": "色彩鍵",
+      "colorKeyHint": "同時移除背景色，例如綠幕。",
+      "keyColors": {
+        "green": "綠色",
+        "blue": "藍色",
+        "custom": "自訂"
+      },
+      "keyColor": "鍵控色彩",
+      "pickColor": "從螢幕挑選",
+      "tolerance": "容許度",
+      "softness": "柔和度",
+      "spill": "溢色"
+    },
+    "audio": {
+      "equalizer": "等化器",
+      "enhance": "增強",
+      "off": "關",
+      "resetEqualizer": "重設等化器",
+      "compressorInfo": "臨界值 {{threshold}} · 比率 {{ratio}}:1"
+    },
+    "timelapse": {
+      "create": "建立縮時攝影",
+      "frameRate": "影格速率",
+      "deflicker": "去閃爍",
+      "destination": "新增至",
+      "newProject": "新增專案",
+      "createButton": "建立",
+      "name": "{{name}} 縮時攝影",
+      "section": "縮時攝影",
+      "photos": "照片",
+      "rendering": "正在算繪… {{percent}}%",
+      "failed": "無法算繪縮時攝影。",
+      "retry": "再試一次",
+      "mixed": "無法混用 RAW 和非 RAW 照片。",
+      "cancelled": "已取消算繪。",
+      "failedPhoto": "無法算繪 {{file}}。",
+      "photoCount_one": "{{count}} 張照片",
+      "photoCount_other": "{{count}} 張照片",
+      "summary_one": "{{count}} 張照片 · {{duration}}",
+      "summary_other": "{{count}} 張照片 · {{duration}}",
+      "missingPhoto": "找不到 {{file}}。"
+    },
+    "reframe": {
+      "action": "自動重新構圖",
+      "clips": "自動重新構圖片段",
+      "progress": "正在重新構圖… {{percent}}%",
+      "done": "已重新構圖"
+    },
+    "history": {
+      "add_one": "新增{{type}}",
+      "add_other": "新增 {{count}} 個項目",
+      "delete_one": "刪除{{type}}",
+      "delete_other": "刪除 {{count}} 個項目",
+      "move_one": "移動{{type}}",
+      "move_other": "移動 {{count}} 個項目",
+      "trim_one": "修剪{{type}}",
+      "trim_other": "修剪 {{count}} 個項目",
+      "edit_one": "編輯{{type}}",
+      "edit_other": "編輯 {{count}} 個項目",
+      "speed": "變更速度",
+      "transition": "編輯轉場",
+      "split": "分割",
+      "join": "合併",
+      "timeline": "編輯時間軸",
+      "nest": "巢狀",
+      "unnest": "取消巢狀",
+      "captions": "編輯字幕",
+      "marker": {
+        "add": "新增標記",
+        "delete": "刪除標記",
+        "edit": "編輯標記"
+      },
+      "media": {
+        "add": "新增媒體",
+        "delete": "移除媒體",
+        "edit": "編輯媒體"
+      },
+      "settings": "專案設定",
+      "tracks": "編輯軌道",
+      "project": "編輯專案"
     }
   }
 }
