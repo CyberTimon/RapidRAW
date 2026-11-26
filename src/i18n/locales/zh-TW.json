@@ -145,7 +145,7 @@
       "resetAllPoint": "重置所有點曲線",
       "resetParametric": "重置 {{channel}} 參數曲線",
       "resetPoint": "重置 {{channel}} 點曲線",
-      "showInputHistogram": "顯示曲線輸入直方圖"
+      "showInputHistogram": "顯示輸入直方圖"
     },
     "details": {
       "aiDenoise": "AI 降噪",

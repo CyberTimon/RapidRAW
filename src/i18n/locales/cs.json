@@ -145,7 +145,7 @@
       "resetAllPoint": "Resetovat všechny bodové křivky",
       "resetParametric": "Resetovat parametrickou křivku ({{channel}})",
       "resetPoint": "Resetovat bodovou křivku ({{channel}})",
-      "showInputHistogram": "Zobrazit histogram před křivkou"
+      "showInputHistogram": "Zobrazit vstupní histogram"
     },
     "details": {
       "aiDenoise": "AI odšumění",

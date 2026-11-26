@@ -145,7 +145,7 @@
       "resetAllPoint": "Återställ alla punktkurvor",
       "resetParametric": "Återställ parametrisk kurva för {{channel}}",
       "resetPoint": "Återställ punktkurva för {{channel}}",
-      "showInputHistogram": "Visa histogram före kurvan"
+      "showInputHistogram": "Visa indatahistogram"
     },
     "details": {
       "aiDenoise": "AI-brusreducering",

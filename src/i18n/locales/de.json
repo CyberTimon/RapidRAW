@@ -145,7 +145,7 @@
       "resetAllPoint": "Alle Punktkurven zurücksetzen",
       "resetParametric": "Parametrische {{channel}}-Kurve zurücksetzen",
       "resetPoint": "Punktkurve ({{channel}}) zurücksetzen",
-      "showInputHistogram": "Histogramm vor der Kurve anzeigen"
+      "showInputHistogram": "Eingabehistogramm anzeigen"
     },
     "details": {
       "aiDenoise": "KI-Entrauschen",

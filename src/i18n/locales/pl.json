@@ -145,7 +145,7 @@
       "resetAllPoint": "Resetuj wszystkie krzywe punktowe",
       "resetParametric": "Resetuj krzywą parametryczną ({{channel}})",
       "resetPoint": "Resetuj krzywą punktową ({{channel}})",
-      "showInputHistogram": "Pokaż histogram przed krzywą"
+      "showInputHistogram": "Pokaż histogram wejściowy"
     },
     "details": {
       "aiDenoise": "Odszumianie AI",

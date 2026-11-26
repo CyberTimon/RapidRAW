@@ -145,7 +145,7 @@
       "resetAllPoint": "Restablecer todas las curvas de puntos",
       "resetParametric": "Restablecer curva paramétrica de {{channel}}",
       "resetPoint": "Restablecer curva de puntos de {{channel}}",
-      "showInputHistogram": "Mostrar histograma antes de la curva"
+      "showInputHistogram": "Mostrar histograma de entrada"
     },
     "details": {
       "aiDenoise": "Reducción de ruido IA",

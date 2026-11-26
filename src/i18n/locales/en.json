@@ -145,7 +145,7 @@
       "resetAllPoint": "Reset All Point Curves",
       "resetParametric": "Reset {{channel}} Parametric Curve",
       "resetPoint": "Reset {{channel}} Point Curve",
-      "showInputHistogram": "Show histogram before curve"
+      "showInputHistogram": "Show input histogram"
     },
     "details": {
       "aiDenoise": "AI Denoise",
