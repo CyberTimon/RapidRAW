@@ -1313,10 +1313,16 @@ export default function SettingsPanel({
                         description={t('settings.general.neutralGreyCanvasDesc')}
                       >
                         <Switch
-                          checked={appSettings?.editorNeutralGreyBg ?? false}
+                          checked={!!appSettings?.editorNeutralGreyBg && !appSettings.editorCanvasColor}
                           id="neutral-grey-bg-toggle"
                           label={t('settings.general.enableNeutralGreyCanvas')}
-                          onChange={(checked) => onSettingsChange({ ...appSettings, editorNeutralGreyBg: checked })}
+                          onChange={(checked) =>
+                            onSettingsChange({
+                              ...appSettings,
+                              editorNeutralGreyBg: checked,
+                              editorCanvasColor: undefined,
+                            })
+                          }
                         />
                       </SettingItem>
 

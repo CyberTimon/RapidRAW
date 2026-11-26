@@ -78,6 +78,7 @@ import {
   LENS_CORRECTION_OFF,
 } from '../utils/adjustments';
 import TaggingSubMenu from '../components/panel/library/TaggingSubMenu';
+import CanvasBackgroundMenu from '../components/panel/editor/CanvasBackgroundMenu';
 import {
   buildAutoAdjustModeOptions,
   debouncedSave,
@@ -355,6 +356,11 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           onClick: () => setPanel(Panel.Export),
         },
         ...buildEditInOptions(selectedImage.path),
+        {
+          label: t('contextMenus.editor.canvasBackground'),
+          icon: Palette,
+          submenu: [{ customComponent: CanvasBackgroundMenu }],
+        },
         ...(osPlatform !== 'android'
           ? [
               {

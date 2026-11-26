@@ -298,6 +298,8 @@
       "autoAdjust": "自動補正",
       "autoStraighten": "自動角度補正",
       "cancel": "キャンセル",
+      "canvasBackground": "キャンバスの背景",
+      "canvasColorReset": "リセット",
       "closeViewer": "セカンドウィンドウを閉じる",
       "colorLabel": "カラーラベル",
       "confirmReset": "リセットを確認",

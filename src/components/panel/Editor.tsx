@@ -55,16 +55,20 @@ import { useEditorActions, withRotation } from '../../hooks/useEditorActions';
 import { clickZoomTarget, interpretWheel, movedBeyondClick } from '../../utils/canvasControls';
 import { getVisibleImageRegion } from '../../utils/previewResolution';
 import { getDevicePixelRatio } from '../../utils/displayScale';
+import { getTheme, NEUTRAL_CANVAS_COLOR } from '../../utils/themes';
+import { normalizeHexColor } from '../ui/ColorField';
 
-const parseRgb = (rgbStr: string): [number, number, number, number] => {
-  const match = rgbStr.match(/[\d.]+/g);
+const parseBackgroundColor = (color: string): [number, number, number, number] => {
+  if (color.startsWith('#')) {
+    const rgb = Number.parseInt(color.slice(1), 16);
+    return [(rgb >> 16) / 255, ((rgb >> 8) & 255) / 255, (rgb & 255) / 255, 1];
+  }
+  const match = color.match(/[\d.]+/g);
   if (match && match.length >= 3) {
     return [parseFloat(match[0]) / 255, parseFloat(match[1]) / 255, parseFloat(match[2]) / 255, 1.0];
   }
   return [0, 0, 0, 1.0];
 };
-
-const NEUTRAL_GREY_RGB: [number, number, number, number] = [128 / 255, 128 / 255, 128 / 255, 1.0];
 
 const NO_SPLIT = { splitOrigin: [0, 0], splitNormal: [0, 0], splitOffset: [0, 0] };
 
@@ -201,6 +205,12 @@ export default function Editor({
   wgpuBackgroundRef,
 }: EditorProps) {
   const appSettings = useSettingsStore((s) => s.appSettings);
+  const canvasPreviewColor = useEditorStore((s) => s.canvasPreviewColor);
+  const neutralGrey = appSettings?.editorNeutralGreyBg ?? false;
+  const canvasColorOverride =
+    normalizeHexColor(canvasPreviewColor ?? appSettings?.editorCanvasColor ?? '') ??
+    (neutralGrey ? NEUTRAL_CANVAS_COLOR : undefined);
+  const theme = useSettingsStore((s) => s.theme);
   const osPlatform = useSettingsStore((s) => s.osPlatform);
   const isFullScreen = useUIStore((s) => s.isFullScreen);
   const activePanel = useUIStore((s) => s.activePanel);
@@ -1732,11 +1742,10 @@ export default function Editor({
   const syncWgpuRef = useRef<() => void>(() => {});
 
   useEffect(() => {
-    const rootStyle = getComputedStyle(document.documentElement);
-    const primaryBackground = rootStyle.getPropertyValue('--app-bg-primary') || 'rgb(24, 24, 24)';
-    const secondaryBackground = rootStyle.getPropertyValue('--app-bg-secondary') || 'rgb(35, 35, 35)';
-    const canvasBackground = rootStyle.getPropertyValue('--app-editor-bg') || secondaryBackground;
-    const isNeutralGrey = appSettings?.editorNeutralGreyBg ?? false;
+    const { cssVariables } = getTheme(theme);
+    const primaryBackground = cssVariables['--app-bg-primary'];
+    const secondaryBackground = cssVariables['--app-bg-secondary'];
+    const canvasBackground = cssVariables['--app-editor-bg'];
 
     wgpuStateRef.current = {
       useWgpuRenderer: appSettings?.useWgpuRenderer,
@@ -1749,14 +1758,15 @@ export default function Editor({
       compareView: activeCompareView,
       splitPosition,
       backgrounds: {
-        bgPrimary: parseRgb(primaryBackground),
-        bgSecondary: isNeutralGrey ? NEUTRAL_GREY_RGB : parseRgb(canvasBackground),
-        viewerBackground: isNeutralGrey ? NEUTRAL_GREY_RGB : parseRgb(secondaryBackground),
+        bgPrimary: parseBackgroundColor(primaryBackground),
+        bgSecondary: parseBackgroundColor(canvasColorOverride ?? canvasBackground),
+        viewerBackground: parseBackgroundColor(neutralGrey ? NEUTRAL_CANVAS_COLOR : secondaryBackground),
       },
     };
   }, [
     appSettings?.useWgpuRenderer,
-    appSettings?.editorNeutralGreyBg,
+    neutralGrey,
+    canvasColorOverride,
     selectedImage?.path,
     selectedImage?.isReady,
     wgpuPhase,
@@ -1765,7 +1775,7 @@ export default function Editor({
     showOriginal,
     activeCompareView,
     splitPosition,
-    appSettings?.theme,
+    theme,
     finalPreviewUrl,
   ]);
 
@@ -1773,7 +1783,8 @@ export default function Editor({
     syncWgpuRef.current();
   }, [
     appSettings?.useWgpuRenderer,
-    appSettings?.editorNeutralGreyBg,
+    neutralGrey,
+    canvasColorOverride,
     selectedImage?.path,
     selectedImage?.isReady,
     wgpuPhase,
@@ -1782,7 +1793,7 @@ export default function Editor({
     showOriginal,
     activeCompareView,
     splitPosition,
-    appSettings?.theme,
+    theme,
     finalPreviewUrl,
     imageRenderSize,
   ]);
@@ -2768,8 +2779,9 @@ export default function Editor({
           'flex-1 flex relative overflow-hidden isolate',
           isFullScreen ? 'rounded-none' : 'rounded-lg',
           appSettings?.useWgpuRenderer !== false && !isFullScreen && 'ring-[9999px] ring-bg-secondary',
-          !isWgpuActive && (appSettings?.editorNeutralGreyBg ? 'bg-[#808080]' : 'bg-editor-bg'),
+          !isWgpuActive && 'bg-editor-bg',
         )}
+        style={{ backgroundColor: isWgpuActive ? undefined : canvasColorOverride }}
       >
         {isSideBySide && (
           <div

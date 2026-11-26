@@ -298,6 +298,8 @@
       "autoAdjust": "自动调整",
       "autoStraighten": "自动拉直",
       "cancel": "取消",
+      "canvasBackground": "画布背景",
+      "canvasColorReset": "重置",
       "closeViewer": "关闭第二窗口",
       "colorLabel": "颜色标签",
       "confirmReset": "确认重置",

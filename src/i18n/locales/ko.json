@@ -298,6 +298,8 @@
       "autoAdjust": "자동 조정",
       "autoStraighten": "자동 수평 맞추기",
       "cancel": "취소",
+      "canvasBackground": "캔버스 배경",
+      "canvasColorReset": "재설정",
       "closeViewer": "보조 창 닫기",
       "colorLabel": "색상 레이블",
       "confirmReset": "초기화 확인",

@@ -145,6 +145,7 @@ export interface AppSettings {
   activeWaveformChannel?: string;
   useWgpuRenderer?: boolean;
   editorNeutralGreyBg?: boolean;
+  editorCanvasColor?: string;
   canvasInputMode?: 'mouse' | 'trackpad';
   compareMode?: CompareMode;
   whiteBalanceMode?: WhiteBalanceMode;

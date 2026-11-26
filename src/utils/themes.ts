@@ -1,7 +1,7 @@
 import { Theme } from '../types/settings';
 
 export interface ThemeProps {
-  cssVariables: any;
+  cssVariables: Record<string, string>;
   id: Theme;
   name: string;
   splashImage: string;
@@ -65,3 +65,8 @@ export const THEMES: Array<ThemeProps> = [
 ];
 
 export const DEFAULT_THEME_ID = Theme.Dark;
+export const NEUTRAL_CANVAS_COLOR = '#808080';
+
+export function getTheme(themeId: string): ThemeProps {
+  return THEMES.find(({ id }) => id === themeId) ?? THEMES[0];
+}

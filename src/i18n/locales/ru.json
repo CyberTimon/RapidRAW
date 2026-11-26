@@ -298,6 +298,8 @@
       "autoAdjust": "Автонастройка",
       "autoStraighten": "Автовыравнивание",
       "cancel": "Отмена",
+      "canvasBackground": "Фон холста",
+      "canvasColorReset": "Сбросить",
       "closeViewer": "Закрыть второе окно",
       "colorLabel": "Цветовая метка",
       "confirmReset": "Подтвердить сброс",
