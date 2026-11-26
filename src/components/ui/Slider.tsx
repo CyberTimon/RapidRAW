@@ -61,6 +61,50 @@ const speedEditTargets = new WeakMap<Element, RefObject<SpeedEditTarget | null>>
 
 export const getSpeedEditTarget = (element: Element) => speedEditTargets.get(element) ?? null;
 
+// Arrow keys adjust the slider under the mouse, so only one handler is active at a time.
+let hoveredSliderKeyHandler: ((event: KeyboardEvent) => void) | null = null;
+
+const isEditableTarget = (target: EventTarget | null) =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    target.closest('[role="listbox"]') !== null ||
+    (target instanceof HTMLInputElement && target.type !== 'range'));
+
+if (typeof window !== 'undefined') {
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if (!hoveredSliderKeyHandler || event.defaultPrevented || isEditableTarget(event.target)) return;
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+      if (event.ctrlKey || event.metaKey) return;
+      hoveredSliderKeyHandler(event);
+    },
+    true,
+  );
+}
+
+const getKeyboardStep = (event: KeyboardEvent | React.KeyboardEvent, step: number, min: number, max: number) => {
+  const baseStep = (max - min) / step >= 100 ? step * 5 : step;
+  if (event.altKey) return step;
+  if (event.shiftKey) return baseStep * 4;
+  return baseStep;
+};
+
+const focusAdjacentSliderInput = (current: HTMLElement, direction: number) => {
+  const sliders = Array.from(document.querySelectorAll<HTMLElement>('[data-slider]'));
+  const currentIndex = sliders.indexOf(current);
+  const candidates = direction > 0 ? sliders.slice(currentIndex + 1) : sliders.slice(0, currentIndex).reverse();
+  for (const slider of candidates) {
+    const valueLabel = slider.querySelector<HTMLElement>('[data-slider-value]');
+    if (valueLabel && valueLabel.offsetParent !== null) {
+      valueLabel.click();
+      return;
+    }
+  }
+};
+
 const Slider = ({
   animateValueChanges = true,
   defaultValue = 0,
@@ -280,6 +324,46 @@ const Slider = ({
     };
   }, []);
 
+  const applyKeyboardStep = (event: KeyboardEvent | React.KeyboardEvent, direction: number) => {
+    const { disabled, value, min, max, step } = wheelStateRef.current;
+    if (disabled) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    claimSpeedEdit();
+    const clampedValue = snapToStepRef.current(value + direction * getKeyboardStep(event, step, min, max));
+    if (clampedValue === value || isNaN(clampedValue)) return;
+
+    isWheelActivelyChangingRef.current = true;
+    setDisplayValue(clampedValue);
+    setInputValue(String(clampedValue));
+    if (wheelTimeoutRef.current !== undefined) {
+      window.clearTimeout(wheelTimeoutRef.current);
+    }
+    wheelTimeoutRef.current = window.setTimeout(() => {
+      isWheelActivelyChangingRef.current = false;
+    }, 150);
+    onChangeRef.current({ target: { value: clampedValue } });
+  };
+
+  const hoverKeyHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {});
+  hoverKeyHandlerRef.current = (event) => applyKeyboardStep(event, event.key === 'ArrowUp' ? 1 : -1);
+  const hoverKeyHandler = useCallback((event: KeyboardEvent) => hoverKeyHandlerRef.current(event), []);
+
+  useEffect(() => {
+    return () => {
+      if (hoveredSliderKeyHandler === hoverKeyHandler) hoveredSliderKeyHandler = null;
+    };
+  }, [hoverKeyHandler]);
+
+  const handlePointerEnter = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') hoveredSliderKeyHandler = hoverKeyHandler;
+  };
+
+  const handlePointerLeave = () => {
+    if (hoveredSliderKeyHandler === hoverKeyHandler) hoveredSliderKeyHandler = null;
+  };
+
   // Handle Dragging
   useEffect(() => {
     if (!isDragging || disabled) return;
@@ -466,6 +550,7 @@ const Slider = ({
       return;
     }
     e.preventDefault();
+    e.currentTarget.focus({ preventScroll: true });
 
     const rect = e.currentTarget.getBoundingClientRect();
     const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -614,6 +699,10 @@ const Slider = ({
       e.stopPropagation();
       handleInputCommit();
       e.currentTarget.blur();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      handleInputCommit();
+      if (containerRef.current) focusAdjacentSliderInput(containerRef.current, e.shiftKey ? -1 : 1);
     } else if (e.key === 'Escape') {
       e.stopPropagation();
       setInputValue(String(value));
@@ -642,6 +731,10 @@ const Slider = ({
       e.currentTarget.blur();
       return;
     }
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      applyKeyboardStep(e, e.key === 'ArrowUp' ? 1 : -1);
+      return;
+    }
     if (GLOBAL_KEYS.includes(e.key)) {
       e.currentTarget.blur();
     }
@@ -651,8 +744,11 @@ const Slider = ({
     <div
       className={`mb-2 group ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       ref={containerRef}
+      data-slider
       data-speed-edit-id={speedEditId}
       onPointerDownCapture={disabled ? undefined : claimSpeedEdit}
+      onPointerEnter={handlePointerEnter}
+      onPointerLeave={handlePointerLeave}
     >
       <div className="flex justify-between items-center mb-1">
         <div
@@ -699,6 +795,7 @@ const Slider = ({
           ) : (
             <span
               className={`text-sm text-text-primary w-full text-right select-none whitespace-nowrap ${disabled ? '' : 'cursor-text'}`}
+              data-slider-value={disabled ? undefined : true}
               onClick={disabled ? undefined : handleValueClick}
               onDoubleClick={disabled ? undefined : handleReset}
               data-tooltip={disabled ? undefined : t('ui.slider.clickToEdit')}
