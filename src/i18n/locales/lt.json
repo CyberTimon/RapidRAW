@@ -36,6 +36,7 @@
       "colorMixer": "Spalvų maišiklis",
       "grading": {
         "balance": "Balansas",
+        "blackHold": "Juodos išlaikymas",
         "blending": "Suliejimas",
         "global": "Bendras",
         "highlights": "Šviesios sritys",
@@ -987,6 +988,7 @@
         "exportTitle": "Eksportuoti {{type}}",
         "importPresetsTitle": "Importuoti nustatymus",
         "legacyPreset": "Senojo formato nustatymas",
+        "lightroomFolderTitle": "Pasirinkite „Lightroom“ išankstinių nustatymų aplanką",
         "presetFile": "Nustatymo failas",
         "rapidRawPreset": "RapidRAW nustatymas"
       },
@@ -1019,12 +1021,21 @@
       },
       "title": "Išankstiniai nustatymai",
       "toasts": {
-        "importFailed": "Nepavyko importuoti {{fileName}}: {{error}}"
+        "importFailed": "Nepavyko importuoti {{fileName}}: {{error}}",
+        "lightroomFailed": "Nepavyko importuoti „Lightroom“ išankstinių nustatymų: {{error}}",
+        "lightroomImported_one": "Importuota „Lightroom“ išankstinių nustatymų: {{count}}",
+        "lightroomImported_few": "Importuota „Lightroom“ išankstinių nustatymų: {{count}}",
+        "lightroomImported_many": "Importuota „Lightroom“ išankstinių nustatymų: {{count}}",
+        "lightroomImported_other": "Importuota „Lightroom“ išankstinių nustatymų: {{count}}",
+        "lightroomMissingProfiles": "Kai kurie „Lightroom“ profiliai nerasti: {{profiles}}",
+        "lightroomNoPresetsInFolder": "Šiame aplanke „Lightroom“ išankstinių nustatymų nerasta.",
+        "lightroomNotFound": "„Lightroom“ išankstiniai nustatymai nerasti automatiškai. Pasirinkite „Camera Raw“ aplanką „Settings“."
       },
       "tooltips": {
         "explore": "Tyrinėti bendruomenės nustatymus",
         "export": "Eksportuoti visus nustatymus į .rrpreset failą",
         "import": "Importuoti nustatymus iš .rrpreset failo",
+        "importLightroom": "Importuoti išankstinius nustatymus iš „Lightroom“",
         "saveNew": "Išsaugoti kaip naują nustatymą"
       },
       "types": {

@@ -28,6 +28,7 @@
   },
   "colorGrading": {
     "balance": 0,
+    "blackHold": 0,
     "blending": 50,
     "global": {
       "hue": 0,

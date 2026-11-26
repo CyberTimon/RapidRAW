@@ -12,7 +12,13 @@ import {
 } from '@dnd-kit/core';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-toastify';
-import { PresetImportFailure, PresetListType, usePresets, UserPreset } from '../../../hooks/usePresets';
+import {
+  PresetImportFailure,
+  PresetListType,
+  usePresets,
+  UserPreset,
+  XmpImportResult,
+} from '../../../hooks/usePresets';
 import { useContextMenu } from '../../../context/ContextMenuContext';
 import {
   CopyPlus,
@@ -36,6 +42,7 @@ import {
   Settings2,
   Star,
   Camera as CameraIcon,
+  Aperture,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ConfigurePresetModal from '../../modals/ConfigurePresetModal';
@@ -45,7 +52,17 @@ import Button from '../../ui/Button';
 import Text from '../../ui/Text';
 import Slider from '../../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
-import { Adjustments, INITIAL_ADJUSTMENTS, ADJUSTMENT_GROUPS, MaskContainer } from '../../../utils/adjustments';
+import {
+  Adjustments,
+  BasicAdjustment,
+  Effect,
+  INITIAL_ADJUSTMENTS,
+  ADJUSTMENT_GROUPS,
+  MaskContainer,
+  getPresetMarkers,
+  mergeActiveTools,
+  withoutPresetMarkers,
+} from '../../../utils/adjustments';
 import { cameraDisplayName, getDefaultAdjustments, isSameCamera } from '../../../utils/developDefaults';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import type { CameraDefaults, DevelopDefaultsSettings } from '../../../types/settings';
@@ -163,6 +180,21 @@ function PreviewImage({ src, alt }: { src: string; alt: string }) {
   );
 }
 
+const LENS_BLUR_FOCUS_KEYS = [
+  Effect.LensBlurMinDepth,
+  Effect.LensBlurMaxDepth,
+  Effect.LensBlurMinFade,
+  Effect.LensBlurMaxFade,
+];
+const AUTO_TONE_KEYS = [
+  BasicAdjustment.Exposure,
+  BasicAdjustment.Contrast,
+  BasicAdjustment.Highlights,
+  BasicAdjustment.Shadows,
+  BasicAdjustment.Whites,
+  BasicAdjustment.Blacks,
+];
+
 const itemVariants = {
   hidden: { opacity: 0, x: -15 },
   visible: (i: number) => ({
@@ -194,10 +226,11 @@ const evaluateCurveY = (curve: Array<{ x: number; y: number }>, targetX: number)
 };
 
 const applyPresetAdjustments = (adjustments: Adjustments, preset: Preset): Adjustments => {
-  const presetMasks = preset.adjustments.masks || [];
+  const presetAdjustments = withoutPresetMarkers(preset.adjustments);
+  const presetMasks = presetAdjustments.masks || [];
   return {
     ...adjustments,
-    ...preset.adjustments,
+    ...presetAdjustments,
     ...(hasAiSubMasks(presetMasks) ? { masks: stripAiMaskResults(presetMasks) } : {}),
   };
 };
@@ -591,6 +624,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const adjustments = useEditorStore((s) => s.adjustments);
   const setEditor = useEditorStore((s) => s.setEditor);
+  const osPlatform = useSettingsStore((s) => s.osPlatform);
   const { setAdjustments } = useEditorActions();
   const hoverPreview = useHoverPreview();
 
@@ -602,6 +636,7 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     duplicatePreset,
     exportPresetsToFile,
     importPresetsFromFiles,
+    importXmpPresets,
     isLoading,
     movePreset,
     overwritePreset,
@@ -632,6 +667,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
   const isProcessingQueue = useRef(false);
   const currentImagePathRef = useRef<string | null>(selectedImage?.path || null);
   const hiddenPresetMasks = useRef<Array<MaskContainer> | null>(null);
+  const appliedPresetRef = useRef<string | null>(null);
+  const autoToneRef = useRef<{ presetId: string; values: Partial<Adjustments> } | null>(null);
 
   const handleDragStateChange = useCallback(
     (isDragging: boolean) => {
@@ -898,6 +935,8 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
 
       setActivePresetId(null);
       setBaseAdjustments(null);
+      appliedPresetRef.current = null;
+      autoToneRef.current = null;
 
       if (isPathChanged && selectedImage?.path) {
         currentImagePathRef.current = selectedImage.path;
@@ -941,6 +980,65 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     [setEditor],
   );
 
+  const resolvePresetImageEffects = useCallback(
+    async (presetId: string, presetAdjustments: Partial<Adjustments>, autoTone: boolean, subjectFocus: boolean) => {
+      const path = useEditorStore.getState().selectedImage?.path;
+      if (!path) return;
+      const isCurrent = () =>
+        useEditorStore.getState().selectedImage?.path === path && appliedPresetRef.current === presetId;
+
+      if (autoTone) {
+        try {
+          const auto: Adjustments = await invoke(Invokes.CalculateAutoAdjustments, {
+            jsAdjustments: useEditorStore.getState().adjustments,
+          });
+          if (!isCurrent()) return;
+          const tone = Object.fromEntries(
+            AUTO_TONE_KEYS.filter((key) => auto[key] !== undefined).map((key) => [key, auto[key]]),
+          );
+          autoToneRef.current = { presetId, values: tone };
+          setAdjustments((prev: Adjustments) => ({
+            ...prev,
+            ...tone,
+            activeTools: mergeActiveTools(prev, { activeTools: { basic: true } }),
+          }));
+        } catch (err) {
+          console.error('Failed to apply preset auto tone:', err);
+        }
+      }
+
+      if (!presetAdjustments.lensBlurEnabled) return;
+      let depthMap: string | null = useEditorStore.getState().adjustments.lensBlurDepthMap || null;
+      if (!depthMap) {
+        try {
+          depthMap = await invoke<string>('generate_full_image_depth_map', {
+            jsAdjustments: useEditorStore.getState().adjustments,
+          });
+          if (!isCurrent()) return;
+          const generated = depthMap;
+          setAdjustments((prev: Adjustments) => ({ ...prev, lensBlurDepthMap: generated }));
+        } catch (err) {
+          console.error('Failed to generate depth map for preset lens blur:', err);
+          return;
+        }
+      }
+
+      if (subjectFocus) {
+        try {
+          const focus = await invoke<Partial<Adjustments> | null>(Invokes.CalculateLensBlurFocus, {
+            depthMap,
+            jsAdjustments: useEditorStore.getState().adjustments,
+          });
+          if (!isCurrent() || !focus) return;
+          setAdjustments((prev: Adjustments) => ({ ...prev, ...focus }));
+        } catch (err) {
+          console.error('Failed to focus preset lens blur on the subject:', err);
+        }
+      }
+    },
+    [setAdjustments],
+  );
+
   const handlePresetHover = (preset: Preset) => {
     if (activeItem || preset.id === activePresetId) {
       hoverPreview.show(null);
@@ -953,7 +1051,9 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
     hoverPreview.show(null);
     hiddenPresetMasks.current = null;
 
+    autoToneRef.current = null;
     if (activePresetId === preset.id) {
+      appliedPresetRef.current = null;
       setActivePresetId(null);
       if (baseAdjustments) {
         setAdjustments(baseAdjustments);
@@ -964,8 +1064,10 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
 
     setBaseAdjustments(adjustments);
     setActivePresetId(preset.id);
+    appliedPresetRef.current = preset.id;
     setPresetIntensity(100);
 
+    const { autoTone, subjectFocus } = getPresetMarkers(preset.adjustments);
     const presetMasks = preset.adjustments.masks || [];
     if (hasAiSubMasks(presetMasks)) {
       resolvePresetAiMasks(presetMasks);
@@ -975,13 +1077,20 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       (prevAdjustments: Adjustments) => applyPresetAdjustments(prevAdjustments, preset),
       `${t('editor.presets.types.preset')}: ${preset.name}`,
     );
+
+    if (autoTone || preset.adjustments.lensBlurEnabled) {
+      resolvePresetImageEffects(preset.id, preset.adjustments, !!autoTone, !!subjectFocus);
+    }
   };
 
   const handleIntensityChange = useCallback(
     (preset: Preset, intensity: number) => {
       setPresetIntensity(intensity);
-      const { masks: presetMasks, ...presetAdjustments } = preset.adjustments;
-      const mixed = mixAdjustments(presetAdjustments, intensity, getDefaultAdjustments());
+      const { subjectFocus } = getPresetMarkers(preset.adjustments);
+      const { masks: presetMasks, ...presetAdjustments } = withoutPresetMarkers(preset.adjustments);
+      const autoTone = autoToneRef.current?.presetId === preset.id ? autoToneRef.current.values : {};
+      const mixed = mixAdjustments({ ...presetAdjustments, ...autoTone }, intensity, getDefaultAdjustments());
+      if (subjectFocus) LENS_BLUR_FOCUS_KEYS.forEach((key) => delete mixed[key]);
 
       if (presetMasks !== undefined) {
         const currentMasks = useEditorStore.getState().adjustments.masks;
@@ -1156,6 +1265,40 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
       });
     } catch (error) {
       console.error('Failed to import presets:', error);
+    }
+  };
+
+  const reportXmpImport = (result: XmpImportResult) => {
+    setFolderPreviewsGenerated(new Set<string>());
+    setPreviews({});
+    toast.success(t('editor.presets.toasts.lightroomImported', { count: result.imported }));
+    if (result.missingProfiles.length > 0) {
+      toast.warn(t('editor.presets.toasts.lightroomMissingProfiles', { profiles: result.missingProfiles.join(', ') }));
+    }
+    result.failures.forEach((failure: PresetImportFailure) => {
+      console.error(`Failed to import ${failure.fileName}: ${failure.error}`);
+      toast.error(t('editor.presets.toasts.importFailed', { fileName: failure.fileName, error: failure.error }));
+    });
+  };
+
+  const handleImportXmpPresets = async () => {
+    try {
+      const installed = await importXmpPresets();
+      if (installed) {
+        reportXmpImport(installed);
+        return;
+      }
+      toast.info(t('editor.presets.toasts.lightroomNotFound'));
+      const folder = await openDialog({ directory: true, title: t('editor.presets.dialog.lightroomFolderTitle') });
+      if (!folder || Array.isArray(folder)) return;
+      const picked = await importXmpPresets([folder]);
+      if (picked) {
+        reportXmpImport(picked);
+      } else {
+        toast.error(t('editor.presets.toasts.lightroomNoPresetsInFolder'));
+      }
+    } catch (error) {
+      toast.error(t('editor.presets.toasts.lightroomFailed', { error: String(error) }));
     }
   };
 
@@ -1373,6 +1516,16 @@ export default function PresetsPanel({ onNavigateToCommunity }: PresetsPanelProp
             >
               <FileUp size={18} />
             </button>
+            {osPlatform !== 'android' && (
+              <button
+                className="p-2 rounded-full hover:bg-surface transition-colors"
+                disabled={isLoading}
+                onClick={handleImportXmpPresets}
+                data-tooltip={t('editor.presets.tooltips.importLightroom')}
+              >
+                <Aperture size={18} />
+              </button>
+            )}
             <button
               className="p-2 rounded-full hover:bg-surface transition-colors"
               disabled={presets.length === 0 || isLoading}

@@ -68,8 +68,8 @@ struct Loaded {
     height: usize,
 }
 
-fn natural_key(path: &str) -> Vec<(String, u64)> {
-    let name = file_name(path).to_lowercase();
+pub(crate) fn natural_key(name: &str) -> Vec<(String, u64)> {
+    let name = name.to_lowercase();
     let mut key = Vec::new();
     let mut text = String::new();
     let mut digits = String::new();
@@ -130,7 +130,7 @@ fn warp_frame(
 
 pub fn build_session(paths: &[String], context: &MergeContext) -> Result<FocusSession, String> {
     let mut paths = paths.to_vec();
-    paths.sort_by_cached_key(|p| natural_key(p));
+    paths.sort_by_cached_key(|p| natural_key(&file_name(p)));
     let scene = paths.iter().all(is_raw_file);
     let loader = context.loader(scene);
 

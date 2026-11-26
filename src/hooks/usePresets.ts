@@ -29,6 +29,12 @@ export interface PresetImportResult {
   failures: Array<PresetImportFailure>;
 }
 
+export interface XmpImportResult extends PresetImportResult {
+  imported: number;
+  groups: number;
+  missingProfiles: Array<string>;
+}
+
 function arrayMove(array: any, from: any, to: any) {
   const newArray = array.slice();
   const [item] = newArray.splice(from, 1);
@@ -633,6 +639,23 @@ export function usePresets(currentAdjustments: Adjustments) {
     [setPresets],
   );
 
+  const importXmpPresets = useCallback(
+    async (rootPaths?: Array<string>): Promise<XmpImportResult | null> => {
+      setIsLoading(true);
+      try {
+        const result: XmpImportResult | null = await invoke(Invokes.ImportXmpPresets, { rootPaths });
+        if (result) setPresets(result.presets);
+        return result;
+      } catch (error) {
+        console.error('Failed to import Lightroom presets:', error);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [setPresets],
+  );
+
   const exportPresetsToFile = useCallback(async (presetsToExport: Array<any>, filePath: string) => {
     try {
       await invoke(Invokes.HandleExportPresetsToFile, { presetsToExport, filePath });
@@ -652,6 +675,7 @@ export function usePresets(currentAdjustments: Adjustments) {
     importPresetsFromFile,
     importPresetsFromFiles,
     importLegacyPresetsFromFile,
+    importXmpPresets,
     isLoading,
     movePreset,
     overwritePreset,

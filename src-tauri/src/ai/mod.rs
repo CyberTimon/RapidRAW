@@ -6,6 +6,7 @@ pub mod denoise;
 pub mod guided_filter;
 pub mod jobs;
 pub mod lama;
+pub mod lens_blur_focus;
 pub mod models;
 pub mod processing;
 pub mod tiling;

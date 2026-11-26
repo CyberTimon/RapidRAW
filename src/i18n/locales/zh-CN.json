@@ -36,6 +36,7 @@
       "colorMixer": "颜色混合器",
       "grading": {
         "balance": "平衡",
+        "blackHold": "黑色保留",
         "blending": "混合",
         "global": "全局",
         "highlights": "高光",
@@ -895,6 +896,7 @@
         "exportTitle": "导出 {{type}}",
         "importPresetsTitle": "导入预设",
         "legacyPreset": "旧版预设",
+        "lightroomFolderTitle": "选择 Lightroom 预设文件夹",
         "presetFile": "预设文件",
         "rapidRawPreset": "RapidRAW 预设"
       },
@@ -927,12 +929,19 @@
       },
       "title": "预设",
       "toasts": {
-        "importFailed": "导入 {{fileName}} 失败: {{error}}"
+        "importFailed": "导入 {{fileName}} 失败: {{error}}",
+        "lightroomFailed": "导入 Lightroom 预设失败：{{error}}",
+        "lightroomImported_one": "已导入 {{count}} 个 Lightroom 预设",
+        "lightroomImported_other": "已导入 {{count}} 个 Lightroom 预设",
+        "lightroomMissingProfiles": "未找到部分 Lightroom 配置文件：{{profiles}}",
+        "lightroomNoPresetsInFolder": "该文件夹中没有 Lightroom 预设。",
+        "lightroomNotFound": "未能自动找到 Lightroom 预设。请选择 Camera Raw 的 Settings 文件夹。"
       },
       "tooltips": {
         "explore": "探索社区预设",
         "export": "将所有预设导出为 .rrpreset 文件",
         "import": "从 .rrpreset 文件导入预设",
+        "importLightroom": "从 Lightroom 导入预设",
         "saveNew": "保存为新预设"
       },
       "types": {

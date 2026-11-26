@@ -36,6 +36,7 @@
       "colorMixer": "컬러 믹서",
       "grading": {
         "balance": "밸런스",
+        "blackHold": "검정 유지",
         "blending": "블렌딩",
         "global": "전체",
         "highlights": "하이라이트",
@@ -895,6 +896,7 @@
         "exportTitle": "{{type}} 내보내기",
         "importPresetsTitle": "프리셋 가져오기",
         "legacyPreset": "레거시 프리셋",
+        "lightroomFolderTitle": "Lightroom 사전 설정 폴더 선택",
         "presetFile": "프리셋 파일",
         "rapidRawPreset": "RapidRAW 프리셋"
       },
@@ -927,12 +929,19 @@
       },
       "title": "프리셋",
       "toasts": {
-        "importFailed": "{{fileName}} 가져오기 실패: {{error}}"
+        "importFailed": "{{fileName}} 가져오기 실패: {{error}}",
+        "lightroomFailed": "Lightroom 사전 설정을 가져오지 못했습니다: {{error}}",
+        "lightroomImported_one": "Lightroom 사전 설정 {{count}}개를 가져왔습니다",
+        "lightroomImported_other": "Lightroom 사전 설정 {{count}}개를 가져왔습니다",
+        "lightroomMissingProfiles": "일부 Lightroom 프로필을 찾을 수 없습니다: {{profiles}}",
+        "lightroomNoPresetsInFolder": "해당 폴더에서 Lightroom 사전 설정을 찾을 수 없습니다.",
+        "lightroomNotFound": "Lightroom 사전 설정을 자동으로 찾지 못했습니다. Camera Raw Settings 폴더를 선택하세요."
       },
       "tooltips": {
         "explore": "커뮤니티 프리셋 둘러보기",
         "export": "모든 프리셋을 .rrpreset 파일로 내보내기",
         "import": ".rrpreset 파일에서 프리셋 가져오기",
+        "importLightroom": "Lightroom에서 사전 설정 가져오기",
         "saveNew": "새 프리셋으로 저장"
       },
       "types": {

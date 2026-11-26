@@ -27,6 +27,7 @@ const MAX_ATTEMPTS: u32 = 3;
 const SOURCE_ID_SAMPLE_BYTES: u64 = 64 * 1024;
 const MASK_DATA_KEYS: [&str; 2] = ["maskDataBase64", "mask_data_base64"];
 const AI_SOURCE_KEY: &str = "aiSource";
+pub(crate) const QUIET_NO_RESULT_KEY: &str = "quietNoResult";
 const TEXT_PROMPT_KEY: &str = "prompt";
 const FACE_PARTS_KEY: &str = "parts";
 const SUBJECT_BOX_KEYS: [&str; 4] = ["startX", "startY", "endX", "endY"];
@@ -791,7 +792,10 @@ struct JobResults {
     maps: Vec<(EffectMapKind, String)>,
 }
 
-fn decode_source(app_handle: &AppHandle, source_path: &Path) -> Result<Arc<DynamicImage>, String> {
+pub fn decode_source(
+    app_handle: &AppHandle,
+    source_path: &Path,
+) -> Result<Arc<DynamicImage>, String> {
     let state = app_handle.state::<AppState>();
     let source_path_str = source_path.to_string_lossy().to_string();
     let settings = crate::app::settings::load_settings(app_handle.clone()).unwrap_or_default();
@@ -1210,8 +1214,15 @@ fn commit_results(
 ) -> Result<(), String> {
     let (source_path, sidecar_path) = parse_virtual_path(path);
     let mut committed = Default::default();
+    let mut quiet_ids = HashSet::new();
     crate::metadata::sidecar::update_sidecar(&sidecar_path, &source_path, |metadata| {
         committed = apply_results(&mut metadata.adjustments, source_id, &results);
+        quiet_ids = ai_sub_masks(&metadata.adjustments)
+            .filter(|(_, sub_mask)| {
+                sub_mask["parameters"][QUIET_NO_RESULT_KEY].as_bool() == Some(true)
+            })
+            .filter_map(|(_, sub_mask)| sub_mask_id(sub_mask).map(str::to_string))
+            .collect();
     })
     .map_err(|e| e.to_string())?;
 
@@ -1219,7 +1230,7 @@ fn commit_results(
     let no_results: Vec<&String> = results
         .no_results
         .iter()
-        .filter(|(id, _)| sub_masks.contains_key(*id))
+        .filter(|(id, _)| sub_masks.contains_key(*id) && !quiet_ids.contains(*id))
         .map(|(_, no_result)| no_result)
         .collect();
     let _ = app_handle.emit(

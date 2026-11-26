@@ -36,6 +36,7 @@
       "colorMixer": "Mixer Colori",
       "grading": {
         "balance": "Bilanciamento",
+        "blackHold": "Mantieni neri",
         "blending": "Fusione",
         "global": "Globale",
         "highlights": "Luci",
@@ -923,6 +924,7 @@
         "exportTitle": "Esporta {{type}}",
         "importPresetsTitle": "Importa Predefiniti",
         "legacyPreset": "Predefinito Obsoleto",
+        "lightroomFolderTitle": "Seleziona la cartella dei predefiniti di Lightroom",
         "presetFile": "File Predefinito",
         "rapidRawPreset": "Predefinito RapidRAW"
       },
@@ -955,12 +957,20 @@
       },
       "title": "Predefiniti",
       "toasts": {
-        "importFailed": "Importazione di {{fileName}} non riuscita: {{error}}"
+        "importFailed": "Importazione di {{fileName}} non riuscita: {{error}}",
+        "lightroomFailed": "Impossibile importare i predefiniti di Lightroom: {{error}}",
+        "lightroomImported_one": "Importato {{count}} predefinito di Lightroom",
+        "lightroomImported_many": "Importati {{count}} di predefiniti di Lightroom",
+        "lightroomImported_other": "Importati {{count}} predefiniti di Lightroom",
+        "lightroomMissingProfiles": "Alcuni profili di Lightroom non sono stati trovati: {{profiles}}",
+        "lightroomNoPresetsInFolder": "Nessun predefinito di Lightroom trovato in questa cartella.",
+        "lightroomNotFound": "I predefiniti di Lightroom non sono stati trovati automaticamente. Seleziona la cartella Settings di Camera Raw."
       },
       "tooltips": {
         "explore": "Esplora i Predefiniti della Community",
         "export": "Esporta tutti i predefiniti in un file .rrpreset",
         "import": "Importa predefiniti da un file .rrpreset",
+        "importLightroom": "Importa predefiniti da Lightroom",
         "saveNew": "Salva come nuovo predefinito"
       },
       "types": {

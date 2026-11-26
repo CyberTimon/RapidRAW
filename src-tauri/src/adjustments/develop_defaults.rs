@@ -79,6 +79,8 @@ const NON_DEFAULTABLE_KEYS: &[&str] = &[
     "fogDepthMap",
     "motionBlurDepthMap",
     "relightNormalMap",
+    "presetAutoTone",
+    "presetSubjectFocus",
     "aiDenoiseEnabled",
     "aiUpscaleEnabled",
     "lensBlurEnabled",

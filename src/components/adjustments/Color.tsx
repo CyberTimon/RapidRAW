@@ -343,6 +343,19 @@ const ColorGradingPanel = ({ adjustments, setAdjustments, onDragStateChange }: C
           value={colorGrading.balance}
           onDragStateChange={onDragStateChange}
         />
+        <Slider
+          defaultValue={0}
+          label={t('adjustments.color.grading.blackHold')}
+          max={100}
+          min={0}
+          onChange={(e: SliderChangeEvent) =>
+            handleColorGradingSliderChange(ColorGrading.BlackHold, String(e.target.value))
+          }
+          step={1}
+          resetKey="colorGrading.blackHold"
+          value={colorGrading.blackHold}
+          onDragStateChange={onDragStateChange}
+        />
       </div>
     </div>
   );

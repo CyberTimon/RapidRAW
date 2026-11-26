@@ -79,7 +79,7 @@ fn scalar_sigmoid(x: f32, power: f32) -> f32 {
     x / (1.0 + x.powf(power)).powf(1.0 / power)
 }
 
-fn rgb_to_hsv(rgb: Vec3) -> Vec3 {
+pub(crate) fn rgb_to_hsv(rgb: Vec3) -> Vec3 {
     let max = rgb.max_element();
     let delta = max - rgb.min_element();
     if max.abs() <= EPSILON || delta.abs() <= EPSILON {
@@ -95,7 +95,7 @@ fn rgb_to_hsv(rgb: Vec3) -> Vec3 {
     Vec3::new((hue / 6.0).rem_euclid(1.0), delta / max, max)
 }
 
-fn hsv_to_rgb(hsv: Vec3) -> Vec3 {
+pub(crate) fn hsv_to_rgb(hsv: Vec3) -> Vec3 {
     let chroma = hsv.y * hsv.z;
     let floor = hsv.z - chroma;
     let sector = hsv.x.rem_euclid(1.0) * 6.0 % 6.0;

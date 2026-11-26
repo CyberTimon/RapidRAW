@@ -111,7 +111,7 @@ struct GlobalAdjustments {
     color_grading_global: ColorGradeSettings,
     color_grading_blending: f32,
     color_grading_balance: f32,
-    _pad2: f32,
+    color_grading_black_hold: f32,
     _pad3: f32,
 
     color_calibration: ColorCalibrationSettings,
@@ -172,7 +172,7 @@ struct MaskAdjustments {
     color_grading_global: ColorGradeSettings,
     color_grading_blending: f32,
     color_grading_balance: f32,
-    _pad5: f32,
+    color_grading_black_hold: f32,
     _pad6: f32,
 
     hsl: array<HslColor, 8>,
@@ -1060,7 +1060,7 @@ fn fit_grade_gamut(graded: vec3<f32>, lower_bound: f32) -> vec3<f32> {
     return luma + (graded - luma) * ((luma - lower_bound) / (luma - lowest));
 }
 
-fn apply_color_grading(color: vec3<f32>, shadows: ColorGradeSettings, midtones: ColorGradeSettings, highlights: ColorGradeSettings, global: ColorGradeSettings, blending: f32, balance: f32) -> vec3<f32> {
+fn apply_color_grading(color: vec3<f32>, shadows: ColorGradeSettings, midtones: ColorGradeSettings, highlights: ColorGradeSettings, global: ColorGradeSettings, blending: f32, balance: f32, black_hold: f32) -> vec3<f32> {
     let amount = abs(shadows.tint_a) + abs(shadows.tint_b) + abs(shadows.luminance)
         + abs(midtones.tint_a) + abs(midtones.tint_b) + abs(midtones.luminance)
         + abs(highlights.tint_a) + abs(highlights.tint_b) + abs(highlights.luminance)
@@ -1079,10 +1079,11 @@ fn apply_color_grading(color: vec3<f32>, shadows: ColorGradeSettings, midtones: 
     let tint_regions = color_grade_regions(lightness, feather, balance);
     let luminance_regions = color_grade_regions(lightness, max(feather, CG_LUMINANCE_FEATHER_MIN), balance);
 
-    let tint = vec2<f32>(shadows.tint_a, shadows.tint_b) * tint_regions.x
+    let hold = select(1.0, clamp(lightness / black_hold, 0.0, 1.0), black_hold > 0.0);
+    let tint = (vec2<f32>(shadows.tint_a, shadows.tint_b) * tint_regions.x
         + vec2<f32>(midtones.tint_a, midtones.tint_b) * tint_regions.y
         + vec2<f32>(highlights.tint_a, highlights.tint_b) * tint_regions.z
-        + vec2<f32>(global.tint_a, global.tint_b);
+        + vec2<f32>(global.tint_a, global.tint_b)) * hold;
     let luminance = shadows.luminance * luminance_regions.x
         + midtones.luminance * luminance_regions.y
         + highlights.luminance * luminance_regions.z
@@ -2305,7 +2306,8 @@ fn main(
         adjustments.global.color_grading_highlights,
         adjustments.global.color_grading_global,
         adjustments.global.color_grading_blending,
-        adjustments.global.color_grading_balance
+        adjustments.global.color_grading_balance,
+        adjustments.global.color_grading_black_hold
     );
 
     for (var i = 0u; has_feature(F_MASKS) && i < adjustments.mask_count; i = i + 1u) {
@@ -2314,7 +2316,7 @@ fn main(
             let m = adjustments.mask_adjustments[i];
             let mask_graded = apply_color_grading(
                 composite_rgb_linear,
-                m.color_grading_shadows, m.color_grading_midtones, m.color_grading_highlights, m.color_grading_global, m.color_grading_blending, m.color_grading_balance
+                m.color_grading_shadows, m.color_grading_midtones, m.color_grading_highlights, m.color_grading_global, m.color_grading_blending, m.color_grading_balance, m.color_grading_black_hold
             );
             composite_rgb_linear = mix(composite_rgb_linear, mask_graded, influence);
         }
