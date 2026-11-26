@@ -108,7 +108,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let uv = select(in.uv, in.uv + transform.split_offset / transform.rect.zw, is_original);
 
     if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-        return present(transform.bg_secondary);
+        return transform.bg_secondary;
     }
 
     if (is_original) {
