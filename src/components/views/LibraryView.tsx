@@ -11,7 +11,8 @@ import { useEditorStore } from '../../store/useEditorStore';
 import { selectAiModelDownloadStatus, selectAiTaggingJob, useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
-import { ImageFile, LibraryViewMode, ThumbnailAspectRatio, ThumbnailSize } from '../ui/AppProperties';
+import { ImageFile } from '../../types/library';
+import { LibraryViewMode, ThumbnailAspectRatio, ThumbnailSize } from '../../types/settings';
 import { GroupBadgeInfo, GroupId } from '../../utils/imageGrouping';
 import { getImageFlag } from '../../utils/imageFlags';
 

@@ -15,14 +15,16 @@ import {
   RectangleVertical,
   Palette,
 } from 'lucide-react';
-import { ImageFile, Invokes } from '../ui/AppProperties';
+import { ImageFile } from '../../types/library';
+import { Invokes } from '../../types/invokes';
 import Button from '../ui/Button';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
 import clsx from 'clsx';
-import { LAYOUTS, type Layout, type LayoutDefinition } from '../../utils/CollageVariants';
+import { LAYOUTS, type Layout, type LayoutDefinition } from './CollageVariants';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
+import { getDevicePixelRatio } from '../../utils/displayScale';
 
 interface CollageModalProps {
   isOpen: boolean;
@@ -249,7 +251,7 @@ export default function CollageModal({ isOpen, onClose, onSave, sourceImages }: 
       let canvasWidth,
         canvasHeight,
         exportScale = 1;
-      const dpr = isExport ? 1 : window.devicePixelRatio || 1;
+      const dpr = isExport ? 1 : getDevicePixelRatio();
 
       if (isExport) {
         canvasWidth = exportWidth;

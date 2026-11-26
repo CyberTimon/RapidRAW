@@ -1,7 +1,8 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Mask, SubMask, SubMaskMode, formatMaskTypeName } from '../components/panel/right/Masks';
+import { Mask, SubMask, SubMaskMode } from '../types/masks';
 import { ImageDimensions } from '../hooks/useImageRenderSize';
-import { MaskContainer } from './adjustments';
+import { AiPatch, Coord, MaskContainer } from './adjustments';
+import { formatMaskTypeName } from './maskNames';
 
 const AI_MASK_TYPES = new Set<string>([
   Mask.AiDepth,
@@ -32,10 +33,7 @@ export const stripAiMaskResults = (masks: Array<MaskContainer>): Array<MaskConta
     }),
   }));
 
-export const mergeAiMaskResults = (
-  masks: Array<MaskContainer>,
-  source: Array<MaskContainer>,
-): Array<MaskContainer> => {
+export const mergeAiMaskResults = (masks: Array<MaskContainer>, source: Array<MaskContainer>): Array<MaskContainer> => {
   const results = new Map(
     source
       .flatMap((container) => container.subMasks)
@@ -56,8 +54,8 @@ export const mergeAiMaskResults = (
 export const createSubMask = (
   type: Mask,
   imageDimensions: ImageDimensions,
-  mode: SubMaskMode = SubMaskMode.Additive
-) => {
+  mode: SubMaskMode = SubMaskMode.Additive,
+): SubMask => {
   const { width, height } = imageDimensions || { width: 1000, height: 1000 };
   const common = {
     id: uuidv4(),
@@ -91,6 +89,18 @@ export const createSubMask = (
       return { ...common, parameters: { lines: [] } };
     case Mask.Flow:
       return { ...common, parameters: { lines: [], flow: 10 } };
+    case Mask.MatchBrush:
+      return {
+        ...common,
+        parameters: {
+          lines: [],
+          tolerance: 30,
+          rotation: 0,
+          flipHorizontal: false,
+          flipVertical: false,
+          orientationSteps: 0,
+        },
+      };
     case Mask.AiSubject:
       return { ...common, parameters: { maskDataBase64: null, grow: 0, feather: 0 } };
     case Mask.AiForeground:
@@ -105,3 +115,22 @@ export const createSubMask = (
       return { ...common, parameters: {} };
   }
 };
+
+export const getStrokeCenter = (lines: Array<{ points: Array<Coord> }> | undefined): Coord | null => {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const line of lines || []) {
+    for (const pt of line.points) {
+      if (pt.x < minX) minX = pt.x;
+      if (pt.x > maxX) maxX = pt.x;
+      if (pt.y < minY) minY = pt.y;
+      if (pt.y > maxY) maxY = pt.y;
+    }
+  }
+  return minX === Infinity ? null : { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
+};
+
+export const countPatchesOfType = (patches: Array<AiPatch> | undefined, type: Mask) =>
+  (patches || []).filter((p) => p.subMasks.some((sm: SubMask) => sm.type === type)).length;

@@ -1,0 +1,78 @@
+name: Shaders
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src-tauri/src/shaders/**'
+      - 'src-tauri/src/render/**'
+      - 'src-tauri/src/decode/**'
+      - 'src-tauri/src/effects/**'
+      - 'src-tauri/Cargo.toml'
+      - 'src-tauri/Cargo.lock'
+      - '.github/workflows/shaders.yml'
+  pull_request:
+    paths:
+      - 'src-tauri/src/shaders/**'
+      - 'src-tauri/src/render/**'
+      - 'src-tauri/src/decode/**'
+      - 'src-tauri/src/effects/**'
+      - 'src-tauri/Cargo.toml'
+      - 'src-tauri/Cargo.lock'
+      - '.github/workflows/shaders.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  compile:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Vulkan and OpenGL (Mesa lavapipe / llvmpipe)
+            platform: ubuntu-24.04
+            backends: vulkan gl
+          - name: DirectX 12 (WARP)
+            platform: windows-latest
+            backends: dx12
+          - name: Metal
+            platform: macos-15
+            backends: metal
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ''
+          rust-src-dir: src-tauri
+          cache: false
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            pkg-config \
+            mesa-vulkan-drivers \
+            libvulkan1 \
+            libegl1 \
+            libgles2 \
+            libgl1-mesa-dri
+
+      - name: Compile all shaders and pipelines
+        working-directory: src-tauri
+        env:
+          RAPIDRAW_SHADER_BACKENDS: ${{ matrix.backends }}
+          EGL_PLATFORM: surfaceless
+          WGPU_DX12_COMPILER: fxc
+        run: cargo test --lib shaders_compile_on_gpu_backends -- --nocapture

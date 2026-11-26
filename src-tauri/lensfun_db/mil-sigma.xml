@@ -27,6 +27,14 @@
 
     <camera>
         <maker>Sigma</maker>
+        <model>Sigma FP2</model>
+        <model lang="en">FP2</model>
+        <mount>Leica L</mount>
+        <cropfactor>1</cropfactor>
+    </camera>
+
+	<camera>
+        <maker>Sigma</maker>
         <model>sd Quattro</model>
         <mount>Sigma SA</mount>
         <cropfactor>1.523</cropfactor>

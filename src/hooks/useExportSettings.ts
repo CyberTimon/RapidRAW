@@ -1,16 +1,22 @@
 import { useState, useMemo, useCallback } from 'react';
 import {
   BorderBasis,
+  ConflictAction,
   DEFAULT_EXPORT_DPI,
+  DEFAULT_HDR_HEADROOM,
+  ExportColorSpace,
   ExportPreset,
   TiffBitDepth,
   WatermarkAnchor,
-} from '../components/ui/ExportImportProperties';
+} from '../types/export';
 
 export function useExportSettings() {
   const [fileFormat, setFileFormat] = useState('jpeg');
   const [jpegQuality, setJpegQuality] = useState(90);
   const [tiffBitDepth, setTiffBitDepth] = useState<TiffBitDepth>(16);
+  const [colorSpace, setColorSpace] = useState<ExportColorSpace>(ExportColorSpace.Srgb);
+  const [hdr, setHdr] = useState(false);
+  const [hdrHeadroom, setHdrHeadroom] = useState(DEFAULT_HDR_HEADROOM);
   const [dpi, setDpi] = useState(DEFAULT_EXPORT_DPI);
   const [enableResize, setEnableResize] = useState(false);
   const [resizeMode, setResizeMode] = useState('longEdge');
@@ -29,6 +35,9 @@ export function useExportSettings() {
   const [preserveTimestamps, setPreserveTimestamps] = useState(false);
   const [stripGps, setStripGps] = useState(true);
   const [exportMasks, setExportMasks] = useState(false);
+  const [exportOriginal, setExportOriginal] = useState(false);
+  const [originalCrop, setOriginalCrop] = useState(true);
+  const [originalKeepExposure, setOriginalKeepExposure] = useState(false);
   const [preserveFolders, setPreserveFolders] = useState(false);
   const [filenameTemplate, setFilenameTemplate] = useState('{original_filename}_edited');
   const [enableWatermark, setEnableWatermark] = useState(false);
@@ -39,11 +48,15 @@ export function useExportSettings() {
   const [watermarkOpacity, setWatermarkOpacity] = useState(75);
   const [destinationType, setDestinationType] = useState<string>('customFolder');
   const [subfolder, setSubfolder] = useState<string>('');
+  const [onConflict, setOnConflict] = useState<ConflictAction>(ConflictAction.CreateUnique);
 
   const handleApplyPreset = useCallback((preset: ExportPreset) => {
     setFileFormat(preset.fileFormat);
     setJpegQuality(preset.jpegQuality);
     setTiffBitDepth(preset.tiffBitDepth ?? 16);
+    setColorSpace(preset.colorSpace ?? ExportColorSpace.Srgb);
+    setHdr(preset.hdr ?? false);
+    setHdrHeadroom(preset.hdrHeadroom ?? DEFAULT_HDR_HEADROOM);
     setDpi(preset.dpi ?? DEFAULT_EXPORT_DPI);
     setEnableResize(preset.enableResize);
     setResizeMode(preset.resizeMode);
@@ -62,6 +75,9 @@ export function useExportSettings() {
     setPreserveTimestamps(preset.preserveTimestamps ?? false);
     setStripGps(preset.stripGps);
     setExportMasks(preset.exportMasks ?? false);
+    setExportOriginal(preset.exportOriginal ?? false);
+    setOriginalCrop(preset.originalCrop ?? true);
+    setOriginalKeepExposure(preset.originalKeepExposure ?? false);
     setPreserveFolders(preset.preserveFolders ?? false);
     setFilenameTemplate(preset.filenameTemplate);
     setEnableWatermark(preset.enableWatermark);
@@ -72,6 +88,7 @@ export function useExportSettings() {
     setWatermarkOpacity(preset.watermarkOpacity);
     setDestinationType(preset.destinationType || 'customFolder');
     setSubfolder(preset.subfolder || '');
+    setOnConflict(preset.onConflict ?? ConflictAction.CreateUnique);
   }, []);
 
   const currentSettingsObject = useMemo(
@@ -79,6 +96,9 @@ export function useExportSettings() {
       fileFormat,
       jpegQuality,
       tiffBitDepth,
+      colorSpace,
+      hdr,
+      hdrHeadroom,
       dpi,
       enableResize,
       resizeMode,
@@ -97,6 +117,9 @@ export function useExportSettings() {
       preserveTimestamps,
       stripGps,
       exportMasks,
+      exportOriginal,
+      originalCrop,
+      originalKeepExposure,
       preserveFolders,
       filenameTemplate,
       enableWatermark,
@@ -107,11 +130,15 @@ export function useExportSettings() {
       watermarkOpacity,
       destinationType,
       subfolder,
+      onConflict,
     }),
     [
       fileFormat,
       jpegQuality,
       tiffBitDepth,
+      colorSpace,
+      hdr,
+      hdrHeadroom,
       dpi,
       enableResize,
       resizeMode,
@@ -130,6 +157,9 @@ export function useExportSettings() {
       preserveTimestamps,
       stripGps,
       exportMasks,
+      exportOriginal,
+      originalCrop,
+      originalKeepExposure,
       preserveFolders,
       filenameTemplate,
       enableWatermark,
@@ -140,6 +170,7 @@ export function useExportSettings() {
       watermarkOpacity,
       destinationType,
       subfolder,
+      onConflict,
     ],
   );
 
@@ -150,6 +181,12 @@ export function useExportSettings() {
     setJpegQuality,
     tiffBitDepth,
     setTiffBitDepth,
+    colorSpace,
+    setColorSpace,
+    hdr,
+    setHdr,
+    hdrHeadroom,
+    setHdrHeadroom,
     dpi,
     setDpi,
     enableResize,
@@ -186,6 +223,12 @@ export function useExportSettings() {
     setStripGps,
     exportMasks,
     setExportMasks,
+    exportOriginal,
+    setExportOriginal,
+    originalCrop,
+    setOriginalCrop,
+    originalKeepExposure,
+    setOriginalKeepExposure,
     preserveFolders,
     setPreserveFolders,
     filenameTemplate,
@@ -206,6 +249,8 @@ export function useExportSettings() {
     setDestinationType,
     subfolder,
     setSubfolder,
+    onConflict,
+    setOnConflict,
     handleApplyPreset,
     currentSettingsObject,
   };

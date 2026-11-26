@@ -17,28 +17,32 @@ import {
   getHiddenAdjustmentTools,
   createRelightLight,
   getRelightLightColor,
+  MotionBlurLayer,
+  MotionBlurType,
+  areSectionPropsEqual,
 } from '../../utils/adjustments';
 import Dropdown from '../ui/Dropdown';
-import LUTControl from '../ui/LUTControl';
+import LUTControl from './LUTControl';
 import ColorField, { normalizeHexColor, useParsedTextField } from '../ui/ColorField';
 import { ColorSwatch } from './Color';
-import { AppSettings } from '../ui/AppProperties';
+import { AppSettings } from '../../types/settings';
 import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
 import { TextVariants } from '../../types/typography';
-import { DepthRangePicker } from '../ui/DepthRangePicker';
+import { DepthRangePicker } from './DepthRangePicker';
+import DepthScope from './depthScope/DepthScope';
+import { ScenePatch } from './depthScope/scene';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { useEditorStore } from '../../store/useEditorStore';
+import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
 import { useContextMenu } from '../../context/ContextMenuContext';
-import { areSectionPropsEqual } from '../../utils/adjustments';
+import { useEditorActions } from '../../hooks/useEditorActions';
 
 interface EffectsPanelProps {
   adjustments: Adjustments;
   isForMask?: boolean;
   setAdjustments(adjustments: Partial<Adjustments> | ((prev: Adjustments) => Adjustments)): void;
   handleLutSelect(path: string, isSceneReferred: boolean): void;
-  onLutHover?: (path: string | null) => void;
   appSettings: AppSettings | null;
   onDragStateChange?: (isDragging: boolean) => void;
 }
@@ -154,6 +158,27 @@ const BokehShapeSwitch = ({ selectedShape, onShapeChange }: BokehShapeSwitchProp
   );
 };
 
+const MapGenerationStatus = ({ label }: { label: string }) => {
+  const { t } = useTranslation();
+  const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
+      <div className="flex items-center gap-2">
+        <Loader2 size={16} className="animate-spin shrink-0" />
+        <Text variant={TextVariants.label}>
+          {aiModelDownloadStatus ? t('editor.masks.settings.aiModelDownloading') : label}
+        </Text>
+      </div>
+      {aiModelDownloadStatus && (
+        <Text variant={TextVariants.small} className="text-accent">
+          {aiModelDownloadStatus}
+        </Text>
+      )}
+    </div>
+  );
+};
+
 interface SpatialEffectProps {
   children: ReactNode;
   enabled: boolean;
@@ -186,7 +211,6 @@ function EffectsPanel({
   setAdjustments,
   isForMask = false,
   handleLutSelect,
-  onLutHover,
   appSettings,
   onDragStateChange,
 }: EffectsPanelProps) {
@@ -194,8 +218,10 @@ function EffectsPanel({
   const [isGeneratingDepth, setIsGeneratingDepth] = useState(false);
   const [isGeneratingNormals, setIsGeneratingNormals] = useState(false);
   const [isGeneratingFogDepth, setIsGeneratingFogDepth] = useState(false);
+  const [isGeneratingMotionDepth, setIsGeneratingMotionDepth] = useState(false);
   const [hoveredLightId, setHoveredLightId] = useState<string | null>(null);
-  const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
+  const motionBlurDepthMap = useEditorStore((state) => state.adjustments.motionBlurDepthMap);
+  const { setAdjustments: setImageAdjustments } = useEditorActions();
   const isRelightPickerActive = useEditorStore((state) => state.isRelightPickerActive);
   const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
   const setEditor = useEditorStore((state) => state.setEditor);
@@ -225,6 +251,10 @@ function EffectsPanel({
         ...prev,
         relightNormalMap: b64,
       }));
+      const { relightEnabled, relightLights } = useEditorStore.getState().adjustments;
+      if (relightEnabled) {
+        focusRelightLight(relightLights);
+      }
     } catch (e) {
       toast.error(`Failed to generate normal map: ${e}`);
       setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, relightEnabled: false }));
@@ -247,6 +277,28 @@ function EffectsPanel({
     } finally {
       setIsGeneratingFogDepth(false);
     }
+  };
+
+  const handleGenerateMotionBlurDepthMap = async () => {
+    setIsGeneratingMotionDepth(true);
+    try {
+      const b64: string = await invoke('generate_full_image_depth_map', {
+        jsAdjustments: useEditorStore.getState().adjustments,
+      });
+      setImageAdjustments((prev: Adjustments) => ({
+        ...prev,
+        motionBlurDepthMap: b64,
+      }));
+    } catch (e) {
+      toast.error(`Failed to generate depth map: ${e}`);
+      setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, motionBlurDepthEnabled: false }));
+    } finally {
+      setIsGeneratingMotionDepth(false);
+    }
+  };
+
+  const handleScenePatch = (patch: ScenePatch) => {
+    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, ...patch }));
   };
 
   const handleAdjustmentChange = (key: string, value: boolean | number | string) => {
@@ -284,13 +336,21 @@ function EffectsPanel({
     }
   };
 
+  const handleMotionBlurDepthToggle = (enabled: boolean) => {
+    handleAdjustmentChange(Effect.MotionBlurDepthEnabled, enabled);
+    if (enabled && !motionBlurDepthMap) {
+      handleGenerateMotionBlurDepthMap();
+    }
+  };
+
   const handleRelightToggle = (enabled: boolean) => {
     handleAdjustmentChange(Effect.RelightEnabled, enabled);
     if (!enabled) {
       setEditor({ isRelightPickerActive: false });
-    }
-    if (enabled && !adjustments.relightNormalMap) {
+    } else if (!adjustments.relightNormalMap) {
       handleGenerateRelightNormalMap();
+    } else {
+      focusRelightLight(adjustments.relightLights);
     }
   };
 
@@ -304,9 +364,7 @@ function EffectsPanel({
     }
     setEditor({
       activeRelightLightId: id,
-      isRelightPickerActive: true,
-      isWbPickerActive: false,
-      activeCenterMarker: null,
+      ...canvasToolState({ isRelightPickerActive: true }),
     });
   };
 
@@ -318,20 +376,31 @@ function EffectsPanel({
     }));
     setEditor({
       activeRelightLightId: light.id,
-      isRelightPickerActive: true,
-      isWbPickerActive: false,
-      activeCenterMarker: null,
+      ...canvasToolState({ isRelightPickerActive: true }),
     });
   };
 
-  const handleLightChange = (key: keyof RelightLight, value: number | string) => {
+  const focusRelightLight = (lights: Array<RelightLight> = []) => {
+    if (!lights.length) {
+      handleAddLight();
+      return;
+    }
+    setEditor({
+      activeRelightLightId: lights[0].id,
+      ...canvasToolState({ isRelightPickerActive: true }),
+    });
+  };
+
+  const handleLightPatch = (patch: Partial<RelightLight>) => {
     setAdjustments((prev: Partial<Adjustments>) => ({
       ...prev,
       relightLights: (prev.relightLights || []).map((light: RelightLight) =>
-        light.id === activeRelightLightId ? { ...light, [key]: value } : light,
+        light.id === activeRelightLightId ? { ...light, ...patch } : light,
       ),
     }));
   };
+
+  const handleLightChange = (key: keyof RelightLight, value: number | string) => handleLightPatch({ [key]: value });
 
   const handleLightSliderChange = (key: keyof RelightLight) => (e: SliderChangeEvent) =>
     handleLightChange(key, parseInt(String(e.target.value), 10));
@@ -363,9 +432,7 @@ function EffectsPanel({
     });
     setEditor({
       activeRelightLightId: light.id,
-      isRelightPickerActive: true,
-      isWbPickerActive: false,
-      activeCenterMarker: null,
+      ...canvasToolState({ isRelightPickerActive: true }),
     });
   };
 
@@ -400,6 +467,7 @@ function EffectsPanel({
           title={t('adjustments.effects.creative')}
         >
           <Slider
+            resetKey="glowAmount"
             label={t('adjustments.effects.glow')}
             max={100}
             min={0}
@@ -410,6 +478,7 @@ function EffectsPanel({
           />
 
           <Slider
+            resetKey="halationAmount"
             label={t('adjustments.effects.halation')}
             max={100}
             min={0}
@@ -423,6 +492,7 @@ function EffectsPanel({
 
           {!isForMask && (
             <Slider
+              resetKey="flareAmount"
               label={t('adjustments.effects.lightFlares')}
               max={100}
               min={0}
@@ -434,6 +504,135 @@ function EffectsPanel({
               onDragStateChange={onDragStateChange}
             />
           )}
+        </AdjustmentSubSection>
+      )}
+
+      {!hiddenTools.includes('motionBlur') && (
+        <AdjustmentSubSection
+          id="motionBlur"
+          order={toolOrder.indexOf('motionBlur')}
+          title={t('adjustments.effects.motionBlur')}
+        >
+          <div className="space-y-4">
+            <Slider
+              resetKey="motionBlurAmount"
+              label={t('adjustments.effects.amount')}
+              max={100}
+              min={0}
+              onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.MotionBlurAmount, e.target.value)}
+              step={1}
+              value={adjustments.motionBlurAmount ?? 0}
+              onDragStateChange={onDragStateChange}
+            />
+
+            {(adjustments.motionBlurType ?? 'linear') === 'linear' && (
+              <Slider
+                resetKey="motionBlurAngle"
+                label={t('adjustments.effects.motionBlurAngle')}
+                max={90}
+                min={-90}
+                onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.MotionBlurAngle, e.target.value)}
+                step={1}
+                suffix="°"
+                value={adjustments.motionBlurAngle ?? 0}
+                onDragStateChange={onDragStateChange}
+              />
+            )}
+
+            <Slider
+              resetKey="motionBlurHighlights"
+              label={t('adjustments.effects.motionBlurHighlights')}
+              max={100}
+              min={0}
+              defaultValue={30}
+              onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.MotionBlurHighlights, e.target.value)}
+              step={1}
+              value={adjustments.motionBlurHighlights ?? 30}
+              onDragStateChange={onDragStateChange}
+              fillOrigin="min"
+            />
+
+            <div>
+              <Text variant={TextVariants.label} className="mb-2 block">
+                {t('adjustments.effects.motionBlurType')}
+              </Text>
+              <Dropdown<MotionBlurType>
+                options={[
+                  { label: t('adjustments.effects.motionBlurTypes.linear'), value: 'linear' },
+                  { label: t('adjustments.effects.motionBlurTypes.zoom'), value: 'zoom' },
+                  { label: t('adjustments.effects.motionBlurTypes.spin'), value: 'spin' },
+                  ...(isForMask
+                    ? [{ label: t('adjustments.effects.motionBlurTypes.smooth'), value: 'smooth' as const }]
+                    : []),
+                ]}
+                value={adjustments.motionBlurType ?? 'linear'}
+                onChange={(value) =>
+                  setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [Effect.MotionBlurType]: value }))
+                }
+              />
+            </div>
+
+            {isForMask && adjustments.motionBlurType !== 'spin' && adjustments.motionBlurType !== 'smooth' && (
+              <div>
+                <Text variant={TextVariants.label} className="mb-2 block">
+                  {t('adjustments.effects.motionBlurLayer')}
+                </Text>
+                <Dropdown<MotionBlurLayer>
+                  options={[
+                    { label: t('adjustments.effects.motionBlurLayers.auto'), value: 'auto' },
+                    { label: t('adjustments.effects.motionBlurLayers.subject'), value: 'subject' },
+                    { label: t('adjustments.effects.motionBlurLayers.panning'), value: 'panning' },
+                    { label: t('adjustments.effects.motionBlurLayers.uniform'), value: 'uniform' },
+                  ]}
+                  value={adjustments.motionBlurLayer ?? 'auto'}
+                  onChange={(value) =>
+                    setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [Effect.MotionBlurLayer]: value }))
+                  }
+                />
+              </div>
+            )}
+
+            {!isAiFree && adjustments.motionBlurType !== 'spin' && (
+              <SpatialEffect
+                enabled={!!adjustments.motionBlurDepthEnabled}
+                label={t('adjustments.effects.motionBlurDepth')}
+                onToggle={handleMotionBlurDepthToggle}
+              >
+                {isGeneratingMotionDepth ? (
+                  <MapGenerationStatus label={t('editor.ai.generatingDepthMap')} />
+                ) : (
+                  <>
+                    {adjustments.motionBlurDepthEnabled && (
+                      <DepthScope
+                        mapKey="motionBlurDepthMap"
+                        scene={{
+                          kind: 'motion',
+                          amount: adjustments.motionBlurAmount ?? 0,
+                          parallax: adjustments.motionBlurDepth ?? 50,
+                          angle: adjustments.motionBlurAngle ?? 0,
+                          radial: adjustments.motionBlurType === 'zoom',
+                        }}
+                      />
+                    )}
+                    <Slider
+                      resetKey="motionBlurDepth"
+                      label={t('adjustments.effects.amount')}
+                      max={100}
+                      min={0}
+                      defaultValue={50}
+                      onChange={(e: SliderChangeEvent) =>
+                        handleAdjustmentChange(Effect.MotionBlurDepth, e.target.value)
+                      }
+                      step={1}
+                      value={adjustments.motionBlurDepth ?? 50}
+                      onDragStateChange={onDragStateChange}
+                      fillOrigin="min"
+                    />
+                  </>
+                )}
+              </SpatialEffect>
+            )}
+          </div>
         </AdjustmentSubSection>
       )}
 
@@ -452,24 +651,11 @@ function EffectsPanel({
                   onToggle={handleLensBlurToggle}
                 >
                   {isGeneratingDepth ? (
-                    <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
-                      <div className="flex items-center gap-2">
-                        <Loader2 size={16} className="animate-spin shrink-0" />
-                        <Text variant={TextVariants.label}>
-                          {aiModelDownloadStatus
-                            ? t('editor.masks.settings.aiModelDownloading')
-                            : t('editor.ai.generatingDepthMap')}
-                        </Text>
-                      </div>
-                      {aiModelDownloadStatus && (
-                        <Text variant={TextVariants.small} className="text-accent">
-                          {aiModelDownloadStatus}
-                        </Text>
-                      )}
-                    </div>
+                    <MapGenerationStatus label={t('editor.ai.generatingDepthMap')} />
                   ) : (
                     <>
                       <Slider
+                        resetKey="lensBlurAmount"
                         label={t('adjustments.effects.amount')}
                         max={100}
                         min={0}
@@ -484,6 +670,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="lensBlurDiffusion"
                         label={t('adjustments.effects.lensDiffusion')}
                         max={100}
                         min={0}
@@ -506,15 +693,31 @@ function EffectsPanel({
                         }
                       />
 
+                      {adjustments.lensBlurEnabled && (
+                        <DepthScope
+                          mapKey="lensBlurDepthMap"
+                          scene={{
+                            kind: 'lensBlur',
+                            minDepth: adjustments.lensBlurMinDepth ?? 10,
+                            maxDepth: adjustments.lensBlurMaxDepth ?? 90,
+                            minFade: adjustments.lensBlurMinFade ?? 10,
+                            maxFade: adjustments.lensBlurMaxFade ?? 10,
+                            amount: adjustments.lensBlurAmount ?? 50,
+                          }}
+                          onChange={handleScenePatch}
+                          onDragStateChange={onDragStateChange}
+                        />
+                      )}
+
                       <DepthRangePicker
-                        minDepth={100 - (adjustments.lensBlurMaxDepth ?? 100)}
-                        maxDepth={100 - (adjustments.lensBlurMinDepth ?? 20)}
-                        minFade={adjustments.lensBlurMaxFade ?? 20}
-                        maxFade={adjustments.lensBlurMinFade ?? 20}
-                        defaultMinDepth={0}
-                        defaultMaxDepth={80}
-                        defaultMinFade={20}
-                        defaultMaxFade={20}
+                        minDepth={100 - (adjustments.lensBlurMaxDepth ?? 90)}
+                        maxDepth={100 - (adjustments.lensBlurMinDepth ?? 10)}
+                        minFade={adjustments.lensBlurMaxFade ?? 10}
+                        maxFade={adjustments.lensBlurMinFade ?? 10}
+                        defaultMinDepth={10}
+                        defaultMaxDepth={90}
+                        defaultMinFade={10}
+                        defaultMaxFade={10}
                         onChange={(values: {
                           minDepth: number;
                           maxDepth: number;
@@ -541,36 +744,25 @@ function EffectsPanel({
                 >
                   <div className="space-y-4" data-relight-lights>
                     {isGeneratingNormals ? (
-                      <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
-                        <div className="flex items-center gap-2">
-                          <Loader2 size={16} className="animate-spin shrink-0" />
-                          <Text variant={TextVariants.label}>
-                            {aiModelDownloadStatus
-                              ? t('editor.masks.settings.aiModelDownloading')
-                              : t('editor.ai.generatingNormalMap')}
-                          </Text>
-                        </div>
-                        {aiModelDownloadStatus && (
-                          <Text variant={TextVariants.small} className="text-accent">
-                            {aiModelDownloadStatus}
-                          </Text>
-                        )}
-                      </div>
+                      <MapGenerationStatus label={t('editor.ai.generatingNormalMap')} />
                     ) : (
                       <>
                         <Slider
+                          resetKey="relightAmbient"
                           label={t('adjustments.effects.relightAmbient')}
                           max={100}
                           min={-100}
+                          defaultValue={-50}
                           onChange={(e: SliderChangeEvent) =>
                             handleAdjustmentChange(Effect.RelightAmbient, e.target.value)
                           }
                           step={1}
-                          value={adjustments.relightAmbient ?? 0}
+                          value={adjustments.relightAmbient ?? -50}
                           onDragStateChange={onDragStateChange}
                         />
 
                         <Slider
+                          resetKey="relightSoftness"
                           label={t('adjustments.effects.relightSoftness')}
                           max={100}
                           min={0}
@@ -585,6 +777,7 @@ function EffectsPanel({
                         />
 
                         <Slider
+                          resetKey="relightShine"
                           label={t('adjustments.effects.relightShine')}
                           max={100}
                           min={0}
@@ -604,6 +797,7 @@ function EffectsPanel({
 
                         {adjustments.relightShadows && (
                           <Slider
+                            resetKey="relightShadowSoftness"
                             label={t('adjustments.effects.relightShadowSoftness')}
                             max={100}
                             min={0}
@@ -691,7 +885,7 @@ function EffectsPanel({
                                 label={t('adjustments.effects.relightIntensity')}
                                 max={100}
                                 min={0}
-                                defaultValue={60}
+                                defaultValue={40}
                                 onChange={handleLightSliderChange('intensity')}
                                 step={1}
                                 value={activeLight.intensity}
@@ -701,6 +895,19 @@ function EffectsPanel({
 
                               {activeLight.type !== 'directional' && (
                                 <>
+                                  <DepthScope
+                                    mapKey="relightNormalMap"
+                                    scene={{
+                                      kind: 'relight',
+                                      lights: relightLights,
+                                      activeId: activeLight.id,
+                                      ambient: adjustments.relightAmbient ?? -50,
+                                      softness: adjustments.relightSoftness ?? 25,
+                                    }}
+                                    onChange={handleLightPatch}
+                                    onDragStateChange={onDragStateChange}
+                                  />
+
                                   <Slider
                                     label={t('adjustments.effects.relightDepth')}
                                     max={100}
@@ -822,24 +1029,11 @@ function EffectsPanel({
                   onToggle={handleFogToggle}
                 >
                   {isGeneratingFogDepth ? (
-                    <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
-                      <div className="flex items-center gap-2">
-                        <Loader2 size={16} className="animate-spin shrink-0" />
-                        <Text variant={TextVariants.label}>
-                          {aiModelDownloadStatus
-                            ? t('editor.masks.settings.aiModelDownloading')
-                            : t('editor.ai.generatingDepthMap')}
-                        </Text>
-                      </div>
-                      {aiModelDownloadStatus && (
-                        <Text variant={TextVariants.small} className="text-accent">
-                          {aiModelDownloadStatus}
-                        </Text>
-                      )}
-                    </div>
+                    <MapGenerationStatus label={t('editor.ai.generatingDepthMap')} />
                   ) : (
                     <>
                       <Slider
+                        resetKey="fogAmount"
                         label={t('adjustments.effects.amount')}
                         max={100}
                         min={0}
@@ -851,7 +1045,25 @@ function EffectsPanel({
                         fillOrigin="min"
                       />
 
+                      {adjustments.fogEnabled && (
+                        <DepthScope
+                          mapKey="fogDepthMap"
+                          scene={{
+                            kind: 'fog',
+                            amount: adjustments.fogAmount ?? 50,
+                            start: adjustments.fogStart ?? 0,
+                            density: adjustments.fogDensity ?? 50,
+                            height: adjustments.fogHeight ?? 0,
+                            temperature: adjustments.fogTemperature ?? 0,
+                            tint: adjustments.fogTint ?? 0,
+                          }}
+                          onChange={handleScenePatch}
+                          onDragStateChange={onDragStateChange}
+                        />
+                      )}
+
                       <Slider
+                        resetKey="fogStart"
                         label={t('adjustments.effects.fogStart')}
                         max={100}
                         min={0}
@@ -864,6 +1076,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogDensity"
                         label={t('adjustments.effects.fogDensity')}
                         max={100}
                         min={0}
@@ -876,6 +1089,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogHeight"
                         label={t('adjustments.effects.fogHeight')}
                         max={100}
                         min={0}
@@ -888,6 +1102,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogVariation"
                         label={t('adjustments.effects.fogVariation')}
                         max={100}
                         min={0}
@@ -900,6 +1115,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogGlow"
                         label={t('adjustments.effects.glow')}
                         max={100}
                         min={0}
@@ -912,6 +1128,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogTemperature"
                         label={t('adjustments.color.temperature')}
                         max={100}
                         min={-100}
@@ -925,6 +1142,7 @@ function EffectsPanel({
                       />
 
                       <Slider
+                        resetKey="fogTint"
                         label={t('adjustments.color.tint')}
                         max={100}
                         min={-100}
@@ -948,7 +1166,6 @@ function EffectsPanel({
                 lutName={adjustments.lutName || null}
                 lutIntensity={adjustments.lutIntensity ?? 100}
                 onLutSelect={handleLutSelect}
-                onLutHover={onLutHover}
                 onIntensityChange={handleLutIntensityChange}
                 onClear={handleLutClear}
                 onDragStateChange={onDragStateChange}
@@ -964,20 +1181,21 @@ function EffectsPanel({
             >
               <div
                 data-center-marker-controls="vignette"
-                onPointerDown={() =>
-                  setEditor({ activeCenterMarker: 'vignette', isRelightPickerActive: false, isWbPickerActive: false })
-                }
+                onPointerDown={() => setEditor(canvasToolState({ activeCenterMarker: 'vignette' }))}
               >
                 <Slider
+                  resetKey="vignetteAmount"
                   label={t('adjustments.effects.amount')}
                   max={100}
                   min={-100}
                   onChange={(e: SliderChangeEvent) => handleAdjustmentChange(Effect.VignetteAmount, e.target.value)}
+                  speedEditId={Effect.VignetteAmount}
                   step={1}
                   value={adjustments.vignetteAmount}
                   onDragStateChange={onDragStateChange}
                 />
                 <Slider
+                  resetKey="vignetteMidpoint"
                   defaultValue={50}
                   label={t('adjustments.effects.midpoint')}
                   max={100}
@@ -989,6 +1207,7 @@ function EffectsPanel({
                   fillOrigin="min"
                 />
                 <Slider
+                  resetKey="vignetteRoundness"
                   label={t('adjustments.effects.roundness')}
                   max={100}
                   min={-100}
@@ -998,6 +1217,7 @@ function EffectsPanel({
                   onDragStateChange={onDragStateChange}
                 />
                 <Slider
+                  resetKey="vignetteFeather"
                   defaultValue={50}
                   label={t('adjustments.effects.feather')}
                   max={100}
@@ -1015,6 +1235,7 @@ function EffectsPanel({
           {!hiddenTools.includes('grain') && (
             <AdjustmentSubSection id="grain" order={toolOrder.indexOf('grain')} title={t('adjustments.effects.grain')}>
               <Slider
+                resetKey="grainAmount"
                 label={t('adjustments.effects.amount')}
                 max={100}
                 min={0}
@@ -1024,6 +1245,7 @@ function EffectsPanel({
                 onDragStateChange={onDragStateChange}
               />
               <Slider
+                resetKey="grainSize"
                 defaultValue={25}
                 label={t('adjustments.effects.size')}
                 max={100}
@@ -1035,6 +1257,7 @@ function EffectsPanel({
                 fillOrigin="min"
               />
               <Slider
+                resetKey="grainRoughness"
                 defaultValue={50}
                 label={t('adjustments.effects.roughness')}
                 max={100}

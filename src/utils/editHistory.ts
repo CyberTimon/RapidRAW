@@ -107,12 +107,17 @@ const withValue = (name: string, value: unknown) => {
   return formatted === null ? name : `${name} ${formatted}`;
 };
 
+const definedKeys = (value: object) =>
+  Array.isArray(value)
+    ? Object.keys(value)
+    : Object.keys(value).filter((key) => (value as Record<string, unknown>)[key] !== undefined);
+
 export const isSameValue = (a: unknown, b: unknown): boolean => {
   if (a === b) return true;
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
   if (Array.isArray(a) !== Array.isArray(b)) return false;
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
+  const aKeys = definedKeys(a);
+  const bKeys = definedKeys(b);
   return (
     aKeys.length === bKeys.length &&
     aKeys.every((key) => isSameValue((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]))

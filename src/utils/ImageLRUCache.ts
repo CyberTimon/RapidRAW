@@ -1,17 +1,16 @@
+import type { CurveInputHistogram, MaskCurveInputHistogram } from '../types/editor';
 import type { Adjustments } from './adjustments';
-import type { CurveInputHistogram } from '../types/analytics';
 
 interface ImageCacheEntry {
   adjustments: Adjustments;
   histogram: any;
   curveInputHistogram: CurveInputHistogram | null;
-  maskCurveInputHistogram: CurveInputHistogram | null;
+  maskCurveInputHistogram: MaskCurveInputHistogram | null;
   waveform: any;
   finalPreviewUrl: string | null;
   uncroppedPreviewUrl: string | null;
   selectedImage: any;
   originalSize: { width: number; height: number };
-  previewSize: { width: number; height: number };
 }
 
 class ImageLRUCache {

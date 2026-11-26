@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2, Check } from 'lucide-react';
+import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2, Square, SquareCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ActiveChannel,
@@ -10,16 +10,18 @@ import {
   DEFAULT_PARAMETRIC_CURVE_SETTINGS,
   ParametricCurveSettings,
   getDefaultCurves,
+  areSectionPropsEqual,
 } from '../../utils/adjustments';
-import { Theme, OPTION_SEPARATOR, type Option } from '../ui/AppProperties';
+import { Theme } from '../../types/settings';
+import { Option, OPTION_SEPARATOR } from '../../types/ui';
 import { useContextMenu } from '../../context/ContextMenuContext';
 import Text from '../ui/Text';
 import Slider from '../ui/Slider';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
-import { areSectionPropsEqual } from '../../utils/adjustments';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { naturalCurvePath, type CurveInterpolation } from '../../utils/curveInterpolation';
+import { FINE_ADJUSTMENT_MULTIPLIER, hasFineAdjustmentModifier } from '../../utils/fineAdjustment';
 
 let curveClipboard: Array<Coord> | null = null;
 let parametricClipboard: any = null;
@@ -95,7 +97,7 @@ function buildParametricPoints(settings: ParametricCurveSettings): Array<Coord> 
   return points;
 }
 
-function getCurvePath(points: Array<Coord>, interpolation: CurveInterpolation = 'standard') {
+function getCurvePath(points: Array<Coord>, interpolation: CurveInterpolation) {
   if (points.length < 2) return '';
   if (interpolation === 'natural') {
     const path = naturalCurvePath(points);
@@ -189,6 +191,17 @@ function getHistogramPath(data: Array<any>) {
   return `M0,255 L${pathData} L255,255 Z`;
 }
 
+function sdrHistogram(data: number[], sdrWhite: number) {
+  if (sdrWhite >= 0.999 || data.length < 2) return data;
+  const last = data.length - 1;
+  return data.map((_, index) => {
+    const position = index * sdrWhite;
+    const low = Math.floor(position);
+    const fraction = position - low;
+    return data[low] * (1 - fraction) + data[Math.min(low + 1, last)] * fraction;
+  });
+}
+
 function getZeroHistogramPath(data: Array<any>) {
   if (!data || data.length === 0) return '';
   const pathData = data.map((_, index: number) => `${(index / 255) * 255},255`).join(' ');
@@ -202,13 +215,18 @@ interface HistogramFillProps {
 }
 
 const HistogramFill = memo(({ channel, opacity, isForMask }: HistogramFillProps) => {
-  const showOutput = useSettingsStore((state) => state.appSettings?.curveHistogramMode === 'output');
-  const data = useEditorStore((state) => {
-    if (showOutput) return state.histogram?.[channel];
+  const useInput = useSettingsStore((state) => state.appSettings?.curveHistogramMode !== 'output');
+  const displayed = useEditorStore((state) => {
+    if (!useInput) return state.histogram?.[channel];
     const input = isForMask ? state.maskCurveInputHistogram : state.curveInputHistogram;
-    const maskId = isForMask ? state.activeMaskContainerId : null;
-    return input?.maskId === maskId ? input.histogram[channel] : undefined;
+    if (isForMask && state.maskCurveInputHistogram?.maskId !== state.activeMaskContainerId) return undefined;
+    return input && input.path === state.selectedImage?.path ? input.bins[channel] : undefined;
   });
+  const sdrWhite = useEditorStore((state) => state.scopeWhite);
+  const data = useMemo(
+    () => (!displayed || useInput ? displayed : sdrHistogram(displayed, sdrWhite)),
+    [displayed, sdrWhite, useInput],
+  );
   const histogramPath = useMemo(() => getHistogramPath(data ?? []), [data]);
   const zeroHistogramPath = useMemo(() => getZeroHistogramPath(data ?? []), [data]);
 
@@ -275,12 +293,8 @@ function convertParametricToPoints(settings: ParametricCurveSettings): Array<Coo
   return buildParametricPoints(settings);
 }
 
-const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const POINT_HIT_RADIUS_PX = 12;
 const MIN_POINT_GAP_X = 1;
-
-const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
-  'shiftKey' in event && (event.shiftKey || event.altKey);
 
 function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isForMask = false }: CurveGraphProps) {
   const { t } = useTranslation();
@@ -300,11 +314,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
   const localPointsRef = useRef<Array<Coord> | null>(null);
   const localParametricSettingsRef = useRef<ParametricCurveSettings | null>(null);
   const isParametricMode = curveMode === 'parametric';
-  const interpolation: CurveInterpolation =
-    !isParametricMode && adjustments.curveInterpolation === 'natural' ? 'natural' : 'standard';
-  const histogramMode = useSettingsStore((state) =>
-    state.appSettings?.curveHistogramMode === 'output' ? 'output' : 'input',
-  );
+  const interpolation = !isParametricMode ? (adjustments.curveInterpolation ?? 'standard') : 'standard';
 
   const parametricCurves = adjustments?.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
   const parametricCurvesRef = useRef(parametricCurves);
@@ -638,35 +648,35 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
     e.stopPropagation();
 
     const channelLabel = t(`adjustments.curves.channels.${activeChannel}`);
-    const setHistogramMode = (mode: 'input' | 'output') => {
-      const settings = useSettingsStore.getState();
-      if (settings.appSettings) {
-        void settings.handleSettingsChange({ ...settings.appSettings, curveHistogramMode: mode });
-      }
-    };
-    const displayOptions: Option[] = [
-      ...(!isParametricMode
-        ? [
-            {
-              label: t('adjustments.curves.cubicSpline'),
-              checked: interpolation === 'natural',
-              icon: interpolation === 'natural' ? Check : undefined,
-              onClick: () =>
-                setAdjustments((prev: Adjustments) => ({
-                  ...prev,
-                  curveInterpolation: prev.curveInterpolation === 'natural' ? 'standard' : 'natural',
-                })),
-            },
-          ]
-        : []),
-      {
-        label: t('adjustments.curves.showProcessedHistogram'),
-        checked: histogramMode === 'output',
-        icon: histogramMode === 'output' ? Check : undefined,
-        onClick: () => setHistogramMode(histogramMode === 'output' ? 'input' : 'output'),
+    const settings = useSettingsStore.getState();
+    const showOutput = settings.appSettings?.curveHistogramMode === 'output';
+    const displayOptions: Option[] = [];
+    if (!isParametricMode) {
+      displayOptions.push({
+        label: t('adjustments.curves.cubicSpline'),
+        checked: interpolation === 'natural',
+        icon: interpolation === 'natural' ? SquareCheck : Square,
+        onClick: () =>
+          setAdjustments((prev: Adjustments) => ({
+            ...prev,
+            curveInterpolation: prev.curveInterpolation === 'natural' ? 'standard' : 'natural',
+          })),
+      });
+    }
+    displayOptions.push({
+      label: t('adjustments.curves.showProcessedHistogram'),
+      checked: showOutput,
+      icon: showOutput ? SquareCheck : Square,
+      onClick: () => {
+        const { appSettings, handleSettingsChange } = useSettingsStore.getState();
+        if (appSettings) {
+          void handleSettingsChange({ ...appSettings, curveHistogramMode: showOutput ? 'input' : 'output' });
+        }
       },
-      { type: OPTION_SEPARATOR },
-    ];
+    });
+    const showCurveMenu = (options: Option[]) =>
+      showContextMenu(e.clientX, e.clientY, [...displayOptions, { type: OPTION_SEPARATOR }, ...options]);
+
     if (isParametricMode) {
       const handleCopyParametric = () => {
         parametricClipboard = { ...activeParametricSettings };
@@ -752,7 +762,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
         });
       }
 
-      showContextMenu(e.clientX, e.clientY, [...displayOptions, ...options]);
+      showCurveMenu(options);
       return;
     }
 
@@ -840,7 +850,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
       });
     }
 
-    showContextMenu(e.clientX, e.clientY, [...displayOptions, ...options]);
+    showCurveMenu(options);
   };
 
   const splitPositions = useMemo(
@@ -1090,6 +1100,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
                   max={0}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.whiteLevel`}
+
                   value={activeParametricSettings.whiteLevel}
                   onChange={(e: any) => updateParametricValue('whiteLevel', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1101,6 +1113,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.highlights`}
+
                   value={activeParametricSettings.highlights}
                   onChange={(e: any) => updateParametricValue('highlights', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1112,6 +1126,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.lights`}
+
                   value={activeParametricSettings.lights}
                   onChange={(e: any) => updateParametricValue('lights', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1123,6 +1139,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.darks`}
+
                   value={activeParametricSettings.darks}
                   onChange={(e: any) => updateParametricValue('darks', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1134,6 +1152,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.shadows`}
+
                   value={activeParametricSettings.shadows}
                   onChange={(e: any) => updateParametricValue('shadows', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}
@@ -1145,6 +1165,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
                   max={100}
                   step={1}
                   defaultValue={0}
+                  resetKey={`parametricCurve.${activeChannel}.blackLevel`}
+
                   value={activeParametricSettings.blackLevel}
                   onChange={(e: any) => updateParametricValue('blackLevel', parseFloat(e.target.value))}
                   onDragStateChange={onDragStateChange}

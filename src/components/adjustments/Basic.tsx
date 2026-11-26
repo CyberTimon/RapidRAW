@@ -144,7 +144,9 @@ const ToneMapperSwitch = ({
             max={5}
             min={-5}
             onChange={(e: any) => onExposureChange(parseFloat(e.target.value))}
+            speedEditId={BasicAdjustment.Exposure}
             step={0.01}
+            resetKey="exposure"
             value={exposureValue}
             trackClassName="bg-surface"
             onDragStateChange={onDragStateChange}
@@ -182,10 +184,12 @@ function BasicAdjustments({
     <div>
       {hideTonemapper ? (
         <Slider
+          resetKey="exposure"
           label={t('adjustments.basic.exposure')}
           max={5}
           min={-5}
           onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Exposure, e.target.value)}
+          speedEditId={BasicAdjustment.Exposure}
           step={0.01}
           value={adjustments.exposure}
           onDragStateChange={onDragStateChange}
@@ -200,51 +204,62 @@ function BasicAdjustments({
         />
       )}
       <Slider
+        resetKey="contrast"
         label={t('adjustments.basic.contrast')}
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Contrast, e.target.value)}
+        speedEditId={BasicAdjustment.Contrast}
         step={1}
         value={adjustments.contrast}
         onDragStateChange={onDragStateChange}
       />
       <Slider
+        resetKey="highlights"
         label={t('adjustments.basic.highlights')}
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Highlights, e.target.value)}
+        speedEditId={BasicAdjustment.Highlights}
         step={1}
         value={adjustments.highlights}
         onDragStateChange={onDragStateChange}
       />
       <Slider
+        resetKey="shadows"
         label={t('adjustments.basic.shadows')}
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Shadows, e.target.value)}
+        speedEditId={BasicAdjustment.Shadows}
         step={1}
         value={adjustments.shadows}
         onDragStateChange={onDragStateChange}
       />
       <Slider
+        resetKey="whites"
         label={t('adjustments.basic.whites')}
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Whites, e.target.value)}
+        speedEditId={BasicAdjustment.Whites}
         step={1}
         value={adjustments.whites}
         onDragStateChange={onDragStateChange}
       />
       <Slider
+        resetKey="blacks"
         label={t('adjustments.basic.blacks')}
         max={100}
         min={-100}
         onChange={(e: any) => handleAdjustmentChange(BasicAdjustment.Blacks, e.target.value)}
+        speedEditId={BasicAdjustment.Blacks}
         step={1}
         value={adjustments.blacks}
         onDragStateChange={onDragStateChange}
       />
       <Slider
+        resetKey="brightness"
         label={t('adjustments.basic.brightness')}
         max={5}
         min={-5}

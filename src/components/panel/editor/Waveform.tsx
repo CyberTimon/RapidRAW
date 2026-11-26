@@ -51,7 +51,28 @@ const modeButtons = [
     bgClass: 'bg-accent',
     textActiveClass: 'text-button-text',
   },
-];
+] as const;
+
+const SdrWhiteMarker = memo(({ horizontal }: { horizontal: boolean }) => {
+  const sdrWhite = useEditorStore((state) => state.scopeWhite);
+  if (sdrWhite >= 0.999) return null;
+  const labelClass = 'absolute text-[9px] leading-none font-medium text-white/60';
+  return horizontal ? (
+    <div
+      className="absolute inset-x-0 z-20 border-t border-dashed border-white/40"
+      style={{ top: `${(1 - sdrWhite) * 100}%` }}
+    >
+      <span className={`${labelClass} right-1 bottom-1`}>HDR</span>
+    </div>
+  ) : (
+    <div
+      className="absolute inset-y-0 z-20 border-l border-dashed border-white/40"
+      style={{ left: `${sdrWhite * 100}%` }}
+    >
+      <span className={`${labelClass} left-1 top-1`}>HDR</span>
+    </div>
+  );
+});
 
 const HistogramView = memo(() => {
   const histogram: any = useEditorStore((state) => state.histogram);
@@ -558,6 +579,7 @@ function Waveform({
             </motion.div>
           ) : null}
         </AnimatePresence>
+        {isReady && !isVectorscope && <SdrWhiteMarker horizontal={!isHistogram} />}
       </div>
 
       <AnimatePresence>

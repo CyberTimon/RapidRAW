@@ -16,16 +16,17 @@ import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { useDraggable } from '@dnd-kit/core';
 import { COLOR_LABELS, Color } from '../../../utils/adjustments';
-import FlagBadges from '../../ui/FlagBadges';
-import { ThumbnailAspectRatio, ImageFile, ImageFlag, ExifOverlay } from '../../ui/AppProperties';
+import FlagBadges from './FlagBadges';
+import { ThumbnailAspectRatio, ExifOverlay } from '../../../types/settings';
+import { ImageFile, ImageFlag, ColumnWidths } from '../../../types/library';
 import Text from '../../ui/Text';
 import { TextColors, TextVariants, TextWeights, TEXT_COLOR_KEYS } from '../../../types/typography';
-import { ColumnWidths } from '../MainLibrary';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useLibraryStore } from '../../../store/useLibraryStore';
-import { isImmichAlbumId } from '../../immich/immichApi';
+import { isImmichAlbumId } from '../../../utils/immichApi';
 import { IconAperture, IconFocalLength, IconIso, IconShutter } from '../editor/ExifIcons';
+import { useCtrlClickMenuGuard } from '../../../hooks/useCtrlClickMenuGuard';
 
 const LIST_DATE_FORMAT = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 const LIST_TIME_FORMAT = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' });
@@ -54,10 +55,24 @@ const ThumbnailComponent = ({
   isCloudPlaceholder,
   groupBadgeLabel,
   onAspectRatioLoaded,
+  showFileInfo = true,
 }: any) => {
   const { t } = useTranslation();
   const data = useProcessStore((s) => s.thumbnails[path]);
   const exif = useLibraryStore((s) => s.exifByPath[path]);
+  const handleClick = (e: React.MouseEvent) => {
+    if (selectionModeActive) {
+      const state = useLibraryStore.getState();
+      const newSet = new Set(state.multiSelectedPaths);
+      if (newSet.has(path)) newSet.delete(path);
+      else newSet.add(path);
+      const newArr = Array.from(newSet);
+      state.setLibrary({ multiSelectedPaths: newArr });
+    } else {
+      onImageClick(path, e);
+    }
+  };
+  const ctrlClickMenuGuard = useCtrlClickMenuGuard(handleClick);
   const isAiPending = useProcessStore((s) => !!s.aiPendingPaths[path]);
   const isAiPaused = useProcessStore((s) => s.aiJobs.paused);
   const cloudTooltip = useLibraryStore((s) =>
@@ -192,18 +207,10 @@ const ThumbnailComponent = ({
         isDragging && 'opacity-50 ring-2 ring-accent z-50',
       )}
       data-bench-id="thumbnail"
+      {...ctrlClickMenuGuard}
       onClick={(e: any) => {
         e.stopPropagation();
-        if (selectionModeActive) {
-          const state = useLibraryStore.getState();
-          const newSet = new Set(state.multiSelectedPaths);
-          if (newSet.has(path)) newSet.delete(path);
-          else newSet.add(path);
-          const newArr = Array.from(newSet);
-          state.setLibrary({ multiSelectedPaths: newArr });
-        } else {
-          onImageClick(path, e);
-        }
+        handleClick(e);
       }}
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}
@@ -379,14 +386,14 @@ const ThumbnailComponent = ({
         className={clsx(
           'absolute bottom-0 left-0 right-0 h-16 transition-opacity duration-300 pointer-events-none z-10',
           'bg-linear-to-t from-black/70 to-transparent',
-          isAlways ? 'opacity-0' : isHover ? 'opacity-100 group-hover:opacity-0' : 'opacity-100',
+          !showFileInfo || isAlways ? 'opacity-0' : isHover ? 'opacity-100 group-hover:opacity-0' : 'opacity-100',
         )}
       />
 
       <div
         className={clsx(
           'w-full transition-[grid-template-rows] duration-300 ease-in-out grid shrink-0 z-0',
-          isAlways ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+          showFileInfo && isAlways ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
         )}
         aria-hidden="true"
       >
@@ -435,11 +442,13 @@ const ThumbnailComponent = ({
       <div
         className={clsx(
           'absolute bottom-0 left-0 right-0 flex flex-col p-2 pb-1.5 transition-all duration-300 ease-in-out z-20',
-          isAlways
-            ? 'bg-surface border-t border-border-color/50 pointer-events-auto'
-            : isHover
-              ? 'bg-transparent group-hover:bg-surface/60 backdrop-blur-none group-hover:backdrop-blur-md border-t border-transparent group-hover:border-border-color/50 pointer-events-none group-hover:pointer-events-auto'
-              : 'bg-transparent border-t border-transparent pointer-events-none',
+          !showFileInfo
+            ? 'opacity-0 translate-y-2 bg-transparent border-t border-transparent pointer-events-none'
+            : isAlways
+              ? 'bg-surface border-t border-border-color/50 pointer-events-auto'
+              : isHover
+                ? 'bg-transparent group-hover:bg-surface/60 backdrop-blur-none group-hover:backdrop-blur-md border-t border-transparent group-hover:border-border-color/50 pointer-events-none group-hover:pointer-events-auto'
+                : 'bg-transparent border-t border-transparent pointer-events-none',
         )}
       >
         <div className="flex items-end justify-between shrink-0">
@@ -527,6 +536,21 @@ const ThumbnailComponent = ({
         </div>
       </div>
 
+      {isVirtualCopy && (
+        <Text
+          as="div"
+          variant={TextVariants.small}
+          weight={TextWeights.bold}
+          className={clsx(
+            'absolute bottom-1.5 right-1.5 z-20 px-1.5 py-0.5 rounded-full bg-black/30 text-white backdrop-blur-xs shadow-md transition-opacity duration-300',
+            showFileInfo ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto',
+          )}
+          data-tooltip={t('library.items.tooltipVirtualCopy')}
+        >
+          VC
+        </Text>
+      )}
+
       <div
         className={clsx('absolute inset-0 rounded-md pointer-events-none z-30 transition-all duration-150', ringClass)}
       />
@@ -556,6 +580,19 @@ const ListItemComponent = ({
   const { t } = useTranslation();
   const data = useProcessStore((s) => s.thumbnails[path]);
   const exif = useLibraryStore((s) => s.exifByPath[path]);
+  const handleClick = (e: React.MouseEvent) => {
+    if (selectionModeActive) {
+      const state = useLibraryStore.getState();
+      const newSet = new Set(state.multiSelectedPaths);
+      if (newSet.has(path)) newSet.delete(path);
+      else newSet.add(path);
+      const newArr = Array.from(newSet);
+      state.setLibrary({ multiSelectedPaths: newArr });
+    } else {
+      onImageClick(path, e);
+    }
+  };
+  const ctrlClickMenuGuard = useCtrlClickMenuGuard(handleClick);
   const cloudTooltip = useLibraryStore((s) =>
     isImmichAlbumId(s.activeAlbumId) ? 'library.items.immichPlaceholder' : 'library.items.cloudPlaceholder',
   );
@@ -701,18 +738,10 @@ const ListItemComponent = ({
       {...listeners}
       {...attributes}
       className={`flex items-center w-full h-full cursor-pointer transition-all duration-150 ${borderClass} ${roundingClass} ${stateClass} ${isDragging ? 'opacity-50 ring-2 ring-accent z-50' : ''}`}
+      {...ctrlClickMenuGuard}
       onClick={(e: any) => {
         e.stopPropagation();
-        if (selectionModeActive) {
-          const state = useLibraryStore.getState();
-          const newSet = new Set(state.multiSelectedPaths);
-          if (newSet.has(path)) newSet.delete(path);
-          else newSet.add(path);
-          const newArr = Array.from(newSet);
-          state.setLibrary({ multiSelectedPaths: newArr });
-        } else {
-          onImageClick(path, e);
-        }
+        handleClick(e);
       }}
       onContextMenu={(e: any) => onContextMenu(e, path)}
       onDoubleClick={() => onImageDoubleClick(path)}
@@ -893,7 +922,7 @@ const ListItemComponent = ({
 export const Thumbnail = React.memo(ThumbnailComponent);
 const ListItem = React.memo(ListItemComponent);
 
-const RowComponent = ({
+export const Row = ({
   index,
   style,
   rows,
@@ -917,6 +946,7 @@ const RowComponent = ({
   onToggleRecursiveFolder,
   groupBadgeInfo,
   onAspectRatioLoaded,
+  showFileInfo,
 }: any) => {
   const { t } = useTranslation();
   const row = rows[index];
@@ -1080,6 +1110,7 @@ const RowComponent = ({
                 isCloudPlaceholder={imageFile.is_cloud_placeholder}
                 groupBadgeLabel={imageFile.group_id && groupBadgeInfo?.get(imageFile.group_id)?.label}
                 onAspectRatioLoaded={onAspectRatioLoaded}
+                showFileInfo={showFileInfo}
               />
             )}
           </div>
@@ -1088,5 +1119,3 @@ const RowComponent = ({
     </div>
   );
 };
-
-export const Row = React.memo(RowComponent);

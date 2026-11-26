@@ -1,12 +1,4 @@
-import {
-  type ChangeEvent,
-  type PointerEvent as ReactPointerEvent,
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useMemo,
-} from 'react';
+import { type ChangeEvent, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { v4 as uuidv4 } from 'uuid';
 import clsx from 'clsx';
@@ -55,27 +47,22 @@ import Button from '../../ui/Button';
 import AdjustmentSection from '../../adjustments/AdjustmentSection';
 import ConnectedWaveform from '../editor/ConnectedWaveform';
 import Resizer from '../../ui/Resizer';
-import { DepthRangePicker } from '../../ui/DepthRangePicker';
+import { DepthRangePicker } from '../../adjustments/DepthRangePicker';
+import DepthScope from '../../adjustments/depthScope/DepthScope';
 import AdjustmentSectionsSubMenu from './AdjustmentSectionsSubMenu';
 import FacePartsIllustration from './FacePartsIllustration';
 
 import {
-  Mask,
-  MaskType,
-  SubMask,
   MASK_BASIC_TYPES,
   MASK_RANGE_TYPES,
   MASK_AI_TYPES,
   ALL_MASK_TYPES,
   FACE_PARTS,
   MASK_ICON_MAP,
-  SubMaskMode,
-  ToolType,
-  formatMaskTypeName,
-  getSubMaskName,
-  getMaskTypeName,
   NewMaskDropZone,
 } from './Masks';
+import { Mask, MaskType, SubMask, SubMaskMode, ToolType } from '../../../types/masks';
+import { formatMaskTypeName, getSubMaskName, getMaskTypeName } from '../../../utils/maskNames';
 import {
   Adjustments,
   INITIAL_MASK_ADJUSTMENTS,
@@ -90,7 +77,7 @@ import {
   toggleToolActive,
 } from '../../../utils/adjustments';
 import { useContextMenu } from '../../../context/ContextMenuContext';
-import { OPTION_SEPARATOR, Orientation, Panel } from '../../ui/AppProperties';
+import { OPTION_SEPARATOR, Orientation, Panel } from '../../../types/ui';
 import { createSubMask } from '../../../utils/maskUtils';
 import { usePresets } from '../../../hooks/usePresets';
 import Text from '../../ui/Text';
@@ -102,6 +89,7 @@ import { useAiMasking } from '../../../hooks/useAiMasking';
 import { useEditorActions } from '../../../hooks/useEditorActions';
 import { isPanelVisible, useUIStore } from '../../../store/useUIStore';
 import { useWaveformControls } from '../../../hooks/useWaveformControls';
+import type { ParseKeys } from 'i18next';
 
 interface DragData {
   type: 'Container' | 'SubMask' | 'Creation';
@@ -118,6 +106,10 @@ const SUB_MASK_CONFIG: Record<Mask, any> = {
   },
   [Mask.Brush]: { showBrushTools: true },
   [Mask.Flow]: { showBrushTools: true, showFlowControl: true },
+  [Mask.MatchBrush]: {
+    showBrushTools: true,
+    parameters: [{ key: 'tolerance', min: 1, max: 100, step: 1, defaultValue: 30 }],
+  },
   [Mask.Linear]: { parameters: [] },
   [Mask.Color]: {
     parameters: [
@@ -168,6 +160,10 @@ const SUB_MASK_CONFIG: Record<Mask, any> = {
     ],
   },
   [Mask.QuickEraser]: { parameters: [] },
+  [Mask.Clone]: {},
+  [Mask.Heal]: {},
+  [Mask.Liquify]: {},
+  [Mask.Retouch]: {},
 };
 
 const BrushTools = ({
@@ -332,7 +328,7 @@ export default function MasksPanel() {
     })),
   );
 
-  const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, setWaveformHeight, handleWaveformResize } =
+  const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
     useWaveformControls();
 
   const setBrushSettings = useCallback(
@@ -344,7 +340,7 @@ export default function MasksPanel() {
   const selectBrushToolForNewMask = useCallback(() => {
     setEditor((state) => ({
       brushSettings: {
-        ...(state.brushSettings ?? { size: 50, feather: 50, tool: ToolType.Brush }),
+        ...(state.brushSettings ?? { size: 100, feather: 50, tool: ToolType.Brush }),
         tool: ToolType.Brush,
       },
     }));
@@ -498,6 +494,13 @@ export default function MasksPanel() {
       }
     }
 
+    if (type === Mask.MatchBrush && subMask.parameters) {
+      subMask.parameters.rotation = adjustments?.rotation || 0;
+      subMask.parameters.flipHorizontal = adjustments?.flipHorizontal || false;
+      subMask.parameters.flipVertical = adjustments?.flipVertical || false;
+      subMask.parameters.orientationSteps = steps;
+    }
+
     if (type === Mask.AiDepth) {
       if (!subMask.parameters) subMask.parameters = {};
       subMask.parameters.minDepth = 20;
@@ -522,7 +525,7 @@ export default function MasksPanel() {
     onSelectContainer(newContainer.id);
     onSelectMask(subMask.id);
     setExpandedContainers((prev) => new Set(prev).add(newContainer.id));
-    if (type === Mask.Brush || type === Mask.Flow) selectBrushToolForNewMask();
+    if (type === Mask.Brush || type === Mask.Flow || type === Mask.MatchBrush) selectBrushToolForNewMask();
     if (type === Mask.AiForeground) handleGenerateAiForegroundMask(subMask.id);
     else if (type === Mask.AiSky) handleGenerateAiSkyMask(subMask.id);
     else if (type === Mask.AiFace) handleGenerateAiFaceMask(subMask.id, subMask.parameters?.parts ?? []);
@@ -554,7 +557,7 @@ export default function MasksPanel() {
     onSelectContainer(containerId);
     onSelectMask(subMask.id);
     setExpandedContainers((prev) => new Set(prev).add(containerId));
-    if (type === Mask.Brush || type === Mask.Flow) selectBrushToolForNewMask();
+    if (type === Mask.Brush || type === Mask.Flow || type === Mask.MatchBrush) selectBrushToolForNewMask();
     if (type === Mask.AiForeground) handleGenerateAiForegroundMask(subMask.id);
     else if (type === Mask.AiSky) handleGenerateAiSkyMask(subMask.id);
     else if (type === Mask.AiFace) handleGenerateAiFaceMask(subMask.id, subMask.parameters?.parts ?? []);
@@ -834,7 +837,7 @@ export default function MasksPanel() {
         } else if (overData?.type === 'SubMask') {
           const container = adjustments.masks.find((m) => m.id === overData.parentId);
           if (container) {
-            const targetIndex = container.subMasks.findIndex((sm) => sm.id === over.id);
+            const targetIndex = container.subMasks.findIndex((sm) => sm.id === over?.id);
             handleAddSubMask(overData.parentId!, dragData.maskType!, SubMaskMode.Additive, targetIndex);
           }
         } else {
@@ -1192,7 +1195,7 @@ export default function MasksPanel() {
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="flex-1 min-h-0"
+                    className="grow shrink-0"
                   >
                     <Text variant={TextVariants.heading} className="mb-2">
                       {t('editor.masks.maskAdjustmentsTitle')}
@@ -1216,7 +1219,6 @@ export default function MasksPanel() {
                       isSettingsSectionOpen={isSettingsSectionOpen}
                       setSettingsSectionOpen={setSettingsSectionOpen}
                       presets={presets}
-                      handleGenerateAiDepthMask={handleGenerateAiDepthMask}
                       handleGenerateAiTextMask={handleGenerateAiTextMask}
                       handleGenerateAiFaceMask={handleGenerateAiFaceMask}
                       handleCancelAiTask={handleCancelAiTask}
@@ -1696,7 +1698,7 @@ function SubMaskRow({
     setNodeRef(node);
     setDroppableRef(node);
   };
-  const MaskIcon = MASK_ICON_MAP[subMask.type] || Circle;
+  const MaskIcon = MASK_ICON_MAP[subMask.type as Mask] || Circle;
   const { showContextMenu } = useContextMenu();
   const [isHovered, setIsHovered] = useState(false);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1926,7 +1928,6 @@ function SettingsPanel({
   isSettingsSectionOpen,
   setSettingsSectionOpen,
   presets,
-  handleGenerateAiDepthMask,
   handleGenerateAiTextMask,
   handleGenerateAiFaceMask,
   handleCancelAiTask,
@@ -2017,7 +2018,7 @@ function SettingsPanel({
     updateSubMask(activeSubMask.id, { parameters: newParams });
   };
 
-  const subMaskConfig = activeSubMask ? SUB_MASK_CONFIG[activeSubMask.type] || {} : {};
+  const subMaskConfig = activeSubMask ? SUB_MASK_CONFIG[activeSubMask.type as Mask] || {} : {};
   const isAiMask =
     activeSubMask &&
     [Mask.AiSubject, Mask.AiForeground, Mask.AiSky, Mask.AiDepth, Mask.AiText, Mask.AiFace].includes(
@@ -2133,7 +2134,7 @@ function SettingsPanel({
     };
 
     const isPasteAllowed = copiedSectionAdjustments && copiedSectionAdjustments.section === sectionName;
-    const sectionTitle = t(`editor.adjustments.sections.${sectionName}`);
+    const sectionTitle = t(`editor.adjustments.sections.${sectionName}` as ParseKeys);
 
     const pasteLabel = copiedSectionAdjustments
       ? t('editor.masks.settings.pasteSectionSettings', { section: sectionTitle })
@@ -2324,6 +2325,21 @@ function SettingsPanel({
                 </Text>
               )}
 
+              {activeSubMask.type === Mask.AiDepth && activeSubMask.parameters?.maskDataBase64 && (
+                <DepthScope
+                  mapData={activeSubMask.parameters.maskDataBase64}
+                  scene={{
+                    kind: 'depthMask',
+                    minDepth: activeSubMask.parameters?.minDepth ?? 0,
+                    maxDepth: activeSubMask.parameters?.maxDepth ?? 100,
+                    minFade: activeSubMask.parameters?.minFade ?? 15,
+                    maxFade: activeSubMask.parameters?.maxFade ?? 15,
+                  }}
+                  onChange={handleSubMaskParametersChange}
+                  onDragStateChange={onDragStateChange}
+                />
+              )}
+
               {activeSubMask.type === Mask.AiDepth && (
                 <DepthRangePicker
                   minDepth={100 - (activeSubMask.parameters?.maxDepth ?? 100)}
@@ -2345,7 +2361,7 @@ function SettingsPanel({
                   label={
                     param.key === 'feather' && activeSubMask.type === Mask.AiDepth
                       ? t('editor.masks.params.globalFeather')
-                      : t('editor.masks.params.' + param.key)
+                      : t(('editor.masks.params.' + param.key) as ParseKeys)
                   }
                   min={param.min}
                   max={param.max}
@@ -2388,7 +2404,7 @@ function SettingsPanel({
         className="flex flex-col gap-2"
       >
         {visibleSections.map((sectionName) => {
-          const title = t(`editor.adjustments.sections.${sectionName}`);
+          const title = t(`editor.adjustments.sections.${sectionName}` as ParseKeys);
           return (
             <CollapsibleSection
               key={sectionName}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { open } from '@tauri-apps/plugin-shell';
 import {
@@ -24,17 +24,15 @@ import Button from '../ui/Button';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
 import {
   AppSettings,
-  ImageFile,
   LibraryViewMode,
   ThumbnailSize,
   ThumbnailAspectRatio,
-  RawStatus,
-  EditedStatus,
-  FlagStatus,
   LibraryDisplayMode,
-} from '../ui/AppProperties';
+  THUMBNAIL_SIZE_STEPS,
+} from '../../types/settings';
+import { ImageFile, RawStatus, EditedStatus, FlagStatus } from '../../types/library';
 import { GroupBadgeInfo, GroupId } from '../../utils/imageGrouping';
-import { ImportState, Status } from '../ui/ExportImportProperties';
+import { ImportState, Status } from '../../types/export';
 import Text from '../ui/Text';
 import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { useLibraryStore } from '../../store/useLibraryStore';
@@ -44,18 +42,6 @@ import SettingsPanel from './SettingsPanel';
 
 import LibraryGrid from './library/LibraryGrid';
 import { JobsMenu, SearchInput, ViewOptionsDropdown } from './library/LibraryHeader';
-
-export interface ColumnWidths {
-  thumbnail: number;
-  name: number;
-  date: number;
-  rating: number;
-  color: number;
-  shutter: number;
-  aperture: number;
-  iso: number;
-  focal: number;
-}
 
 interface MainLibraryProps {
   activePath: string | null;
@@ -233,15 +219,6 @@ export default function MainLibrary(props: MainLibraryProps) {
       { key: FlagStatus.Picked, label: t('library.filters.flag.picked') },
       { key: FlagStatus.ExcludeRejected, label: t('library.filters.flag.excludeRejected') },
       { key: FlagStatus.Rejected, label: t('library.filters.flag.rejected') },
-    ],
-    [t],
-  );
-
-  const translatedThumbnailSizeOptions = useMemo(
-    () => [
-      { id: ThumbnailSize.Small, label: t('library.thumbnailSize.small'), size: 160 },
-      { id: ThumbnailSize.Medium, label: t('library.thumbnailSize.medium'), size: 240 },
-      { id: ThumbnailSize.Large, label: t('library.thumbnailSize.large'), size: 320 },
     ],
     [t],
   );
@@ -460,7 +437,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        Timon Käch
+                        {'Timon Käch'}
                       </a>
                     </p>
                     {appVersion && (
@@ -617,7 +594,7 @@ export default function MainLibrary(props: MainLibraryProps) {
                   setLibraryViewMode={props.setLibraryViewMode}
                   thumbnailSize={props.thumbnailSize}
                   thumbnailAspectRatio={props.thumbnailAspectRatio}
-                  thumbnailSizeOptions={translatedThumbnailSizeOptions}
+                  thumbnailSizeOptions={THUMBNAIL_SIZE_STEPS}
                   thumbnailAspectRatioOptions={translatedThumbnailAspectRatioOptions}
                   ratingFilterOptions={translatedRatingFilterOptions}
                   rawStatusOptions={translatedRawStatusOptions}
@@ -665,7 +642,7 @@ export default function MainLibrary(props: MainLibraryProps) {
             {...props}
             libraryDisplayMode={libraryDisplayMode}
             selectionModeActive={selectionModeActive}
-            thumbnailSizeOptions={translatedThumbnailSizeOptions}
+            thumbnailSizeOptions={THUMBNAIL_SIZE_STEPS}
           />
         )
       ) : props.aiTaggingJob || props.aiModelDownloadStatus || props.importState.status === Status.Importing ? (

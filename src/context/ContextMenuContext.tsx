@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronRight } from 'lucide-react';
-import { Option as AppOption, OPTION_SEPARATOR } from '../components/ui/AppProperties';
+import { Option as AppOption, OPTION_SEPARATOR } from '../types/ui';
 import clsx from 'clsx';
 
 interface ContextMenuProviderProps {
@@ -86,7 +86,7 @@ function SubMenu({ cancelCloseSubmenu, closeSubmenu, hideContextMenu, options, p
       setStyle({ top: `${top}px`, left: `${left}px`, opacity: 1 });
 
       const isRightSide = left >= parentRect.right - 10;
-      let path = '';
+      let path: string;
 
       if (isRightSide) {
         path = `
@@ -240,13 +240,7 @@ function MenuItem({ option, path, hideContextMenu }: MenuItemProps) {
       >
         <div className="flex items-center gap-3">
           {option.color && <div className="w-3 h-3 rounded-full" style={{ backgroundColor: option.color }}></div>}
-          {option.checked !== undefined ? (
-            <span className="w-4 h-4 shrink-0" aria-hidden="true">
-              {option.icon && <option.icon size={16} />}
-            </span>
-          ) : (
-            option.icon && <option.icon size={16} />
-          )}
+          {option.icon && <option.icon size={16} />}
           <span>{option.label}</span>
         </div>
         {option.submenu && <ChevronRight className="shrink-0" size={16} />}

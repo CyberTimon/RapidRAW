@@ -1,4 +1,4 @@
-import { AppSettings } from '../components/ui/AppProperties';
+import { AppSettings } from '../types/settings';
 
 const WHEEL_ZOOM_SENSITIVITY = 0.002;
 const TRACKPAD_ZOOM_BOOST = 5;

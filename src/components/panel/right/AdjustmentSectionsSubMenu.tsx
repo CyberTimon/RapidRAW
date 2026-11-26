@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import type { ParseKeys } from 'i18next';
 import { useShallow } from 'zustand/react/shallow';
-import { AdjustmentLayout } from '../../ui/AppProperties';
+import { AdjustmentLayout } from '../../../types/settings';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import {
   ADJUSTMENT_SECTIONS,

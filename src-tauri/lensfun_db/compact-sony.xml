@@ -251,6 +251,13 @@
 
     <camera>
         <maker>Sony</maker>
+        <model>DSC-HX200V</model>
+        <mount>sonyHX300</mount>
+        <cropfactor>5.58</cropfactor>
+    </camera>
+
+    <camera>
+        <maker>Sony</maker>
         <model>DSC-HX300</model>
         <mount>sonyHX300</mount>
         <cropfactor>5.58</cropfactor>

@@ -12,12 +12,12 @@ import {
   getAdjustmentToolOrder,
   getAiDenoiseEnablePatch,
   getHiddenAdjustmentTools,
+  areSectionPropsEqual,
 } from '../../utils/adjustments';
-import { AppSettings } from '../ui/AppProperties';
+import { AppSettings } from '../../types/settings';
 import AdjustmentSubSection from './AdjustmentSubSection';
-import { useEditorStore } from '../../store/useEditorStore';
+import { canvasToolState, useEditorStore } from '../../store/useEditorStore';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../store/useProcessStore';
-import { areSectionPropsEqual } from '../../utils/adjustments';
 
 interface DetailsPanelProps {
   adjustments: Adjustments;
@@ -38,6 +38,9 @@ function DetailsPanel({
   const setEditor = useEditorStore((state) => state.setEditor);
   const aiDenoiseProgress = useEditorStore((state) =>
     state.selectedImage ? state.aiDenoiseProgress[state.selectedImage.path] : undefined,
+  );
+  const aiUpscaleProgress = useEditorStore((state) =>
+    state.selectedImage ? state.aiUpscaleProgress[state.selectedImage.path] : undefined,
   );
   const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
 
@@ -68,6 +71,7 @@ function DetailsPanel({
           title={t('adjustments.details.sharpening')}
         >
           <Slider
+            resetKey="sharpness"
             label={t('adjustments.details.sharpness')}
             max={100}
             min={-100}
@@ -78,6 +82,7 @@ function DetailsPanel({
           />
           {!isForMask && (
             <Slider
+              resetKey="sharpnessThreshold"
               label={t('adjustments.details.threshold')}
               max={80}
               min={0}
@@ -99,28 +104,34 @@ function DetailsPanel({
           title={t('adjustments.details.presence')}
         >
           <Slider
+            resetKey="clarity"
             label={t('adjustments.details.clarity')}
             max={100}
             min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Clarity, e.target.value)}
+            speedEditId={DetailsAdjustment.Clarity}
             step={1}
             value={adjustments.clarity}
             onDragStateChange={onDragStateChange}
           />
           <Slider
+            resetKey="dehaze"
             label={t('adjustments.details.dehaze')}
             max={100}
             min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Dehaze, e.target.value)}
+            speedEditId={DetailsAdjustment.Dehaze}
             step={1}
             value={adjustments.dehaze}
             onDragStateChange={onDragStateChange}
           />
           <Slider
+            resetKey="structure"
             label={t('adjustments.details.structure')}
             max={100}
             min={-100}
             onChange={(e: any) => handleAdjustmentChange(DetailsAdjustment.Structure, e.target.value)}
+            speedEditId={DetailsAdjustment.Structure}
             step={1}
             value={adjustments.structure}
             onDragStateChange={onDragStateChange}
@@ -128,11 +139,10 @@ function DetailsPanel({
           {!isForMask && (
             <div
               data-center-marker-controls="centre"
-              onPointerDown={() =>
-                setEditor({ activeCenterMarker: 'centre', isRelightPickerActive: false, isWbPickerActive: false })
-              }
+              onPointerDown={() => setEditor(canvasToolState({ activeCenterMarker: 'centre' }))}
             >
               <Slider
+                resetKey="centré"
                 label={t('adjustments.details.centre')}
                 max={100}
                 min={-100}
@@ -153,6 +163,7 @@ function DetailsPanel({
           title={t('adjustments.details.noiseReduction')}
         >
           <Slider
+            resetKey="lumaNoiseReduction"
             label={t('adjustments.details.luminance')}
             max={100}
             min={isForMask ? -100 : 0}
@@ -162,6 +173,7 @@ function DetailsPanel({
             onDragStateChange={onDragStateChange}
           />
           <Slider
+            resetKey="colorNoiseReduction"
             label={t('adjustments.details.color')}
             max={100}
             min={isForMask ? -100 : 0}
@@ -203,6 +215,7 @@ function DetailsPanel({
                 ) : (
                   <>
                     <Slider
+                      resetKey="aiDenoiseAmount"
                       label={t('adjustments.effects.amount')}
                       max={100}
                       min={0}
@@ -216,6 +229,7 @@ function DetailsPanel({
                       fillOrigin="min"
                     />
                     <Slider
+                      resetKey="aiDenoiseDetail"
                       label={t('adjustments.details.aiDenoiseDetail')}
                       max={100}
                       min={0}
@@ -223,14 +237,61 @@ function DetailsPanel({
                         handleAdjustmentChange(DetailsAdjustment.AiDenoiseDetail, String(e.target.value))
                       }
                       step={1}
-                      value={adjustments.aiDenoiseDetail ?? 0}
+                      value={adjustments.aiDenoiseDetail ?? 15}
+                      defaultValue={15}
                       onDragStateChange={onDragStateChange}
+                      fillOrigin="min"
                     />
                   </>
                 )}
               </SpatialEffect>
             </div>
           )}
+        </AdjustmentSubSection>
+      )}
+
+      {!isForMask && !isAiFree && !hiddenTools.includes('superResolution') && (
+        <AdjustmentSubSection
+          id="superResolution"
+          order={toolOrder.indexOf('superResolution')}
+          title={t('adjustments.details.superResolution')}
+        >
+          <SpatialEffect
+            enabled={!!adjustments.aiUpscaleEnabled}
+            label={t('adjustments.details.aiUpscale')}
+            onToggle={(enabled: boolean) =>
+              setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, aiUpscaleEnabled: enabled }))
+            }
+          >
+            {aiUpscaleProgress !== undefined ? (
+              <div className="flex flex-col items-center justify-center gap-1 p-4 text-text-secondary text-center">
+                <div className="flex items-center gap-2">
+                  <Loader2 size={16} className="animate-spin shrink-0" />
+                  <Text variant={TextVariants.label}>
+                    {aiModelDownloadStatus ? t('editor.masks.settings.aiModelDownloading') : t('editor.ai.upscaling')}
+                  </Text>
+                </div>
+                <Text variant={TextVariants.small} className="text-accent">
+                  {aiModelDownloadStatus || `${Math.round(aiUpscaleProgress * 100)}%`}
+                </Text>
+              </div>
+            ) : (
+              <Slider
+                resetKey="aiUpscaleDetail"
+                label={t('adjustments.details.aiUpscaleDetail')}
+                max={100}
+                min={0}
+                defaultValue={30}
+                onChange={(e: SliderChangeEvent) =>
+                  handleAdjustmentChange(DetailsAdjustment.AiUpscaleDetail, String(e.target.value))
+                }
+                step={1}
+                value={adjustments.aiUpscaleDetail ?? 30}
+                onDragStateChange={onDragStateChange}
+                fillOrigin="min"
+              />
+            )}
+          </SpatialEffect>
         </AdjustmentSubSection>
       )}
 
@@ -241,6 +302,7 @@ function DetailsPanel({
           title={t('adjustments.details.chromaticAberration')}
         >
           <Slider
+            resetKey="chromaticAberrationRedCyan"
             label={t('adjustments.details.redCyan')}
             max={100}
             min={-100}
@@ -250,6 +312,7 @@ function DetailsPanel({
             onDragStateChange={onDragStateChange}
           />
           <Slider
+            resetKey="chromaticAberrationBlueYellow"
             label={t('adjustments.details.blueYellow')}
             max={100}
             min={-100}
@@ -277,6 +340,7 @@ function DetailsPanel({
             }
           >
             <Slider
+              resetKey="negativeRedWeight"
               label={t('adjustments.details.negativeRed')}
               max={2}
               min={0.5}
@@ -290,6 +354,7 @@ function DetailsPanel({
               fillOrigin="min"
             />
             <Slider
+              resetKey="negativeGreenWeight"
               label={t('adjustments.details.negativeGreen')}
               max={2}
               min={0.5}
@@ -303,6 +368,7 @@ function DetailsPanel({
               fillOrigin="min"
             />
             <Slider
+              resetKey="negativeBlueWeight"
               label={t('adjustments.details.negativeBlue')}
               max={2}
               min={0.5}
@@ -316,6 +382,7 @@ function DetailsPanel({
               fillOrigin="min"
             />
             <Slider
+              resetKey="negativeExposure"
               label={t('adjustments.details.negativeExposure')}
               max={2}
               min={-2}
@@ -327,6 +394,7 @@ function DetailsPanel({
               onDragStateChange={onDragStateChange}
             />
             <Slider
+              resetKey="negativeContrast"
               label={t('adjustments.details.negativeContrast')}
               max={2.5}
               min={0.5}

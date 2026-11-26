@@ -1,4 +1,4 @@
-import type { AppSettings } from '../components/ui/AppProperties';
+import type { AppSettings } from '../types/settings';
 
 export interface WhiteBalance {
   temperature: number;

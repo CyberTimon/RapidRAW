@@ -56,6 +56,7 @@
         <maker>OM Digital Solutions</maker>
         <maker lang="en">OM System</maker>
         <model>OM 12-100mm F4.0</model>
+        <model lang="en">M.Zuiko Digital ED 12-100mm F4.0 IS PRO</model>
         <mount>Micro 4/3 System</mount>
         <cropfactor>2</cropfactor>
         <aspect-ratio>4:3</aspect-ratio>
@@ -150,6 +151,7 @@
         <maker>OM Digital Solutions</maker>
         <maker lang="en">OM System</maker>
         <model>OM 20mm F1.4</model>
+        <model lang="en">M.Zuiko Digital ED 20mm F1.4 PRO</model>
         <mount>Micro 4/3 System</mount>
         <cropfactor>2</cropfactor>
         <calibration>
@@ -241,6 +243,7 @@
         <maker>Olympus</maker>
         <maker lang="en">OM System</maker>
         <model>OM 17mm F1.8 II</model>
+        <model lang="en">M.Zuiko Digital 17mm F1.8 II</model>
         <mount>Micro 4/3 System</mount>
         <cropfactor>2</cropfactor>
         <aspect-ratio>4:3</aspect-ratio>
@@ -294,6 +297,7 @@
         <maker>OM Digital Solutions</maker>
         <maker lang="en">OM System</maker>
         <model>OM 12-45mm F4.0</model>
+        <model lang="en">M.Zuiko Digital ED 12-45mm F4.0 PRO</model>
         <mount>Micro 4/3 System</mount>
         <cropfactor>2</cropfactor>
         <aspect-ratio>4:3</aspect-ratio>
@@ -395,4 +399,124 @@
             <vignetting model="pa" focal="45" aperture="22" distance="1000" k1="-0.1099" k2="-0.0505" k3="0.0444"/>
         </calibration>
     </lens>
+    <lens>
+        <!-- Copy of Olympus M.Zuiko Digital ED 40-150mm f/4.0-5.6 R (same optic) -->
+        <maker>OM Digital Solutions</maker>
+        <maker lang="en">OM System</maker>
+        <model>OM 40-150mm F4.0-5.6 R</model>
+        <model lang="en">M.Zuiko Digital ED 40-150mm F4.0-5.6 R</model>
+        <mount>Micro 4/3 System</mount>
+        <cropfactor>2</cropfactor>
+        <aspect-ratio>4:3</aspect-ratio>
+        <calibration>
+            <!-- Taken with OMD E-M5 -->
+            <distortion model="poly3" focal="40" k1="-0.01246"/>
+            <distortion model="poly3" focal="45" k1="-0.01017"/>
+            <distortion model="poly3" focal="49" k1="-0.00887"/>
+            <distortion model="poly3" focal="58" k1="-0.00466"/>
+            <distortion model="poly3" focal="70" k1="-0.0008"/>
+            <distortion model="poly3" focal="85" k1="0.00099"/>
+            <distortion model="poly3" focal="102" k1="0.00206"/>
+            <distortion model="poly3" focal="114" k1="0.00409"/>
+            <distortion model="poly3" focal="123" k1="0.00465"/>
+            <distortion model="poly3" focal="138" k1="0.00293"/>
+            <distortion model="poly3" focal="150" k1="0.00365"/>
+        </calibration>
+    </lens>
+
+    <lens>
+        <!-- Copy of Olympus M.Zuiko Digital ED 75-300mm f/4.8-6.7 II (same optic) -->
+        <maker>OM Digital Solutions</maker>
+        <maker lang="en">OM System</maker>
+        <model>OM 75-300mm F4.8-6.7 II</model>
+        <model lang="en">M.Zuiko Digital ED 75-300mm F4.8-6.7 II</model>
+        <mount>Micro 4/3 System</mount>
+        <cropfactor>2</cropfactor>
+        <aspect-ratio>4:3</aspect-ratio>
+        <calibration>
+            <!-- Taken with E-M1 -->
+            <distortion model="poly3" focal="75" k1="0.0019"/>
+            <distortion model="poly3" focal="132" k1="0.00532"/>
+            <distortion model="poly3" focal="187" k1="0.00479"/>
+            <distortion model="poly3" focal="246" k1="0.00441"/>
+            <distortion model="poly3" focal="300" k1="0.00583"/>
+            <tca model="poly3" focal="75" br="-0.0000135" vr="1.0001628" bb="0.0000087" vb="0.9999804"/>
+            <tca model="poly3" focal="132" br="0.0000033" vr="1.0001604" bb="-0.0000519" vb="0.9997709"/>
+            <tca model="poly3" focal="187" br="-0.0000091" vr="1.0000425" bb="-0.0000314" vb="0.9997551"/>
+            <tca model="poly3" focal="246" br="-0.0000100" vr="0.9998524" bb="-0.0000022" vb="0.9997614"/>
+            <tca model="poly3" focal="300" br="-0.0000574" vr="0.9996155" bb="0.0000031" vb="0.9999526"/>
+            <vignetting model="pa" focal="75" aperture="4.8" distance="10" k1="-0.7567" k2="0.6812" k3="-0.3645"/>
+            <vignetting model="pa" focal="75" aperture="4.8" distance="1000" k1="-0.7567" k2="0.6812" k3="-0.3645"/>
+            <vignetting model="pa" focal="75" aperture="5" distance="10" k1="-0.6463" k2="0.4587" k3="-0.2401"/>
+            <vignetting model="pa" focal="75" aperture="5" distance="1000" k1="-0.6463" k2="0.4587" k3="-0.2401"/>
+            <vignetting model="pa" focal="75" aperture="5.6" distance="10" k1="-0.0894" k2="-0.2584" k3="0.0427"/>
+            <vignetting model="pa" focal="75" aperture="5.6" distance="1000" k1="-0.0894" k2="-0.2584" k3="0.0427"/>
+            <vignetting model="pa" focal="75" aperture="6.3" distance="10" k1="-0.1969" k2="0.1766" k3="-0.2104"/>
+            <vignetting model="pa" focal="75" aperture="6.3" distance="1000" k1="-0.1969" k2="0.1766" k3="-0.2104"/>
+            <vignetting model="pa" focal="75" aperture="7.1" distance="10" k1="-0.2354" k2="0.2760" k3="-0.2270"/>
+            <vignetting model="pa" focal="75" aperture="7.1" distance="1000" k1="-0.2354" k2="0.2760" k3="-0.2270"/>
+            <vignetting model="pa" focal="75" aperture="8" distance="10" k1="-0.2154" k2="0.1692" k3="-0.1043"/>
+            <vignetting model="pa" focal="75" aperture="8" distance="1000" k1="-0.2154" k2="0.1692" k3="-0.1043"/>
+            <vignetting model="pa" focal="75" aperture="10" distance="10" k1="-0.2021" k2="0.1173" k3="-0.0579"/>
+            <vignetting model="pa" focal="75" aperture="10" distance="1000" k1="-0.2021" k2="0.1173" k3="-0.0579"/>
+            <vignetting model="pa" focal="132" aperture="5.5" distance="10" k1="-0.2238" k2="-0.4064" k3="0.2454"/>
+            <vignetting model="pa" focal="132" aperture="5.5" distance="1000" k1="-0.2238" k2="-0.4064" k3="0.2454"/>
+            <vignetting model="pa" focal="132" aperture="6.3" distance="10" k1="-0.1187" k2="-0.0124" k3="-0.1248"/>
+            <vignetting model="pa" focal="132" aperture="6.3" distance="1000" k1="-0.1187" k2="-0.0124" k3="-0.1248"/>
+            <vignetting model="pa" focal="132" aperture="7.1" distance="10" k1="-0.2171" k2="0.2914" k3="-0.2439"/>
+            <vignetting model="pa" focal="132" aperture="7.1" distance="1000" k1="-0.2171" k2="0.2914" k3="-0.2439"/>
+            <vignetting model="pa" focal="132" aperture="8" distance="10" k1="-0.1895" k2="0.1631" k3="-0.1007"/>
+            <vignetting model="pa" focal="132" aperture="8" distance="1000" k1="-0.1895" k2="0.1631" k3="-0.1007"/>
+            <vignetting model="pa" focal="132" aperture="22" distance="10" k1="-0.1624" k2="0.0925" k3="-0.0476"/>
+            <vignetting model="pa" focal="132" aperture="22" distance="1000" k1="-0.1624" k2="0.0925" k3="-0.0476"/>
+            <vignetting model="pa" focal="187" aperture="6" distance="10" k1="-0.3778" k2="-0.1256" k3="0.1317"/>
+            <vignetting model="pa" focal="187" aperture="6" distance="1000" k1="-0.3778" k2="-0.1256" k3="0.1317"/>
+            <vignetting model="pa" focal="187" aperture="6.3" distance="10" k1="-0.1482" k2="-0.4028" k3="0.2355"/>
+            <vignetting model="pa" focal="187" aperture="6.3" distance="1000" k1="-0.1482" k2="-0.4028" k3="0.2355"/>
+            <vignetting model="pa" focal="187" aperture="7.1" distance="10" k1="-0.1072" k2="-0.0090" k3="-0.0941"/>
+            <vignetting model="pa" focal="187" aperture="7.1" distance="1000" k1="-0.1072" k2="-0.0090" k3="-0.0941"/>
+            <vignetting model="pa" focal="187" aperture="8" distance="10" k1="-0.1842" k2="0.2172" k3="-0.1532"/>
+            <vignetting model="pa" focal="187" aperture="8" distance="1000" k1="-0.1842" k2="0.2172" k3="-0.1532"/>
+            <vignetting model="pa" focal="187" aperture="22" distance="10" k1="-0.1604" k2="0.1289" k3="-0.0742"/>
+            <vignetting model="pa" focal="187" aperture="22" distance="1000" k1="-0.1604" k2="0.1289" k3="-0.0742"/>
+            <vignetting model="pa" focal="246" aperture="6.4" distance="10" k1="-0.5009" k2="0.0466" k3="0.0450"/>
+            <vignetting model="pa" focal="246" aperture="6.4" distance="1000" k1="-0.5009" k2="0.0466" k3="0.0450"/>
+            <vignetting model="pa" focal="246" aperture="7.1" distance="10" k1="-0.0387" k2="-0.5354" k3="0.2745"/>
+            <vignetting model="pa" focal="246" aperture="7.1" distance="1000" k1="-0.0387" k2="-0.5354" k3="0.2745"/>
+            <vignetting model="pa" focal="246" aperture="8" distance="10" k1="-0.1022" k2="-0.0050" k3="-0.0948"/>
+            <vignetting model="pa" focal="246" aperture="8" distance="1000" k1="-0.1022" k2="-0.0050" k3="-0.0948"/>
+            <vignetting model="pa" focal="246" aperture="22" distance="10" k1="-0.1661" k2="0.1685" k3="-0.0980"/>
+            <vignetting model="pa" focal="246" aperture="22" distance="1000" k1="-0.1661" k2="0.1685" k3="-0.0980"/>
+            <vignetting model="pa" focal="300" aperture="6.7" distance="10" k1="-0.8425" k2="0.6532" k3="-0.2714"/>
+            <vignetting model="pa" focal="300" aperture="6.7" distance="1000" k1="-0.8425" k2="0.6532" k3="-0.2714"/>
+            <vignetting model="pa" focal="300" aperture="7.1" distance="10" k1="-0.7434" k2="0.5229" k3="-0.2177"/>
+            <vignetting model="pa" focal="300" aperture="7.1" distance="1000" k1="-0.7434" k2="0.5229" k3="-0.2177"/>
+            <vignetting model="pa" focal="300" aperture="8" distance="10" k1="-0.3042" k2="-0.0906" k3="0.0722"/>
+            <vignetting model="pa" focal="300" aperture="8" distance="1000" k1="-0.3042" k2="-0.0906" k3="0.0722"/>
+            <vignetting model="pa" focal="300" aperture="9" distance="10" k1="-0.0639" k2="-0.3802" k3="0.2152"/>
+            <vignetting model="pa" focal="300" aperture="9" distance="1000" k1="-0.0639" k2="-0.3802" k3="0.2152"/>
+            <vignetting model="pa" focal="300" aperture="22" distance="10" k1="-0.1583" k2="0.1636" k3="-0.0935"/>
+            <vignetting model="pa" focal="300" aperture="22" distance="1000" k1="-0.1583" k2="0.1636" k3="-0.0935"/>
+        </calibration>
+    </lens>
+
+    <lens>
+        <!-- Copy of Olympus M.Zuiko Digital ED 14-42mm f/3.5-5.6 EZ (same optic) -->
+        <maker>OM Digital Solutions</maker>
+        <maker lang="en">OM System</maker>
+        <model>OM 14-42mm F3.5-5.6 EZ</model>
+        <model lang="en">M.Zuiko Digital ED 14-42mm F3.5-5.6 EZ</model>
+        <mount>Micro 4/3 System</mount>
+        <cropfactor>2</cropfactor>
+        <aspect-ratio>4:3</aspect-ratio>
+        <calibration>
+            <!-- Taken with E-M10 -->
+            <distortion model="ptlens" focal="14" a="0.01468" b="-0.06545" c="-0.00437"/>
+            <distortion model="ptlens" focal="18" a="0.00892" b="-0.04043" c="0.005"/>
+            <distortion model="ptlens" focal="22" a="0.00578" b="-0.01597" c="-0.00043"/>
+            <distortion model="ptlens" focal="30" a="0.00209" b="0.01156" c="-0.02364"/>
+            <distortion model="ptlens" focal="42" a="0.01839" b="-0.05556" c="0.07121"/>
+        </calibration>
+    </lens>
+
 </lensdatabase>

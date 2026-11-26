@@ -15,13 +15,14 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import Text from '../ui/Text';
-import { FolderTreeSort, SortDirection } from '../ui/AppProperties';
+import { FolderTreeSort } from '../../types/settings';
+import { SortDirection } from '../../types/library';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { TextVariants, TextWeights } from '../../types/typography';
-import { IMMICH_UNASSIGNED_ID, ImmichAlbum, toImmichAlbumId } from './immichApi';
+import { IMMICH_UNASSIGNED_ID, ImmichAlbum, toImmichAlbumId } from '../../utils/immichApi';
 import ImmichRow from './ImmichRow';
 import ImmichTimeline from './ImmichTimeline';
-import { useImmichStore } from './useImmichStore';
+import { useImmichStore } from '../../store/useImmichStore';
 
 interface ImmichSectionProps {
   header: ReactNode;
