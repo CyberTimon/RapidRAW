@@ -234,6 +234,17 @@ const HSL_RANGES: array<HslRange, 8> = array<HslRange, 8>(
 @group(0) @binding(14) var haze_texture: texture_2d<f32>;
 @group(0) @binding(15) var airlight_texture: texture_2d<f32>;
 
+struct CurveInputHistogram {
+    sample_step: u32,
+    x_start: u32,
+    y_start: u32,
+    x_end: u32,
+    y_end: u32,
+    bins: array<atomic<u32>, 1024>,
+}
+
+@group(0) @binding(16) var<storage, read_write> curve_input: CurveInputHistogram;
+
 const GF_LUMA_FLOOR: f32 = 1.0e-4;
 const HZ_OMEGA: f32 = 0.95;
 const HZ_FLOOR: f32 = 0.35;
@@ -1882,12 +1893,25 @@ fn apply_extended_curve(val: f32, src: u32, ch: u32) -> f32 {
     return apply_curve(inside, src, ch, curve_count(src, ch)) + val - inside;
 }
 
-fn apply_all_curves(color: vec3<f32>, src: u32) -> vec3<f32> {
+fn count_curve_input(master_input: vec3<f32>, channel_input: vec3<f32>) {
+    let master = vec3<u32>(round(saturate(master_input) * 255.0));
+    let channels = vec3<u32>(round(saturate(channel_input) * 255.0));
+    // The master curve maps each RGB component, so its histogram combines all three.
+    atomicAdd(&curve_input.bins[768u + master.r], 1u);
+    atomicAdd(&curve_input.bins[768u + master.g], 1u);
+    atomicAdd(&curve_input.bins[768u + master.b], 1u);
+    atomicAdd(&curve_input.bins[channels.r], 1u);
+    atomicAdd(&curve_input.bins[256u + channels.g], 1u);
+    atomicAdd(&curve_input.bins[512u + channels.b], 1u);
+}
+
+fn apply_all_curves(color: vec3<f32>, src: u32, sample_input: bool) -> vec3<f32> {
     let display = clamp(color, vec3<f32>(0.0), vec3<f32>(adjustments.global.display_peak));
     let has_red = has_curve(src, 1u);
     let has_green = has_curve(src, 2u);
     let has_blue = has_curve(src, 3u);
-    if (!(has_curve(src, 0u) || has_red || has_green || has_blue)) {
+    let has_curves = has_curve(src, 0u) || has_red || has_green || has_blue;
+    if (!has_curves && !sample_input) {
         return display;
     }
 
@@ -1895,6 +1919,13 @@ fn apply_all_curves(color: vec3<f32>, src: u32) -> vec3<f32> {
     var r = apply_extended_curve(srgb.r, src, 0u);
     var g = apply_extended_curve(srgb.g, src, 0u);
     var b = apply_extended_curve(srgb.b, src, 0u);
+
+    if (sample_input) {
+        count_curve_input(srgb, select(srgb, vec3<f32>(r, g, b), has_curves));
+    }
+    if (!has_curves) {
+        return display;
+    }
 
     if (has_red) {
         r = apply_extended_curve(r, src, 1u);
@@ -2359,12 +2390,17 @@ fn main(
 
     base_srgb = apply_filmic_exposure(base_srgb, t_brightness);
 
-    var final_rgb = apply_all_curves(base_srgb, CURVE_SRC_GLOBAL);
+    let sample_step = curve_input.sample_step;
+    let sample_curve_input = sample_step > 0u
+        && absolute_coord.x >= curve_input.x_start && absolute_coord.x < curve_input.x_end
+        && absolute_coord.y >= curve_input.y_start && absolute_coord.y < curve_input.y_end
+        && all(absolute_coord % vec2<u32>(max(sample_step, 1u)) == vec2<u32>(0u));
+    var final_rgb = apply_all_curves(base_srgb, CURVE_SRC_GLOBAL, sample_curve_input);
 
     for (var i = 0u; has_feature(F_MASKS) && i < adjustments.mask_count; i = i + 1u) {
         let influence = get_mask_influence(i, absolute_coord);
         if (influence > 0.001) {
-            let mask_curved_srgb = apply_all_curves(final_rgb, i);
+            let mask_curved_srgb = apply_all_curves(final_rgb, i, false);
             final_rgb = mix(final_rgb, mask_curved_srgb, influence);
         }
     }

@@ -4,7 +4,9 @@ use crate::app::state::{
     PreviewTarget, PreviewTask,
 };
 use crate::render::adjustment_utils::hydrate_adjustments;
-use crate::render::analytics::{calculate_histogram, calculate_waveform, encode_analytics_packet};
+use crate::render::analytics::{
+    calculate_histogram, calculate_waveform, curve_input_histogram, encode_analytics_packet,
+};
 use crate::render::cache_utils::{
     calculate_full_job_hash, calculate_patch_hash, calculate_transform_hash,
 };
@@ -35,6 +37,7 @@ fn process_preview_job(
     request_analytics: bool,
     compute_waveform: bool,
     active_waveform_channel: Option<&str>,
+    capture_curve_input: bool,
     target: PreviewTarget,
 ) -> Result<Vec<u8>, String> {
     let fn_start = std::time::Instant::now();
@@ -240,6 +243,7 @@ fn process_preview_job(
                 active_waveform_channel: channel_filter,
                 sender: tx,
                 space: render.output_space,
+                capture_curve_input: capture_curve_input && layer == DisplayLayer::Edited,
             })
     } else {
         None
@@ -418,6 +422,10 @@ pub fn start_analytics_worker(app_handle: tauri::AppHandle) {
 
             let frame = job.frame.into_srgb();
             let histogram_data = calculate_histogram(&frame).ok();
+            let curve_input = job
+                .curve_input_counts
+                .as_deref()
+                .and_then(curve_input_histogram);
 
             let waveform_data = if job.compute_waveform {
                 calculate_waveform(&frame, job.active_waveform_channel.as_deref()).ok()
@@ -425,7 +433,7 @@ pub fn start_analytics_worker(app_handle: tauri::AppHandle) {
                 None
             };
 
-            if histogram_data.is_some() || waveform_data.is_some() {
+            if histogram_data.is_some() || waveform_data.is_some() || curve_input.is_some() {
                 let state = app_handle.state::<AppState>();
                 let channel = state.analytics_channel.lock().unwrap().clone();
                 if let Some(channel) = channel {
@@ -434,6 +442,7 @@ pub fn start_analytics_worker(app_handle: tauri::AppHandle) {
                         1.0 / frame.peak,
                         histogram_data.as_ref(),
                         waveform_data.as_ref(),
+                        curve_input.as_ref(),
                     );
                     let _ = channel.send(InvokeResponseBody::Raw(packet));
                 }
@@ -474,6 +483,7 @@ fn run_editor_job(app_handle: &tauri::AppHandle, job: PreviewJob) {
             job.request_analytics,
             job.compute_waveform,
             job.active_waveform_channel.as_deref(),
+            job.capture_curve_input,
             PreviewTarget::Editor,
         )
     });
@@ -514,6 +524,7 @@ fn run_viewer_job(app_handle: &tauri::AppHandle) {
             false,
             false,
             None,
+            false,
             PreviewTarget::Viewer,
         )
     });

@@ -69,6 +69,8 @@ interface ColorData {
   data: any;
 }
 
+export type HistogramBins = Record<'red' | 'green' | 'blue' | 'luma', number[]>;
+
 export type OverlayMode =
   'none' | 'thirds' | 'goldenTriangle' | 'goldenSpiral' | 'phiGrid' | 'armature' | 'diagonal' | 'center';
 

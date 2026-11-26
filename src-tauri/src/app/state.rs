@@ -247,6 +247,7 @@ pub struct PreviewJob {
     pub request_analytics: bool,
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
+    pub capture_curve_input: bool,
     pub responder: tokio::sync::oneshot::Sender<Vec<u8>>,
 }
 
@@ -260,6 +261,7 @@ pub struct AnalyticsJob {
     pub frame: AnalyticsFrame,
     pub compute_waveform: bool,
     pub active_waveform_channel: Option<String>,
+    pub curve_input_counts: Option<Vec<u32>>,
 }
 
 pub struct AnalyticsConfig {
@@ -268,6 +270,7 @@ pub struct AnalyticsConfig {
     pub active_waveform_channel: Option<String>,
     pub sender: Sender<AnalyticsJob>,
     pub space: OutputColorSpace,
+    pub capture_curve_input: bool,
 }
 
 pub struct ThumbnailProgressTracker {
