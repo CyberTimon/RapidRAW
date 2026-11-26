@@ -392,6 +392,7 @@
       "deleteSelected": "仅删除选中项",
       "denoise_one": "降噪",
       "denoise_other": "降噪",
+      "showOriginalLocation": "在原始位置显示",
       "duplicateImage": "复制图像",
       "enable": "启用",
       "exportImage_one": "导出图像",

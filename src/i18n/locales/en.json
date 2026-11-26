@@ -392,6 +392,7 @@
       "deleteSelected": "Delete Selected Only",
       "denoise_one": "Denoise",
       "denoise_other": "Denoise",
+      "showOriginalLocation": "Show in Original Location",
       "duplicateImage": "Duplicate Image",
       "enable": "Enable",
       "exportImage_one": "Export Image",

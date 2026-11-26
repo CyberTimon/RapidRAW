@@ -414,6 +414,7 @@
       "denoise_few": "Triukšmo slopinimas",
       "denoise_many": "Triukšmo slopinimas",
       "denoise_other": "Triukšmo slopinimas",
+      "showOriginalLocation": "Rodyti pradinėje vietoje",
       "duplicateImage": "Dubliuoti nuotrauką",
       "enable": "Įjungti",
       "exportImage_one": "Eksportuoti {{count}} nuotrauką",

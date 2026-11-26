@@ -410,6 +410,7 @@
       "resetAdjustments_one": "Återställ justeringar",
       "resetAdjustments_other": "Återställ justeringar för {{count}} bilder",
       "showExplorer": "Visa i filhanteraren",
+      "showOriginalLocation": "Visa på ursprunglig plats",
       "superResolution_one": "RapidRes (2x)",
       "superResolution_other": "RapidRes (2x)",
       "virtualCopy": "Virtuell kopia"

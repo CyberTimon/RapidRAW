@@ -403,6 +403,7 @@
       "denoise_one": "Reducir ruido",
       "denoise_many": "Reducir ruido",
       "denoise_other": "Reducir ruido",
+      "showOriginalLocation": "Mostrar en la ubicación original",
       "duplicateImage": "Duplicar imagen",
       "enable": "Activar",
       "exportImage_one": "Exportar imagen",

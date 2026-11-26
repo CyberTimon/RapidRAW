@@ -414,6 +414,7 @@
       "denoise_few": "Зменшення шуму",
       "denoise_many": "Зменшення шуму",
       "denoise_other": "Зменшення шуму",
+      "showOriginalLocation": "Показати в початковій теці",
       "duplicateImage": "Дублювати зображення",
       "enable": "Увімкнути",
       "exportImage_one": "Експортувати {{count}} зображення",

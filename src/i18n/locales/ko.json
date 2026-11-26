@@ -392,6 +392,7 @@
       "deleteSelected": "선택 항목만 삭제",
       "denoise_one": "노이즈 제거",
       "denoise_other": "노이즈 제거",
+      "showOriginalLocation": "원래 위치에서 보기",
       "duplicateImage": "이미지 복제",
       "enable": "사용",
       "exportImage_one": "이미지 내보내기",

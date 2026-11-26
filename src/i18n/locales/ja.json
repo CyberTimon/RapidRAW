@@ -392,6 +392,7 @@
       "deleteSelected": "選択したもののみ削除",
       "denoise_one": "ノイズ低減",
       "denoise_other": "ノイズ低減",
+      "showOriginalLocation": "元の場所に表示",
       "duplicateImage": "画像を複製",
       "enable": "有効にする",
       "exportImage_one": "画像を書き出し",
