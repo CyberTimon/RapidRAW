@@ -317,7 +317,7 @@ export default function ClipBar({ compact = false }: { compact?: boolean }) {
         )}
         <BarButton
           icon={Clapperboard}
-          label={t('video.clipBar.openInTimeline')}
+          label={t('video.clipBar.newProject')}
           onClick={() => void createVideoProject([path])}
           disabled={!ready}
         />

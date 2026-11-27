@@ -2,15 +2,15 @@ import { invoke } from '@tauri-apps/api/core';
 import { Window } from '@tauri-apps/api/window';
 import { Invokes } from '../types/invokes';
 import { Panel, PanelRegion } from '../types/ui';
-import { Caption, CaptionStyle, Ticks, TitleItem, VideoProject, VisualItem } from '../types/video';
+import { Caption, CaptionStyle, ClipItem, Ticks, TitleItem, VideoProject, VisualItem } from '../types/video';
 import { getDevicePixelRatio } from '../utils/displayScale';
 import { captionAsTitle } from '../utils/video/captions';
 import { updateItem } from '../utils/video/edit';
-import { allTimelines, hasLook, hashString, itemEnd } from '../utils/video/model';
+import { allTimelines, hasLook, hashString, itemEnd, mainTrack, mediaOf } from '../utils/video/model';
 import { TitleRaster, hasTextMotion, rasterizeTitle } from '../utils/video/titles';
 import { frameTicks, ticksToSeconds } from '../utils/video/time';
 import { reuseLast, withRevision } from '../utils/video/revisions';
-import { useEditorStore } from './useEditorStore';
+import { croppedImageSize, useEditorStore } from './useEditorStore';
 import { useSettingsStore } from './useSettingsStore';
 import { UIState, getRegionActivePanel, isPanelAvailable, useUIStore } from './useUIStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -46,11 +46,11 @@ const panelFacts = (state: UIState) => ({
   clipTool: showsAny(state, CLIP_TOOL_PANELS),
 });
 
-const targetFacts = ({ session, project, selection, isPlaying, playhead }: VideoState) => {
+const targetFacts = ({ session, project, selection, isPlaying, playhead }: VideoState, playing = isPlaying) => {
   const target = session?.kind === 'project' && project ? lookTargetOf(project, selection) : null;
   return {
     isClip: target?.type === 'clip',
-    away: !!project && !!target && !isPlaying && editorTimeOf(project, target, playhead) !== playhead,
+    away: !!project && !!target && !playing && editorTimeOf(project, target, playhead) !== playhead,
   };
 };
 
@@ -88,6 +88,46 @@ export const useProgramCanvas = () => {
 export const programCanvas = () => (viewerMode().clipOnly ? null : canvasOf(getVideo()));
 
 export const isProgramView = () => isProjectSession() && !viewerMode().clipOnly;
+
+export const displayContent = (path: string, program: boolean) => (program ? `${path}#program` : path);
+
+export const shownContent = (path: string | null | undefined) =>
+  path ? displayContent(path, programCanvas() !== null) : null;
+
+export type ViewerSource =
+  { kind: 'program'; width: number; height: number } | { kind: 'clip'; clip: ClipItem; width: number; height: number };
+
+const shownClipOf = (project: VideoProject, state: VideoState, playing: boolean): ClipItem | null => {
+  if (state.session?.kind === 'clip') {
+    const clip = mainTrack(project).items[0];
+    return clip?.type === 'clip' ? clip : null;
+  }
+  if (!viewerModeOf(panelFacts(useUIStore.getState()), targetFacts(state, playing)).clipOnly) return null;
+  const target = lookTargetOf(project, state.selection);
+  return target?.type === 'clip' ? target : null;
+};
+
+const clipFrameSize = (project: VideoProject, clip: ClipItem, state: VideoState) => {
+  if (state.session?.kind === 'clip' || state.editorItemId === clip.id) {
+    const { selectedImage, adjustments } = useEditorStore.getState();
+    return croppedImageSize(selectedImage, adjustments.orientationSteps, adjustments.crop);
+  }
+  const ref = mediaOf(project, clip.media);
+  const look = clip.look ? project.looks[clip.look] : null;
+  return croppedImageSize(ref ? state.media[ref.path] : null, look?.orientationSteps, look?.crop ?? null);
+};
+
+export const viewerSource = (project: VideoProject, playing = getVideo().isPlaying): ViewerSource => {
+  const state = getVideo();
+  const clip = shownClipOf(project, state, playing);
+  if (!clip) return { kind: 'program', width: project.settings.width, height: project.settings.height };
+  const size = clipFrameSize(project, clip, state);
+  const { width, height } = size && size.width > 0 && size.height > 0 ? size : project.settings;
+  return { kind: 'clip', clip, width, height };
+};
+
+export const viewerSourceKey = (source: ViewerSource) =>
+  source.kind === 'clip' ? `clip:${source.clip.id}:${source.width}x${source.height}` : 'program';
 
 export const leaveClipTools = () => {
   const ui = useUIStore.getState();
@@ -288,7 +328,7 @@ const viewerResolution = (project: VideoProject) => {
   return viewer > 0 ? Math.min(longest, Math.round(viewer)) : null;
 };
 
-export const viewRequest = async (project: VideoProject, compare = true, fill = false) => {
+export const viewRequest = async (project: VideoProject, compare = true, fill = false, program = true) => {
   const { editorItemId, useProxies, session, playhead } = getVideo();
   const editor = useEditorStore.getState();
   const showOriginal = compare && editor.showOriginal;
@@ -303,7 +343,7 @@ export const viewRequest = async (project: VideoProject, compare = true, fill = 
   }
   return {
     targetResolution: viewerResolution(project),
-    contentPath: editor.selectedImage?.path ?? session?.path ?? '',
+    contentPath: displayContent(editor.selectedImage?.path ?? session?.path ?? '', program),
     titleKeys: await titleKeysAt(project, playhead, fill),
     useProxies,
     lookOverrides,
@@ -321,7 +361,7 @@ const playbackResolution = (project: VideoProject) => {
 };
 
 export const playbackViewRequest = async (project: VideoProject) => ({
-  ...(await viewRequest(project, true, true)),
+  ...(await viewRequest(project, true, true, viewerSource(project, true).kind === 'program')),
   targetResolution: playbackResolution(project),
   adaptive: getVideo().playbackQuality === 'auto',
 });

@@ -2945,7 +2945,7 @@
         "trim": "Przytnij"
       },
       "mute": "Wycisz",
-      "openInTimeline": "Otwórz na osi czasu",
+      "newProject": "Nowy projekt",
       "position": "Pozycja",
       "trimEnd": "Przytnij koniec, dwuklik resetuje",
       "trimStart": "Przytnij początek, dwuklik resetuje",
@@ -3175,7 +3175,6 @@
       "mute": "Wycisz",
       "nextKeyframe": "Następna klatka kluczowa",
       "opacity": "Krycie",
-      "original": "Oryginał",
       "positionX": "Pozycja X",
       "positionY": "Pozycja Y",
       "previousKeyframe": "Poprzednia klatka kluczowa",

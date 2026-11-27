@@ -22,6 +22,7 @@ import {
   translatePen,
 } from '../../../../utils/maskShapes';
 import { Homography, invert, localScale, project } from '../../../../utils/video/planar';
+import { ROTATE_RING_PX, rotateCursor } from '../../../../utils/rotateCursor';
 
 export const ACCENT = '#0ea5e9';
 export const OUTLINE_HIT_PX = 8;
@@ -73,6 +74,9 @@ const setCursor = (event: ShapeEvent, cursor: string) => {
 };
 
 const isPrimary = (event: ShapeEvent) => !('button' in event.evt) || event.evt.button === 0;
+
+const angleAt = (center: Point, pointer: Point) =>
+  (Math.atan2(pointer.y - center.y, pointer.x - center.x) * 180) / Math.PI;
 
 let deleteActivePoint: (() => void) | null = null;
 
@@ -142,9 +146,22 @@ export function RectangleMaskShape(props: ShapeMaskProps) {
   const shapeRef = useRef<Konva.Rect>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const editable = isSelected && !isToolActive;
+  const pointerAt = imagePointer(props);
   const drag = useDrag<ShapeParameters>(props, (origin, delta) =>
     props.onChange({ ...origin, centerX: origin.centerX + delta.x, centerY: origin.centerY + delta.y }),
   );
+  const spin = useDrag<ShapeParameters>(props, (origin, delta, event) => {
+    const pointer = pointerAt(event);
+    if (!pointer) return;
+    const center = { x: origin.centerX, y: origin.centerY };
+    const start = { x: pointer.x - delta.x, y: pointer.y - delta.y };
+    setCursor(event, rotateCursor(angleAt(center, pointer)));
+    props.onChange({ ...origin, rotation: (origin.rotation ?? 0) + angleAt(center, pointer) - angleAt(center, start) });
+  });
+  const showRotateCursor = (event: ShapeEvent) => {
+    const pointer = pointerAt(event);
+    if (pointer) setCursor(event, rotateCursor(angleAt({ x: p.centerX, y: p.centerY }, pointer)));
+  };
 
   useEffect(() => {
     if (editable && transformerRef.current && shapeRef.current) {
@@ -169,8 +186,40 @@ export function RectangleMaskShape(props: ShapeMaskProps) {
     };
   };
 
+  const ring = ROTATE_RING_PX / props.zoomScale;
+
   return (
     <Group>
+      {editable && (
+        <Rect
+          x={(p.centerX - cropX) * scale}
+          y={(p.centerY - cropY) * scale}
+          width={Math.max(0.1, width) + ring * 2}
+          height={Math.max(0.1, height) + ring * 2}
+          offsetX={Math.max(0.1, width) / 2 + ring}
+          offsetY={Math.max(0.1, height) / 2 + ring}
+          rotation={p.rotation ?? 0}
+          cornerRadius={ring}
+          fill="transparent"
+          draggable
+          dragBoundFunc={spin.dragBoundFunc}
+          onDragStart={spin.start(p)}
+          onDragMove={spin.onDragMove}
+          onDragEnd={(event) => {
+            spin.onDragEnd(event);
+            setCursor(event, '');
+          }}
+          onMouseEnter={(event) => {
+            props.onHover(true);
+            showRotateCursor(event);
+          }}
+          onMouseMove={showRotateCursor}
+          onMouseLeave={(event) => {
+            props.onHover(false);
+            setCursor(event, '');
+          }}
+        />
+      )}
       <Rect
         {...outline}
         ref={shapeRef}
@@ -196,10 +245,8 @@ export function RectangleMaskShape(props: ShapeMaskProps) {
       {editable && (
         <Transformer
           ref={transformerRef}
-          rotateEnabled
+          rotateEnabled={false}
           keepRatio={false}
-          rotationSnaps={[0, 90, 180, 270]}
-          rotationSnapTolerance={4}
           ignoreStroke
           onMouseDown={(event) => {
             if (!isPrimary(event)) return;

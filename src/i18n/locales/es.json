@@ -2872,7 +2872,7 @@
         "trim": "Recortar"
       },
       "mute": "Silenciar",
-      "openInTimeline": "Abrir en la línea de tiempo",
+      "newProject": "Nuevo proyecto",
       "position": "Posición",
       "trimEnd": "Recortar final, doble clic para restablecer",
       "trimStart": "Recortar inicio, doble clic para restablecer",
@@ -3097,7 +3097,6 @@
       "mute": "Silenciar",
       "nextKeyframe": "Siguiente fotograma clave",
       "opacity": "Opacidad",
-      "original": "Original",
       "positionX": "Posición X",
       "positionY": "Posición Y",
       "previousKeyframe": "Fotograma clave anterior",

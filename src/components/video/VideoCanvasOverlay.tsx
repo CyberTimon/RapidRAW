@@ -15,6 +15,7 @@ import { contentSize } from '../../utils/video/layouts';
 import { invertSimilarity, mapPoint, planeAt, sameCorners } from '../../utils/video/maskTracking';
 import { frameTicks, ticksToSeconds } from '../../utils/video/time';
 import { alignHaptic } from '../../utils/haptics';
+import { ROTATE_RING_PX, rotateCursor } from '../../utils/rotateCursor';
 import { Region, dragRegion, layerSimilarity, layerSurface, pinnedQuad, placementAt } from '../../utils/video/tracking';
 import { PlaneOutline, QuadEditor } from './PlaneOverlay';
 
@@ -250,6 +251,30 @@ const snap = (value: number, targets: Array<number>, tolerance: number) => {
   return target ?? value;
 };
 
+const snapScale = (scale: number, drag: Drag, canvas: { width: number; height: number }, tolerance: number): number => {
+  const { box, startScale } = drag;
+  const quarter = Math.round(box.rotation / 90);
+  if (Math.abs(box.rotation - quarter * 90) > 0.5 || startScale <= 0) return scale;
+  const [boxWidth, boxHeight] = quarter % 2 === 0 ? [box.width, box.height] : [box.height, box.width];
+  const fits: Array<[number, Array<number>]> = [
+    [boxWidth, [canvas.width, 2 * box.centerX, 2 * (canvas.width - box.centerX)]],
+    [boxHeight, [canvas.height, 2 * box.centerY, 2 * (canvas.height - box.centerY)]],
+  ];
+  let snapped = scale;
+  let gap = tolerance;
+  fits.forEach(([size, targets]) =>
+    targets.forEach((target) => {
+      if (size <= 0 || target <= 0) return;
+      const edge = Math.abs((size * scale) / startScale - target) / 2;
+      if (edge <= gap) {
+        gap = edge;
+        snapped = (startScale * target) / size;
+      }
+    }),
+  );
+  return snapped;
+};
+
 export default function VideoCanvasOverlay({
   style,
   imageWidth,
@@ -279,6 +304,16 @@ export default function VideoCanvasOverlay({
   useEffect(() => {
     if (picked && !selection.includes(picked)) setPicked(null);
   }, [picked, selection]);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!picked) return;
+    const release = (event: PointerEvent) => {
+      if (event.target instanceof Node && rootRef.current?.contains(event.target)) return;
+      setPicked(null);
+    };
+    window.addEventListener('pointerdown', release, true);
+    return () => window.removeEventListener('pointerdown', release, true);
+  }, [picked]);
   const active = !!programCanvas && !!settings && imageWidth > 0 && imageHeight > 0 && !isPlaying;
   const hover = useCanvasHover(setIsMaskHovered, active);
 
@@ -320,6 +355,10 @@ export default function VideoCanvasOverlay({
   const move = (event: ReactPointerEvent) => {
     const drag = dragRef.current;
     if (!drag) return;
+    if (event.buttons === 0) {
+      end();
+      return;
+    }
     const { box } = drag;
     const { width, height } = settings;
     const { playhead, recordKeyframes: record, recordFrom } = getVideo();
@@ -367,7 +406,10 @@ export default function VideoCanvasOverlay({
     if (drag.mode === 'scale') {
       const distance = Math.hypot(point.x - box.centerX, point.y - box.centerY);
       const initial = Math.max(1, Math.hypot(start.x - box.centerX, start.y - box.centerY));
-      update({ scale: Math.min(10, Math.max(0.02, (drag.startScale * distance) / initial)) });
+      const raw = Math.min(10, Math.max(0.02, (drag.startScale * distance) / initial));
+      const scale = free || back ? raw : snapScale(raw, drag, settings, SNAP_PX / (unit * zoom));
+      alignHaptic(drag, scale !== raw && scale);
+      update({ scale });
     } else {
       const angle = (Math.atan2(point.y - box.centerY, point.x - box.centerX) * 180) / Math.PI;
       const initial = (Math.atan2(start.y - box.centerY, start.x - box.centerX) * 180) / Math.PI;
@@ -385,6 +427,14 @@ export default function VideoCanvasOverlay({
   };
 
   const handleSize = HANDLE / zoom;
+  const ring = ROTATE_RING_PX / zoom;
+
+  const showRotateCursor = (event: ReactPointerEvent<HTMLElement>, box: Box) => {
+    const back = box.surface && invert(box.surface);
+    const point = pointOn(back, toCanvas(event.clientX, event.clientY, event.currentTarget));
+    const angle = (Math.atan2(point.y - box.centerY, point.x - box.centerX) * 180) / Math.PI;
+    event.currentTarget.style.cursor = rotateCursor(angle);
+  };
 
   if (trackingRegion) {
     return (
@@ -414,7 +464,7 @@ export default function VideoCanvasOverlay({
   }
 
   return (
-    <div className="pointer-events-none" style={{ ...style, zIndex: 4 }} data-video-overlay>
+    <div ref={rootRef} className="pointer-events-none" style={{ ...style, zIndex: 4 }} data-video-overlay>
       {guides.x && <div className="absolute top-0 bottom-0 bg-accent/80" style={{ left: '50%', width: 1 / zoom }} />}
       {guides.y && <div className="absolute left-0 right-0 bg-accent/80" style={{ top: '50%', height: 1 / zoom }} />}
       {selectable.map((box) => {
@@ -455,6 +505,34 @@ export default function VideoCanvasOverlay({
           );
         const width = box.width * unit;
         const height = box.height * unit;
+        const rotateRing = isSelected && (
+          <div
+            key={`${box.item.id}:rotate`}
+            className="absolute pointer-events-auto"
+            style={{
+              left: box.centerX * unit - width / 2 - ring,
+              top: box.centerY * unit - height / 2 - ring,
+              width: width + ring * 2,
+              height: height + ring * 2,
+              borderRadius: ring,
+              transform: `rotate(${box.rotation}deg)`,
+            }}
+            onPointerEnter={(event) => {
+              hover(true);
+              showRotateCursor(event, box);
+            }}
+            onPointerLeave={() => hover(false)}
+            onPointerDown={(event) => begin(event, box, 'rotate')}
+            onPointerMove={(event) => {
+              showRotateCursor(event, box);
+              move(event);
+            }}
+            onPointerUp={end}
+            onPointerCancel={end}
+            onMouseDown={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => event.stopPropagation()}
+          />
+        );
         const frame = (
           <div
             key={box.item.id}
@@ -497,24 +575,15 @@ export default function VideoCanvasOverlay({
                   onPointerCancel={end}
                 />
               ))}
-            {isSelected && (
-              <div
-                className="absolute left-1/2 bg-white border border-accent rounded-full cursor-grab"
-                style={{
-                  top: -handleSize * 3,
-                  width: handleSize,
-                  height: handleSize,
-                  marginLeft: -handleSize / 2,
-                }}
-                onPointerDown={(event) => begin(event, box, 'rotate')}
-                onPointerMove={move}
-                onPointerUp={end}
-                onPointerCancel={end}
-              />
-            )}
           </div>
         );
-        if (!box.surface) return frame;
+        if (!box.surface)
+          return (
+            <div key={box.item.id} className="contents">
+              {rotateRing}
+              {frame}
+            </div>
+          );
         return (
           <div
             key={box.item.id}
@@ -526,6 +595,7 @@ export default function VideoCanvasOverlay({
               transform: surfaceCss(box.surface, unit),
             }}
           >
+            {rotateRing}
             {frame}
           </div>
         );

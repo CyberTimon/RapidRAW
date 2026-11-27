@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Gauge } from 'lucide-react';
 import Dropdown from '../../ui/Dropdown';
-import SegmentedControl from '../../ui/SegmentedControl';
+import AspectRatioPicker from '../../ui/AspectRatioPicker';
 import Text from '../../ui/Text';
 import { TextVariants } from '../../../types/typography';
 import { ProjectSettings as CanvasSettings, VideoProject } from '../../../types/video';
@@ -15,17 +15,11 @@ import { ActionButton, ColorRow, FieldRow, InspectorSection } from '../inspector
 import { InterpolationField } from '../inspector/FrameInterpolation';
 import { ReframeClips } from '../inspector/ReframeControl';
 import { withCanvasSize } from '../../../store/videoReframe';
+import { ORIGINAL_RATIO } from '../../../utils/cropUtils';
+import { useShallow } from 'zustand/react/shallow';
 
-type AspectId = 'original' | '16:9' | '9:16' | '1:1' | '4:5' | '21:9';
+const FALLBACK_ORIGINAL = { width: 1920, height: 1080 };
 
-const ASPECTS: Array<{ id: AspectId; ratio: number | null }> = [
-  { id: 'original', ratio: null },
-  { id: '16:9', ratio: 16 / 9 },
-  { id: '9:16', ratio: 9 / 16 },
-  { id: '1:1', ratio: 1 },
-  { id: '4:5', ratio: 4 / 5 },
-  { id: '21:9', ratio: 21 / 9 },
-];
 const RESOLUTIONS = [720, 1080, 1440, 2160];
 
 const resolutionLabel = (shortSide: number) => (shortSide === 2160 ? '4K' : `${shortSide}p`);
@@ -33,18 +27,17 @@ const resolutionLabel = (shortSide: number) => (shortSide === 2160 ? '4K' : `${s
 function CanvasSection({ project }: { project: VideoProject }) {
   const { t } = useTranslation();
   const { settings } = project;
-  const originalRatio = useVideoStore((state) => {
-    const clip = mainTrack(project).items.find((item) => item.type === 'clip');
-    const path = clip ? mediaPathOf(project, clip) : null;
-    const info = path ? state.media[path] : undefined;
-    return info && info.width > 0 && info.height > 0 ? info.width / info.height : 16 / 9;
-  });
+  const original = useVideoStore(
+    useShallow((state) => {
+      const clip = mainTrack(project).items.find((item) => item.type === 'clip');
+      const path = clip ? mediaPathOf(project, clip) : null;
+      const info = path ? state.media[path] : undefined;
+      return info && info.width > 0 && info.height > 0 ? { width: info.width, height: info.height } : FALLBACK_ORIGINAL;
+    }),
+  );
   const ratio = settings.width / settings.height;
   const shortSide = Math.min(settings.width, settings.height);
   const resolution = RESOLUTIONS.includes(shortSide) ? shortSide : null;
-  const aspect =
-    ASPECTS.find((entry) => entry.ratio !== null && sameRatio(entry.ratio, ratio))?.id ??
-    (sameRatio(originalRatio, ratio) ? 'original' : null);
   const frameRate = FRAME_RATES.find((entry) => sameRate(entry.rate, settings.fps))?.label ?? null;
   const update = (next: Partial<CanvasSettings>, mergeKey?: string) =>
     editProject((current) => ({ ...current, settings: { ...current.settings, ...next } }), mergeKey);
@@ -60,17 +53,20 @@ function CanvasSection({ project }: { project: VideoProject }) {
       <Text variant={TextVariants.small} className="block mb-3 tabular-nums">
         {details}
       </Text>
-      <SegmentedControl<AspectId>
-        className="mb-3"
-        options={ASPECTS.map((entry) => ({
-          id: entry.id,
-          label: entry.id === 'original' ? t('video.inspector.original') : entry.id,
-        }))}
-        value={aspect}
-        onChange={(id) =>
-          resize(canvasSize(ASPECTS.find((entry) => entry.id === id)?.ratio ?? originalRatio, shortSide))
-        }
-      />
+      <div className="mb-4">
+        <AspectRatioPicker
+          title={t('editor.crop.aspectRatioHeading')}
+          titleVariant={TextVariants.label}
+          value={ratio}
+          original={original}
+          resetKey={project.id}
+          onCard
+          onChange={(next) => {
+            const target = next === ORIGINAL_RATIO ? original.width / original.height : next;
+            if (target && !sameRatio(target, ratio)) resize(canvasSize(target, shortSide));
+          }}
+        />
+      </div>
       <ReframeClips project={project} />
       <FieldRow label={t('video.inspector.resolution')}>
         <Dropdown<number>

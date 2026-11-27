@@ -500,13 +500,12 @@ fn present(
         .unwrap_or_else(|e| e.into_inner())
         .as_mut()
     {
-        display.show_texture(
+        display.show_owned_texture(
             &context.device,
             &context.queue,
             &slot.view,
             size,
-            size,
-            Some(display_content_key(content_path)),
+            display_content_key(content_path),
         );
     }
     viewer_window::show_video_frame(app_handle, context, &slot.view, size, viewer_epoch);
@@ -917,9 +916,18 @@ pub fn video_stop(video: State<'_, VideoState>) {
 }
 
 #[tauri::command]
-pub fn video_release(video: State<'_, VideoState>) {
+pub fn video_release(video: State<'_, VideoState>, state: State<'_, crate::app::state::AppState>) {
     stop(&video);
     video.release();
+    if let Some(context) = crate::render::gpu::context::current_gpu_context(&state)
+        && let Some(display) = context
+            .display
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_mut()
+    {
+        display.drop_pending_frame();
+    }
 }
 
 #[tauri::command]

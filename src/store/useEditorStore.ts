@@ -126,6 +126,13 @@ interface EditorState {
   goToHistoryIndex: (index: number) => void;
 }
 
+export const croppedImageSize = (
+  image: { width: number; height: number } | null | undefined,
+  orientationSteps: number | undefined,
+  crop: Adjustments['crop'],
+): ImageDimensions | null =>
+  image?.width && image?.height ? getCroppedDimensions(image.width, image.height, orientationSteps || 0, crop) : null;
+
 export const getZoomContentSize = (
   state: Pick<EditorState, 'originalSize' | 'adjustments'>,
   canvas: ImageDimensions | null = null,

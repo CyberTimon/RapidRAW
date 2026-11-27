@@ -1,16 +1,24 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
 import debounce from 'lodash.debounce';
 import { Invokes } from '../types/invokes';
-import { PlaybackEvent, TICKS_PER_SECOND, Ticks, VideoProject } from '../types/video';
+import { ClipItem, PlaybackEvent, TICKS_PER_SECOND, Ticks, VideoProject } from '../types/video';
 import { timelineAudio } from '../utils/video/audio';
 import { rawJson, reuseLast, withRevision } from '../utils/video/revisions';
-import { clipSettingsOf, locateItem, mainTrack, sequenceDuration, trimRange } from '../utils/video/model';
+import {
+  clipSettingsOf,
+  identityTransform,
+  itemEnd,
+  locateItem,
+  mainTrack,
+  sequenceDuration,
+  trimRange,
+} from '../utils/video/model';
 import { frameTicks, secondsToTicks, ticksToSeconds } from '../utils/video/time';
 import { showError } from '../utils/errors';
 import { Adjustments } from '../utils/adjustments';
 import { debouncedSave, useEditorStore } from './useEditorStore';
 import { useUIStore } from './useUIStore';
-import { playbackViewRequest, showsCrop } from './videoView';
+import { ViewerSource, playbackViewRequest, showsCrop, viewerSource, viewerSourceKey } from './videoView';
 import {
   clampPlayhead,
   clipTrim,
@@ -57,24 +65,54 @@ const sendUpdate = (seq: number, update: object, revision?: number) =>
 
 const updateFailed = (err: unknown) => showError('video.toasts.playbackFailed', err);
 
+const playbackSource = (project: VideoProject) => viewerSource(project, true);
+
 export const playbackRange = (): [Ticks, Ticks] => {
   const { project, session, loop } = getVideo();
   if (!project) return [0, 0];
   const end = sequenceDuration(project);
   if (session?.kind === 'clip') return trimRange(clipSettingsOf(clipTrim()), end);
+  const source = playbackSource(project);
+  if (source.kind === 'clip') return [source.clip.start, Math.min(itemEnd(source.clip), end)];
   const range = project.range;
   return range && (inToOut || loop) && range.start < end ? [range.start, Math.min(range.end, end)] : [0, end];
 };
 
-const clipPlayback = reuseLast((project: VideoProject, adjustments: Adjustments, muted: boolean): VideoProject => {
-  const clip = mainTrack(project).items[0];
-  if (!clip || clip.type !== 'clip') return project;
-  return {
+const clipView = reuseLast(
+  (project: VideoProject, clip: ClipItem, look: Adjustments | null, muted: boolean, width: number, height: number) => ({
     ...project,
-    looks: { [CLIP_LOOK]: adjustments },
-    videoTracks: [{ ...mainTrack(project), items: [{ ...clip, look: CLIP_LOOK, muted }] }],
-  };
-});
+    settings: { ...project.settings, width, height },
+    looks: look ? { [CLIP_LOOK]: look } : project.looks,
+    videoTracks: [
+      {
+        ...(project.videoTracks.find((track) => track.items.some((item) => item.id === clip.id)) ??
+          project.videoTracks[0]),
+        hidden: false,
+        items: [
+          {
+            ...clip,
+            look: look ? CLIP_LOOK : clip.look,
+            muted,
+            transform: identityTransform(),
+            fit: 'fill' as const,
+            blend: 'normal' as const,
+            cellAspect: undefined,
+            stabilize: null,
+            transitionIn: null,
+            trackMatte: null,
+            animIn: null,
+            animOut: null,
+            fadeIn: 0,
+            fadeOut: 0,
+          },
+        ],
+      },
+    ],
+    audioTracks: [],
+    captions: null,
+    range: null,
+  }),
+);
 
 const editedPlayback = reuseLast((project: VideoProject, look: string, adjustments: Adjustments): VideoProject => ({
   ...project,
@@ -83,8 +121,19 @@ const editedPlayback = reuseLast((project: VideoProject, look: string, adjustmen
 
 export const playbackProject = (project: VideoProject): VideoProject => {
   const { session, editorItemId } = getVideo();
-  const adjustments = useEditorStore.getState().adjustments;
-  if (session?.kind === 'clip') return clipPlayback(project, adjustments, !!clipTrim()?.muted);
+  const { adjustments } = useEditorStore.getState();
+  const source = playbackSource(project);
+  if (source.kind === 'clip') {
+    const clipSession = session?.kind === 'clip';
+    return clipView(
+      project,
+      source.clip,
+      clipSession ? adjustments : null,
+      clipSession ? !!clipTrim()?.muted : source.clip.muted,
+      source.width,
+      source.height,
+    );
+  }
   const item = editorItemId ? locateItem(project, editorItemId)?.item : null;
   if (!item || item.type !== 'clip' || !item.look || syncedEditorLook(item.id) === adjustments) return project;
   return editedPlayback(project, item.look, adjustments);
@@ -179,6 +228,19 @@ const followEdits = () => {
     if (state.isPlaying && prev.isPlaying && state.project !== prev.project)
       queueMicrotask(() => void updatePlayback());
   });
+  let shown: ViewerSource | null = null;
+  const followView = () => {
+    const { project, isPlaying } = getVideo();
+    const source = project && isPlaying ? playbackSource(project) : null;
+    const previous = shown;
+    shown = source;
+    if (!previous || !source || viewerSourceKey(previous) === viewerSourceKey(source)) return;
+    const switchedClip = previous.kind === 'clip' && source.kind === 'clip' && previous.clip.id !== source.clip.id;
+    queueMicrotask(switchedClip ? pause : restartPlayback);
+  };
+  useUIStore.subscribe(followView);
+  useVideoStore.subscribe(followView);
+  useEditorStore.subscribe(followView);
 };
 
 const startPlayback = async () => {
@@ -306,6 +368,12 @@ export function pause() {
   });
   void focusPlayhead();
 }
+
+const restartPlayback = () => {
+  if (!getVideo().isPlaying) return;
+  pause();
+  void startPlayback();
+};
 
 export const play = () => {
   inToOut = false;

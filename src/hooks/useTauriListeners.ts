@@ -12,7 +12,7 @@ import { useEditorStore } from '../store/useEditorStore';
 import { useUIStore } from '../store/useUIStore';
 import { useLibraryStore } from '../store/useLibraryStore';
 import { getVideo } from '../store/useVideoStore';
-import { photoEditorImage } from '../store/videoIntegration';
+import { photoEditorImage, shownContent } from '../store/videoIntegration';
 import { adjustmentsFromMetadata, fetchImageDefaults } from '../utils/developDefaults';
 import { globalImageCache } from '../utils/ImageLRUCache';
 
@@ -549,7 +549,7 @@ export function useTauriListeners({
         if (
           isEffectActive &&
           editorState.wgpuPhase === 'hidden' &&
-          event.payload?.path === editorState.selectedImage?.path
+          event.payload?.path === shownContent(editorState.selectedImage?.path)
         ) {
           editorState.setEditor({ wgpuPhase: 'arming' });
         }

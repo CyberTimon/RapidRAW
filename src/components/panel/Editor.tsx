@@ -27,7 +27,6 @@ import {
   moveCropInsideBounds,
   zoomCrop,
   normalizeCropChange,
-  getCroppedDimensions,
 } from '../../utils/cropUtils';
 import EditorToolbar from './editor/EditorToolbar';
 import ImageCanvas, { ImageRegion, MaskOverlayImage } from './editor/ImageCanvas';
@@ -38,11 +37,13 @@ import { CompareView } from '../../types/settings';
 import { Panel } from '../../types/ui';
 import { TransformState } from '../../types/editor';
 import { Invokes } from '../../types/invokes';
-import { cancelCanvasTool, useEditorStore, WgpuPhase } from '../../store/useEditorStore';
+import { cancelCanvasTool, croppedImageSize, useEditorStore, WgpuPhase } from '../../store/useEditorStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { usableActivePanel, useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import {
+  displayContent,
+  shownContent,
   useEditHistory,
   useMaskFrameRevision,
   useMaskFrameTime,
@@ -495,17 +496,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   );
 
   const programCanvas = useProgramCanvas();
-  const croppedDimensions = useMemo<ImageDimensions | null>(() => {
-    if (!selectedImage?.width || !selectedImage?.height) {
-      return null;
-    }
-    return getCroppedDimensions(
-      selectedImage.width,
-      selectedImage.height,
-      adjustments.orientationSteps || 0,
-      adjustments.crop,
-    );
-  }, [selectedImage, adjustments.crop, adjustments.orientationSteps]);
+  const croppedDimensions = useMemo<ImageDimensions | null>(
+    () => croppedImageSize(selectedImage, adjustments.orientationSteps, adjustments.crop),
+    [selectedImage, adjustments.crop, adjustments.orientationSteps],
+  );
 
   const watermarkFitFrame = useWatermarkFitFrame(
     programCanvas ? null : croppedDimensions,
@@ -1720,9 +1714,10 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
   useLayoutEffect(syncSplitOverlay, [syncSplitOverlay, activeCompareView, splitPosition, imageRenderSize]);
 
+  const contentPath = selectedImage?.path ? displayContent(selectedImage.path, programCanvas !== null) : null;
   const wgpuStateRef = useRef<WgpuRenderState>({
     useWgpuRenderer: appSettings?.useWgpuRenderer,
-    path: selectedImage?.path ?? null,
+    path: contentPath,
     isReady: selectedImage?.isReady ?? false,
     wgpuPhase,
     isCropping,
@@ -1743,7 +1738,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
     wgpuStateRef.current = {
       useWgpuRenderer: appSettings?.useWgpuRenderer,
-      path: selectedImage?.path ?? null,
+      path: contentPath,
       isReady: selectedImage?.isReady ?? false,
       wgpuPhase,
       isCropping,
@@ -1757,7 +1752,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [
     appSettings?.useWgpuRenderer,
     appSettings?.editorNeutralGreyBg,
-    selectedImage?.path,
+    contentPath,
     selectedImage?.isReady,
     wgpuPhase,
     isCropping,
@@ -1774,7 +1769,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }, [
     appSettings?.useWgpuRenderer,
     appSettings?.editorNeutralGreyBg,
-    selectedImage?.path,
+    contentPath,
     selectedImage?.isReady,
     wgpuPhase,
     isCropping,
@@ -1960,7 +1955,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
               useEditorStore
                 .getState()
                 .setEditor((s) =>
-                  s.wgpuPhase === 'arming' && s.selectedImage?.path === sentPath ? { wgpuPhase: 'live' } : {},
+                  s.wgpuPhase === 'arming' && shownContent(s.selectedImage?.path) === sentPath
+                    ? { wgpuPhase: 'live' }
+                    : {},
                 );
             });
           })

@@ -2799,7 +2799,7 @@
         "trim": "트리밍"
       },
       "mute": "음소거",
-      "openInTimeline": "타임라인에서 열기",
+      "newProject": "새 프로젝트",
       "position": "위치",
       "trimEnd": "끝 트리밍, 더블클릭하여 초기화",
       "trimStart": "시작 트리밍, 더블클릭하여 초기화",
@@ -3019,7 +3019,6 @@
       "mute": "음소거",
       "nextKeyframe": "다음 키프레임",
       "opacity": "불투명도",
-      "original": "원본",
       "positionX": "위치 X",
       "positionY": "위치 Y",
       "previousKeyframe": "이전 키프레임",

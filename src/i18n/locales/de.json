@@ -2799,7 +2799,7 @@
         "trim": "Trimmen"
       },
       "mute": "Stummschalten",
-      "openInTimeline": "In Zeitleiste öffnen",
+      "newProject": "Neues Projekt",
       "position": "Position",
       "trimEnd": "Ende trimmen, Doppelklick zum Zurücksetzen",
       "trimStart": "Anfang trimmen, Doppelklick zum Zurücksetzen",
@@ -3019,7 +3019,6 @@
       "mute": "Stummschalten",
       "nextKeyframe": "Nächster Keyframe",
       "opacity": "Deckkraft",
-      "original": "Original",
       "positionX": "Position X",
       "positionY": "Position Y",
       "previousKeyframe": "Vorheriger Keyframe",

@@ -25,6 +25,7 @@ import {
   newVideoProject,
   openProjectSwitcher,
   programCanvas,
+  projectMediaRating,
   shortcutEditorState,
   videoEscape,
   videoShortcutMatcher,
@@ -73,6 +74,21 @@ export const useKeyboardShortcuts = ({
   } = useEditorActions();
   const { handleRate, handleSetFlag, handleToggleFlag, handleSetColorLabel, handleClearSelection } =
     useLibraryActions();
+  const rate = (rating: number) => {
+    const media = projectMediaRating();
+    if (media) media.rate(rating);
+    else handleRate(rating);
+  };
+  const toggleFlag = (flag: ImageFlag) => {
+    const media = projectMediaRating();
+    if (media) media.toggleFlag(flag);
+    else handleToggleFlag(flag);
+  };
+  const setFlag = (flag: ImageFlag | null) => {
+    const media = projectMediaRating();
+    if (media) media.setFlag(flag);
+    else handleSetFlag(flag);
+  };
 
   const sortedListRef = useRef(sortedImageList);
   useEffect(() => {
@@ -530,63 +546,63 @@ export const useKeyboardShortcuts = ({
         shouldFire: () => true,
         execute: (e: any) => {
           e.preventDefault();
-          handleRate(0);
+          rate(0);
         },
       },
       rate_1: {
         shouldFire: () => true,
         execute: (e: any) => {
           e.preventDefault();
-          handleRate(1);
+          rate(1);
         },
       },
       rate_2: {
         shouldFire: () => true,
         execute: (e: any) => {
           e.preventDefault();
-          handleRate(2);
+          rate(2);
         },
       },
       rate_3: {
         shouldFire: () => true,
         execute: (e: any) => {
           e.preventDefault();
-          handleRate(3);
+          rate(3);
         },
       },
       rate_4: {
         shouldFire: () => true,
         execute: (e: any) => {
           e.preventDefault();
-          handleRate(4);
+          rate(4);
         },
       },
       rate_5: {
         shouldFire: () => true,
         execute: (e: any) => {
           e.preventDefault();
-          handleRate(5);
+          rate(5);
         },
       },
       toggle_pick: {
         shouldFire: () => true,
         execute: (e: KeyboardEvent) => {
           e.preventDefault();
-          handleToggleFlag(ImageFlag.Pick);
+          toggleFlag(ImageFlag.Pick);
         },
       },
       toggle_reject: {
         shouldFire: () => true,
         execute: (e: KeyboardEvent) => {
           e.preventDefault();
-          handleToggleFlag(ImageFlag.Reject);
+          toggleFlag(ImageFlag.Reject);
         },
       },
       unflag: {
         shouldFire: () => true,
         execute: (e: KeyboardEvent) => {
           e.preventDefault();
-          handleSetFlag(null);
+          setFlag(null);
         },
       },
       color_label_none: {

@@ -2872,7 +2872,7 @@
         "trim": "Aparar"
       },
       "mute": "Silenciar",
-      "openInTimeline": "Abrir na linha do tempo",
+      "newProject": "Novo projeto",
       "position": "Posição",
       "trimEnd": "Aparar fim, clique duplo para redefinir",
       "trimStart": "Aparar início, clique duplo para redefinir",
@@ -3097,7 +3097,6 @@
       "mute": "Silenciar",
       "nextKeyframe": "Próximo quadro-chave",
       "opacity": "Opacidade",
-      "original": "Original",
       "positionX": "Posição X",
       "positionY": "Posição Y",
       "previousKeyframe": "Quadro-chave anterior",

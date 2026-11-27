@@ -2945,7 +2945,7 @@
         "trim": "Patrumpinti"
       },
       "mute": "Nutildyti",
-      "openInTimeline": "Atidaryti laiko juostoje",
+      "newProject": "Naujas projektas",
       "position": "Padėtis",
       "trimEnd": "Patrumpinti pabaigą, dukart spustelėkite, kad atstatytumėte",
       "trimStart": "Patrumpinti pradžią, dukart spustelėkite, kad atstatytumėte",
@@ -3175,7 +3175,6 @@
       "mute": "Nutildyti",
       "nextKeyframe": "Kitas raktinis kadras",
       "opacity": "Nepermatomumas",
-      "original": "Originalas",
       "positionX": "Padėtis X",
       "positionY": "Padėtis Y",
       "previousKeyframe": "Ankstesnis raktinis kadras",

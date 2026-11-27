@@ -77,6 +77,7 @@ import { sequenceProject, withRevision } from '../utils/video/revisions';
 import { DEFAULT_FPS, frameTicks, secondsToTicks, snapTicks, ticksToSeconds } from '../utils/video/time';
 import { canvasToolState, debouncedSave, useEditorStore } from './useEditorStore';
 import { useLibraryStore } from './useLibraryStore';
+import { computeSortedLibrary } from '../hooks/useSortedLibrary';
 import { useProcessStore } from './useProcessStore';
 import { useSettingsStore } from './useSettingsStore';
 import { useUIStore } from './useUIStore';
@@ -497,10 +498,8 @@ const showInEditor = (
   loaded?: InstalledFrame,
 ) => {
   const editor = useEditorStore.getState();
-  if (!editorStale && editor.selectedImage?.path === path && getVideo().editorItemId === itemId) {
-    if (loaded) editor.setEditor((state) => ({ displayRevision: state.displayRevision + 1 }));
-    return;
-  }
+  if (loaded) editor.setEditor((state) => ({ displayRevision: state.displayRevision + 1 }));
+  if (!editorStale && editor.selectedImage?.path === path && getVideo().editorItemId === itemId) return;
   editorStale = false;
   flushEditorLook();
   shownLook = null;
@@ -1104,9 +1103,8 @@ const startProject = async (session: ProjectSession, opened: VideoProject, curre
   const downloading = new Set([...originals.values()].filter((original) => original.missing).map(({ path }) => path));
   await ensureMedia(project.media.map((media) => media.path).filter((path) => !downloading.has(path)));
   if (!current()) return;
-  releaseEditor();
-  useEditorStore.getState().setEditor({ wgpuPhase: 'hidden' });
   resetSessionState(session, tidy({ ...project, name: fileStem(session.path) }));
+  handOffEditor();
   const first = mainTrack(project).items[0];
   if (first) setVideo({ selection: [first.id] });
   useUIStore.getState().enterWorkspace('video');
@@ -1323,11 +1321,19 @@ const confirmLeave = () => {
   return leavePrompt;
 };
 
+const handOffEditor = () => {
+  if (useUIStore.getState().activeView === 'editor' && useEditorStore.getState().selectedImage) {
+    editorStale = true;
+    return;
+  }
+  releaseEditor();
+  useEditorStore.getState().setEditor({ wgpuPhase: 'hidden' });
+};
+
 const enterProjectView = () => {
   if (isProjectSession()) return;
   closeVideoSession();
-  releaseEditor();
-  useEditorStore.getState().setEditor({ wgpuPhase: 'hidden' });
+  handOffEditor();
   useUIStore.getState().enterWorkspace('video');
   revealTimeline();
 };
@@ -1379,8 +1385,21 @@ export const projectMedia = (paths: Array<string>) => {
   return usable.some((path) => !isAudioPath(path)) ? usable : [];
 };
 
+const inLibraryOrder = (paths: Array<string>) => {
+  const order = new Map(
+    computeSortedLibrary(useLibraryStore.getState(), useSettingsStore.getState()).map((image, index) => [
+      image.path,
+      index,
+    ]),
+  );
+  return paths
+    .map((path, index) => ({ path, index, rank: order.get(path) ?? Number.MAX_SAFE_INTEGER }))
+    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .map(({ path }) => path);
+};
+
 export const createVideoProject = async (paths: Array<string>) => {
-  const usable = projectMedia(paths);
+  const usable = projectMedia(inLibraryOrder(paths));
   if (usable.length === 0) return;
   const current = claimOpen();
   try {

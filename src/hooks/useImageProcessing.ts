@@ -64,7 +64,12 @@ export function useImageProcessing(
 
   const uncroppedJobIdRef = useRef(0);
   const latestUncroppedJobIdRef = useRef(0);
-  const lastUncroppedRequestRef = useRef<{ path: string; adjustments: Adjustments; res: number } | null>(null);
+  const lastUncroppedRequestRef = useRef<{
+    path: string;
+    adjustments: Adjustments;
+    res: number;
+    revision: number;
+  } | null>(null);
 
   const originalRequestKeyRef = useRef<string | null>(null);
   const inFlightCountRef = useRef(0);
@@ -399,10 +404,17 @@ export function useImageProcessing(
       lastUncroppedRequestRef.current = null;
       return;
     }
+    if (editorFramePending()) return;
     const last = lastUncroppedRequestRef.current?.path === path ? lastUncroppedRequestRef.current : null;
     const res = Math.max(uncroppedTargetRes, last?.res ?? 0);
-    if (last && last.res === res && isSameIgnoringCrop(last.adjustments, adjustments)) return;
-    lastUncroppedRequestRef.current = { path, adjustments, res };
+    if (
+      last &&
+      last.res === res &&
+      last.revision === displayRevision &&
+      isSameIgnoringCrop(last.adjustments, adjustments)
+    )
+      return;
+    lastUncroppedRequestRef.current = { path, adjustments, res, revision: displayRevision };
     throttledUncroppedPreview(adjustments, res);
   }, [
     activeView,
@@ -412,6 +424,7 @@ export function useImageProcessing(
     selectedImage?.isReady,
     uncroppedTargetRes,
     throttledUncroppedPreview,
+    displayRevision,
   ]);
 
   const requestHiFiZoom = useMemo(

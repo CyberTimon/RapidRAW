@@ -6,6 +6,9 @@ import i18n from 'i18next';
 import { ListPlus } from 'lucide-react';
 import type { Active } from '@dnd-kit/core';
 import { draggedPaths } from '../components/video/timeline/drop';
+import { flagMedia, rateMedia, toggleMediaFlag } from '../components/video/mediaPool/poolMetadata';
+import { selectedMediaPaths } from '../components/video/mediaPool/poolView';
+import { ImageFlag } from '../types/library';
 import { SelectedImage } from '../types/editor';
 import { Invokes } from '../types/invokes';
 import { Mask, MaskType } from '../types/masks';
@@ -79,7 +82,7 @@ export {
   useRecentProjects,
   useVideoAvailable,
 } from './useVideoStore';
-export { isProgramView, programCanvas, useProgramCanvas } from './videoView';
+export { displayContent, isProgramView, programCanvas, shownContent, useProgramCanvas } from './videoView';
 export { videoShortcutMatcher } from './videoShortcuts';
 export { clearPresetSource, usePresetSource } from './videoPresets';
 export { restoreAfterCacheClear } from './videoMotion';
@@ -254,8 +257,18 @@ const PROJECT_BLOCKED_ACTIONS = new Set([
   'delete_rejected',
   'copy_adjustments',
   'paste_adjustments',
-  ...KEYBIND_DEFINITIONS.filter((def) => def.section === 'rating').map((def) => def.action),
+  ...KEYBIND_DEFINITIONS.filter((def) => def.action.startsWith('color_label_')).map((def) => def.action),
 ]);
+
+export const projectMediaRating = () => {
+  if (!inProjectEditor()) return null;
+  const paths = selectedMediaPaths();
+  return {
+    rate: (rating: number) => rateMedia(paths, rating),
+    toggleFlag: (flag: ImageFlag) => toggleMediaFlag(paths, flag),
+    setFlag: (flag: ImageFlag | null) => flagMedia(paths, flag),
+  };
+};
 
 export const blocksPhotoAction = (action: string) => inProjectEditor() && PROJECT_BLOCKED_ACTIONS.has(action);
 

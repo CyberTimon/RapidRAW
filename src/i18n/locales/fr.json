@@ -2872,7 +2872,7 @@
         "trim": "Rogner"
       },
       "mute": "Couper le son",
-      "openInTimeline": "Ouvrir dans la timeline",
+      "newProject": "Nouveau projet",
       "position": "Position",
       "trimEnd": "Rogner la fin, double-clic pour réinitialiser",
       "trimStart": "Rogner le début, double-clic pour réinitialiser",
@@ -3097,7 +3097,6 @@
       "mute": "Couper le son",
       "nextKeyframe": "Image clé suivante",
       "opacity": "Opacité",
-      "original": "Original",
       "positionX": "Position X",
       "positionY": "Position Y",
       "previousKeyframe": "Image clé précédente",

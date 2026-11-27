@@ -96,6 +96,7 @@ pub async fn update_wgpu_transform(
             .as_deref()
             .map(crate::render::gpu::display::display_content_key);
         let rect_applied = display.place_editor_rect(
+            &context.device,
             content,
             [payload.x, payload.y, payload.width, payload.height],
         );

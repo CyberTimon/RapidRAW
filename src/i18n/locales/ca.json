@@ -2872,7 +2872,7 @@
         "trim": "Retallar"
       },
       "mute": "Silenciar",
-      "openInTimeline": "Obrir a la línia de temps",
+      "newProject": "Nou projecte",
       "position": "Posició",
       "trimEnd": "Retallar el final, doble clic per restablir",
       "trimStart": "Retallar l'inici, doble clic per restablir",
@@ -3097,7 +3097,6 @@
       "mute": "Silenciar",
       "nextKeyframe": "Fotograma clau següent",
       "opacity": "Opacitat",
-      "original": "Original",
       "positionX": "Posició X",
       "positionY": "Posició Y",
       "previousKeyframe": "Fotograma clau anterior",

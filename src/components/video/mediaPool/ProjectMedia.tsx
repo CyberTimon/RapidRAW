@@ -37,7 +37,6 @@ import {
   useVideoStore,
 } from '../../../store/useVideoStore';
 import { editMediaAtPlayhead } from '../../../store/videoEditing';
-import { locateItem } from '../../../utils/video/model';
 import {
   BinScope,
   binOfMedia,
@@ -67,7 +66,8 @@ import {
 import PoolPath from './PoolPath';
 import { BIN_TARGET, dropOnBin, dropOnPool, isPoolMediaDrag } from './poolDrag';
 import { buildPoolContent } from './poolEntries';
-import { usePoolMetadata } from './poolMetadata';
+import { flagMedia, labelMedia, rateMedia, usePoolMetadata } from './poolMetadata';
+import { colorLabelMenu, flagMenu, ratingMenu } from '../../../utils/metadataMenus';
 import {
   GAP_X,
   GAP_Y,
@@ -94,6 +94,9 @@ import {
   useCurrentBin,
   usePoolSettings,
   usePoolView,
+  activePoolSelection,
+  selectedMediaIds,
+  selectedMediaPaths,
 } from './poolView';
 
 interface ProjectMediaProps {
@@ -112,31 +115,6 @@ const rowIndexOf = (rows: Array<PoolRow>, mediaId: string) =>
   );
 
 const mediaById = (id: string) => getVideo().project?.media.find((media) => media.id === id) ?? null;
-
-let selectedMediaCache: { project: VideoProject | null; selection: Array<string>; ids: Array<string> } = {
-  project: null,
-  selection: [],
-  ids: [],
-};
-
-const selectedMediaIds = (project: VideoProject | null, selection: Array<string>) => {
-  if (project !== selectedMediaCache.project || selection !== selectedMediaCache.selection) {
-    const ids = project
-      ? selection.flatMap((id) => {
-          const item = locateItem(project, id)?.item;
-          return item && 'media' in item ? [item.media] : [];
-        })
-      : [];
-    selectedMediaCache = { project, selection, ids };
-  }
-  return selectedMediaCache.ids;
-};
-
-const activePoolSelection = () => {
-  const { selection } = getVideo();
-  const pool = usePoolView.getState().selection;
-  return pool && pool.base === selection ? pool : null;
-};
 
 const NO_USE: ReadonlySet<string> = new Set();
 let usedCache = NO_USE;
@@ -422,6 +400,9 @@ export default function ProjectMedia({ query, onImport }: ProjectMediaProps) {
         return found ? [found] : [];
       });
       const present = targets.filter((target) => !isMissingRef.current(target.path));
+      const rated = present.filter((target) => target.kind !== 'sequence').map((target) => target.path);
+      const selectedPaths = new Set(selectedMediaPaths());
+      const keysAct = rated.length === selectedPaths.size && rated.every((path) => selectedPaths.has(path));
       const inUse = usedMediaIds(current);
       const removable = targets.filter((target) => !inUse.has(target.id));
       const proxyable = present.filter(
@@ -486,6 +467,14 @@ export default function ProjectMedia({ query, onImport }: ProjectMediaProps) {
                 onClick: () => clearMediaRange(entry),
                 shortcut: 'video_clear_range',
               },
+            ]
+          : []),
+        ...(rated.length > 0
+          ? [
+              { type: OPTION_SEPARATOR },
+              ratingMenu(t, (rating) => rateMedia(rated, rating), keysAct),
+              flagMenu(t, (flag) => flagMedia(rated, flag), keysAct),
+              colorLabelMenu(t, (color) => void labelMedia(rated, color), false),
             ]
           : []),
         { type: OPTION_SEPARATOR },

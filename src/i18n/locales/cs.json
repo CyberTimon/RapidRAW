@@ -2945,7 +2945,7 @@
         "trim": "Zkrátit"
       },
       "mute": "Ztlumit",
-      "openInTimeline": "Otevřít na časové ose",
+      "newProject": "Nový projekt",
       "position": "Poloha",
       "trimEnd": "Zkrátit konec, dvojklikem obnovíte",
       "trimStart": "Zkrátit začátek, dvojklikem obnovíte",
@@ -3175,7 +3175,6 @@
       "mute": "Ztlumit",
       "nextKeyframe": "Další klíčový snímek",
       "opacity": "Neprůhlednost",
-      "original": "Originál",
       "positionX": "Poloha X",
       "positionY": "Poloha Y",
       "previousKeyframe": "Předchozí klíčový snímek",

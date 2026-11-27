@@ -144,8 +144,16 @@ pub struct WgpuDisplay {
     pub content_key: Option<u64>,
     pub rect_key: Option<u64>,
     pub pending_rect: Option<(u64, [f32; 4])>,
+    pending_frame: Option<PendingFrame>,
     #[cfg(target_os = "linux")]
     pub wayland: Option<crate::platform::wayland_subsurface::WaylandSubsurface>,
+}
+
+struct PendingFrame {
+    key: u64,
+    view: wgpu::TextureView,
+    image_size: [f32; 2],
+    texture_size: [f32; 2],
 }
 
 impl WgpuDisplay {
@@ -199,6 +207,30 @@ impl WgpuDisplay {
         ));
     }
 
+    pub fn show_owned_texture(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        view: &wgpu::TextureView,
+        size: [f32; 2],
+        content: u64,
+    ) {
+        if !self.standalone
+            && self
+                .placed_content()
+                .is_some_and(|placed| placed != content)
+        {
+            self.pending_frame = Some(PendingFrame {
+                key: content,
+                view: view.clone(),
+                image_size: size,
+                texture_size: size,
+            });
+            return;
+        }
+        self.show_texture(device, queue, view, size, size, Some(content));
+    }
+
     pub fn show_texture(
         &mut self,
         device: &wgpu::Device,
@@ -208,6 +240,7 @@ impl WgpuDisplay {
         texture_size: [f32; 2],
         content: Option<u64>,
     ) {
+        self.pending_frame = None;
         self.latest_transform.image_size = image_size;
         self.latest_transform.texture_size = texture_size;
         self.edited_view = Some(view.clone());
@@ -309,7 +342,12 @@ impl WgpuDisplay {
         takeover
     }
 
+    pub fn drop_pending_frame(&mut self) {
+        self.pending_frame = None;
+    }
+
     pub fn clear_video(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        self.pending_frame = None;
         if std::mem::take(&mut self.video) {
             self.edited_view = None;
             self.current_bind_group = None;
@@ -478,7 +516,31 @@ impl WgpuDisplay {
         monitor::tag_surface(&self.surface, self.tag);
     }
 
-    pub fn place_editor_rect(&mut self, content: Option<u64>, rect: [f32; 4]) -> bool {
+    fn placed_content(&self) -> Option<u64> {
+        self.pending_rect.map(|(key, _)| key).or(self.rect_key)
+    }
+
+    pub fn place_editor_rect(
+        &mut self,
+        device: &wgpu::Device,
+        content: Option<u64>,
+        rect: [f32; 4],
+    ) -> bool {
+        if let Some(frame) = self
+            .pending_frame
+            .take_if(|frame| content == Some(frame.key))
+        {
+            self.latest_transform.image_size = frame.image_size;
+            self.latest_transform.texture_size = frame.texture_size;
+            self.latest_transform.rect = rect;
+            self.edited_view = Some(frame.view);
+            self.content_key = Some(frame.key);
+            self.rect_key = Some(frame.key);
+            self.pending_rect = None;
+            self.place_image();
+            self.rebind(device);
+            return true;
+        }
         match content {
             Some(key) if self.content_key != Some(key) => {
                 self.pending_rect = Some((key, rect));
@@ -749,6 +811,7 @@ pub fn build_wgpu_display(
         content_key: None,
         rect_key: None,
         pending_rect: None,
+        pending_frame: None,
         #[cfg(target_os = "linux")]
         wayland: platform,
     };

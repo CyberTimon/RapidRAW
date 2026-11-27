@@ -2799,7 +2799,7 @@
         "trim": "修剪"
       },
       "mute": "靜音",
-      "openInTimeline": "在時間軸中開啟",
+      "newProject": "新增專案",
       "position": "位置",
       "trimEnd": "修剪結尾，按兩下重設",
       "trimStart": "修剪開頭，按兩下重設",
@@ -3019,7 +3019,6 @@
       "mute": "靜音",
       "nextKeyframe": "下一個關鍵影格",
       "opacity": "不透明度",
-      "original": "原始",
       "positionX": "位置 X",
       "positionY": "位置 Y",
       "previousKeyframe": "上一個關鍵影格",

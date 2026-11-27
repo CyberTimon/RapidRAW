@@ -2799,7 +2799,7 @@
         "trim": "トリミング"
       },
       "mute": "ミュート",
-      "openInTimeline": "タイムラインで開く",
+      "newProject": "新規プロジェクト",
       "position": "位置",
       "trimEnd": "終わりをトリミング、ダブルクリックでリセット",
       "trimStart": "始まりをトリミング、ダブルクリックでリセット",
@@ -3019,7 +3019,6 @@
       "mute": "ミュート",
       "nextKeyframe": "次のキーフレーム",
       "opacity": "不透明度",
-      "original": "オリジナル",
       "positionX": "位置 X",
       "positionY": "位置 Y",
       "previousKeyframe": "前のキーフレーム",

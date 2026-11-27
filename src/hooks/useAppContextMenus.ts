@@ -2,9 +2,6 @@ import { useCallback, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
   Aperture,
-  Ban,
-  Flag,
-  FlagOff,
   Check,
   Eraser,
   ClipboardPaste,
@@ -93,10 +90,9 @@ import { Invokes } from '../types/invokes';
 import { ImageFlag, AlbumItem, Album, AlbumGroup, MAX_BURST_FRAMES } from '../types/library';
 import { Option, OPTION_SEPARATOR, Panel } from '../types/ui';
 import { EditInApp } from '../types/settings';
+import { colorLabelMenu, flagMenu, ratingMenu } from '../utils/metadataMenus';
 import {
   AutoAdjustMode,
-  Color,
-  COLOR_LABELS,
   getAiDenoiseEnablePatch,
   INITIAL_ADJUSTMENTS,
   isLensCorrectionActive,
@@ -221,68 +217,17 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
   const { handleRate, handleSetFlag, handleSetColorLabel, handleTagsChanged } = useLibraryActions();
 
   const buildFlagMenu = useCallback(
-    (paths?: string[], keys = true) => ({
-      label: t('contextMenus.editor.flag'),
-      icon: Flag,
-      submenu: [
-        {
-          label: t('contextMenus.editor.unflagged'),
-          icon: FlagOff,
-          onClick: () => handleSetFlag(null, paths),
-          shortcut: keys ? 'unflag' : undefined,
-        },
-        { type: OPTION_SEPARATOR },
-        { label: t('contextMenus.editor.flagPick'), icon: Flag, onClick: () => handleSetFlag(ImageFlag.Pick, paths) },
-        {
-          label: t('contextMenus.editor.flagReject'),
-          icon: Ban,
-          onClick: () => handleSetFlag(ImageFlag.Reject, paths),
-        },
-      ],
-    }),
+    (paths?: string[], keys = true) => flagMenu(t, (flag) => handleSetFlag(flag, paths), keys),
     [handleSetFlag, t],
   );
 
   const buildRatingMenu = useCallback(
-    (paths?: string[], keys = true) => ({
-      label: t('contextMenus.editor.rating'),
-      icon: Star,
-      submenu: [
-        {
-          label: t('contextMenus.editor.noRating'),
-          onClick: () => handleRate(0, paths),
-          shortcut: keys ? 'rate_0' : undefined,
-        },
-        { type: OPTION_SEPARATOR },
-        ...[1, 2, 3, 4, 5].map((rating: number) => ({
-          label: t('contextMenus.editor.ratingLabel', { count: rating }),
-          onClick: () => handleRate(rating, paths),
-          shortcut: keys ? `rate_${rating}` : undefined,
-        })),
-      ],
-    }),
+    (paths?: string[], keys = true) => ratingMenu(t, (rating) => handleRate(rating, paths), keys),
     [handleRate, t],
   );
 
   const buildColorLabelMenu = useCallback(
-    (paths?: string[], keys = true) => ({
-      label: t('contextMenus.editor.colorLabel'),
-      icon: Palette,
-      submenu: [
-        {
-          label: t('contextMenus.editor.noLabel'),
-          onClick: () => handleSetColorLabel(null, paths),
-          shortcut: keys ? 'color_label_none' : undefined,
-        },
-        { type: OPTION_SEPARATOR },
-        ...COLOR_LABELS.map((label: Color) => ({
-          label: t(`contextMenus.colors.${label.name}` as ParseKeys),
-          color: label.color,
-          onClick: () => handleSetColorLabel(label.name, paths),
-          shortcut: keys ? `color_label_${label.name}` : undefined,
-        })),
-      ],
-    }),
+    (paths?: string[], keys = true) => colorLabelMenu(t, (color) => handleSetColorLabel(color, paths), keys),
     [handleSetColorLabel, t],
   );
 

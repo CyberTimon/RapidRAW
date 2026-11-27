@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { FlagStatus, RatingOperator, SortDirection } from '../../../types/library';
-import { MediaKind, MediaPoolTileSize, MediaPoolView } from '../../../types/video';
+import { MediaKind, MediaPoolTileSize, MediaPoolView, VideoProject } from '../../../types/video';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { currentProjectPath, getVideo, useCurrentProjectPath, useVideoStore } from '../../../store/useVideoStore';
 import { findBin } from '../../../utils/video/bins';
+import { locateItem } from '../../../utils/video/model';
 
 export interface PoolFilters {
   show: 'all' | 'unused';
@@ -123,3 +124,36 @@ export const startNewBin = (parent: string | null, media: Array<string> = []) =>
 export const endNewBin = () => usePoolView.setState({ draft: null });
 
 export const setRenamingBin = (renaming: string | null) => usePoolView.setState({ renaming, draft: null });
+
+let selectedMediaCache: { project: VideoProject | null; selection: Array<string>; ids: Array<string> } = {
+  project: null,
+  selection: [],
+  ids: [],
+};
+
+export const selectedMediaIds = (project: VideoProject | null, selection: Array<string>) => {
+  if (project !== selectedMediaCache.project || selection !== selectedMediaCache.selection) {
+    const ids = project
+      ? selection.flatMap((id) => {
+          const item = locateItem(project, id)?.item;
+          return item && 'media' in item ? [item.media] : [];
+        })
+      : [];
+    selectedMediaCache = { project, selection, ids };
+  }
+  return selectedMediaCache.ids;
+};
+
+export const activePoolSelection = () => {
+  const { selection } = getVideo();
+  const pool = usePoolView.getState().selection;
+  return pool && pool.base === selection ? pool : null;
+};
+
+export const selectedMediaPaths = (): Array<string> => {
+  const { project, selection } = getVideo();
+  if (!project) return [];
+  const pool = activePoolSelection();
+  const ids = new Set(pool ? pool.ids : selectedMediaIds(project, selection));
+  return project.media.filter((media) => ids.has(media.id) && media.kind !== 'sequence').map((media) => media.path);
+};

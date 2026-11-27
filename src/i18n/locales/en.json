@@ -2799,7 +2799,7 @@
         "trim": "Trim"
       },
       "mute": "Mute",
-      "openInTimeline": "Open in Timeline",
+      "newProject": "New Project",
       "position": "Position",
       "trimEnd": "Trim end, double-click to reset",
       "trimStart": "Trim start, double-click to reset",
@@ -3019,7 +3019,6 @@
       "mute": "Mute",
       "nextKeyframe": "Next Keyframe",
       "opacity": "Opacity",
-      "original": "Original",
       "positionX": "Position X",
       "positionY": "Position Y",
       "previousKeyframe": "Previous Keyframe",

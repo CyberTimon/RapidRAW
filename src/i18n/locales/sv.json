@@ -2799,7 +2799,7 @@
         "trim": "Trimma"
       },
       "mute": "Ljud av",
-      "openInTimeline": "Öppna i tidslinjen",
+      "newProject": "Nytt projekt",
       "position": "Position",
       "trimEnd": "Trimma slutet, dubbelklicka för att återställa",
       "trimStart": "Trimma början, dubbelklicka för att återställa",
@@ -3019,7 +3019,6 @@
       "mute": "Ljud av",
       "nextKeyframe": "Nästa nyckelbildruta",
       "opacity": "Opacitet",
-      "original": "Original",
       "positionX": "Position X",
       "positionY": "Position Y",
       "previousKeyframe": "Föregående nyckelbildruta",

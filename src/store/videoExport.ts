@@ -660,17 +660,9 @@ const FRAME_FILTERS: Array<DialogFilter> = [
   { name: 'TIFF', extensions: ['tif', 'tiff'] },
 ];
 
-const frameProject = (project: VideoProject): VideoProject => {
-  const request = playbackProject(project);
-  if (getVideo().session?.kind !== 'clip') return request;
-  const { orientationSteps, crop } = useEditorStore.getState().adjustments;
-  const frame = getCroppedDimensions(request.settings.width, request.settings.height, orientationSteps || 0, crop);
-  return { ...request, settings: { ...request.settings, width: frame.width, height: frame.height } };
-};
-
 const saveFrame = async (project: VideoProject, playhead: Ticks, output: string) => {
   try {
-    const request = frameProject(project);
+    const request = playbackProject(project);
     const view = await viewRequest(request, false);
     await withRevision(request, (revision) =>
       invoke(Invokes.VideoExportFrame, {

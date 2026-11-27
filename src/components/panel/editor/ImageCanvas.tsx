@@ -60,6 +60,7 @@ import { RelightBasis } from './overlays/RelightLightShape';
 import RelightLights from './overlays/RelightLights';
 import CenterMarkerShape, { CENTER_MARKERS } from './overlays/CenterMarkerShape';
 import CloneSourceOverlay from './overlays/CloneSourceOverlay';
+import { ROTATE_RING_PX, rotateCursor } from '../../../utils/rotateCursor';
 import {
   PenMaskShape,
   PlaneEllipseShape,
@@ -764,16 +765,7 @@ const MaskOverlay = memo(
         const cx = (pRef.current.centerX - cropX) * scale;
         const cy = (pRef.current.centerY - cropY) * scale;
         const angle = Math.atan2(pointerPos.y - cy, pointerPos.x - cx) * (180 / Math.PI);
-
-        const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.8));">
-          <g transform="rotate(${Math.round(angle)} 16 16)">
-            <path d="M 23 9 A 10 10 0 0 1 23 23" />
-            <path d="M 28 9 L 23 9 L 23 14" />
-            <path d="M 28 23 L 23 23 L 23 18" />
-          </g>
-        </svg>`;
-        const encodedSvg = encodeURIComponent(svgStr);
-        stage.container().style.cursor = `url('data:image/svg+xml;utf8,${encodedSvg}') 16 16, crosshair`;
+        stage.container().style.cursor = rotateCursor(angle);
       },
       [cropX, cropY, scale],
     );
@@ -1181,8 +1173,8 @@ const MaskOverlay = memo(
             <Ellipse
               x={(centerX - cropX) * scale}
               y={(centerY - cropY) * scale}
-              radiusX={Math.max(0.1, radiusX * scale) + 35 / zoomScale}
-              radiusY={Math.max(0.1, radiusY * scale) + 35 / zoomScale}
+              radiusX={Math.max(0.1, radiusX * scale) + ROTATE_RING_PX / zoomScale}
+              radiusY={Math.max(0.1, radiusY * scale) + ROTATE_RING_PX / zoomScale}
               rotation={rotation}
               fill="transparent"
               draggable

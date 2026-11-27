@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { create } from 'zustand';
+import { toast } from 'react-toastify';
 import { Invokes } from '../../../types/invokes';
 import { ImageFile, ImageFlag } from '../../../types/library';
 import { MediaRef } from '../../../types/video';
@@ -88,6 +89,80 @@ useLibraryStore.subscribe((state, previous) => {
   }
   if (next) usePoolMeta.setState({ files: next });
 });
+
+const patchMedia = (
+  paths: Array<string>,
+  patch: (meta: PoolMeta) => PoolMeta,
+  image: (image: ImageFile) => ImageFile,
+  rating?: number,
+) => {
+  const changed = new Set(paths);
+  usePoolMeta.setState((state) => ({
+    files: Object.fromEntries(
+      Object.entries(state.files).map(([path, meta]) => [path, changed.has(path) ? patch(meta) : meta]),
+    ),
+  }));
+  useLibraryStore.getState().setLibrary((state) => ({
+    imageList: state.imageList.map((entry) => (changed.has(entry.path) ? image(entry) : entry)),
+    ...(rating === undefined
+      ? {}
+      : { imageRatings: { ...state.imageRatings, ...Object.fromEntries(paths.map((path) => [path, rating])) } }),
+  }));
+};
+
+const metaOf = (path: string | undefined) => (path ? usePoolMeta.getState().files[path] : undefined);
+
+const colorOf = (tags: Array<string> | null | undefined) =>
+  tags?.find((tag) => tag.startsWith('color:'))?.slice('color:'.length) ?? null;
+
+const withColor = (tags: Array<string> | null, color: string | null) => [
+  ...(tags ?? []).filter((tag) => !tag.startsWith('color:')),
+  ...(color ? [`color:${color}`] : []),
+];
+
+export const rateMedia = (paths: Array<string>, rating: number) => {
+  if (paths.length === 0) return;
+  const first = metaOf(paths[0]);
+  const next = rating === (first?.rating ?? 0) && first?.flag !== ImageFlag.Reject ? 0 : rating;
+  const unreject = <T extends { flag?: ImageFlag | null }>(entry: T): T =>
+    next > 0 && entry.flag === ImageFlag.Reject ? { ...entry, flag: null } : entry;
+  patchMedia(paths, (meta) => unreject({ ...meta, rating: next }), unreject, next);
+  invoke(Invokes.SetRatingForPaths, { paths, rating: next }).catch((err) => {
+    console.error(err);
+    toast.error(`Failed to apply rating: ${err}`);
+  });
+};
+
+export const flagMedia = (paths: Array<string>, flag: ImageFlag | null) => {
+  if (paths.length === 0) return;
+  patchMedia(
+    paths,
+    (meta) => ({ ...meta, flag }),
+    (image) => ({ ...image, flag }),
+  );
+  invoke(Invokes.SetFlagForPaths, { paths, flag }).catch((err) => {
+    console.error(err);
+    toast.error(`Failed to update flag: ${err}`);
+  });
+};
+
+export const toggleMediaFlag = (paths: Array<string>, flag: ImageFlag) =>
+  flagMedia(paths, metaOf(paths[0])?.flag === flag ? null : flag);
+
+export const labelMedia = async (paths: Array<string>, color: string | null) => {
+  if (paths.length === 0) return;
+  const next = color !== null && color === colorOf(metaOf(paths[0])?.tags) ? null : color;
+  try {
+    await invoke(Invokes.SetColorLabelForPaths, { paths, color: next });
+    patchMedia(
+      paths,
+      (meta) => ({ ...meta, tags: withColor(meta.tags, next) }),
+      (image) => ({ ...image, tags: withColor(image.tags ?? null, next) }),
+    );
+  } catch (err) {
+    toast.error(`Failed to set color label: ${err}`);
+  }
+};
 
 const joinPaths = (media: Array<MediaRef>, include: (media: MediaRef) => boolean) =>
   media
