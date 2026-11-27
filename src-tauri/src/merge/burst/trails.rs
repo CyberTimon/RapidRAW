@@ -147,6 +147,7 @@ impl Trails {
             around,
             advance: 1.0,
             shutter: FULL_INTERVAL,
+            steady: None,
         };
         (current, input)
     }

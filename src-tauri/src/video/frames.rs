@@ -11,7 +11,7 @@ use crate::render::gpu::compute::{Slot, upload_image};
 use crate::render::gpu::context::{GpuContext, shared_gpu_context};
 use crate::video::ffmpeg::{MediaInfo, VideoColor};
 use crate::video::gpu::{self, PlaneUploads};
-use crate::video::libav::video::{DeviceScale, FrameShape, Grid, VideoSpec};
+use crate::video::libav::video::{Demand, DeviceScale, FrameShape, Grid, VideoSpec};
 use crate::video::media::RawVideo;
 use crate::video::timelapse::Deflicker;
 
@@ -247,6 +247,10 @@ impl FrameReader {
 
     pub fn skip_frame(&mut self) -> bool {
         self.source.skip()
+    }
+
+    pub fn demand(&mut self, demand: Demand) {
+        self.source.demand(demand);
     }
 
     fn keyframe_before(&self) -> bool {

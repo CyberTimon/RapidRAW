@@ -24,6 +24,8 @@ pub struct Grid {
     pub first: i64,
 }
 
+pub type Demand = Box<dyn FnMut(f64) -> bool + Send>;
+
 pub struct DeviceScale<'a> {
     pub size: (u32, u32),
     pub format: &'a str,
@@ -202,6 +204,7 @@ pub struct VideoPipe {
     decoder_flushed: bool,
     timing_flushed: bool,
     conversion_flushed: bool,
+    demand: Option<Demand>,
 }
 
 unsafe impl Send for VideoPipe {}
@@ -533,7 +536,34 @@ impl VideoPipe {
             decoder_flushed: false,
             timing_flushed: false,
             conversion_flushed: false,
+            demand: None,
         })
+    }
+
+    pub fn demand(&mut self, demand: Demand) {
+        self.demand = Some(demand);
+    }
+
+    fn discard_unwanted(&mut self) {
+        if self.options.keyframes_only {
+            return;
+        }
+        let Some(demand) = self.demand.as_mut() else {
+            return;
+        };
+        let pts = unsafe { (*self.packet.0).pts };
+        let settled = self.seek.is_none() && !self.holding && self.last_input.is_some();
+        let wanted = !settled
+            || pts == NO_PTS
+            || pts <= self.start
+            || demand((pts - self.offset) as f64 * q2d(self.time_base));
+        unsafe {
+            (*self.decoder.0).skip_frame = if wanted {
+                AVDISCARD_DEFAULT
+            } else {
+                AVDISCARD_NONREF
+            };
+        }
     }
 
     pub fn keyframe_before(&self) -> bool {
@@ -765,6 +795,7 @@ impl VideoPipe {
             return Ok(());
         }
         let sent = if unsafe { (*self.packet.0).stream_index } == self.stream_index {
+            self.discard_unwanted();
             unsafe {
                 libav
                     .codec

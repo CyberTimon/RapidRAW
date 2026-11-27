@@ -2,6 +2,7 @@ struct Params {
     grid: Grid,
     values: array<vec4<f32>, 2>,
     modes: vec4<u32>,
+    steady: array<vec4<f32>, 2>,
 }
 
 @group(0) @binding(7) var<uniform> params: Params;
@@ -25,6 +26,12 @@ fn exposed(v: vec2<f32>) -> vec2<f32> {
     let len = length(scaled);
     if (len <= 0.0) { return scaled; }
     return scaled * min(pow(len / RESPONSE_REFERENCE, RESPONSE_POWER - 1.0), RESPONSE_MAX);
+}
+
+fn steadied(v: vec2<f32>, at: vec2<f32>) -> vec2<f32> {
+    if (params.modes.z == 0u) { return v; }
+    let point = vec3<f32>(at, 1.0);
+    return v + vec2<f32>(dot(params.steady[0].xyz, point), dot(params.steady[1].xyz, point));
 }
 const SELECT_SPREAD: f32 = 0.1;
 const SELECT_BIAS: f32 = 0.01;
@@ -338,6 +345,9 @@ fn fl_front(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
             }
         }
+        if (found) {
+            front = steadied(front, vec2<f32>(p));
+        }
     }
     textureStore(out_f16, id.xy, vec4<f32>(exposed(front), 0.0, 1.0));
 }
@@ -423,9 +433,13 @@ fn candidate_error(p: vec2<i32>, v: vec2<f32>) -> f32 {
     return error;
 }
 
-fn interpolated(center: vec2<f32>) -> vec4<f32> {
+fn field_at(center: vec2<f32>) -> vec2<f32> {
     let ratio = vec2<f32>(textureDimensions(t3)) / vec2<f32>(params.grid.dst);
-    return bilinear(t3, (center + 0.5) * ratio - 0.5);
+    return (center + 0.5) * ratio - 0.5;
+}
+
+fn interpolated(center: vec2<f32>) -> vec4<f32> {
+    return bilinear(t3, field_at(center));
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -484,7 +498,7 @@ fn fl_select(@builtin(global_invocation_id) id: vec3<u32>) {
             }
         }
     }
-    textureStore(out_f16, id.xy, vec4<f32>(exposed(chosen.xy), chosen.z, still));
+    textureStore(out_f16, id.xy, vec4<f32>(exposed(steadied(chosen.xy, at)), chosen.z, still));
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -502,7 +516,7 @@ fn fl_clean(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         if (still <= CLEAN_ALONE) {
             let blended = interpolated(vec2<f32>(id.xy));
-            kept = vec4<f32>(exposed(blended.xy), blended.z, 1.0);
+            kept = vec4<f32>(exposed(steadied(blended.xy, field_at(vec2<f32>(id.xy)))), blended.z, 1.0);
         }
     }
     textureStore(out_f16, id.xy, vec4<f32>(kept.xyz, 1.0));

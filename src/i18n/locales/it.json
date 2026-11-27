@@ -1276,7 +1276,6 @@
       "apiKey": "Chiave API",
       "apiKeyDesc": "Creane una in Immich in Impostazioni account → Chiavi API con questi permessi: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create e user.read.",
       "connected": "Connesso come {{user}} (Immich {{version}})",
-      "description": "Sfoglia e modifica le foto del tuo server Immich.",
       "keyInFile": "Salvata in un file leggibile solo da te, perché non è disponibile alcun archivio di credenziali.",
       "keyInStore": "Salvata nell'archivio delle credenziali di sistema.",
       "save": "Salva",
@@ -1286,7 +1285,7 @@
       "test": "Verifica connessione",
       "title": "Immich",
       "working": "Elaborazione…",
-      "tooltip": "Gli originali vengono scaricati quando li apri. Le modifiche vengono salvate in Immich, così sono uguali su ogni computer.",
+      "tooltip": "Sfoglia e modifica le foto del tuo server Immich. Gli originali vengono scaricati quando li apri. Le modifiche vengono salvate in Immich, così sono uguali su ogni computer.",
       "keyInFileTooltip": "Su KDE, attiva l'interfaccia Secret Service nelle impostazioni di KDE Wallet e salva di nuovo."
     },
     "sync": {
@@ -2015,6 +2014,7 @@
       "speed": "Velocità",
       "speedEdit": {
         "adjustments": "Regolazioni",
+        "adjustmentsDesc": "Le regolazioni che A e D scorrono.",
         "gestures": {
           "doubleClick": "Doppio clic per reimpostare",
           "drag": "Trascina sulla tela per regolare",
@@ -2129,6 +2129,7 @@
         "videoTimelapses": "Timelapse",
         "videoTimelapsesDesc": "Sequenze di foto sviluppate per i timelapse. Renderizzate di nuovo quando servono.",
         "video": "Cache video",
+        "videoDesc": "Tutto ciò che i progetti video mettono in cache. Il limite vale per tutto insieme.",
         "immichProjects": "Di questi, {{size}} sono conservati per i progetti video."
       },
       "storageTitle": "Archiviazione",
@@ -2137,8 +2138,10 @@
     },
     "general": {
       "createXmp": "Crea File XMP Mancanti",
+      "createXmpDesc": "Scrive un file XMP per le foto che non ne hanno uno, così le altre app vedono valutazioni, etichette colore e tag.",
       "createXmpMissing": "Crea XMP se mancante",
       "displayEditIcon": "Mostra Icona Modifica",
+      "displayEditIconDesc": "Contrassegna le foto modificate con un'icona nella libreria.",
       "enableFocusMode": "Abilita Modalità Focus",
       "enableNeutralGreyCanvas": "Abilita sfondo grigio neutro",
       "enableOsTitlebar": "Abilita Barra del Titolo di Sistema",
@@ -2149,6 +2152,7 @@
       "folderImageCounts": "Conteggi Immagini Cartelle",
       "folderImageCountsDesc": "Mostrati quando passi con il mouse su una cartella nell'albero delle cartelle.",
       "font": "Carattere",
+      "fontDesc": "Carattere dell'interfaccia.",
       "hideCollapsedPanels": "Nascondi Pannelli Ridotti",
       "hideCollapsedPanelsDesc": "I pannelli laterali ridotti scompaiono invece di lasciare una striscia stretta. Riaprili dalla barra inferiore o con le relative scorciatoie.",
       "nativeTitlebar": "Barra del Titolo Nativa",
@@ -2159,6 +2163,7 @@
       "showImageCounts": "Mostra Conteggi Immagini",
       "system": "Predefinito di Sistema",
       "theme": "Tema",
+      "themeDesc": "Colori dell'interfaccia.",
       "title": "Impostazioni Generali",
       "toolFocusMode": "Modalità Focus Strumenti",
       "toolFocusModeDesc": "Comprime gli altri strumenti di un pannello quando ne espandi uno.",
@@ -2185,7 +2190,7 @@
         "copy_adjustments": "Copia regolazioni selezionate",
         "copy_files": "Copia file selezionati",
         "copy_image_path": "Copia il percorso delle immagini selezionate",
-        "cycle_zoom": "Ruota zoom (Adatta, Adatta 2x, 100%)",
+        "cycle_zoom": "Ruota zoom",
         "delete_rejected": "Elimina file rifiutati",
         "delete_selected": "Elimina file selezionati",
         "focus_search": "Attiva il campo di ricerca",
@@ -2205,7 +2210,7 @@
         "rotate_left": "Ruota 90° in senso antiorario",
         "rotate_right": "Ruota 90° in senso orario",
         "select_all": "Seleziona tutte le immagini",
-        "show_original": "Mostra originale (prima/dopo)",
+        "show_original": "Mostra originale",
         "toggle_adjustments": "Attiva/Disattiva pannello Regolazioni",
         "toggle_ai": "Attiva/Disattiva pannello AI",
         "toggle_analytics": "Attiva/Disattiva visualizzazione Analitiche",
@@ -2301,6 +2306,10 @@
         "video_panel_captions": "Attiva/disattiva pannello Sottotitoli",
         "video_panel_mixer": "Attiva/disattiva pannello Mixer audio"
       },
+      "tips": {
+        "cycle_zoom": "Passa tra Adatta, Adatta 2x e 100%.",
+        "show_original": "Mostra la foto prima e dopo le modifiche."
+      },
       "sections": {
         "editing": "Modifica",
         "library": "Libreria",
@@ -2315,6 +2324,7 @@
       "videoHint": "Nei progetti video, questi tasti hanno la precedenza sulle scorciatoie foto qui sopra."
     },
     "language": "Lingua",
+    "languageDesc": "Lingua dell'interfaccia.",
     "lenses": {
       "addButton": "Aggiungi ai Miei Obiettivi",
       "addNew": "Aggiungi Nuovo Obiettivo",
@@ -2343,7 +2353,6 @@
           "title": "Senza IA"
         },
         "cloud": {
-          "description": "Esegue le modifiche generative sui server di RapidRAW, con un abbonamento.",
           "signedIn": {
             "active": "Abbonamento Cloud Attivo",
             "inactive": "Nessun Abbonamento Attivo",
@@ -2364,18 +2373,17 @@
             "unsupported": "L'accesso al cloud è attualmente disponibile solo su desktop."
           },
           "title": "Servizio Cloud",
-          "tooltip": "Stessi risultati del self-hosting senza configurazione né una GPU potente. Inoltre sostiene il progetto."
+          "tooltip": "Esegue le modifiche generative sui server di RapidRAW, con un abbonamento. Stessi risultati del self-hosting senza configurazione né una GPU potente. Inoltre sostiene il progetto."
         },
         "connector": {
           "address": "Indirizzo Connettore AI",
           "addressDesc": "Indirizzo e porta del tuo AI Connector in esecuzione.",
-          "description": "Usa il tuo server ComfyUI per le modifiche generative e i flussi di lavoro personalizzati.",
           "failed": "Connessione fallita.",
           "success": "Connessione riuscita!",
           "test": "Testa",
           "testing": "Test in corso...",
           "title": "Self-Hosted (Connettore AI RapidRAW)",
-          "tooltip": "Gratuito, ma richiede una GPU adeguata e ComfyUI in esecuzione."
+          "tooltip": "Usa il tuo server ComfyUI per le modifiche generative e i flussi di lavoro personalizzati. Gratuito, ma richiede una GPU adeguata e ComfyUI in esecuzione."
         },
         "cpu": {
           "description": "Esegue maschere, tagging e semplici sostituzioni generative su questo computer.",
@@ -2441,7 +2449,6 @@
         "noCamerasFound": "Nessun'altra fotocamera trovata nella cartella aperta.",
         "noPreset": "Nessuno (neutro)",
         "preset": "Preset predefinito",
-        "presetDesc": "Applicato alle foto non modificate e usato da «Ripristina regolazioni».",
         "presetMissing": "Il preset scelto è stato eliminato, quindi le foto non modificate usano valori neutri.",
         "removeCamera": "Rimuovi fotocamera",
         "sameAsAllCameras": "Come tutte le fotocamere",
@@ -2451,7 +2458,7 @@
         "sliderResetDesc": "Il valore a cui torna un cursore con un doppio clic o nella modifica rapida. I cursori delle maschere tornano sempre al valore neutro.",
         "sliderResetNeutral": "Valore neutro",
         "title": "Regolazioni predefinite",
-        "presetTooltip": "Maschere, ritagli e trasformazioni vengono ignorati, perché si adattano solo alla foto su cui sono stati creati."
+        "presetTooltip": "Applicato alle foto non modificate e usato da «Ripristina regolazioni». Maschere, ritagli e trasformazioni vengono ignorati, perché si adattano solo alla foto su cui sono stati creati."
       },
       "display": {
         "title": "Display"
@@ -2474,6 +2481,7 @@
       },
       "enableLivePreviews": "Abilita Anteprime dal Vivo",
       "ffmpeg": "FFmpeg",
+      "ffmpegDesc": "Decodifica e codifica video e audio. RapidRAW include una propria copia.",
       "ffmpegBundledDesc": "I video usano FFmpeg {{version}} integrato.",
       "ffmpegMissing": "Impossibile caricare le librerie FFmpeg, quindi i video restano nascosti.",
       "hdr": {
@@ -2517,7 +2525,9 @@
         "colorNr": "Riduzione Rumore Cromatico di Base",
         "colorNrDesc": "Rimuove il rumore cromatico nelle prime fasi dell'elaborazione RAW.",
         "defaultNonRawTonemapper": "Tonemapper Predefinito per Non-RAW",
+        "defaultNonRawTonemapperDesc": "Tonemapper usato per tutte le immagini non RAW.",
         "defaultRawTonemapper": "Tonemapper Predefinito per RAW",
+        "defaultRawTonemapperDesc": "Tonemapper usato per tutti i file RAW.",
         "enableAppleRaw9": "Usa Apple RAW 9 per i file RAW",
         "enableBaselineExposure": "Applica l'esposizione di base ai file RAW",
         "enableHighlightPreservation": "Compensa le modalità di protezione delle alte luci della fotocamera",
@@ -2551,6 +2561,7 @@
       "previewRes": "Risoluzione Anteprima",
       "previewResDesc": "Dimensione massima dell'anteprima. Valori inferiori sono più veloci.",
       "previewStrategy": "Strategia Rendering Anteprima",
+      "previewStrategyDesc": "Come viene dimensionata l'anteprima dell'editor: fissa per la velocità o adattata allo schermo per tutti i dettagli.",
       "qualities": {
         "high": "Alta Qualità",
         "performance": "Prestazioni"
@@ -2570,6 +2581,7 @@
       "restartRequired": "Riavvia RapidRAW per applicare queste modifiche.",
       "saveRelaunch": "Salva e Riavvia",
       "smallThumbnailRes": "Risoluzione delle miniature della griglia",
+      "smallThumbnailResDesc": "Dimensione delle miniature nella griglia della libreria. Più alta è più nitida, ma richiede più tempo.",
       "staticDesc": "Esegue il rendering a una dimensione fissa. Il più veloce, ideale per hardware meno potente.",
       "threads": "Thread",
       "title": "Motore di Elaborazione",
@@ -2596,6 +2608,7 @@
       "customList": "Lista Tag AI Personalizzata",
       "customListDesc": "Se impostata, il tagging IA usa solo questi tag invece della lista integrata. Solo in inglese.",
       "maxAiTags": "Tag AI Massimi",
+      "maxAiTagsDesc": "Il numero massimo di tag che il tagging AI aggiunge a una foto.",
       "noCustomTags": "Nessun tag IA personalizzato, si usa la lista integrata",
       "noShortcuts": "Nessuna scorciatoia aggiunta",
       "removeCustomTooltip": "Rimuovi tag \"{{tag}}\"",

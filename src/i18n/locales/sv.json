@@ -1226,7 +1226,6 @@
       "apiKey": "API-nyckel",
       "apiKeyDesc": "Skapa en i Immich under Kontoinställningar → API-nycklar med följande behörigheter: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create och user.read.",
       "connected": "Ansluten som {{user}} (Immich {{version}})",
-      "description": "Bläddra bland och redigera fotona på din Immich-server.",
       "keyInFile": "Sparad i en fil som bara du kan läsa, eftersom ingen hanterare för inloggningsuppgifter är tillgänglig.",
       "keyInStore": "Sparad i systemets hanterare för inloggningsuppgifter.",
       "save": "Spara",
@@ -1236,7 +1235,7 @@
       "test": "Testa anslutning",
       "title": "Immich",
       "working": "Arbetar…",
-      "tooltip": "Originalen hämtas när du öppnar dem. Redigeringar sparas i Immich, så de är likadana på alla datorer.",
+      "tooltip": "Bläddra bland och redigera fotona på din Immich-server. Originalen hämtas när du öppnar dem. Redigeringar sparas i Immich, så de är likadana på alla datorer.",
       "keyInFileTooltip": "I KDE kan du aktivera Secret Service-gränssnittet i inställningarna för KDE:s plånbok och spara igen."
     },
     "sync": {
@@ -1947,6 +1946,7 @@
       "speed": "Hastighet",
       "speedEdit": {
         "adjustments": "Justeringar",
+        "adjustmentsDesc": "Justeringarna som A och D bläddrar mellan.",
         "gestures": {
           "doubleClick": "Dubbelklicka för att återställa",
           "drag": "Dra på bildytan för att justera",
@@ -2058,6 +2058,7 @@
         "videoTimelapses": "Timelapser",
         "videoTimelapsesDesc": "Fotoserier framkallade för timelapser. Renderas igen vid behov.",
         "video": "Videocache",
+        "videoDesc": "Allt som videoprojekt cachar. Gränsen gäller för allt tillsammans.",
         "immichProjects": "Av detta behålls {{size}} för videoprojekt."
       },
       "storageTitle": "Lagring",
@@ -2066,8 +2067,10 @@
     },
     "general": {
       "createXmp": "Skapa saknade XMP-filer",
+      "createXmpDesc": "Skriver en XMP-fil för foton som saknar en, så att andra appar ser dina betyg, färgetiketter och taggar.",
       "createXmpMissing": "Skapa XMP om det saknas",
       "displayEditIcon": "Visa redigeringsikon",
+      "displayEditIconDesc": "Markerar redigerade foton med en ikon i biblioteket.",
       "enableFocusMode": "Aktivera fokusläge",
       "enableNeutralGreyCanvas": "Aktivera neutralgrå bakgrund",
       "enableOsTitlebar": "Aktivera operativsystemets namnlist",
@@ -2078,6 +2081,7 @@
       "folderImageCounts": "Antal bilder i mappar",
       "folderImageCountsDesc": "Visas när du håller pekaren över en mapp i mappträdet.",
       "font": "Typsnitt",
+      "fontDesc": "Gränssnittets typsnitt.",
       "hideCollapsedPanels": "Dölj hopfällda paneler",
       "hideCollapsedPanelsDesc": "Hopfällda sidopaneler försvinner i stället för att lämna en smal remsa. Öppna dem igen från det nedre fältet eller med deras kortkommandon.",
       "nativeTitlebar": "Systemets namnlist",
@@ -2088,6 +2092,7 @@
       "showImageCounts": "Visa antal bilder",
       "system": "Systemets standard",
       "theme": "Tema",
+      "themeDesc": "Gränssnittets färger.",
       "title": "Allmänna inställningar",
       "toolFocusMode": "Verktygsfokus",
       "toolFocusModeDesc": "Fäller ihop övriga verktyg i en panel när du fäller ut ett.",
@@ -2114,7 +2119,7 @@
         "copy_adjustments": "Kopiera valda justeringar",
         "copy_files": "Kopiera markerade filer",
         "copy_image_path": "Kopiera sökvägarna till markerade bilder",
-        "cycle_zoom": "Växla zoom (anpassad, 2× anpassad, 100 %)",
+        "cycle_zoom": "Växla zoom",
         "delete_rejected": "Radera bortvalda filer",
         "delete_selected": "Radera markerade filer",
         "focus_search": "Fokusera sökfältet",
@@ -2134,7 +2139,7 @@
         "rotate_left": "Rotera 90° moturs",
         "rotate_right": "Rotera 90° medurs",
         "select_all": "Markera alla bilder",
-        "show_original": "Visa original (före/efter)",
+        "show_original": "Visa original",
         "toggle_adjustments": "Visa/dölj justeringspanelen",
         "toggle_ai": "Visa/dölj AI-panelen",
         "toggle_analytics": "Visa/dölj analysvyn",
@@ -2230,6 +2235,10 @@
         "video_panel_captions": "Visa/dölj undertextpanelen",
         "video_panel_mixer": "Visa/dölj ljudmixerpanelen"
       },
+      "tips": {
+        "cycle_zoom": "Växlar mellan anpassad, 2× anpassad och 100 %.",
+        "show_original": "Visar fotot före och efter dina redigeringar."
+      },
       "sections": {
         "editing": "Redigering",
         "library": "Bibliotek",
@@ -2244,6 +2253,7 @@
       "videoHint": "I videoprojekt har dessa tangenter företräde framför fotogenvägarna ovan."
     },
     "language": "Språk",
+    "languageDesc": "Gränssnittets språk.",
     "lenses": {
       "addButton": "Lägg till i Mina objektiv",
       "addNew": "Lägg till nytt objektiv",
@@ -2272,7 +2282,6 @@
           "title": "Utan AI"
         },
         "cloud": {
-          "description": "Kör generativa redigeringar på RapidRAW:s servrar, med en prenumeration.",
           "signedIn": {
             "active": "Molnprenumerationen är aktiv",
             "inactive": "Ingen aktiv prenumeration",
@@ -2293,18 +2302,17 @@
             "unsupported": "Molninloggning är för närvarande endast tillgänglig på datorer."
           },
           "title": "Molntjänst",
-          "tooltip": "Samma resultat som egen drift, utan installation eller kraftfullt grafikkort. Det stöder också projektet."
+          "tooltip": "Kör generativa redigeringar på RapidRAW:s servrar, med en prenumeration. Samma resultat som egen drift, utan installation eller kraftfullt grafikkort. Det stöder också projektet."
         },
         "connector": {
           "address": "Adress till AI Connector",
           "addressDesc": "Adress och port för din körande AI Connector.",
-          "description": "Använder din egen ComfyUI-server för generativa redigeringar och egna arbetsflöden.",
           "failed": "Anslutningen misslyckades.",
           "success": "Anslutningen lyckades!",
           "test": "Testa",
           "testing": "Testar...",
           "title": "Egen drift (RapidRAW AI Connector)",
-          "tooltip": "Gratis, men kräver ett kraftfullt grafikkort och en körande ComfyUI."
+          "tooltip": "Använder din egen ComfyUI-server för generativa redigeringar och egna arbetsflöden. Gratis, men kräver ett kraftfullt grafikkort och en körande ComfyUI."
         },
         "cpu": {
           "description": "Kör masker, taggning och enkel generativ ersättning på den här datorn.",
@@ -2370,7 +2378,6 @@
         "noCamerasFound": "Inga andra kameror hittades i den öppna mappen.",
         "noPreset": "Ingen (neutral)",
         "preset": "Standardförinställning",
-        "presetDesc": "Tillämpas på oredigerade foton och används av Återställ justeringar.",
         "presetMissing": "Den valda förinställningen har raderats, så oredigerade foton använder neutrala värden.",
         "removeCamera": "Ta bort kamera",
         "sameAsAllCameras": "Samma som för alla kameror",
@@ -2380,7 +2387,7 @@
         "sliderResetDesc": "Vad ett reglage återgår till vid dubbelklick eller i snabbredigering. Maskreglage återställs alltid till neutralt.",
         "sliderResetNeutral": "Neutralt värde",
         "title": "Standardjusteringar",
-        "presetTooltip": "Masker, beskärningar och transformeringar hoppas över eftersom de bara passar fotot de skapades för."
+        "presetTooltip": "Tillämpas på oredigerade foton och används av Återställ justeringar. Masker, beskärningar och transformeringar hoppas över eftersom de bara passar fotot de skapades för."
       },
       "display": {
         "title": "Bildskärm"
@@ -2403,6 +2410,7 @@
       },
       "enableLivePreviews": "Aktivera förhandsvisning i realtid",
       "ffmpeg": "FFmpeg",
+      "ffmpegDesc": "Avkodar och kodar video och ljud. RapidRAW har en egen kopia med sig.",
       "ffmpegBundledDesc": "Videor använder det inbyggda FFmpeg {{version}}.",
       "ffmpegMissing": "FFmpeg-biblioteken kunde inte läsas in, så videor förblir dolda.",
       "hdr": {
@@ -2446,7 +2454,9 @@
         "colorNr": "Grundläggande färgbrusreducering",
         "colorNrDesc": "Tar bort färgbrus tidigt i RAW-bearbetningen.",
         "defaultNonRawTonemapper": "Standardtonmappning för andra format än RAW",
+        "defaultNonRawTonemapperDesc": "Tonmappning för alla bilder som inte är RAW.",
         "defaultRawTonemapper": "Standardtonmappning för RAW",
+        "defaultRawTonemapperDesc": "Tonmappning för alla RAW-filer.",
         "enableAppleRaw9": "Använd Apple RAW 9 för RAW-filer",
         "enableBaselineExposure": "Tillämpa grundexponering på RAW-filer",
         "enableHighlightPreservation": "Kompensera för kameralägen som bevarar högdagrar",
@@ -2480,6 +2490,7 @@
       "previewRes": "Förhandsvisningsupplösning",
       "previewResDesc": "Största storlek för förhandsvisningen. Lägre värden är snabbare.",
       "previewStrategy": "Renderingsmetod för förhandsvisning",
+      "previewStrategyDesc": "Hur stor förhandsvisningen i redigeraren är: fast för snabbhet eller anpassad till skärmen för alla detaljer.",
       "qualities": {
         "high": "Hög kvalitet",
         "performance": "Prestanda"
@@ -2499,6 +2510,7 @@
       "restartRequired": "Starta om RapidRAW för att tillämpa ändringarna.",
       "saveRelaunch": "Spara och starta om",
       "smallThumbnailRes": "Miniatyrupplösning i rutnätet",
+      "smallThumbnailResDesc": "Storleken på miniatyrerna i bibliotekets rutnät. Högre är skarpare men tar längre tid att skapa.",
       "staticDesc": "Renderar i en fast storlek. Snabbast och bäst för långsammare maskinvara.",
       "threads": "Trådar",
       "title": "Bearbetningsmotor",
@@ -2525,6 +2537,7 @@
       "customList": "Egen AI-tagglista",
       "customListDesc": "Om listan anges använder AI-taggningen endast dessa taggar i stället för den inbyggda listan. Endast engelska.",
       "maxAiTags": "Maximalt antal AI-taggar",
+      "maxAiTagsDesc": "Det högsta antalet taggar som AI-taggning lägger till på ett foto.",
       "noCustomTags": "Inga egna AI-taggar, den inbyggda listan används",
       "noShortcuts": "Inga genvägar har lagts till",
       "removeCustomTooltip": "Ta bort taggen ”{{tag}}”",

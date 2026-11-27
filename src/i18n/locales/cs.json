@@ -1326,7 +1326,6 @@
       "apiKey": "API klíč",
       "apiKeyDesc": "Vytvořte jej v Immichi v Nastavení účtu → API klíče s těmito oprávněními: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create a user.read.",
       "connected": "Připojeno jako {{user}} (Immich {{version}})",
-      "description": "Procházejte a upravujte fotky na svém serveru Immich.",
       "keyInFile": "Uloženo v souboru, který můžete číst jen vy, protože není k dispozici úložiště přihlašovacích údajů.",
       "keyInStore": "Uloženo v systémovém úložišti přihlašovacích údajů.",
       "save": "Uložit",
@@ -1336,7 +1335,7 @@
       "test": "Otestovat připojení",
       "title": "Immich",
       "working": "Pracuji…",
-      "tooltip": "Originály se stahují při otevření. Úpravy se ukládají do Immiche, takže jsou stejné na každém počítači.",
+      "tooltip": "Procházejte a upravujte fotky na svém serveru Immich. Originály se stahují při otevření. Úpravy se ukládají do Immiche, takže jsou stejné na každém počítači.",
       "keyInFileTooltip": "V KDE zapněte rozhraní Secret Service v nastavení KDE Wallet a uložte znovu."
     },
     "sync": {
@@ -2083,6 +2082,7 @@
       "speed": "Rychlost",
       "speedEdit": {
         "adjustments": "Úpravy",
+        "adjustmentsDesc": "Úpravy, mezi kterými přepínají klávesy A a D.",
         "gestures": {
           "doubleClick": "Dvojklikem obnovíte",
           "drag": "Tažením po plátně upravíte",
@@ -2200,6 +2200,7 @@
         "videoTimelapses": "Časosběry",
         "videoTimelapsesDesc": "Sekvence fotografií vyvolané pro časosběry. Podle potřeby se vykreslí znovu.",
         "video": "Mezipaměť videa",
+        "videoDesc": "Vše, co si video projekty ukládají do mezipaměti. Limit platí pro všechno dohromady.",
         "immichProjects": "Z toho se {{size}} uchovává pro video projekty."
       },
       "storageTitle": "Úložiště",
@@ -2208,8 +2209,10 @@
     },
     "general": {
       "createXmp": "Vytvořit chybějící soubory XMP",
+      "createXmpDesc": "Zapíše soubor XMP k fotkám, které ho nemají, aby ostatní aplikace viděly hodnocení, barevné štítky a značky.",
       "createXmpMissing": "Pokud chybí, vytvořit XMP",
       "displayEditIcon": "Zobrazit ikonu úprav",
+      "displayEditIconDesc": "Označí upravené fotky v knihovně ikonou.",
       "enableFocusMode": "Povolit focus mode",
       "enableNeutralGreyCanvas": "Povolit neutrální šedé pozadí",
       "enableOsTitlebar": "Povolit záhlaví OS",
@@ -2220,6 +2223,7 @@
       "folderImageCounts": "Počet snímků ve složce",
       "folderImageCountsDesc": "Zobrazí se po najetí myší na složku ve stromu složek.",
       "font": "Písmo",
+      "fontDesc": "Písmo rozhraní.",
       "hideCollapsedPanels": "Skrýt sbalené panely",
       "hideCollapsedPanelsDesc": "Sbalené boční panely zmizí, místo aby po nich zůstal úzký pruh. Znovu je otevřete ze spodní lišty nebo jejich zkratkami.",
       "nativeTitlebar": "Nativní záhlaví",
@@ -2230,6 +2234,7 @@
       "showImageCounts": "Zobrazit počet snímků",
       "system": "Výchozí nastavení systému",
       "theme": "Motiv",
+      "themeDesc": "Barvy rozhraní.",
       "title": "Obecná nastavení",
       "toolFocusMode": "Režim zaměření na nástroj",
       "toolFocusModeDesc": "Při rozbalení jednoho nástroje v panelu sbalí ostatní.",
@@ -2256,7 +2261,7 @@
         "copy_adjustments": "Zkopírovat vybrané úpravy",
         "copy_files": "Kopírovat vybrané soubory",
         "copy_image_path": "Kopírovat cestu vybraných snímků",
-        "cycle_zoom": "Cyklický zoom (přizpůsobit, 2x přizpůsobit, 100 %)",
+        "cycle_zoom": "Cyklický zoom",
         "delete_rejected": "Smazat odmítnuté soubory",
         "delete_selected": "Smazat vybrané soubory",
         "focus_search": "Přejít do vyhledávacího pole",
@@ -2276,7 +2281,7 @@
         "rotate_left": "Otočit o 90° proti směru hodinových ručiček",
         "rotate_right": "Otočit o 90° ve směru hodinových ručiček",
         "select_all": "Vybrat všechny snímky",
-        "show_original": "Zobrazit originál (před/po)",
+        "show_original": "Zobrazit originál",
         "toggle_adjustments": "Přepnout panel úprav",
         "toggle_ai": "Přepnout panel AI",
         "toggle_analytics": "Přepnout zobrazení analýzy",
@@ -2372,6 +2377,10 @@
         "video_panel_captions": "Přepnout panel titulků",
         "video_panel_mixer": "Přepnout panel zvukového mixéru"
       },
+      "tips": {
+        "cycle_zoom": "Přepíná mezi Přizpůsobit, 2x přizpůsobit a 100 %.",
+        "show_original": "Ukáže fotku před úpravami a po nich."
+      },
       "sections": {
         "editing": "Editace",
         "library": "Knihovna",
@@ -2386,6 +2395,7 @@
       "videoHint": "Ve video projektech mají tyto klávesy přednost před zkratkami pro fotografie výše."
     },
     "language": "Jazyk",
+    "languageDesc": "Jazyk rozhraní.",
     "lenses": {
       "addButton": "Přidat do mých objektivů",
       "addNew": "Přidat nový objektiv",
@@ -2414,7 +2424,6 @@
           "title": "Bez AI"
         },
         "cloud": {
-          "description": "S předplatným spouští generativní úpravy na serverech RapidRAW.",
           "signedIn": {
             "active": "Cloudové předplatné je aktivní",
             "inactive": "Žádné aktivní předplatné",
@@ -2435,18 +2444,17 @@
             "unsupported": "Přihlášení do cloudu je momentálně k dispozici pouze na počítači."
           },
           "title": "Cloudová služba",
-          "tooltip": "Stejné výsledky jako vlastní hosting bez nastavování a výkonného GPU. Zároveň tím podpoříte projekt."
+          "tooltip": "S předplatným spouští generativní úpravy na serverech RapidRAW. Stejné výsledky jako vlastní hosting bez nastavování a výkonného GPU. Zároveň tím podpoříte projekt."
         },
         "connector": {
           "address": "Adresa konektoru AI",
           "addressDesc": "Adresa a port vašeho spuštěného AI Connectoru.",
-          "description": "Používá váš vlastní server ComfyUI pro generativní úpravy a vlastní pracovní postupy.",
           "failed": "Připojení se nezdařilo.",
           "success": "Připojení úspěšné!",
           "test": "Test",
           "testing": "Testování...",
           "title": "Vlastní (konektor RapidRAW AI)",
-          "tooltip": "Zdarma, ale vyžaduje výkonné GPU a spuštěné ComfyUI."
+          "tooltip": "Používá váš vlastní server ComfyUI pro generativní úpravy a vlastní pracovní postupy. Zdarma, ale vyžaduje výkonné GPU a spuštěné ComfyUI."
         },
         "cpu": {
           "description": "Spouští masky, značkování a jednoduchou generativní náhradu na tomto počítači.",
@@ -2512,7 +2520,6 @@
         "noCamerasFound": "V otevřené složce nebyly nalezeny žádné další fotoaparáty.",
         "noPreset": "Žádná (neutrální)",
         "preset": "Výchozí předvolba",
-        "presetDesc": "Použije se na neupravené fotografie a při obnovení úprav.",
         "presetMissing": "Vybraná předvolba byla smazána, proto neupravené fotografie používají neutrální hodnoty.",
         "removeCamera": "Odebrat fotoaparát",
         "sameAsAllCameras": "Stejně jako všechny fotoaparáty",
@@ -2522,7 +2529,7 @@
         "sliderResetDesc": "Hodnota, na kterou se posuvník vrátí po dvojkliku nebo v rychlé úpravě. Posuvníky masek se vždy vrací na neutrální hodnotu.",
         "sliderResetNeutral": "Neutrální hodnota",
         "title": "Výchozí úpravy",
-        "presetTooltip": "Masky, ořezy a transformace se vynechají, protože sedí jen na fotografii, na které vznikly."
+        "presetTooltip": "Použije se na neupravené fotografie a při obnovení úprav. Masky, ořezy a transformace se vynechají, protože sedí jen na fotografii, na které vznikly."
       },
       "display": {
         "title": "Displej"
@@ -2545,6 +2552,7 @@
       },
       "enableLivePreviews": "Povolit živé náhledy",
       "ffmpeg": "FFmpeg",
+      "ffmpegDesc": "Dekóduje a kóduje video a zvuk. RapidRAW obsahuje vlastní kopii.",
       "ffmpegBundledDesc": "Videa používají vestavěné FFmpeg {{version}}.",
       "ffmpegMissing": "Knihovny FFmpeg se nepodařilo načíst, proto zůstanou videa skrytá.",
       "hdr": {
@@ -2588,7 +2596,9 @@
         "colorNr": "Redukce šumu základní barvy",
         "colorNrDesc": "Odstraní barevný šum na začátku zpracování RAW.",
         "defaultNonRawTonemapper": "Výchozí Non-RAW Tonemapper",
+        "defaultNonRawTonemapperDesc": "Tonemapper pro všechny obrázky, které nejsou RAW.",
         "defaultRawTonemapper": "Výchozí RAW Tonemapper",
+        "defaultRawTonemapperDesc": "Tonemapper pro všechny soubory RAW.",
         "enableAppleRaw9": "Použít Apple RAW 9 pro soubory RAW",
         "enableBaselineExposure": "Použít základní expozici u souborů RAW",
         "enableHighlightPreservation": "Kompenzovat režimy ochrany světel fotoaparátu",
@@ -2622,6 +2632,7 @@
       "previewRes": "Rozlišení náhledu",
       "previewResDesc": "Maximální velikost náhledu. Nižší hodnoty jsou rychlejší.",
       "previewStrategy": "Náhled strategie vykreslování",
+      "previewStrategyDesc": "Jak velký je náhled v editoru: pevný kvůli rychlosti, nebo přizpůsobený displeji kvůli plným detailům.",
       "qualities": {
         "high": "Vysoká kvalita",
         "performance": "Výkon"
@@ -2641,6 +2652,7 @@
       "restartRequired": "Pro použití změn restartujte RapidRAW.",
       "saveRelaunch": "Uložit a znovu spustit",
       "smallThumbnailRes": "Rozlišení miniatur mřížky",
+      "smallThumbnailResDesc": "Velikost miniatur v mřížce knihovny. Vyšší je ostřejší, ale generuje se déle.",
       "staticDesc": "Vykresluje v pevné velikosti. Nejrychlejší a nejlepší pro slabší hardware.",
       "threads": "Vlákna",
       "title": "Engine zpracování",
@@ -2667,6 +2679,7 @@
       "customList": "Vlastní seznam značek AI",
       "customListDesc": "Je-li nastaven, AI značkování použije jen tyto značky místo vestavěného seznamu. Pouze anglicky.",
       "maxAiTags": "Maximální počet značek AI",
+      "maxAiTagsDesc": "Nejvyšší počet značek, které AI přidá k jedné fotce.",
       "noCustomTags": "Žádné vlastní značky AI, používá se vestavěný seznam",
       "noShortcuts": "Nebyly přidány žádné zkratky",
       "removeCustomTooltip": "Odebrat značku \"{{tag}}\"",

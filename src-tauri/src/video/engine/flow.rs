@@ -21,6 +21,7 @@ pub struct Params {
     pub grid: Grid,
     pub values: [[f32; 4]; 2],
     pub modes: [u32; 4],
+    pub steady: [[f32; 4]; 2],
 }
 
 impl Params {
@@ -160,6 +161,7 @@ fn pair_flow(enc: &mut ComputeEncoder, from: &Pyramid, to: &Pyramid) -> Slot {
                 },
                 values: [[RIDGE, iterations, 0.0, 0.0], [0.0; 4]],
                 modes: [(level != coarsest) as u32, 0, 0, 0],
+                ..Default::default()
             },
             &inputs,
             Out::F32(&found.view),

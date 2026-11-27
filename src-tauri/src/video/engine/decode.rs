@@ -12,6 +12,7 @@ use crate::video::camera_log::CameraLog;
 use crate::video::ffmpeg::MediaInfo;
 use crate::video::frames::{FrameRange, FrameReader, PendingFrame};
 use crate::video::gpu::PlaneUploads;
+use crate::video::libav::video::Demand;
 use crate::video::timelapse::Deflicker;
 
 use super::flow::Frame;
@@ -20,13 +21,67 @@ const PREFETCH_FRAMES: usize = 3;
 const MAX_SKIP_FRAMES: u64 = 90;
 const STREAMS_PER_KEY: usize = 2;
 const MAX_REACH: u64 = 4;
-const SOURCE_REACH: u64 = 2;
+pub const SOURCE_REACH: u64 = 2;
 const ON_FRAME: f64 = 1.0e-4;
 const SAME_FRAME: f64 = 0.01;
 const CANCEL_POLL: Duration = Duration::from_millis(5);
 
 pub const PREEMPTED: &str = "Frame wait preempted";
 
+#[derive(PartialEq, Debug)]
+pub struct FramePlan {
+    runs: Vec<(u64, u64)>,
+}
+
+impl FramePlan {
+    pub fn new(frames: impl IntoIterator<Item = u64>, margin: u64) -> Self {
+        let mut frames: Vec<u64> = frames.into_iter().collect();
+        frames.sort_unstable();
+        frames.dedup();
+        let mut runs: Vec<(u64, u64)> = Vec::new();
+        for frame in frames {
+            let (start, end) = (frame.saturating_sub(margin), frame.saturating_add(margin));
+            match runs.last_mut() {
+                Some(last) if start <= last.1.saturating_add(1) => last.1 = last.1.max(end),
+                _ => runs.push((start, end)),
+            }
+        }
+        Self { runs }
+    }
+
+    pub fn keeps(&self, index: u64) -> bool {
+        self.runs
+            .get(self.runs.partition_point(|run| run.1 < index))
+            .is_some_and(|run| run.0 <= index)
+    }
+
+    fn ends_before(&self, index: u64) -> bool {
+        self.runs.last().is_none_or(|run| run.1 < index)
+    }
+
+    fn first_from(&self, index: u64) -> Option<u64> {
+        self.runs
+            .get(self.runs.partition_point(|run| run.1 < index))
+            .map(|run| run.0.max(index))
+    }
+
+    fn last_through(&self, index: u64) -> Option<u64> {
+        let after = self.runs.partition_point(|run| run.0 <= index);
+        after
+            .checked_sub(1)
+            .map(|position| self.runs[position].1.min(index))
+    }
+
+    fn same(theirs: Option<&Arc<Self>>, ours: Option<&Arc<Self>>) -> bool {
+        match (theirs, ours) {
+            (None, None) => true,
+            (Some(theirs), Some(ours)) => Arc::ptr_eq(theirs, ours) || theirs == ours,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct StreamRequest<'a> {
     pub path: &'a Path,
     pub info: &'a MediaInfo,
@@ -37,6 +92,7 @@ pub struct StreamRequest<'a> {
     pub hwaccel: bool,
     pub preview: bool,
     pub reach: u64,
+    pub plan: Option<Arc<FramePlan>>,
 }
 
 impl<'a> StreamRequest<'a> {
@@ -48,6 +104,14 @@ impl<'a> StreamRequest<'a> {
         }
     }
 
+    pub fn source_index(info: &MediaInfo, time: f64) -> u64 {
+        (time.max(0.0) * info.fps + ON_FRAME).floor() as u64
+    }
+
+    pub fn bracket_frames(index: u64) -> impl Iterator<Item = u64> {
+        index..=index + SOURCE_REACH
+    }
+
     pub fn source_frames(
         path: &'a Path,
         info: &'a MediaInfo,
@@ -56,7 +120,7 @@ impl<'a> StreamRequest<'a> {
         hwaccel: bool,
         preview: bool,
     ) -> (Self, u64) {
-        let index = (time.max(0.0) * info.fps + ON_FRAME).floor() as u64;
+        let index = Self::source_index(info, time);
         let request = Self {
             path,
             info,
@@ -67,8 +131,13 @@ impl<'a> StreamRequest<'a> {
             hwaccel,
             preview,
             reach: SOURCE_REACH,
+            plan: None,
         };
         (request, index)
+    }
+
+    pub fn planned(self, plan: Option<Arc<FramePlan>>) -> Self {
+        Self { plan, ..self }
     }
 
     fn step(&self) -> f64 {
@@ -105,6 +174,11 @@ pub struct Bracket {
     pub after: Option<Neighbour>,
 }
 
+pub struct Picture {
+    pub slot: Slot,
+    pub source: Option<f64>,
+}
+
 struct Decoded {
     index: u64,
     slot: Slot,
@@ -135,8 +209,8 @@ impl Delivered {
 }
 
 enum Produced {
-    Frame(Delivered),
-    Skipped,
+    Frame(u64, Delivered),
+    Skipped(u64),
     Failed(String),
     End,
 }
@@ -159,6 +233,28 @@ pub struct FrameStream {
     frames: Receiver<Produced>,
     uploads: PlaneUploads,
     history: VecDeque<Decoded>,
+    plan: Option<Arc<FramePlan>>,
+}
+
+fn demand(
+    anchor: f64,
+    step: f64,
+    frame: f64,
+    wanted: Arc<AtomicU64>,
+    plan: Option<Arc<FramePlan>>,
+) -> Option<Demand> {
+    if !frame.is_finite() || frame <= 0.0 || step < 0.5 * frame {
+        return None;
+    }
+    Some(Box::new(move |time| {
+        let slot = |edge: f64| ((edge - anchor) / step - 0.5).floor();
+        let (low, high) = (slot(time - frame) + 1.0, slot(time + 2.0 * frame));
+        if high < 0.0 {
+            return false;
+        }
+        let from = (low.max(0.0) as u64).max(wanted.load(Ordering::Relaxed));
+        (from..=high as u64).any(|index| plan.as_ref().is_none_or(|plan| plan.keeps(index)))
+    }))
 }
 
 fn origin(request: &StreamRequest, frame: u64) -> f64 {
@@ -191,6 +287,19 @@ impl FrameStream {
         let source_tick = Arc::clone(&tick);
         let (sender, frames) = sync_channel(PREFETCH_FRAMES);
         let deferred = shared_gpu_context().is_ok_and(|context| context.shares_one_gl_context());
+        let plan = request.plan.clone();
+        let keeps = plan.clone();
+        let demand = (!info.variable_frame_rate)
+            .then(|| {
+                demand(
+                    anchor,
+                    step,
+                    1.0 / info.fps,
+                    Arc::clone(&wanted),
+                    plan.clone(),
+                )
+            })
+            .flatten();
         std::thread::spawn(move || {
             let mut reader = match FrameReader::open_at(&path, &info, &range, anchor) {
                 Ok(reader) => reader,
@@ -199,21 +308,28 @@ impl FrameStream {
                     return;
                 }
             };
+            if let Some(demand) = demand {
+                reader.demand(demand);
+            }
             source_tick.store(reader.source_tick().to_bits(), Ordering::Relaxed);
             for index in first.. {
-                let produced = if index < skip_before.load(Ordering::Relaxed) {
-                    if reader.skip_frame() {
-                        Produced::Skipped
-                    } else {
-                        Produced::End
+                if keeps.as_ref().is_some_and(|plan| plan.ends_before(index)) {
+                    break;
+                }
+                let unplanned = keeps.as_ref().is_some_and(|plan| !plan.keeps(index));
+                let produced = if unplanned || index < skip_before.load(Ordering::Relaxed) {
+                    match (reader.skip_frame(), unplanned) {
+                        (false, _) => Produced::End,
+                        (true, true) => continue,
+                        (true, false) => Produced::Skipped(index),
                     }
                 } else if deferred {
                     reader.next_pending().map_or(Produced::End, |pending| {
-                        Produced::Frame(Delivered::Pending(pending))
+                        Produced::Frame(index, Delivered::Pending(pending))
                     })
                 } else {
                     reader.next_slot().map_or(Produced::End, |slot| {
-                        Produced::Frame(Delivered::Converted(slot, reader.source_time()))
+                        Produced::Frame(index, Delivered::Converted(slot, reader.source_time()))
                     })
                 };
                 let done = matches!(produced, Produced::End);
@@ -244,7 +360,24 @@ impl FrameStream {
             frames,
             uploads: PlaneUploads::default(),
             history: VecDeque::new(),
+            plan,
         }
+    }
+
+    fn serves(&self, index: u64, reach: u64) -> bool {
+        let Some(plan) = &self.plan else {
+            return index >= self.earliest(reach);
+        };
+        let front = self
+            .history
+            .front()
+            .map_or(self.next_frame, |decoded| decoded.index);
+        plan.keeps(index)
+            && index >= front
+            && (front <= self.floor
+                || plan
+                    .first_from(index.saturating_sub(reach))
+                    .is_none_or(|first| first >= front))
     }
 
     fn earliest(&self, reach: u64) -> u64 {
@@ -269,7 +402,8 @@ impl FrameStream {
             && self.fps_bits == request.fps.to_bits()
             && self.log == request.info.color.log
             && self.deflicker == request.info.deflicker
-            && self.preview == request.preview;
+            && self.preview == request.preview
+            && FramePlan::same(self.plan.as_ref(), request.plan.as_ref());
         if !same {
             return None;
         }
@@ -282,7 +416,7 @@ impl FrameStream {
                 .checked_add_signed(self.offset)
                 .filter(|index| (exact - *index as f64).abs() < 0.5)?
         };
-        (index >= self.earliest(request.reach)
+        (self.serves(index, request.reach)
             && index < self.next_frame.saturating_add(MAX_SKIP_FRAMES))
         .then_some(index)
     }
@@ -308,30 +442,34 @@ impl FrameStream {
         frame: u64,
         reach: u64,
         cancel: Option<&AtomicBool>,
-    ) -> Result<Option<Slot>, String> {
+    ) -> Result<Option<Picture>, String> {
         let kept = 2 * reach as usize + 1;
         self.wanted
             .fetch_max(frame - reach.min(frame), Ordering::Relaxed);
-        while self.next_frame <= frame + reach {
+        let last = match &self.plan {
+            Some(plan) => plan.last_through(frame + reach),
+            None => Some(frame + reach),
+        };
+        while last.is_some_and(|last| self.next_frame <= last) {
             match self.receive(cancel)? {
-                Some(Produced::Frame(delivered)) => {
+                Some(Produced::Frame(index, delivered)) => {
                     let Some((slot, source)) = delivered.slot(&mut self.uploads) else {
                         self.next_frame = u64::MAX;
                         break;
                     };
                     self.history.push_back(Decoded {
-                        index: self.next_frame,
+                        index,
                         slot,
                         source,
                     });
                     if self.history.len() > kept {
                         self.history.pop_front();
                     }
-                    self.next_frame += 1;
+                    self.next_frame = index + 1;
                 }
-                Some(Produced::Skipped) => {
+                Some(Produced::Skipped(index)) => {
                     self.history.clear();
-                    self.next_frame += 1;
+                    self.next_frame = index + 1;
                 }
                 Some(Produced::Failed(error)) => return Err(error),
                 Some(Produced::End) | None => {
@@ -345,7 +483,10 @@ impl FrameStream {
             .iter()
             .rev()
             .find(|decoded| decoded.index <= frame)
-            .map(|decoded| decoded.slot.clone()))
+            .map(|decoded| Picture {
+                slot: decoded.slot.clone(),
+                source: decoded.source,
+            }))
     }
 
     fn neighbours(&self, frame: u64, step: f64) -> Option<Neighbours> {
@@ -431,7 +572,14 @@ impl Decoders {
         key: &str,
         request: &StreamRequest,
         frame: u64,
-    ) -> Result<Option<Slot>, String> {
+    ) -> Result<Option<Picture>, String> {
+        let unplanned;
+        let request = if request.plan.as_ref().is_some_and(|plan| !plan.keeps(frame)) {
+            unplanned = request.clone().planned(None);
+            &unplanned
+        } else {
+            request
+        };
         let streams = self.streams.entry(key.to_string()).or_default();
         let found = streams.iter().enumerate().find_map(|(position, stream)| {
             stream
@@ -470,7 +618,7 @@ impl Decoders {
     }
 
     fn adopt(&mut self, request: &StreamRequest, frame: u64) -> Option<(FrameStream, u64)> {
-        if !request.preview {
+        if !request.preview || request.plan.is_some() {
             return None;
         }
         let (donor, position, index) = self

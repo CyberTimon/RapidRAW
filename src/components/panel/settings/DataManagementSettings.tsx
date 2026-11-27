@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import clsx from 'clsx';
 import { FolderOpen, Loader2, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import Text from '../../ui/Text';
+import { TooltipLabel } from './SettingItem';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { AppSettings } from '../../../types/settings';
 import { Invokes } from '../../../types/invokes';
@@ -242,6 +243,7 @@ function Row({
   size,
   status,
   title,
+  tooltip,
 }: {
   action?: ReactNode;
   children?: ReactNode;
@@ -250,6 +252,7 @@ function Row({
   size?: ReactNode;
   status?: Status;
   title: string;
+  tooltip?: string;
 }) {
   return (
     <div className="py-3.5 first:pt-0 last:pb-0">
@@ -257,7 +260,7 @@ function Row({
         {color && <span className={clsx('w-2.5 h-2.5 rounded-full shrink-0', color)} />}
         <div className="flex-1 min-w-0">
           <Text variant={TextVariants.label} color={TextColors.primary} weight={TextWeights.medium}>
-            {title}
+            <TooltipLabel tooltip={tooltip}>{title}</TooltipLabel>
           </Text>
           {description && (
             <Text variant={TextVariants.small} className="mt-0.5">
@@ -498,7 +501,7 @@ export default function DataManagementSettings({
     ({ key }) => key !== 'immich' || immichConfigured || (usage?.immich ?? 0) > 0,
   );
 
-  const descriptionOf = (key: StorageKey) => {
+  const tooltipOf = (key: StorageKey) => {
     const description = t(`settings.data.storage.${key}Desc` as const);
     if (key !== 'immich' || !usage?.immichProjects) return description;
     const kept = t('settings.data.storage.immichProjects', { size: formatBytes(usage.immichProjects, t, 1) });
@@ -533,10 +536,10 @@ export default function DataManagementSettings({
           )
         }
         color={color}
-        description={descriptionOf(key)}
         size={limitGb !== undefined && usage ? `${sizeOf(key)} / ${limitGb} ${t('export.bytes.gb')}` : sizeOf(key)}
         status={statuses[key]}
         title={t(`settings.data.storage.${key}` as const)}
+        tooltip={tooltipOf(key)}
       >
         {limit && limitGb !== undefined && (
           <LimitBar
@@ -560,6 +563,7 @@ export default function DataManagementSettings({
         size={used === null ? '…' : `${formatBytes(used, t, 1)} / ${limitGb} ${t('export.bytes.gb')}`}
         status={statuses[key]}
         title={t(`settings.data.storage.${key}` as const)}
+        tooltip={t('settings.data.storage.videoDesc')}
       >
         <LimitBar
           color="bg-text-secondary"
@@ -619,13 +623,8 @@ export default function DataManagementSettings({
         <div className="divide-y divide-border-color">
           <Row
             title={t('settings.data.deleteEdits')}
-            description={
-              rootPaths.length > 0 ? (
-                <span data-tooltip={rootPaths.join('\n')}>{t('settings.data.deleteEditsDesc')}</span>
-              ) : (
-                t('settings.data.noFolders')
-              )
-            }
+            tooltip={t('settings.data.deleteEditsDesc')}
+            description={rootPaths.length > 0 ? null : t('settings.data.noFolders')}
             status={statuses.sidecars}
             action={
               <ActionButton
@@ -643,7 +642,7 @@ export default function DataManagementSettings({
             <Row
               key={key}
               title={t(`settings.data.${key}` as const)}
-              description={t(`settings.data.${key}Desc` as const)}
+              tooltip={t(`settings.data.${key}Desc` as const)}
               status={statuses[key]}
               action={
                 <ActionButton
@@ -660,7 +659,7 @@ export default function DataManagementSettings({
           ))}
           <Row
             title={t('settings.data.resetLayoutTitle')}
-            description={t('settings.data.resetLayoutDesc')}
+            tooltip={t('settings.data.resetLayoutDesc')}
             status={statuses.layout}
             action={
               <ActionButton busy={busy.layout} icon={<RotateCcw size={13} />} onClick={resetLayout}>

@@ -1226,7 +1226,6 @@
       "apiKey": "API Key",
       "apiKeyDesc": "Create one in Immich under Account Settings → API Keys with these permissions: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create and user.read.",
       "connected": "Connected as {{user}} (Immich {{version}})",
-      "description": "Browse and edit the photos on your Immich server.",
       "keyInFile": "Stored in a file only you can read, as no credential store is available.",
       "keyInStore": "Stored in the system's credential store.",
       "save": "Save",
@@ -1236,7 +1235,7 @@
       "test": "Test Connection",
       "title": "Immich",
       "working": "Working…",
-      "tooltip": "Originals are downloaded when you open them. Edits are saved in Immich, so they match on every computer.",
+      "tooltip": "Browse and edit the photos on your Immich server. Originals are downloaded when you open them. Edits are saved in Immich, so they match on every computer.",
       "keyInFileTooltip": "On KDE, turn on the Secret Service interface in the KDE Wallet settings and save again."
     },
     "sync": {
@@ -1947,6 +1946,7 @@
       "speed": "Speed",
       "speedEdit": {
         "adjustments": "Adjustments",
+        "adjustmentsDesc": "The adjustments A and D step through.",
         "gestures": {
           "doubleClick": "Double-Click to Reset",
           "drag": "Drag on Canvas to Adjust",
@@ -2058,6 +2058,7 @@
         "videoTimelapses": "Timelapses",
         "videoTimelapsesDesc": "Photo sequences developed for timelapses. Rendered again when needed.",
         "video": "Video Cache",
+        "videoDesc": "Everything video projects cache. The limit covers all of it.",
         "immichProjects": "{{size}} of it is kept for video projects."
       },
       "storageTitle": "Storage",
@@ -2066,8 +2067,10 @@
     },
     "general": {
       "createXmp": "Create Missing XMP Files",
+      "createXmpDesc": "Writes an XMP file for photos that have none, so other apps see your ratings, labels and tags.",
       "createXmpMissing": "Create XMP If Missing",
       "displayEditIcon": "Display Edit Icon",
+      "displayEditIconDesc": "Marks edited photos with an icon in the library.",
       "enableFocusMode": "Enable Focus Mode",
       "enableNeutralGreyCanvas": "Enable Neutral Grey Background",
       "enableOsTitlebar": "Enable OS Titlebar",
@@ -2078,6 +2081,7 @@
       "folderImageCounts": "Folder Image Counts",
       "folderImageCountsDesc": "Shown when you hover a folder in the folder tree.",
       "font": "Font",
+      "fontDesc": "Typeface of the interface.",
       "hideCollapsedPanels": "Hide Collapsed Panels",
       "hideCollapsedPanelsDesc": "Collapsed side panels disappear instead of leaving a narrow strip. Reopen them from the bottom bar or with their shortcuts.",
       "nativeTitlebar": "Native Titlebar",
@@ -2088,6 +2092,7 @@
       "showImageCounts": "Show Image Counts",
       "system": "System Default",
       "theme": "Theme",
+      "themeDesc": "Colors of the interface.",
       "title": "General Settings",
       "toolFocusMode": "Tool Focus Mode",
       "toolFocusModeDesc": "Collapses the other tools in a panel when you expand one.",
@@ -2114,7 +2119,7 @@
         "copy_adjustments": "Copy Selected Adjustments",
         "copy_files": "Copy Selected File(s)",
         "copy_image_path": "Copy Path of Selected Image(s)",
-        "cycle_zoom": "Cycle Zoom (Fit, 2x Fit, 100%)",
+        "cycle_zoom": "Cycle Zoom",
         "delete_rejected": "Delete Rejected File(s)",
         "delete_selected": "Delete Selected File(s)",
         "focus_search": "Focus Search Field",
@@ -2134,7 +2139,7 @@
         "rotate_left": "Rotate 90° Counter-Clockwise",
         "rotate_right": "Rotate 90° Clockwise",
         "select_all": "Select All Images",
-        "show_original": "Show Original (Before/After)",
+        "show_original": "Show Original",
         "toggle_adjustments": "Toggle Adjustments Panel",
         "toggle_ai": "Toggle AI Panel",
         "toggle_analytics": "Toggle Analytics Display",
@@ -2230,6 +2235,10 @@
         "video_panel_captions": "Toggle Captions Panel",
         "video_panel_mixer": "Toggle Audio Mixer Panel"
       },
+      "tips": {
+        "cycle_zoom": "Steps through Fit, 2x Fit and 100%.",
+        "show_original": "Shows the photo before and after your edits."
+      },
       "sections": {
         "editing": "Editing",
         "library": "Library",
@@ -2244,6 +2253,7 @@
       "videoHint": "In video projects, these keys win over the photo shortcuts above."
     },
     "language": "Language",
+    "languageDesc": "Language of the interface.",
     "lenses": {
       "addButton": "Add to My Lenses",
       "addNew": "Add New Lens",
@@ -2272,7 +2282,6 @@
           "title": "AI-Free"
         },
         "cloud": {
-          "description": "Runs generative edits on RapidRAW servers, with a subscription.",
           "signedIn": {
             "active": "Cloud Subscription Active",
             "inactive": "No Active Subscription",
@@ -2293,18 +2302,17 @@
             "unsupported": "Cloud sign-in is currently only available on desktop."
           },
           "title": "Cloud Service",
-          "tooltip": "Same results as self-hosting without setup or a strong GPU. It also supports the project."
+          "tooltip": "Runs generative edits on RapidRAW servers, with a subscription. Same results as self-hosting without setup or a strong GPU. It also supports the project."
         },
         "connector": {
           "address": "AI Connector Address",
           "addressDesc": "Address and port of your running AI Connector.",
-          "description": "Uses your own ComfyUI server for generative edits and custom workflows.",
           "failed": "Connection failed.",
           "success": "Connection successful!",
           "test": "Test",
           "testing": "Testing...",
           "title": "Self-Hosted (RapidRAW AI Connector)",
-          "tooltip": "Free, but needs a capable GPU and a running ComfyUI."
+          "tooltip": "Uses your own ComfyUI server for generative edits and custom workflows. Free, but needs a capable GPU and a running ComfyUI."
         },
         "cpu": {
           "description": "Runs masks, tagging and simple generative replace on this computer.",
@@ -2370,7 +2378,6 @@
         "noCamerasFound": "No other cameras found in the open folder.",
         "noPreset": "None (Neutral)",
         "preset": "Default Preset",
-        "presetDesc": "Applied to unedited photos and used by Reset Adjustments.",
         "presetMissing": "The selected preset was deleted, so unedited photos use neutral values.",
         "removeCamera": "Remove Camera",
         "sameAsAllCameras": "Same as All Cameras",
@@ -2380,7 +2387,7 @@
         "sliderResetDesc": "What a slider returns to on double-click or in speed edit. Mask sliders always reset to neutral.",
         "sliderResetNeutral": "Neutral Value",
         "title": "Default Adjustments",
-        "presetTooltip": "Masks, crops and transforms are skipped because they only fit the photo they were made on."
+        "presetTooltip": "Applied to unedited photos and used by Reset Adjustments. Masks, crops and transforms are skipped because they only fit the photo they were made on."
       },
       "display": {
         "title": "Display"
@@ -2403,6 +2410,7 @@
       },
       "enableLivePreviews": "Enable Live Previews",
       "ffmpeg": "FFmpeg",
+      "ffmpegDesc": "Decodes and encodes video and audio. RapidRAW ships its own copy.",
       "ffmpegBundledDesc": "Videos use the built-in FFmpeg {{version}}.",
       "ffmpegMissing": "The FFmpeg libraries could not be loaded, so videos stay hidden.",
       "hdr": {
@@ -2446,7 +2454,9 @@
         "colorNr": "Base Color Noise Reduction",
         "colorNrDesc": "Removes color noise early in the RAW pipeline.",
         "defaultNonRawTonemapper": "Default Non-RAW Tonemapper",
+        "defaultNonRawTonemapperDesc": "Tonemapper used for all non-RAW images.",
         "defaultRawTonemapper": "Default RAW Tonemapper",
+        "defaultRawTonemapperDesc": "Tonemapper used for all RAW files.",
         "enableAppleRaw9": "Use Apple RAW 9 for RAW Files",
         "enableBaselineExposure": "Apply Baseline Exposure to RAW Files",
         "enableHighlightPreservation": "Compensate Highlight-Preserving Camera Modes",
@@ -2480,6 +2490,7 @@
       "previewRes": "Preview Resolution",
       "previewResDesc": "Maximum preview size. Lower values are faster.",
       "previewStrategy": "Preview Rendering Strategy",
+      "previewStrategyDesc": "How the editor preview is sized: fixed for speed, or matched to your display for full detail.",
       "qualities": {
         "high": "High Quality",
         "performance": "Performance"
@@ -2499,6 +2510,7 @@
       "restartRequired": "Restart RapidRAW to apply these changes.",
       "saveRelaunch": "Save & Relaunch",
       "smallThumbnailRes": "Grid Thumbnail Resolution",
+      "smallThumbnailResDesc": "Size of the thumbnails in the library grid. Higher is sharper but takes longer to generate.",
       "staticDesc": "Renders at a fixed size. Fastest, and best for slower hardware.",
       "threads": "Threads",
       "title": "Processing Engine",
@@ -2525,6 +2537,7 @@
       "customList": "Custom AI Tag List",
       "customListDesc": "When set, AI tagging only uses these tags instead of the built-in list. English only.",
       "maxAiTags": "Maximum AI Tags",
+      "maxAiTagsDesc": "The most tags AI tagging adds to one photo.",
       "noCustomTags": "No custom AI tags, using the built-in list",
       "noShortcuts": "No shortcuts added",
       "removeCustomTooltip": "Remove Tag \"{{tag}}\"",

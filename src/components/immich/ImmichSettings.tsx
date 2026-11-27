@@ -87,11 +87,7 @@ export default function ImmichSettings() {
   const connectionChanged = serverUrl.trim() !== saved.serverUrl || apiKey.trim() !== keyInfo.apiKey;
 
   return (
-    <SettingsSection
-      title={t('immich.settings.title')}
-      description={t('immich.settings.description')}
-      tooltip={t('immich.settings.tooltip')}
-    >
+    <SettingsSection title={t('immich.settings.title')} tooltip={t('immich.settings.tooltip')}>
       <div className="space-y-8">
         <SettingItem label={t('immich.settings.serverUrl')} tooltip={t('immich.settings.serverUrlDesc')}>
           <Input

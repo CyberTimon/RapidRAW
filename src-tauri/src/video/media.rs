@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::video::ffmpeg::MediaInfo;
-use crate::video::libav::video::{FrameShape, Grid, VideoPipe, VideoSpec};
+use crate::video::libav::video::{Demand, FrameShape, Grid, VideoPipe, VideoSpec};
 use crate::video::vision::GrayFrame;
 
 const MIN_ANALYSIS_SIDE: u32 = 16;
@@ -25,6 +25,10 @@ impl RawVideo {
             .inspect_err(|e| log::warn!("Video decoding stopped: {}", e))
             .ok()
             .flatten()
+    }
+
+    pub fn demand(&mut self, demand: Demand) {
+        self.0.demand(demand);
     }
 
     pub fn skip(&mut self) -> bool {

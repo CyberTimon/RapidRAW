@@ -1226,7 +1226,6 @@
       "apiKey": "API 金鑰",
       "apiKeyDesc": "請在 Immich 的「帳戶設定 → API 金鑰」中建立，並授予以下權限：album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create、user.read。",
       "connected": "已以 {{user}} 身分連線 (Immich {{version}})",
-      "description": "瀏覽並編輯 Immich 伺服器上的照片。",
       "keyInFile": "由於沒有可用的認證資訊儲存區，已儲存在只有你能讀取的檔案中。",
       "keyInStore": "已儲存在系統的認證資訊儲存區。",
       "save": "儲存",
@@ -1236,7 +1235,7 @@
       "test": "測試連線",
       "title": "Immich",
       "working": "處理中…",
-      "tooltip": "原始檔會在開啟時下載。編輯內容儲存在 Immich 中，因此在每台電腦上都一致。",
+      "tooltip": "瀏覽並編輯 Immich 伺服器上的照片。原始檔會在開啟時下載。編輯內容儲存在 Immich 中，因此在每台電腦上都一致。",
       "keyInFileTooltip": "在 KDE 中，請在 KDE 錢包設定裡啟用 Secret Service 介面，然後重新儲存。"
     },
     "sync": {
@@ -1947,6 +1946,7 @@
       "speed": "速度",
       "speedEdit": {
         "adjustments": "調整項目",
+        "adjustmentsDesc": "A 和 D 依序切換的調整項目。",
         "gestures": {
           "doubleClick": "按兩下重設",
           "drag": "在畫布上拖曳調整",
@@ -2058,6 +2058,7 @@
         "videoTimelapses": "縮時攝影",
         "videoTimelapsesDesc": "為縮時攝影沖洗的照片序列。需要時會重新算繪。",
         "video": "影片快取",
+        "videoDesc": "影片專案快取的全部內容。限制適用於全部內容。",
         "immichProjects": "其中 {{size}} 為影片專案保留。"
       },
       "storageTitle": "儲存空間",
@@ -2066,8 +2067,10 @@
     },
     "general": {
       "createXmp": "建立缺失的 XMP 檔案",
+      "createXmpDesc": "為沒有 XMP 檔案的照片寫入一個，讓其他應用程式也能看到評分、顏色標籤和標籤。",
       "createXmpMissing": "缺失時建立 XMP",
       "displayEditIcon": "顯示編輯圖示",
+      "displayEditIconDesc": "在圖庫中以圖示標記已編輯的照片。",
       "enableFocusMode": "啟用專注模式",
       "enableNeutralGreyCanvas": "啟用中性灰背景",
       "enableOsTitlebar": "啟用系統標題欄",
@@ -2078,6 +2081,7 @@
       "folderImageCounts": "資料夾影像計數",
       "folderImageCountsDesc": "在資料夾樹中將游標停在資料夾上時顯示。",
       "font": "字型",
+      "fontDesc": "介面的字型。",
       "hideCollapsedPanels": "隱藏折疊的面板",
       "hideCollapsedPanelsDesc": "收合的側邊面板會消失，而不是留下一道窄條。可透過底部列或其快速鍵重新開啟。",
       "nativeTitlebar": "原生標題欄",
@@ -2088,6 +2092,7 @@
       "showImageCounts": "顯示影像計數",
       "system": "系統預設",
       "theme": "主題",
+      "themeDesc": "介面的配色。",
       "title": "通用設定",
       "toolFocusMode": "工具專注模式",
       "toolFocusModeDesc": "展開某個工具時，收合同一面板中的其他工具。",
@@ -2114,7 +2119,7 @@
         "copy_adjustments": "複製選中的調整",
         "copy_files": "複製選中的檔案",
         "copy_image_path": "複製所選圖片的路徑",
-        "cycle_zoom": "迴圈縮放（適應、2倍適應、100%）",
+        "cycle_zoom": "迴圈縮放",
         "delete_rejected": "刪除已拒絕的檔案",
         "delete_selected": "刪除選中的檔案",
         "focus_search": "聚焦搜尋框",
@@ -2134,7 +2139,7 @@
         "rotate_left": "逆時針旋轉 90°",
         "rotate_right": "順時針旋轉 90°",
         "select_all": "選擇所有影像",
-        "show_original": "顯示原始影像（前後對比）",
+        "show_original": "顯示原始影像",
         "toggle_adjustments": "切換調整面板",
         "toggle_ai": "切換 AI 面板",
         "toggle_analytics": "切換分析顯示",
@@ -2230,6 +2235,10 @@
         "video_panel_captions": "切換字幕面板",
         "video_panel_mixer": "切換音訊混合器面板"
       },
+      "tips": {
+        "cycle_zoom": "在適應、2倍適應和 100% 之間切換。",
+        "show_original": "顯示編輯前後的照片。"
+      },
       "sections": {
         "editing": "編輯",
         "library": "相簿",
@@ -2244,6 +2253,7 @@
       "videoHint": "在影片專案中，這些按鍵優先於上方的照片快速鍵。"
     },
     "language": "語言",
+    "languageDesc": "介面的語言。",
     "lenses": {
       "addButton": "新增到我的鏡頭",
       "addNew": "新增新鏡頭",
@@ -2272,7 +2282,6 @@
           "title": "無 AI"
         },
         "cloud": {
-          "description": "透過訂閱在 RapidRAW 伺服器上執行生成式編輯。",
           "signedIn": {
             "active": "雲端訂閱已啟用",
             "inactive": "無有效訂閱",
@@ -2293,18 +2302,17 @@
             "unsupported": "雲端登入目前僅在桌面裝置上可用。"
           },
           "title": "雲端服務",
-          "tooltip": "不需設定或高階 GPU，即可獲得與自行架設相同的結果，同時也能支持本專案。"
+          "tooltip": "透過訂閱在 RapidRAW 伺服器上執行生成式編輯。不需設定或高階 GPU，即可獲得與自行架設相同的結果，同時也能支持本專案。"
         },
         "connector": {
           "address": "AI 聯結器地址",
           "addressDesc": "正在執行的 AI Connector 的位址和連接埠。",
-          "description": "使用你自己的 ComfyUI 伺服器進行生成式編輯和自訂工作流程。",
           "failed": "連線失敗。",
           "success": "連線成功！",
           "test": "測試",
           "testing": "測試中...",
           "title": "自託管（RapidRAW AI 聯結器）",
-          "tooltip": "免費，但需要效能足夠的 GPU 和正在執行的 ComfyUI。"
+          "tooltip": "使用你自己的 ComfyUI 伺服器進行生成式編輯和自訂工作流程。免費，但需要效能足夠的 GPU 和正在執行的 ComfyUI。"
         },
         "cpu": {
           "description": "在這台電腦上執行遮色片、標籤和簡單的生成式取代。",
@@ -2370,7 +2378,6 @@
         "noCamerasFound": "在開啟的資料夾中找不到其他相機。",
         "noPreset": "無（中性）",
         "preset": "預設預設集",
-        "presetDesc": "套用於未編輯的照片，並供「重置調整」使用。",
         "presetMissing": "所選預設集已被刪除，因此未編輯的照片使用中性值。",
         "removeCamera": "移除相機",
         "sameAsAllCameras": "與所有相機相同",
@@ -2380,7 +2387,7 @@
         "sliderResetDesc": "按兩下或在快速編輯中重設滑桿時恢復的值。遮色片滑桿一律重設為中性值。",
         "sliderResetNeutral": "中性值",
         "title": "預設調整",
-        "presetTooltip": "遮色片、裁切與變形只適合建立它們的照片，因此會被略過。"
+        "presetTooltip": "套用於未編輯的照片，並供「重置調整」使用。遮色片、裁切與變形只適合建立它們的照片，因此會被略過。"
       },
       "display": {
         "title": "顯示"
@@ -2403,6 +2410,7 @@
       },
       "enableLivePreviews": "啟用即時預覽",
       "ffmpeg": "FFmpeg",
+      "ffmpegDesc": "解碼和編碼影片與音訊。RapidRAW 內建一份副本。",
       "ffmpegBundledDesc": "影片使用內建的 FFmpeg {{version}}。",
       "ffmpegMissing": "無法載入 FFmpeg 程式庫，因此影片會保持隱藏。",
       "hdr": {
@@ -2446,7 +2454,9 @@
         "colorNr": "基礎顏色降噪",
         "colorNrDesc": "在 RAW 處理流程早期去除彩色雜訊。",
         "defaultNonRawTonemapper": "預設非 RAW 色調映射",
+        "defaultNonRawTonemapperDesc": "用於所有非 RAW 影像的色調映射。",
         "defaultRawTonemapper": "預設 RAW 色調映射",
+        "defaultRawTonemapperDesc": "用於所有 RAW 檔案的色調映射。",
         "enableAppleRaw9": "對 RAW 檔案使用 Apple RAW 9",
         "enableBaselineExposure": "對 RAW 檔案套用基礎曝光",
         "enableHighlightPreservation": "補償相機的高光保護模式",
@@ -2480,6 +2490,7 @@
       "previewRes": "預覽解析度",
       "previewResDesc": "預覽的最大尺寸。數值越低越快。",
       "previewStrategy": "預覽渲染策略",
+      "previewStrategyDesc": "編輯器預覽的尺寸：固定尺寸以求速度，或配合顯示器以呈現全部細節。",
       "qualities": {
         "high": "高品質",
         "performance": "效能優先"
@@ -2499,6 +2510,7 @@
       "restartRequired": "重新啟動 RapidRAW 以套用這些變更。",
       "saveRelaunch": "儲存並重新啟動",
       "smallThumbnailRes": "網格縮圖解析度",
+      "smallThumbnailResDesc": "圖庫網格中縮圖的尺寸。越高越清晰，但產生時間更長。",
       "staticDesc": "以固定尺寸算繪。速度最快，最適合較慢的硬體。",
       "threads": "執行緒數",
       "title": "處理引擎",
@@ -2525,6 +2537,7 @@
       "customList": "自定義 AI 標籤列表",
       "customListDesc": "設定後，AI 標籤只會使用這些標籤，而非內建清單。僅支援英文。",
       "maxAiTags": "最大 AI 標籤數",
+      "maxAiTagsDesc": "AI 標籤為一張照片加入的最多標籤數。",
       "noCustomTags": "沒有自訂 AI 標籤，使用內建清單",
       "noShortcuts": "未新增快捷方式",
       "removeCustomTooltip": "移除標籤 \"{{tag}}\"",

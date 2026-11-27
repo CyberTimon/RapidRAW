@@ -1226,7 +1226,6 @@
       "apiKey": "API キー",
       "apiKeyDesc": "Immich の「アカウント設定 → API キー」で、次の権限を付けて作成してください: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create, user.read",
       "connected": "{{user}} として接続しました (Immich {{version}})",
-      "description": "Immich サーバーの写真を閲覧して編集できます。",
       "keyInFile": "資格情報ストアが利用できないため、本人だけが読めるファイルに保存されています。",
       "keyInStore": "システムの資格情報ストアに保存されています。",
       "save": "保存",
@@ -1236,7 +1235,7 @@
       "test": "接続をテスト",
       "title": "Immich",
       "working": "処理中…",
-      "tooltip": "オリジナルは開いたときにダウンロードされます。編集内容は Immich に保存されるため、どのコンピューターでも同じになります。",
+      "tooltip": "Immich サーバーの写真を閲覧して編集できます。オリジナルは開いたときにダウンロードされます。編集内容は Immich に保存されるため、どのコンピューターでも同じになります。",
       "keyInFileTooltip": "KDE の場合は、KDE ウォレットの設定で Secret Service インターフェースを有効にしてから、もう一度保存してください。"
     },
     "sync": {
@@ -1947,6 +1946,7 @@
       "speed": "速度",
       "speedEdit": {
         "adjustments": "調整項目",
+        "adjustmentsDesc": "A と D で順に切り替える調整項目です。",
         "gestures": {
           "doubleClick": "ダブルクリックでリセット",
           "drag": "キャンバス上でドラッグして調整",
@@ -2058,6 +2058,7 @@
         "videoTimelapses": "タイムラプス",
         "videoTimelapsesDesc": "タイムラプス用に現像された写真シーケンス。必要に応じて再びレンダリングされます。",
         "video": "動画キャッシュ",
+        "videoDesc": "動画プロジェクトがキャッシュするすべてのデータです。上限はその合計に適用されます。",
         "immichProjects": "そのうち {{size}} は動画プロジェクト用に保持されます。"
       },
       "storageTitle": "ストレージ",
@@ -2066,8 +2067,10 @@
     },
     "general": {
       "createXmp": "見つからないXMPファイルを作成",
+      "createXmpDesc": "XMP ファイルがない写真に作成し、他のアプリでもレーティング、カラーラベル、タグが見えるようにします。",
       "createXmpMissing": "見つからない場合はXMPを作成",
       "displayEditIcon": "編集アイコンを表示",
+      "displayEditIconDesc": "編集済みの写真にライブラリでアイコンを表示します。",
       "enableFocusMode": "フォーカスモードを有効にする",
       "enableNeutralGreyCanvas": "ニュートラルグレーの背景を有効にする",
       "enableOsTitlebar": "OSのタイトルバーを有効にする",
@@ -2078,6 +2081,7 @@
       "folderImageCounts": "フォルダ内画像数",
       "folderImageCountsDesc": "フォルダツリーでフォルダにカーソルを合わせると表示されます。",
       "font": "フォント",
+      "fontDesc": "インターフェースの書体です。",
       "hideCollapsedPanels": "折りたたんだパネルを非表示",
       "hideCollapsedPanelsDesc": "折りたたんだサイドパネルを細い帯として残さず、非表示にします。下部バーまたはショートカットで再び開けます。",
       "nativeTitlebar": "OS標準のタイトルバー",
@@ -2088,6 +2092,7 @@
       "showImageCounts": "画像数を表示",
       "system": "システムデフォルト",
       "theme": "テーマ",
+      "themeDesc": "インターフェースの配色です。",
       "title": "全般設定",
       "toolFocusMode": "ツールフォーカスモード",
       "toolFocusModeDesc": "ツールを展開すると、同じパネル内の他のツールを折りたたみます。",
@@ -2114,7 +2119,7 @@
         "copy_adjustments": "選択した補正設定をコピー",
         "copy_files": "選択したファイルをコピー",
         "copy_image_path": "選択した画像のパスをコピー",
-        "cycle_zoom": "ズームの切り替え (全体表示、2倍拡大、100%)",
+        "cycle_zoom": "ズームの切り替え",
         "delete_rejected": "除外したファイルを削除",
         "delete_selected": "選択したファイルを削除",
         "focus_search": "検索フィールドにフォーカス",
@@ -2134,7 +2139,7 @@
         "rotate_left": "反時計回りに90°回転",
         "rotate_right": "時計回りに90°回転",
         "select_all": "すべての画像を選択",
-        "show_original": "オリジナルを表示 (比較)",
+        "show_original": "オリジナルを表示",
         "toggle_adjustments": "補正設定パネルの表示/非表示",
         "toggle_ai": "AIパネルの表示/非表示",
         "toggle_analytics": "アナリティクス表示の表示/非表示",
@@ -2230,6 +2235,10 @@
         "video_panel_captions": "キャプションパネルの表示/非表示",
         "video_panel_mixer": "オーディオミキサーパネルの表示/非表示"
       },
+      "tips": {
+        "cycle_zoom": "全体表示、2倍拡大、100% を順に切り替えます。",
+        "show_original": "編集前と編集後の写真を表示します。"
+      },
       "sections": {
         "editing": "編集",
         "library": "ライブラリ",
@@ -2244,6 +2253,7 @@
       "videoHint": "動画プロジェクトでは、これらのキーが上の写真用ショートカットより優先されます。"
     },
     "language": "言語",
+    "languageDesc": "インターフェースの言語です。",
     "lenses": {
       "addButton": "マイレンズに追加",
       "addNew": "新しいレンズを追加",
@@ -2272,7 +2282,6 @@
           "title": "AIなし"
         },
         "cloud": {
-          "description": "サブスクリプションで、生成編集を RapidRAW のサーバーで実行します。",
           "signedIn": {
             "active": "クラウドサブスクリプション有効",
             "inactive": "サブスクリプションが無効です",
@@ -2293,18 +2302,17 @@
             "unsupported": "クラウドへのサインインは現在、デスクトップでのみ利用可能です。"
           },
           "title": "クラウドサービス",
-          "tooltip": "セットアップや高性能な GPU なしで、セルフホストと同じ結果が得られます。プロジェクトの支援にもなります。"
+          "tooltip": "サブスクリプションで、生成編集を RapidRAW のサーバーで実行します。セットアップや高性能な GPU なしで、セルフホストと同じ結果が得られます。プロジェクトの支援にもなります。"
         },
         "connector": {
           "address": "AI Connectorのアドレス",
           "addressDesc": "起動中の AI Connector のアドレスとポート。",
-          "description": "生成編集やカスタムワークフローに、ご自身の ComfyUI サーバーを使用します。",
           "failed": "接続に失敗しました。",
           "success": "接続に成功しました！",
           "test": "テスト",
           "testing": "テスト中...",
           "title": "セルフホスト (RapidRAW AI Connector)",
-          "tooltip": "無料ですが、高性能な GPU と起動中の ComfyUI が必要です。"
+          "tooltip": "生成編集やカスタムワークフローに、ご自身の ComfyUI サーバーを使用します。無料ですが、高性能な GPU と起動中の ComfyUI が必要です。"
         },
         "cpu": {
           "description": "マスク、タグ付け、シンプルな生成置換をこのコンピューター上で実行します。",
@@ -2370,7 +2378,6 @@
         "noCamerasFound": "開いているフォルダに他のカメラは見つかりませんでした。",
         "noPreset": "なし（ニュートラル）",
         "preset": "デフォルトのプリセット",
-        "presetDesc": "未編集の写真に適用され、「補正設定をリセット」でも使用されます。",
         "presetMissing": "選択したプリセットが削除されたため、未編集の写真にはニュートラル値が使用されます。",
         "removeCamera": "カメラを削除",
         "sameAsAllCameras": "すべてのカメラと同じ",
@@ -2380,7 +2387,7 @@
         "sliderResetDesc": "ダブルクリックやクイック編集でスライダーが戻る値です。マスクのスライダーは常にニュートラル値に戻ります。",
         "sliderResetNeutral": "ニュートラル値",
         "title": "デフォルトの補正",
-        "presetTooltip": "マスク、切り抜き、変形は作成した写真にしか合わないため除外されます。"
+        "presetTooltip": "未編集の写真に適用され、「補正設定をリセット」でも使用されます。マスク、切り抜き、変形は作成した写真にしか合わないため除外されます。"
       },
       "display": {
         "title": "ディスプレイ"
@@ -2403,6 +2410,7 @@
       },
       "enableLivePreviews": "リアルタイムプレビューを有効化",
       "ffmpeg": "FFmpeg",
+      "ffmpegDesc": "動画と音声のデコードとエンコードを行います。RapidRAW には専用のコピーが同梱されています。",
       "ffmpegBundledDesc": "動画には内蔵の FFmpeg {{version}} を使用します。",
       "ffmpegMissing": "FFmpeg ライブラリを読み込めなかったため、動画は表示されません。",
       "hdr": {
@@ -2446,7 +2454,9 @@
         "colorNr": "カラーノイズ低減 (基本)",
         "colorNrDesc": "RAW パイプラインの初期段階でカラーノイズを除去します。",
         "defaultNonRawTonemapper": "標準トーンマッパー (RAW以外)",
+        "defaultNonRawTonemapperDesc": "RAW 以外のすべての画像に使うトーンマッパーです。",
         "defaultRawTonemapper": "標準トーンマッパー (RAW)",
+        "defaultRawTonemapperDesc": "すべての RAW ファイルに使うトーンマッパーです。",
         "enableAppleRaw9": "RAWファイルにApple RAW 9を使用する",
         "enableBaselineExposure": "RAWファイルにベース露出を適用",
         "enableHighlightPreservation": "カメラのハイライト保護モードを補正",
@@ -2480,6 +2490,7 @@
       "previewRes": "プレビュー解像度",
       "previewResDesc": "プレビューの最大サイズ。値が小さいほど高速です。",
       "previewStrategy": "プレビューレンダリング方式",
+      "previewStrategyDesc": "エディターのプレビューのサイズです。速度重視の固定サイズか、細部まで見えるディスプレイに合わせたサイズです。",
       "qualities": {
         "high": "高画質",
         "performance": "パフォーマンス優先"
@@ -2499,6 +2510,7 @@
       "restartRequired": "これらの変更を適用するには RapidRAW を再起動してください。",
       "saveRelaunch": "保存して再起動",
       "smallThumbnailRes": "グリッドサムネイルの解像度",
+      "smallThumbnailResDesc": "ライブラリのグリッドに表示するサムネイルのサイズです。大きいほど鮮明ですが、生成に時間がかかります。",
       "staticDesc": "固定サイズでレンダリングします。最も高速で、低スペックのハードウェアに最適です。",
       "threads": "スレッド数",
       "title": "処理エンジン",
@@ -2525,6 +2537,7 @@
       "customList": "カスタムAIタグリスト",
       "customListDesc": "設定すると、AI タグ付けは内蔵リストの代わりにこれらのタグのみを使用します。英語のみ対応です。",
       "maxAiTags": "最大AIタグ数",
+      "maxAiTagsDesc": "AI タグ付けで 1 枚の写真に追加されるタグの上限です。",
       "noCustomTags": "カスタムAIタグなし、内蔵リストを使用中",
       "noShortcuts": "ショートカット未登録",
       "removeCustomTooltip": "タグ「{{tag}}」を削除",

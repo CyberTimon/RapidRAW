@@ -128,6 +128,12 @@ pub struct Shutter {
     pub footage: bool,
 }
 
+pub fn footage_shutter(adj: &Value) -> bool {
+    adj["motionBlurType"].as_str() == Some(SHUTTER_TYPE)
+        && adj["motionBlurFootage"].as_bool().unwrap_or(true)
+        && is_tool_active(adj, "motionBlur")
+}
+
 pub fn shutter(adj: &Value) -> Option<Shutter> {
     let angle =
         (adj["motionBlurShutter"].as_f64().unwrap_or(DEFAULT_SHUTTER) as f32).min(MAX_SHUTTER);

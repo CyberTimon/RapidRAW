@@ -11,6 +11,7 @@ use crate::render::gpu::compute::{self, Grid, IMAGE_FORMAT, Out, Slot, Tex};
 use crate::render::gpu::context::GpuContext;
 use crate::video::VideoState;
 use crate::video::ffmpeg::MediaInfo;
+use crate::video::vision::Homography;
 
 use super::decode::{Neighbour, Neighbours, StreamRequest};
 use super::flow::{self, FlowCache, Frame, Params, base_size, fitted};
@@ -83,6 +84,7 @@ fn trusted(enc: &mut compute::ComputeEncoder, steps: &Tex, gradient: &Slot) -> T
     coarse.expect("the fill has at least one level")
 }
 
+#[allow(clippy::too_many_arguments)]
 fn field(
     enc: &mut compute::ComputeEncoder,
     current: &Slot,
@@ -91,12 +93,26 @@ fn field(
     [behind, ahead]: [Option<&Slot>; 2],
     [back_rate, ahead_rate]: [f32; 2],
     exposure: f32,
+    steady: Option<&Steady>,
 ) -> Field {
     let base = base_size(current.size);
     let ratio = current.size.0 as f32 / base.0 as f32;
     let scale = exposure * ratio;
     let reach = |rate: f32| if rate > 0.0 { ratio / rate } else { 0.0 };
-    let modes = [ahead.is_some() as u32, behind.is_some() as u32, 0, 0];
+    let steady = steady.map(|steady| {
+        steady.velocity(
+            [behind.is_some(), ahead.is_some()],
+            [back_rate, ahead_rate],
+            base,
+        )
+    });
+    let modes = [
+        ahead.is_some() as u32,
+        behind.is_some() as u32,
+        steady.is_some() as u32,
+        0,
+    ];
+    let steady = steady.unwrap_or_default();
     let dummy = &current.view;
     let measured = enc.texture("Flow Field", base, wgpu::TextureFormat::Rgba32Float);
     flow::run(
@@ -123,6 +139,8 @@ fn field(
                 [scale, FRONT_REACH * base.0.max(base.1) as f32, 0.0, 0.0],
                 [0.0; 4],
             ],
+            modes,
+            steady,
             ..Params::new(base)
         },
         &[&steps.view],
@@ -139,6 +157,7 @@ fn field(
             [current.size.0 as f32 / size.0 as f32, 0.0, 0.0, 0.0],
         ],
         modes,
+        steady,
     };
     let selected = enc.texture("Flow Selected", size, IMAGE_FORMAT);
     flow::run(
@@ -165,11 +184,58 @@ fn field(
     Field { blur, front }
 }
 
+pub struct Steady {
+    pub ahead: Option<Homography>,
+    pub behind: Option<Homography>,
+}
+
+impl Steady {
+    pub fn key(&self) -> [Option<[u64; 9]>; 2] {
+        [self.ahead, self.behind].map(|map| map.map(|map| map.0.map(f64::to_bits)))
+    }
+
+    fn velocity(
+        &self,
+        [has_behind, has_ahead]: [bool; 2],
+        [back_rate, ahead_rate]: [f32; 2],
+        base: (u32, u32),
+    ) -> [[f32; 4]; 2] {
+        let sides = [
+            (has_ahead, self.ahead.as_ref(), ahead_rate as f64),
+            (has_behind, self.behind.as_ref(), -(back_rate as f64)),
+        ];
+        let count = sides.iter().filter(|(present, ..)| *present).count().max(1) as f64;
+        let mut motion = [0.0; 6];
+        for (_, map, rate) in sides.into_iter().filter(|(present, ..)| *present) {
+            let Some(map) = map else {
+                continue;
+            };
+            let m = &map.0;
+            let moved = [m[0] - 1.0, m[1], m[2], m[3], m[4] - 1.0, m[5]];
+            for (total, value) in motion.iter_mut().zip(moved) {
+                *total += value * rate / count;
+            }
+        }
+        let (across, down) = (base.0.max(1) as f64, base.1.max(1) as f64);
+        let [a, b, c, d, e, f] = motion;
+        [
+            [
+                a as f32,
+                (b * across / down) as f32,
+                (c * across) as f32,
+                0.0,
+            ],
+            [(d * down / across) as f32, e as f32, (f * down) as f32, 0.0],
+        ]
+    }
+}
+
 pub struct ShutterInput {
     pub key: String,
     pub around: Neighbours,
     pub advance: f64,
     pub shutter: Shutter,
+    pub steady: Option<Steady>,
 }
 
 impl ShutterInput {
@@ -225,6 +291,7 @@ pub fn render(
             [behind.as_ref(), ahead.as_ref()],
             [rate(around.previous.as_ref()), rate(around.next.as_ref())],
             frame.shutter.angle / FULL_TURN,
+            frame.steady.as_ref(),
         );
         let size = current.size;
         let views = [0, 1, 2].map(|_| enc.texture("Shutter Blur", size, IMAGE_FORMAT));
@@ -278,6 +345,7 @@ pub fn still(
     let Some(current) = engine.decoders.frame(&key, &stream, index)? else {
         return Ok(None);
     };
+    let current = current.slot;
     let Some(around) = engine.decoders.neighbours(&key, &stream, index) else {
         return Ok(None);
     };
@@ -286,6 +354,7 @@ pub fn still(
         around,
         advance: request.advance,
         shutter,
+        steady: None,
     };
     let slot = render(
         &engine.context,

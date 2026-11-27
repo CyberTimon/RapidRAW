@@ -1226,7 +1226,6 @@
       "apiKey": "API-sleutel",
       "apiKeyDesc": "Maak er een aan in Immich onder Accountinstellingen → API-sleutels met deze rechten: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create en user.read.",
       "connected": "Verbonden als {{user}} (Immich {{version}})",
-      "description": "Blader door en bewerk de foto's op je Immich-server.",
       "keyInFile": "Opgeslagen in een bestand dat alleen jij kunt lezen, omdat er geen sleutelopslag beschikbaar is.",
       "keyInStore": "Opgeslagen in de sleutelopslag van het systeem.",
       "save": "Opslaan",
@@ -1236,7 +1235,7 @@
       "test": "Verbinding testen",
       "title": "Immich",
       "working": "Bezig…",
-      "tooltip": "Originelen worden gedownload als je ze opent. Bewerkingen worden in Immich opgeslagen, zodat ze op elke computer hetzelfde zijn.",
+      "tooltip": "Blader door en bewerk de foto's op je Immich-server. Originelen worden gedownload als je ze opent. Bewerkingen worden in Immich opgeslagen, zodat ze op elke computer hetzelfde zijn.",
       "keyInFileTooltip": "Zet in KDE de Secret Service-interface aan in de instellingen van KDE Wallet en sla opnieuw op."
     },
     "sync": {
@@ -1947,6 +1946,7 @@
       "speed": "Snelheid",
       "speedEdit": {
         "adjustments": "Aanpassingen",
+        "adjustmentsDesc": "De aanpassingen waar A en D doorheen gaan.",
         "gestures": {
           "doubleClick": "Dubbelklik om te herstellen",
           "drag": "Sleep op het canvas om aan te passen",
@@ -2058,6 +2058,7 @@
         "videoTimelapses": "Timelapses",
         "videoTimelapsesDesc": "Fotoreeksen ontwikkeld voor timelapses. Worden opnieuw gerenderd wanneer nodig.",
         "video": "Videocache",
+        "videoDesc": "Alles wat videoprojecten in de cache zetten. De limiet geldt voor alles samen.",
         "immichProjects": "Daarvan blijft {{size}} bewaard voor videoprojecten."
       },
       "storageTitle": "Opslag",
@@ -2066,8 +2067,10 @@
     },
     "general": {
       "createXmp": "Ontbrekende XMP-bestanden maken",
+      "createXmpDesc": "Schrijft een XMP-bestand voor foto's zonder, zodat andere apps je beoordelingen, kleurlabels en tags zien.",
       "createXmpMissing": "XMP maken indien ontbrekend",
       "displayEditIcon": "Bewerkingspictogram weergeven",
+      "displayEditIconDesc": "Markeert bewerkte foto's in de bibliotheek met een pictogram.",
       "enableFocusMode": "Focusmodus inschakelen",
       "enableNeutralGreyCanvas": "Neutrale grijze achtergrond inschakelen",
       "enableOsTitlebar": "OS-titelbalk inschakelen",
@@ -2078,6 +2081,7 @@
       "folderImageCounts": "Aantal afbeeldingen in map",
       "folderImageCountsDesc": "Wordt getoond wanneer je een map in de mappenstructuur aanwijst.",
       "font": "Lettertype",
+      "fontDesc": "Lettertype van de interface.",
       "hideCollapsedPanels": "Ingeklapte panelen verbergen",
       "hideCollapsedPanelsDesc": "Ingeklapte zijpanelen verdwijnen in plaats van een smalle strook achter te laten. Open ze opnieuw via de onderste balk of met hun sneltoetsen.",
       "nativeTitlebar": "Systeemeigen titelbalk",
@@ -2088,6 +2092,7 @@
       "showImageCounts": "Aantal afbeeldingen weergeven",
       "system": "Systeemstandaard",
       "theme": "Thema",
+      "themeDesc": "Kleuren van de interface.",
       "title": "Algemene instellingen",
       "toolFocusMode": "Toolfocusmodus",
       "toolFocusModeDesc": "Klapt de andere gereedschappen in een paneel in wanneer je er één uitklapt.",
@@ -2114,7 +2119,7 @@
         "copy_adjustments": "Geselecteerde aanpassingen kopiëren",
         "copy_files": "Geselecteerd(e) bestand(en) kopiëren",
         "copy_image_path": "Pad van geselecteerde afbeelding(en) kopiëren",
-        "cycle_zoom": "Zoom wisselen (passend, 2x passend, 100%)",
+        "cycle_zoom": "Zoom wisselen",
         "delete_rejected": "Afgewezen bestand(en) verwijderen",
         "delete_selected": "Geselecteerd(e) bestand(en) verwijderen",
         "focus_search": "Zoekveld activeren",
@@ -2134,7 +2139,7 @@
         "rotate_left": "90° tegen de klok in roteren",
         "rotate_right": "90° met de klok mee roteren",
         "select_all": "Alle afbeeldingen selecteren",
-        "show_original": "Origineel weergeven (voor/na)",
+        "show_original": "Origineel weergeven",
         "toggle_adjustments": "Aanpassingspaneel aan/uit",
         "toggle_ai": "AI-paneel aan/uit",
         "toggle_analytics": "Analyseweergave aan/uit",
@@ -2230,6 +2235,10 @@
         "video_panel_captions": "Ondertitelpaneel aan/uit",
         "video_panel_mixer": "Audiomixerpaneel aan/uit"
       },
+      "tips": {
+        "cycle_zoom": "Wisselt tussen passend, 2x passend en 100%.",
+        "show_original": "Toont de foto voor en na je bewerkingen."
+      },
       "sections": {
         "editing": "Bewerken",
         "library": "Bibliotheek",
@@ -2244,6 +2253,7 @@
       "videoHint": "In videoprojecten gaan deze toetsen voor op de fotosneltoetsen hierboven."
     },
     "language": "Taal",
+    "languageDesc": "Taal van de interface.",
     "lenses": {
       "addButton": "Toevoegen aan mijn lenzen",
       "addNew": "Nieuwe lens toevoegen",
@@ -2272,7 +2282,6 @@
           "title": "Zonder AI"
         },
         "cloud": {
-          "description": "Voert generatieve bewerkingen uit op RapidRAW-servers, met een abonnement.",
           "signedIn": {
             "active": "Cloudabonnement actief",
             "inactive": "Geen actief abonnement",
@@ -2293,18 +2302,17 @@
             "unsupported": "Aanmelden bij de cloud is momenteel alleen beschikbaar op desktop."
           },
           "title": "Cloudservice",
-          "tooltip": "Dezelfde resultaten als zelfhosting, zonder installatie of krachtige GPU. Het steunt ook het project."
+          "tooltip": "Voert generatieve bewerkingen uit op RapidRAW-servers, met een abonnement. Dezelfde resultaten als zelfhosting, zonder installatie of krachtige GPU. Het steunt ook het project."
         },
         "connector": {
           "address": "AI-verbindingsadres",
           "addressDesc": "Adres en poort van je actieve AI Connector.",
-          "description": "Gebruikt je eigen ComfyUI-server voor generatieve bewerkingen en aangepaste workflows.",
           "failed": "Verbinding mislukt.",
           "success": "Verbinding geslaagd!",
           "test": "Testen",
           "testing": "Testen...",
           "title": "Zelfgehost (RapidRAW AI Connector)",
-          "tooltip": "Gratis, maar vereist een krachtige GPU en een actieve ComfyUI."
+          "tooltip": "Gebruikt je eigen ComfyUI-server voor generatieve bewerkingen en aangepaste workflows. Gratis, maar vereist een krachtige GPU en een actieve ComfyUI."
         },
         "cpu": {
           "description": "Voert maskers, tagging en eenvoudige generatieve vervanging uit op deze computer.",
@@ -2370,7 +2378,6 @@
         "noCamerasFound": "Geen andere camera's gevonden in de geopende map.",
         "noPreset": "Geen (neutraal)",
         "preset": "Standaardvoorinstelling",
-        "presetDesc": "Toegepast op onbewerkte foto's en gebruikt door Aanpassingen herstellen.",
         "presetMissing": "De gekozen voorinstelling is verwijderd, daarom gebruiken onbewerkte foto's neutrale waarden.",
         "removeCamera": "Camera verwijderen",
         "sameAsAllCameras": "Zelfde als alle camera's",
@@ -2380,7 +2387,7 @@
         "sliderResetDesc": "Waar een schuifregelaar naar teruggaat bij dubbelklikken of in snelbewerken. Maskerregelaars gaan altijd terug naar neutraal.",
         "sliderResetNeutral": "Neutrale waarde",
         "title": "Standaardaanpassingen",
-        "presetTooltip": "Maskers, uitsneden en transformaties worden overgeslagen, omdat ze alleen passen bij de foto waarop ze zijn gemaakt."
+        "presetTooltip": "Toegepast op onbewerkte foto's en gebruikt door Aanpassingen herstellen. Maskers, uitsneden en transformaties worden overgeslagen, omdat ze alleen passen bij de foto waarop ze zijn gemaakt."
       },
       "display": {
         "title": "Weergave"
@@ -2403,6 +2410,7 @@
       },
       "enableLivePreviews": "Live voorbeelden inschakelen",
       "ffmpeg": "FFmpeg",
+      "ffmpegDesc": "Decodeert en codeert video en audio. RapidRAW levert een eigen kopie mee.",
       "ffmpegBundledDesc": "Video's gebruiken de ingebouwde FFmpeg {{version}}.",
       "ffmpegMissing": "De FFmpeg-bibliotheken konden niet worden geladen, dus video's blijven verborgen.",
       "hdr": {
@@ -2446,7 +2454,9 @@
         "colorNr": "Basis kleurruisonderdrukking",
         "colorNrDesc": "Verwijdert kleurruis vroeg in de RAW-pijplijn.",
         "defaultNonRawTonemapper": "Standaard niet-RAW-toonmapping",
+        "defaultNonRawTonemapperDesc": "Toonmapping voor alle niet-RAW-afbeeldingen.",
         "defaultRawTonemapper": "Standaard RAW-toonmapping",
+        "defaultRawTonemapperDesc": "Toonmapping voor alle RAW-bestanden.",
         "enableAppleRaw9": "Apple RAW 9 gebruiken voor RAW-bestanden",
         "enableBaselineExposure": "Basisbelichting toepassen op RAW-bestanden",
         "enableHighlightPreservation": "Cameramodi voor bescherming van hoge lichten compenseren",
@@ -2480,6 +2490,7 @@
       "previewRes": "Voorbeeldresolutie",
       "previewResDesc": "Maximale voorbeeldgrootte. Lagere waarden zijn sneller.",
       "previewStrategy": "Voorbeeldrenderstrategie",
+      "previewStrategyDesc": "Hoe groot de voorvertoning in de editor is: vast voor snelheid, of passend bij je scherm voor alle details.",
       "qualities": {
         "high": "Hoge kwaliteit",
         "performance": "Prestaties"
@@ -2499,6 +2510,7 @@
       "restartRequired": "Start RapidRAW opnieuw om deze wijzigingen toe te passen.",
       "saveRelaunch": "Opslaan & opnieuw starten",
       "smallThumbnailRes": "Rasterminiatuurresolutie",
+      "smallThumbnailResDesc": "Grootte van de miniaturen in het bibliotheekraster. Hoger is scherper, maar duurt langer om te maken.",
       "staticDesc": "Rendert op een vaste grootte. Het snelst en het best voor tragere hardware.",
       "threads": "Threads",
       "title": "Verwerkingsmotor",
@@ -2525,6 +2537,7 @@
       "customList": "Aangepaste AI-taglijst",
       "customListDesc": "Indien ingesteld gebruikt AI-tagging alleen deze tags in plaats van de ingebouwde lijst. Alleen Engels.",
       "maxAiTags": "Maximum AI-tags",
+      "maxAiTagsDesc": "Het hoogste aantal tags dat AI-tagging aan één foto toevoegt.",
       "noCustomTags": "Geen aangepaste AI-tags, ingebouwde lijst wordt gebruikt",
       "noShortcuts": "Geen snelkoppelingen toegevoegd",
       "removeCustomTooltip": "Tag \"{{tag}}\" verwijderen",

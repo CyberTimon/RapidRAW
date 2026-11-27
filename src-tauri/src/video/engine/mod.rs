@@ -23,7 +23,7 @@ use tauri::{AppHandle, Manager};
 use crate::app::settings::{AppSettings, load_settings};
 use crate::app::state::AppState;
 use crate::decode::formats::is_raw_file;
-use crate::effects::motion_blur::MotionBlurPipelines;
+use crate::effects::motion_blur::{self, MotionBlurPipelines};
 use crate::library::sidecars::parse_virtual_path;
 use crate::render::color_space::OutputColorSpace;
 use crate::render::gpu::compute::{self, Slot};
@@ -48,11 +48,14 @@ use crate::video::tracking::{Anchor, Corners, Follow, MotionTrack, pin_corners, 
 use crate::video::vision::Homography;
 use crate::video::vision::Similarity;
 use crate::video::{ffmpeg, hash_of, proxy, reverse, timelapse};
-use decode::{Bracket, Decoders, Neighbour, Neighbours, PREEMPTED, StreamRequest};
+use decode::{
+    Bracket, Decoders, FramePlan, Neighbour, Neighbours, PREEMPTED, Picture, SOURCE_REACH,
+    StreamRequest,
+};
 use flow::{FlowCache, Interpolation};
 use look::{Look, LookTarget, MaskCache, has_cutout, render_look};
 use motion::{MotionSpan, MotionState};
-use shutter::ShutterInput;
+use shutter::{ShutterInput, Steady};
 use titles::TitleStore;
 use transparency::transparent_still;
 
@@ -64,6 +67,7 @@ const ANALYSIS_RETRY: Duration = Duration::from_secs(1);
 const MAX_NESTING: usize = 8;
 const RATE_TOLERANCE: f64 = 0.01;
 
+#[derive(Clone, Copy)]
 struct SourceTiming {
     index: u64,
     speed: f64,
@@ -86,6 +90,40 @@ impl SourceTiming {
             ..self
         }
     }
+
+    fn ramped(offsets: &[f64], local_frame: u64, fps: f64) -> Self {
+        let at = (local_frame as usize).min(offsets.len().saturating_sub(2));
+        SourceTiming {
+            index: local_frame,
+            speed: 1.0,
+            advance: offsets
+                .get(at + 1)
+                .zip(offsets.get(at))
+                .map_or(1.0 / fps, |(next, current)| next - current),
+            offset: offsets
+                .get(local_frame as usize)
+                .or(offsets.last())
+                .copied()
+                .unwrap_or(0.0),
+            span: offsets.last().copied().unwrap_or(0.0),
+            ramped: true,
+        }
+    }
+
+    fn sample(&self, source_fps: f64, interpolation: Option<Interpolation>) -> Sample {
+        match interpolation {
+            Some(mode) if self.advance * source_fps < 1.0 - RATE_TOLERANCE => Sample::Between(mode),
+            _ if self.ramped && source_fps > 0.0 => Sample::Nearest,
+            _ => Sample::Speed,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Hash)]
+enum Sample {
+    Speed,
+    Nearest,
+    Between(Interpolation),
 }
 
 struct ClipBasis {
@@ -110,7 +148,49 @@ struct VideoClock {
     exact: f64,
     timing: SourceTiming,
     shown: f64,
-    correction: Option<Similarity>,
+    sample: Sample,
+    interpolation: Option<Interpolation>,
+    mirrored: Option<f64>,
+    stabilization: Option<Arc<ClipStabilization>>,
+}
+
+impl VideoClock {
+    fn original(&self, decoded: f64) -> f64 {
+        match self.mirrored {
+            Some(frame) => self.info.duration - decoded - frame,
+            None => decoded,
+        }
+    }
+
+    fn requested(&self) -> f64 {
+        match self.sample {
+            Sample::Between(_) => self.exact,
+            _ => self.first + self.timing.offset,
+        }
+    }
+
+    fn correction(&self, decoded: f64) -> Option<Similarity> {
+        let stabilization = self.stabilization.as_ref()?;
+        let time = self.original(decoded);
+        match self.sample {
+            Sample::Between(_) => stabilization.at(time),
+            _ => stabilization.frame_at(time),
+        }
+    }
+
+    fn steady(&self, decoded: f64, around: &Neighbours, full: (u32, u32)) -> Option<Steady> {
+        let stabilization = self.stabilization.as_ref()?;
+        let centre = stabilizing(&self.correction(decoded)?, full).inverse()?;
+        let toward = |neighbour: Option<&Neighbour>, sign: f64| {
+            let neighbour = neighbour?;
+            let at = stabilization.frame_at(self.original(decoded + sign * neighbour.gap))?;
+            Some(stabilizing(&at, full).then(&centre))
+        };
+        Some(Steady {
+            ahead: toward(around.next.as_ref(), 1.0),
+            behind: toward(around.previous.as_ref(), -1.0),
+        })
+    }
 }
 
 fn look_frame(look: Option<&Look>, time: Option<f64>) -> Frame {
@@ -872,6 +952,8 @@ pub struct Engine {
     looks: HashMap<String, (u64, Arc<Look>)>,
     full_sizes: HashMap<String, (u32, u32)>,
     ramps: HashMap<String, (u64, Arc<Vec<f64>>)>,
+    plans: HashMap<String, (u64, Arc<FramePlan>)>,
+    pictures: HashMap<String, (u64, f64)>,
     renders: u64,
     analyses: HashMap<PathBuf, (Instant, Option<Arc<MotionAnalysis>>)>,
     stabilizations: HashMap<String, (u64, Option<Arc<ClipStabilization>>)>,
@@ -915,6 +997,8 @@ impl Engine {
             looks: HashMap::new(),
             full_sizes: HashMap::new(),
             ramps: HashMap::new(),
+            plans: HashMap::new(),
+            pictures: HashMap::new(),
             renders: 0,
             analyses: HashMap::new(),
             stabilizations: HashMap::new(),
@@ -940,6 +1024,8 @@ impl Engine {
         let kept = &self.kept;
         self.looks.retain(|id, _| kept.keeps(id));
         self.ramps.retain(|id, _| kept.keeps(id));
+        self.plans.retain(|id, _| kept.keeps(id));
+        self.pictures.retain(|key, _| kept.keeps_scoped(key));
         self.stabilizations.retain(|id, _| kept.keeps(id));
         self.masks.retain(|key, _| kept.keeps_scoped(key));
         self.full_sizes.retain(|path, _| kept.keeps(path));
@@ -1253,22 +1339,7 @@ impl Engine {
         match clip.ramp() {
             Some(keys) => {
                 let offsets = self.ramp_offsets(clip, keys, project);
-                let at = (local_frame as usize).min(offsets.len().saturating_sub(2));
-                SourceTiming {
-                    index: local_frame,
-                    speed: 1.0,
-                    advance: offsets
-                        .get(at + 1)
-                        .zip(offsets.get(at))
-                        .map_or(1.0 / project.fps(), |(next, current)| next - current),
-                    offset: offsets
-                        .get(local_frame as usize)
-                        .or(offsets.last())
-                        .copied()
-                        .unwrap_or(0.0),
-                    span: offsets.last().copied().unwrap_or(0.0),
-                    ramped: true,
-                }
+                SourceTiming::ramped(&offsets, local_frame, project.fps())
             }
             None => SourceTiming {
                 index: local_frame,
@@ -1391,13 +1462,23 @@ impl Engine {
             _ => start,
         };
         let exact = first + timing.offset;
-        let timing = timing.anchor(first, project.fps());
-        let shown = if clip.reverse && reversed.is_some() {
-            (start - timing.offset - 1.0 / ffmpeg::probe(&source)?.fps).max(0.0)
-        } else {
-            first + timing.offset
+        let interpolation = Interpolation::of(
+            clip.interpolation
+                .as_deref()
+                .or(project.settings.interpolation.as_deref()),
+        )
+        .filter(|_| self.interpolates(project, clip, &info));
+        let sample = timing.sample(info.fps, interpolation);
+        let grid = match sample {
+            Sample::Speed => project.fps(),
+            _ => info.fps,
         };
-        let correction = if basis.stabilizing {
+        let timing = timing.anchor(first, grid);
+        let mirrored = match clip.reverse && reversed.is_some() {
+            true => Some(1.0 / ffmpeg::probe(&source)?.fps),
+            false => None,
+        };
+        let stabilization = if basis.stabilizing {
             let low = if clip.reverse {
                 start - timing.span
             } else {
@@ -1405,11 +1486,10 @@ impl Engine {
             };
             let aspect = basis.full.0 as f32 / basis.full.1.max(1) as f32;
             self.stabilization(clip, &source, aspect, (low, low + timing.span))
-                .and_then(|result| result.at(shown))
         } else {
             None
         };
-        Ok(VideoClock {
+        let mut clock = VideoClock {
             reversed: reversed.is_some(),
             source,
             decode_path,
@@ -1417,9 +1497,62 @@ impl Engine {
             first,
             exact,
             timing,
-            shown,
-            correction,
-        })
+            shown: first + timing.offset,
+            sample,
+            interpolation,
+            mirrored,
+            stabilization,
+        };
+        if clock.mirrored.is_some() {
+            clock.shown = clock.original(clock.shown).max(0.0);
+        }
+        Ok(clock)
+    }
+
+    fn frame_plan(
+        &mut self,
+        project: &VideoProject,
+        clip: &ClipItem,
+        clock: &VideoClock,
+        margin: u64,
+    ) -> Option<Arc<FramePlan>> {
+        let keys = clip.ramp()?;
+        if clock.sample == Sample::Speed {
+            return None;
+        }
+        let offsets = self.ramp_offsets(clip, keys, project);
+        let ramp = self.ramps.get(&clip.id).map(|(hash, _)| *hash)?;
+        let key = hash_of((
+            ramp,
+            clock.first.to_bits(),
+            clock.info.fps.to_bits(),
+            clock.interpolation,
+            margin,
+        ));
+        if let Some((cached, plan)) = self.plans.get(&clip.id)
+            && *cached == key
+        {
+            return Some(Arc::clone(plan));
+        }
+        let (info, first, fps) = (&clock.info, clock.first, project.fps());
+        let frames = (0..offsets.len() as u64).flat_map(|local_frame| {
+            let timing = SourceTiming::ramped(&offsets, local_frame, fps);
+            let (single, bracket) = match timing.sample(info.fps, clock.interpolation) {
+                Sample::Between(_) => {
+                    let index = StreamRequest::source_index(info, first + timing.offset);
+                    (None, Some(StreamRequest::bracket_frames(index)))
+                }
+                _ => {
+                    let anchored = timing.anchor(first, info.fps);
+                    let time = first + anchored.offset;
+                    (Some(StreamRequest::source_index(info, time)), None)
+                }
+            };
+            single.into_iter().chain(bracket.into_iter().flatten())
+        });
+        let plan = Arc::new(FramePlan::new(frames, margin));
+        self.plans.insert(clip.id.clone(), (key, Arc::clone(&plan)));
+        Some(plan)
     }
 
     fn framing(basis: &ClipBasis, time: Option<f64>, cell_aspect: Option<f64>) -> Framing {
@@ -1495,7 +1628,13 @@ impl Engine {
         let (source_time, correction) = match basis.kind {
             MediaKind::Video => {
                 let clock = self.video_clock(project, clip, media, &basis, frame)?;
-                (clock.shown, clock.correction)
+                let decoded = self
+                    .pictures
+                    .get(&clip.id)
+                    .filter(|(shown, _)| *shown == clock.shown.to_bits())
+                    .filter(|_| !matches!(clock.sample, Sample::Between(_)))
+                    .map_or_else(|| clock.requested(), |(_, decoded)| *decoded);
+                (clock.shown, clock.correction(decoded))
             }
             _ => (seconds(clip.source_in + basis.local.max(0)), None),
         };
@@ -1839,51 +1978,46 @@ impl Engine {
                 (Some(working), self.fresh_id(), Some(time), None)
             }
             _ => {
-                let VideoClock {
-                    source,
-                    reversed,
-                    decode_path,
-                    info,
-                    first,
-                    exact,
-                    timing,
-                    shown,
-                    correction: stabilized,
-                } = self.video_clock(project, clip, media, &basis, frame)?;
+                let clock = self.video_clock(project, clip, media, &basis, frame)?;
                 let info = ffmpeg::MediaInfo {
                     deflicker: timelapse::deflicker(
-                        &source,
+                        &clock.source,
                         media
                             .timelapse
                             .as_ref()
                             .is_some_and(|timelapse| timelapse.deflicker),
-                        reversed,
+                        clock.reversed,
                     ),
-                    ..info
+                    ..clock.info.clone()
                 };
                 let SourceTiming {
                     index,
                     speed,
                     advance,
-                    offset,
                     ..
-                } = timing;
-                correction = stabilized;
+                } = clock.timing;
+                let (decode_path, exact, shown) = (&clock.decode_path, clock.exact, clock.shown);
                 shutter = shutter_at(shown);
                 let footage = shutter.filter(|shutter| shutter.footage && advance > 0.0);
                 let key = format!("{}{}", scope, clip.id);
-                let interpolation = Interpolation::of(
-                    clip.interpolation
-                        .as_deref()
-                        .or(project.settings.interpolation.as_deref()),
-                )
-                .filter(|_| self.interpolates(project, clip, &info));
-                let (slot, time) = match interpolation {
-                    None => {
+                let shutter_of = |around: Neighbours, shutter| ShutterInput {
+                    around,
+                    key: key.clone(),
+                    advance: advance.abs(),
+                    shutter,
+                    steady: None,
+                };
+                let footage_look = look
+                    .as_deref()
+                    .is_some_and(|look| motion_blur::footage_shutter(&look.json));
+                let margin = if footage_look { SOURCE_REACH } else { 0 };
+                let plan = self.frame_plan(project, clip, &clock, margin);
+                let (picture, time, decoded) = match clock.sample {
+                    Sample::Speed => {
                         let request = StreamRequest {
-                            path: &decode_path,
+                            path: decode_path,
                             info: &info,
-                            source_time: first + offset,
+                            source_time: clock.requested(),
                             speed,
                             fps,
                             size: decode,
@@ -1891,47 +2025,66 @@ impl Engine {
                             preview: frame.preview,
                             reach: footage
                                 .map_or(0, |_| StreamRequest::reach_for(&info, speed, fps)),
+                            plan: None,
                         };
-                        let slot = self.decoders.frame(&key, &request, index)?;
+                        let picture = self.decoders.frame(&key, &request, index)?;
                         shutter_input = footage.and_then(|shutter| {
-                            Some(ShutterInput {
-                                around: self.decoders.neighbours(&key, &request, index)?,
-                                key: key.clone(),
-                                advance: advance.abs(),
+                            Some(shutter_of(
+                                self.decoders.neighbours(&key, &request, index)?,
                                 shutter,
-                            })
+                            ))
                         });
-                        (slot, request.source_time)
+                        (picture, request.source_time, None)
                     }
-                    Some(mode) => {
+                    Sample::Nearest => {
                         let (request, source_index) = StreamRequest::source_frames(
-                            &decode_path,
+                            decode_path,
+                            &info,
+                            clock.requested(),
+                            decode,
+                            frame.hwaccel,
+                            frame.preview,
+                        );
+                        let request = request.planned(plan);
+                        let picture = self.decoders.frame(&key, &request, source_index)?;
+                        shutter_input = footage.and_then(|shutter| {
+                            Some(shutter_of(
+                                self.decoders.neighbours(&key, &request, source_index)?,
+                                shutter,
+                            ))
+                        });
+                        (picture, request.source_time, None)
+                    }
+                    Sample::Between(mode) => {
+                        let (request, source_index) = StreamRequest::source_frames(
+                            decode_path,
                             &info,
                             exact,
                             decode,
                             frame.hwaccel,
                             frame.preview,
                         );
-                        let slot = self.decoders.frame(&key, &request, source_index)?;
-                        let bracket = slot
+                        let request = request.planned(plan);
+                        let picture = self.decoders.frame(&key, &request, source_index)?;
+                        let bracket = picture
                             .as_ref()
                             .and_then(|_| self.decoders.bracket(&key, &request, exact));
-                        let slot = match bracket {
+                        let picture = match bracket {
                             Some(Bracket {
                                 stream,
                                 before,
                                 after: Some(after),
                             }) => {
-                                shutter_input = footage.map(|shutter| ShutterInput {
-                                    around: Neighbours {
-                                        stream,
-                                        key: hash_of((&decode_path, exact.to_bits())),
-                                        previous: Some(before.clone()),
-                                        next: Some(after.clone()),
-                                    },
-                                    key: key.clone(),
-                                    advance: advance.abs(),
-                                    shutter,
+                                shutter_input = footage.map(|shutter| {
+                                    shutter_of(
+                                        Neighbours {
+                                            stream,
+                                            key: hash_of((decode_path, exact.to_bits())),
+                                            previous: Some(before.clone()),
+                                            next: Some(after.clone()),
+                                        },
+                                        shutter,
+                                    )
                                 });
                                 let slot = before.slot.clone();
                                 retime = Some(Retime {
@@ -1940,36 +2093,44 @@ impl Engine {
                                     stream,
                                     frames: [before, after],
                                 });
-                                Some(slot)
+                                Some(Picture { slot, source: None })
                             }
                             Some(Bracket { before, .. }) => {
                                 shutter_input = footage.and_then(|shutter| {
-                                    Some(ShutterInput {
-                                        around: self.decoders.neighbours(
-                                            &key,
-                                            &request,
-                                            source_index,
-                                        )?,
-                                        key: key.clone(),
-                                        advance: advance.abs(),
+                                    Some(shutter_of(
+                                        self.decoders.neighbours(&key, &request, source_index)?,
                                         shutter,
-                                    })
+                                    ))
                                 });
-                                Some(before.slot)
+                                Some(Picture {
+                                    slot: before.slot,
+                                    source: None,
+                                })
                             }
-                            None => slot,
+                            None => picture,
                         };
-                        (slot, exact)
+                        (picture, exact, Some(exact))
                     }
                 };
+                let decoded = decoded
+                    .or_else(|| picture.as_ref().and_then(|picture| picture.source))
+                    .unwrap_or_else(|| clock.requested());
+                if scope.is_empty() {
+                    self.pictures
+                        .insert(clip.id.clone(), (shown.to_bits(), decoded));
+                }
+                correction = clock.correction(decoded);
+                if let Some(input) = shutter_input.as_mut() {
+                    input.steady = clock.steady(decoded, &input.around, full);
+                }
                 live.insert(key);
                 (
-                    slot,
+                    picture.map(|picture| picture.slot),
                     hash_of((
                         (!clip.freeze).then_some(timeline_frame),
-                        &decode_path,
+                        decode_path,
                         time.to_bits(),
-                        interpolation,
+                        clock.sample,
                         &info.deflicker,
                     )),
                     Some(shown),
@@ -1995,7 +2156,12 @@ impl Engine {
             crate::video::ai_frames::revision(),
         ));
         let layer_key = match &shutter_input {
-            Some(input) => hash_of((layer_key, input.sides(), input.advance.to_bits())),
+            Some(input) => hash_of((
+                layer_key,
+                input.sides(),
+                input.advance.to_bits(),
+                input.steady.as_ref().map(Steady::key),
+            )),
             None => layer_key,
         };
         let cache_key = (kind != MediaKind::Sequence)

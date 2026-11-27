@@ -1226,7 +1226,6 @@
       "apiKey": "API 키",
       "apiKeyDesc": "Immich의 계정 설정 → API 키에서 다음 권한으로 만드세요: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create, user.read",
       "connected": "{{user}}(으)로 연결됨 (Immich {{version}})",
-      "description": "Immich 서버의 사진을 둘러보고 편집하세요.",
       "keyInFile": "사용 가능한 자격 증명 저장소가 없어 본인만 읽을 수 있는 파일에 저장되었습니다.",
       "keyInStore": "시스템 자격 증명 저장소에 저장됨.",
       "save": "저장",
@@ -1236,7 +1235,7 @@
       "test": "연결 테스트",
       "title": "Immich",
       "working": "처리 중…",
-      "tooltip": "원본은 열 때 다운로드됩니다. 편집 내용은 Immich에 저장되어 모든 컴퓨터에서 동일하게 보입니다.",
+      "tooltip": "Immich 서버의 사진을 둘러보고 편집하세요. 원본은 열 때 다운로드됩니다. 편집 내용은 Immich에 저장되어 모든 컴퓨터에서 동일하게 보입니다.",
       "keyInFileTooltip": "KDE에서는 KDE 지갑 설정에서 Secret Service 인터페이스를 켠 뒤 다시 저장하세요."
     },
     "sync": {
@@ -1947,6 +1946,7 @@
       "speed": "속도",
       "speedEdit": {
         "adjustments": "조정 항목",
+        "adjustmentsDesc": "A와 D로 차례로 넘기는 조정 항목입니다.",
         "gestures": {
           "doubleClick": "더블클릭하여 초기화",
           "drag": "캔버스에서 드래그하여 조정",
@@ -2058,6 +2058,7 @@
         "videoTimelapses": "타임랩스",
         "videoTimelapsesDesc": "타임랩스용으로 현상된 사진 시퀀스입니다. 필요할 때 다시 렌더링됩니다.",
         "video": "동영상 캐시",
+        "videoDesc": "동영상 프로젝트가 캐시하는 모든 데이터입니다. 한도는 전체에 적용됩니다.",
         "immichProjects": "이 중 {{size}}는 동영상 프로젝트용으로 보관됩니다."
       },
       "storageTitle": "저장 공간",
@@ -2066,8 +2067,10 @@
     },
     "general": {
       "createXmp": "누락된 XMP 파일 생성",
+      "createXmpDesc": "XMP 파일이 없는 사진에 XMP 파일을 만들어 다른 앱에서도 별점, 색상 라벨, 태그를 볼 수 있게 합니다.",
       "createXmpMissing": "없는 경우 XMP 생성",
       "displayEditIcon": "편집 아이콘 표시",
+      "displayEditIconDesc": "라이브러리에서 편집된 사진에 아이콘을 표시합니다.",
       "enableFocusMode": "집중 모드 활성화",
       "enableNeutralGreyCanvas": "뉴트럴 그레이 배경 활성화",
       "enableOsTitlebar": "OS 제목 표시줄 활성화",
@@ -2078,6 +2081,7 @@
       "folderImageCounts": "폴더 이미지 개수",
       "folderImageCountsDesc": "폴더 트리에서 폴더 위에 마우스를 올리면 표시됩니다.",
       "font": "글꼴",
+      "fontDesc": "인터페이스 글꼴입니다.",
       "hideCollapsedPanels": "접힌 패널 숨기기",
       "hideCollapsedPanelsDesc": "접힌 사이드 패널을 좁은 띠로 남기지 않고 숨깁니다. 하단 바 또는 단축키로 다시 열 수 있습니다.",
       "nativeTitlebar": "네이티브 제목 표시줄",
@@ -2088,6 +2092,7 @@
       "showImageCounts": "이미지 개수 표시",
       "system": "시스템 기본값",
       "theme": "테마",
+      "themeDesc": "인터페이스 색상입니다.",
       "title": "일반 설정",
       "toolFocusMode": "도구 집중 모드",
       "toolFocusModeDesc": "도구를 펼치면 같은 패널의 다른 도구를 접습니다.",
@@ -2114,7 +2119,7 @@
         "copy_adjustments": "선택한 조정값 복사",
         "copy_files": "선택한 파일 복사",
         "copy_image_path": "선택한 이미지의 경로 복사",
-        "cycle_zoom": "확대/축소 순환 (맞춤, 2배 맞춤, 100%)",
+        "cycle_zoom": "확대/축소 순환",
         "delete_rejected": "거부된 파일 삭제",
         "delete_selected": "선택한 파일 삭제",
         "focus_search": "검색창에 포커스",
@@ -2134,7 +2139,7 @@
         "rotate_left": "90° 반시계 방향 회전",
         "rotate_right": "90° 시계 방향 회전",
         "select_all": "모든 이미지 선택",
-        "show_original": "원본 표시 (전/후)",
+        "show_original": "원본 표시",
         "toggle_adjustments": "조정 패널 전환",
         "toggle_ai": "AI 패널 전환",
         "toggle_analytics": "분석 표시 전환",
@@ -2230,6 +2235,10 @@
         "video_panel_captions": "캡션 패널 전환",
         "video_panel_mixer": "오디오 믹서 패널 전환"
       },
+      "tips": {
+        "cycle_zoom": "맞춤, 2배 맞춤, 100%를 차례로 전환합니다.",
+        "show_original": "편집 전후의 사진을 보여 줍니다."
+      },
       "sections": {
         "editing": "편집",
         "library": "라이브러리",
@@ -2244,6 +2253,7 @@
       "videoHint": "동영상 프로젝트에서는 이 키가 위의 사진 단축키보다 우선합니다."
     },
     "language": "언어",
+    "languageDesc": "인터페이스 언어입니다.",
     "lenses": {
       "addButton": "내 렌즈에 추가",
       "addNew": "새 렌즈 추가",
@@ -2272,7 +2282,6 @@
           "title": "AI 없음"
         },
         "cloud": {
-          "description": "구독을 통해 RapidRAW 서버에서 생성형 편집을 실행합니다.",
           "signedIn": {
             "active": "클라우드 구독 활성화됨",
             "inactive": "활성 구독 없음",
@@ -2293,18 +2302,17 @@
             "unsupported": "클라우드 로그인은 현재 데스크톱에서만 사용할 수 있습니다."
           },
           "title": "클라우드 서비스",
-          "tooltip": "설정이나 고성능 GPU 없이 셀프 호스팅과 같은 결과를 얻을 수 있습니다. 프로젝트 지원에도 도움이 됩니다."
+          "tooltip": "구독을 통해 RapidRAW 서버에서 생성형 편집을 실행합니다. 설정이나 고성능 GPU 없이 셀프 호스팅과 같은 결과를 얻을 수 있습니다. 프로젝트 지원에도 도움이 됩니다."
         },
         "connector": {
           "address": "AI 커넥터 주소",
           "addressDesc": "실행 중인 AI Connector의 주소와 포트입니다.",
-          "description": "생성형 편집과 사용자 지정 워크플로에 자체 ComfyUI 서버를 사용합니다.",
           "failed": "연결에 실패했습니다.",
           "success": "연결에 성공했습니다!",
           "test": "테스트",
           "testing": "테스트 중...",
           "title": "셀프 호스팅 (RapidRAW AI 커넥터)",
-          "tooltip": "무료이지만 고성능 GPU와 실행 중인 ComfyUI가 필요합니다."
+          "tooltip": "생성형 편집과 사용자 지정 워크플로에 자체 ComfyUI 서버를 사용합니다. 무료이지만 고성능 GPU와 실행 중인 ComfyUI가 필요합니다."
         },
         "cpu": {
           "description": "마스크, 태그 지정, 간단한 생성형 교체를 이 컴퓨터에서 실행합니다.",
@@ -2370,7 +2378,6 @@
         "noCamerasFound": "열린 폴더에서 다른 카메라를 찾지 못했습니다.",
         "noPreset": "없음 (중립)",
         "preset": "기본 프리셋",
-        "presetDesc": "편집하지 않은 사진에 적용되며 '조정값 초기화'에도 사용됩니다.",
         "presetMissing": "선택한 프리셋이 삭제되어 편집하지 않은 사진은 중립 값을 사용합니다.",
         "removeCamera": "카메라 제거",
         "sameAsAllCameras": "모든 카메라와 동일",
@@ -2380,7 +2387,7 @@
         "sliderResetDesc": "더블클릭하거나 빠른 편집에서 슬라이더가 돌아가는 값입니다. 마스크 슬라이더는 항상 중립 값으로 초기화됩니다.",
         "sliderResetNeutral": "중립 값",
         "title": "기본 조정값",
-        "presetTooltip": "마스크, 자르기, 변형은 만든 사진에만 맞기 때문에 제외됩니다."
+        "presetTooltip": "편집하지 않은 사진에 적용되며 '조정값 초기화'에도 사용됩니다. 마스크, 자르기, 변형은 만든 사진에만 맞기 때문에 제외됩니다."
       },
       "display": {
         "title": "디스플레이"
@@ -2403,6 +2410,7 @@
       },
       "enableLivePreviews": "실시간 미리보기 활성화",
       "ffmpeg": "FFmpeg",
+      "ffmpegDesc": "비디오와 오디오를 디코딩하고 인코딩합니다. RapidRAW에는 자체 사본이 포함되어 있습니다.",
       "ffmpegBundledDesc": "동영상에는 내장 FFmpeg {{version}} 버전이 사용됩니다.",
       "ffmpegMissing": "FFmpeg 라이브러리를 불러올 수 없어 동영상이 표시되지 않습니다.",
       "hdr": {
@@ -2446,7 +2454,9 @@
         "colorNr": "기본 색상 노이즈 감소",
         "colorNrDesc": "RAW 파이프라인 초기에 색상 노이즈를 제거합니다.",
         "defaultNonRawTonemapper": "기본 비RAW 톤매퍼",
+        "defaultNonRawTonemapperDesc": "RAW가 아닌 모든 이미지에 사용하는 톤매퍼입니다.",
         "defaultRawTonemapper": "기본 RAW 톤매퍼",
+        "defaultRawTonemapperDesc": "모든 RAW 파일에 사용하는 톤매퍼입니다.",
         "enableAppleRaw9": "RAW 파일에 Apple RAW 9 사용",
         "enableBaselineExposure": "RAW 파일에 기본 노출 적용",
         "enableHighlightPreservation": "카메라의 하이라이트 보호 모드 보정",
@@ -2480,6 +2490,7 @@
       "previewRes": "미리보기 해상도",
       "previewResDesc": "미리보기의 최대 크기입니다. 값이 낮을수록 빠릅니다.",
       "previewStrategy": "미리보기 렌더링 전략",
+      "previewStrategyDesc": "편집기 미리보기의 크기입니다. 속도를 위한 고정 크기 또는 세부 묘사를 위한 디스플레이 맞춤 크기입니다.",
       "qualities": {
         "high": "고품질",
         "performance": "성능"
@@ -2499,6 +2510,7 @@
       "restartRequired": "변경 사항을 적용하려면 RapidRAW를 다시 시작하세요.",
       "saveRelaunch": "저장 및 다시 시작",
       "smallThumbnailRes": "그리드 썸네일 해상도",
+      "smallThumbnailResDesc": "라이브러리 그리드 썸네일의 크기입니다. 높을수록 선명하지만 생성에 시간이 더 걸립니다.",
       "staticDesc": "고정된 크기로 렌더링합니다. 가장 빠르며 저사양 하드웨어에 적합합니다.",
       "threads": "스레드",
       "title": "처리 엔진",
@@ -2525,6 +2537,7 @@
       "customList": "사용자 지정 AI 태그 목록",
       "customListDesc": "설정하면 AI 태그 지정은 내장 목록 대신 이 태그만 사용합니다. 영어만 지원합니다.",
       "maxAiTags": "최대 AI 태그 수",
+      "maxAiTagsDesc": "AI 태그 지정이 사진 한 장에 추가하는 최대 태그 수입니다.",
       "noCustomTags": "사용자 지정 AI 태그 없음, 내장 목록 사용 중",
       "noShortcuts": "추가된 단축키 없음",
       "removeCustomTooltip": "\"{{tag}}\" 태그 제거",

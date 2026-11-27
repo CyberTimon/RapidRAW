@@ -124,11 +124,7 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
       <SettingItem
         label={t('settings.processing.defaultAdjustments.preset')}
         tooltip={t('settings.processing.defaultAdjustments.presetTooltip')}
-        description={
-          presetMissing
-            ? t('settings.processing.defaultAdjustments.presetMissing')
-            : t('settings.processing.defaultAdjustments.presetDesc')
-        }
+        status={presetMissing ? t('settings.processing.defaultAdjustments.presetMissing') : null}
       >
         <Dropdown
           onChange={(value: string) => update({ presetId: value === NO_PRESET ? null : value })}

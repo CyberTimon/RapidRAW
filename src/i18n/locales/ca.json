@@ -1276,7 +1276,6 @@
       "apiKey": "Clau d'API",
       "apiKeyDesc": "Crea'n una a Immich a Configuració del compte → Claus d'API amb aquests permisos: album.read, album.create, albumAsset.create, albumAsset.delete, asset.read, asset.view, asset.download, asset.upload, asset.update, asset.delete, stack.read, stack.create i user.read.",
       "connected": "Connectat com a {{user}} (Immich {{version}})",
-      "description": "Explora i edita les fotos del teu servidor Immich.",
       "keyInFile": "Desada en un fitxer que només tu pots llegir, ja que no hi ha cap magatzem de credencials disponible.",
       "keyInStore": "Desada al magatzem de credencials del sistema.",
       "save": "Desa",
@@ -1286,7 +1285,7 @@
       "test": "Prova la connexió",
       "title": "Immich",
       "working": "Treballant…",
-      "tooltip": "Els originals es descarreguen quan els obres. Les edicions es desen a Immich, de manera que coincideixen a tots els ordinadors.",
+      "tooltip": "Explora i edita les fotos del teu servidor Immich. Els originals es descarreguen quan els obres. Les edicions es desen a Immich, de manera que coincideixen a tots els ordinadors.",
       "keyInFileTooltip": "A KDE, activa la interfície Secret Service a la configuració de KDE Wallet i torna a desar."
     },
     "sync": {
@@ -2015,6 +2014,7 @@
       "speed": "Velocitat",
       "speedEdit": {
         "adjustments": "Ajustos",
+        "adjustmentsDesc": "Els ajustos que recorren A i D.",
         "gestures": {
           "doubleClick": "Doble clic per restablir",
           "drag": "Arrossega al llenç per ajustar",
@@ -2129,6 +2129,7 @@
         "videoTimelapses": "Timelapses",
         "videoTimelapsesDesc": "Seqüències de fotos revelades per a timelapses. Es tornen a renderitzar quan cal.",
         "video": "Memòria cau de vídeo",
+        "videoDesc": "Tot el que desen a la memòria cau els projectes de vídeo. El límit ho cobreix tot.",
         "immichProjects": "D'aquest espai, {{size}} es conserven per als projectes de vídeo."
       },
       "storageTitle": "Emmagatzematge",
@@ -2137,8 +2138,10 @@
     },
     "general": {
       "createXmp": "Crear fitxers XMP que falten",
+      "createXmpDesc": "Escriu un fitxer XMP per a les fotos que no en tenen, perquè altres aplicacions vegin les puntuacions, etiquetes de color i etiquetes.",
       "createXmpMissing": "Crear XMP si falta",
       "displayEditIcon": "Mostrar icona d'edició",
+      "displayEditIconDesc": "Marca les fotos editades amb una icona a la biblioteca.",
       "enableFocusMode": "Activar mode de concentració",
       "enableNeutralGreyCanvas": "Activa el fons gris neutre",
       "enableOsTitlebar": "Activar barra de títol del SO",
@@ -2149,6 +2152,7 @@
       "folderImageCounts": "Recomptes d'imatges a les carpetes",
       "folderImageCountsDesc": "Es mostra en passar el ratolí per una carpeta de l'arbre de carpetes.",
       "font": "Tipus de lletra",
+      "fontDesc": "Tipus de lletra de la interfície.",
       "hideCollapsedPanels": "Amagar els panells plegats",
       "hideCollapsedPanelsDesc": "Els taulers laterals plegats desapareixen en lloc de deixar una franja estreta. Torna'ls a obrir des de la barra inferior o amb les seves dreceres.",
       "nativeTitlebar": "Barra de títol nativa",
@@ -2159,6 +2163,7 @@
       "showImageCounts": "Mostrar recomptes d'imatges",
       "system": "Predeterminat del sistema",
       "theme": "Tema",
+      "themeDesc": "Colors de la interfície.",
       "title": "Configuració general",
       "toolFocusMode": "Mode de concentració en eines",
       "toolFocusModeDesc": "Plega les altres eines d'un tauler quan n'amplies una.",
@@ -2185,7 +2190,7 @@
         "copy_adjustments": "Copiar els ajustaments seleccionats",
         "copy_files": "Copiar els fitxers seleccionats",
         "copy_image_path": "Copiar camí de les imatges seleccionades",
-        "cycle_zoom": "Alternar zoom (Ajustar, 2x Ajustar, 100%)",
+        "cycle_zoom": "Alternar zoom",
         "delete_rejected": "Eliminar els fitxers rebutjats",
         "delete_selected": "Eliminar els fitxers seleccionats",
         "focus_search": "Enfocar camp de cerca",
@@ -2205,7 +2210,7 @@
         "rotate_left": "Girar 90° en sentit antihorari",
         "rotate_right": "Girar 90° en sentit horari",
         "select_all": "Seleccionar totes les imatges",
-        "show_original": "Mostrar original (abans/després)",
+        "show_original": "Mostrar original",
         "toggle_adjustments": "Alternar tauler d'Ajustaments",
         "toggle_ai": "Alternar tauler d'IA",
         "toggle_analytics": "Alternar visualització d'anàlisi",
@@ -2301,6 +2306,10 @@
         "video_panel_captions": "Alternar tauler de Subtítols",
         "video_panel_mixer": "Alternar tauler de Mesclador d'àudio"
       },
+      "tips": {
+        "cycle_zoom": "Passa per Ajustar, 2x Ajustar i 100%.",
+        "show_original": "Mostra la foto abans i després de les edicions."
+      },
       "sections": {
         "editing": "Edició",
         "library": "Biblioteca",
@@ -2315,6 +2324,7 @@
       "videoHint": "Als projectes de vídeo, aquestes tecles tenen prioritat sobre les dreceres de foto anteriors."
     },
     "language": "Idioma",
+    "languageDesc": "Idioma de la interfície.",
     "lenses": {
       "addButton": "Afegir a Els meus objectius",
       "addNew": "Afegir nou objectiu",
@@ -2343,7 +2353,6 @@
           "title": "Sense IA"
         },
         "cloud": {
-          "description": "Executa les edicions generatives als servidors de RapidRAW, amb una subscripció.",
           "signedIn": {
             "active": "Subscripció al núvol Activa",
             "inactive": "Sense subscripció activa",
@@ -2364,18 +2373,17 @@
             "unsupported": "L'inici de sessió al núvol actualment només està disponible a l'escriptori."
           },
           "title": "Servei al núvol",
-          "tooltip": "Els mateixos resultats que l'autoallotjament sense configuració ni una GPU potent. A més, dona suport al projecte."
+          "tooltip": "Executa les edicions generatives als servidors de RapidRAW, amb una subscripció. Els mateixos resultats que l'autoallotjament sense configuració ni una GPU potent. A més, dona suport al projecte."
         },
         "connector": {
           "address": "Adreça de l'AI Connector",
           "addressDesc": "Adreça i port del teu AI Connector en execució.",
-          "description": "Utilitza el teu propi servidor ComfyUI per a edicions generatives i fluxos de treball personalitzats.",
           "failed": "La connexió ha fallat.",
           "success": "Connexió correcta!",
           "test": "Prova",
           "testing": "S'està provant...",
           "title": "Autoallotjat (RapidRAW AI Connector)",
-          "tooltip": "Gratuït, però cal una GPU potent i ComfyUI en execució."
+          "tooltip": "Utilitza el teu propi servidor ComfyUI per a edicions generatives i fluxos de treball personalitzats. Gratuït, però cal una GPU potent i ComfyUI en execució."
         },
         "cpu": {
           "description": "Executa màscares, etiquetatge i substitució generativa simple en aquest ordinador.",
@@ -2441,7 +2449,6 @@
         "noCamerasFound": "No s'han trobat altres càmeres a la carpeta oberta.",
         "noPreset": "Cap (neutre)",
         "preset": "Preajust per defecte",
-        "presetDesc": "S'aplica a les fotos sense editar i el fa servir «Restablir ajustaments».",
         "presetMissing": "El preajust escollit s'ha eliminat, per això les fotos sense editar fan servir valors neutres.",
         "removeCamera": "Treure la càmera",
         "sameAsAllCameras": "Igual que totes les càmeres",
@@ -2451,7 +2458,7 @@
         "sliderResetDesc": "El valor al qual torna un control lliscant amb doble clic o a l'edició ràpida. Els controls de màscara sempre tornen al seu valor neutre.",
         "sliderResetNeutral": "Valor neutre",
         "title": "Ajustaments per defecte",
-        "presetTooltip": "S'ometen màscares, retalls i transformacions, perquè només encaixen amb la foto on es van crear."
+        "presetTooltip": "S'aplica a les fotos sense editar i el fa servir «Restablir ajustaments». S'ometen màscares, retalls i transformacions, perquè només encaixen amb la foto on es van crear."
       },
       "display": {
         "title": "Pantalla"
@@ -2474,6 +2481,7 @@
       },
       "enableLivePreviews": "Activar vistes prèvies en directe",
       "ffmpeg": "FFmpeg",
+      "ffmpegDesc": "Descodifica i codifica vídeo i àudio. RapidRAW n'inclou la seva pròpia còpia.",
       "ffmpegBundledDesc": "Els vídeos fan servir l'FFmpeg {{version}} integrat.",
       "ffmpegMissing": "No s'han pogut carregar les biblioteques d'FFmpeg, per això els vídeos queden ocults.",
       "hdr": {
@@ -2517,7 +2525,9 @@
         "colorNr": "Reducció de soroll de color base",
         "colorNrDesc": "Elimina el soroll de color al principi del processament RAW.",
         "defaultNonRawTonemapper": "Mapejador de tons predeterminat No-RAW",
+        "defaultNonRawTonemapperDesc": "Mapejador de tons per a totes les imatges no RAW.",
         "defaultRawTonemapper": "Mapejador de tons predeterminat RAW",
+        "defaultRawTonemapperDesc": "Mapejador de tons per a tots els fitxers RAW.",
         "enableAppleRaw9": "Utilitza Apple RAW 9 per als fitxers RAW",
         "enableBaselineExposure": "Aplica l'exposició base als fitxers RAW",
         "enableHighlightPreservation": "Compensa els modes de preservació de llums de la càmera",
@@ -2551,6 +2561,7 @@
       "previewRes": "Resolució de la vista prèvia",
       "previewResDesc": "Mida màxima de la previsualització. Els valors més baixos són més ràpids.",
       "previewStrategy": "Estratègia de renderització de la vista prèvia",
+      "previewStrategyDesc": "Com es dimensiona la vista prèvia de l'editor: fixa per a més velocitat o ajustada a la pantalla per a tot el detall.",
       "qualities": {
         "high": "Alta qualitat",
         "performance": "Rendiment"
@@ -2570,6 +2581,7 @@
       "restartRequired": "Reinicia RapidRAW per aplicar aquests canvis.",
       "saveRelaunch": "Desar i Reiniciar",
       "smallThumbnailRes": "Resolució de les miniatures de la quadrícula",
+      "smallThumbnailResDesc": "Mida de les miniatures de la quadrícula de la biblioteca. Més alta és més nítida, però triga més a generar-se.",
       "staticDesc": "Renderitza a una mida fixa. El més ràpid, i el millor per a maquinari lent.",
       "threads": "Fils (Threads)",
       "title": "Motor de processament",
@@ -2596,6 +2608,7 @@
       "customList": "Llista d'etiquetes d'IA personalitzada",
       "customListDesc": "Si s'especifica, l'etiquetatge amb IA només fa servir aquestes etiquetes en lloc de la llista integrada. Només en anglès.",
       "maxAiTags": "Màxim d'etiquetes d'IA",
+      "maxAiTagsDesc": "El màxim d'etiquetes que l'etiquetatge amb IA afegeix a una foto.",
       "noCustomTags": "Cap etiqueta d'IA personalitzada, s'utilitza la llista integrada",
       "noShortcuts": "No s'han afegit dreceres",
       "removeCustomTooltip": "Eliminar etiqueta \"{{tag}}\"",

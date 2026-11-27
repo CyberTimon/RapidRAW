@@ -18,12 +18,13 @@ export interface KeybindDefinition {
     | 'videoTimeline'
     | 'videoPanels';
   context?: KeybindContext;
+  tooltip?: ParseKeys;
 }
 
 export interface KeybindSection {
   id: KeybindDefinition['section'];
   label: string;
-  hint?: ParseKeys;
+  tooltip?: ParseKeys;
 }
 
 export const KEYBIND_SECTIONS: KeybindSection[] = [
@@ -32,7 +33,7 @@ export const KEYBIND_SECTIONS: KeybindSection[] = [
   { id: 'view', label: 'settings.keybinds.sections.view' },
   { id: 'rating', label: 'settings.keybinds.sections.rating' },
   { id: 'panels', label: 'settings.keybinds.sections.panels' },
-  { id: 'videoPlayback', label: 'settings.keybinds.sections.videoPlayback', hint: 'settings.keybinds.videoHint' },
+  { id: 'videoPlayback', label: 'settings.keybinds.sections.videoPlayback', tooltip: 'settings.keybinds.videoHint' },
   { id: 'videoEditing', label: 'settings.keybinds.sections.videoEditing' },
   { id: 'videoTimeline', label: 'settings.keybinds.sections.videoTimeline' },
   { id: 'videoPanels', label: 'settings.keybinds.sections.videoPanels' },
@@ -122,6 +123,7 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
   {
     action: 'cycle_zoom',
     description: 'settings.keybinds.actions.cycle_zoom',
+    tooltip: 'settings.keybinds.tips.cycle_zoom',
     defaultCombo: ['Space'],
     section: 'view',
   },
@@ -164,6 +166,7 @@ export const KEYBIND_DEFINITIONS: KeybindDefinition[] = [
   {
     action: 'show_original',
     description: 'settings.keybinds.actions.show_original',
+    tooltip: 'settings.keybinds.tips.show_original',
     defaultCombo: ['KeyB'],
     section: 'view',
   },

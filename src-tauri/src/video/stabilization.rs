@@ -45,10 +45,32 @@ pub struct ClipStabilization {
 }
 
 impl ClipStabilization {
+    fn position(&self, source_seconds: f64) -> Option<(f64, usize)> {
+        let last = self.corrections.len().checked_sub(1)?;
+        let position = (source_seconds * self.fps - self.first as f64).clamp(0.0, last as f64);
+        Some((position, last))
+    }
+
+    pub fn frame_at(&self, source_seconds: f64) -> Option<Similarity> {
+        let (position, _) = self.position(source_seconds)?;
+        self.corrections.get(position.round() as usize).copied()
+    }
+
     pub fn at(&self, source_seconds: f64) -> Option<Similarity> {
-        let frame = (source_seconds * self.fps).round() as i64;
-        let index = (frame - self.first).clamp(0, self.corrections.len() as i64 - 1);
-        self.corrections.get(index as usize).copied()
+        let (position, last) = self.position(source_seconds)?;
+        let index = position.floor() as usize;
+        let (from, to) = (
+            self.corrections[index],
+            self.corrections[(index + 1).min(last)],
+        );
+        let t = (position - index as f64) as f32;
+        let mix = |a: f32, b: f32| a + (b - a) * t;
+        Some(Similarity {
+            dx: mix(from.dx, to.dx),
+            dy: mix(from.dy, to.dy),
+            angle: mix(from.angle, to.angle),
+            scale: mix(from.scale, to.scale),
+        })
     }
 }
 
