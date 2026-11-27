@@ -87,7 +87,7 @@ import { TEXT_COLOR_KEYS, TextColors, TextVariants, TextWeights } from '../../..
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { useMaskTypes } from '../../../store/videoIntegration';
-import ToolTile from '../../ui/ToolTile';
+import ToolTile, { ToolTileOverlay } from '../../ui/ToolTile';
 import { selectAiModelDownloadStatus, useProcessStore } from '../../../store/useProcessStore';
 import { useAiMasking } from '../../../hooks/useAiMasking';
 import { useEditorActions } from '../../../hooks/useEditorActions';
@@ -1286,25 +1286,10 @@ export default function MasksPanel() {
             )}
 
             {activeDragItem.type === 'Creation' && (
-              <Text
-                as="div"
-                variant={TextVariants.small}
-                color={TextColors.primary}
-                className="bg-surface rounded-lg gap-2 p-2 flex flex-col items-center justify-center aspect-square w-20 shadow-xl opacity-90"
-              >
-                {(() => {
-                  const maskType = ALL_MASK_TYPES.find((m) => m.type === activeDragItem.maskType);
-                  const Icon = maskType?.icon || Circle;
-                  return (
-                    <>
-                      <Icon size={24} />
-                      <span className="text-center">
-                        {activeDragItem.maskType ? formatMaskTypeName(activeDragItem.maskType) : 'Mask'}
-                      </span>
-                    </>
-                  );
-                })()}
-              </Text>
+              <ToolTileOverlay
+                icon={ALL_MASK_TYPES.find((m) => m.type === activeDragItem.maskType)?.icon || Circle}
+                label={activeDragItem.maskType ? formatMaskTypeName(activeDragItem.maskType) : 'Mask'}
+              />
             )}
           </div>
         ) : null}

@@ -11,6 +11,20 @@ type ToolTileProps = Omit<ComponentProps<typeof motion.div>, 'className' | 'chil
   dragging?: boolean;
 };
 
+export function ToolTileOverlay({ icon: Icon, label }: { icon: ElementType; label: string }) {
+  return (
+    <Text
+      as="div"
+      variant={TextVariants.small}
+      color={TextColors.primary}
+      className="bg-surface rounded-lg gap-2 p-2 flex flex-col items-center justify-center aspect-square w-20 shadow-xl opacity-90"
+    >
+      <Icon size={24} />
+      <span className="text-center">{label}</span>
+    </Text>
+  );
+}
+
 export default function ToolTile({ icon: Icon, label, disabled = false, dragging = false, ...props }: ToolTileProps) {
   return (
     <motion.div

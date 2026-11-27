@@ -6,22 +6,16 @@ import {
   useCallback,
   useRef,
   useMemo,
+  useLayoutEffect,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useCloudStore } from './store/useCloudStore';
 import { ToastContainer, toast, Slide } from 'react-toastify';
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  Modifier,
-  MeasuringStrategy,
-} from '@dnd-kit/core';
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, MeasuringStrategy } from '@dnd-kit/core';
 import clsx from 'clsx';
 
 import TitleBar from './window/TitleBar';
@@ -34,6 +28,7 @@ import AppModals from './components/modals/AppModals';
 import SidePanelArea from './components/panel/SidePanelArea';
 import { PANEL_ICONS } from './components/panel/PanelSwitcher';
 import DockedFilmstrip from './components/panel/DockedFilmstrip';
+import { ToolTileOverlay } from './components/ui/ToolTile';
 import { getDropPlacement, layoutCollisionDetection, type LayoutDropData } from './utils/layoutDrop';
 import Controls from './components/panel/right/ControlsPanel';
 import MetadataPanel from './components/panel/right/MetadataPanel';
@@ -144,8 +139,6 @@ const insertChildrenIntoTree = (node: any, targetPath: string, newChildren: any[
   return node;
 };
 
-const CURSOR_GAP = 14;
-
 const pointerOf = (event: Event | null) => {
   const source = event as (Partial<PointerEvent> & { touches?: TouchList }) | null;
   const x = source?.clientX ?? source?.touches?.[0]?.clientX;
@@ -153,15 +146,56 @@ const pointerOf = (event: Event | null) => {
   return x === undefined || y === undefined ? null : { x, y };
 };
 
-const trailCursorModifier: Modifier = ({ activatorEvent, activeNodeRect, draggingNodeRect, transform }) => {
-  const start = pointerOf(activatorEvent);
-  if (!start || !activeNodeRect) return transform;
+type Point = { x: number; y: number };
+
+type Grab = Point & { fx: number; fy: number };
+
+const grabOf = (e: { activatorEvent: Event | null; active: { rect: { current: { initial: DOMRect | null } } } }) => {
+  const start = pointerOf(e.activatorEvent);
+  const rect = e.active.rect.current.initial;
+  if (!start) return null;
+  const share = (offset: number, length: number) => (length > 0 ? Math.min(1, Math.max(0, offset / length)) : 0.5);
   return {
-    ...transform,
-    x: transform.x + start.x - activeNodeRect.left + CURSOR_GAP,
-    y: transform.y + start.y - activeNodeRect.top - (draggingNodeRect?.height ?? 0) / 2,
+    ...start,
+    fx: rect ? share(start.x - rect.left, rect.width) : 0.5,
+    fy: rect ? share(start.y - rect.top, rect.height) : 0.5,
   };
 };
+
+let lastPointer: Point | null = null;
+
+const trackPointer = (event: PointerEvent) => {
+  lastPointer = { x: event.clientX, y: event.clientY };
+};
+
+const dropPoint = (e: { activatorEvent: Event | null; delta: Point }): Point => {
+  if (lastPointer) return lastPointer;
+  const start = pointerOf(e.activatorEvent) ?? { x: 0, y: 0 };
+  return { x: start.x + e.delta.x, y: start.y + e.delta.y };
+};
+
+function CursorChip({ grab, children }: { grab: Grab | null; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const fx = grab?.fx ?? 0.5;
+    const fy = grab?.fy ?? 0.5;
+    const place = (x: number, y: number) => {
+      node.style.transform = `translate3d(${x - fx * node.offsetWidth}px, ${y - fy * node.offsetHeight}px, 0)`;
+    };
+    place(lastPointer?.x ?? grab?.x ?? -9999, lastPointer?.y ?? grab?.y ?? -9999);
+    const follow = (event: PointerEvent) => place(event.clientX, event.clientY);
+    window.addEventListener('pointermove', follow, true);
+    return () => window.removeEventListener('pointermove', follow, true);
+  }, [grab]);
+  return createPortal(
+    <div ref={ref} className="fixed left-0 top-0 z-[999] pointer-events-none">
+      {children}
+    </div>,
+    document.body,
+  );
+}
 
 function DragChip({ children }: { children: ReactNode }) {
   return (
@@ -169,7 +203,7 @@ function DragChip({ children }: { children: ReactNode }) {
       initial={{ opacity: 0, scale: 0.92 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.12, ease: 'easeOut' }}
-      style={{ transformOrigin: 'left center' }}
+      style={{ transformOrigin: 'center' }}
     >
       {children}
     </motion.div>
@@ -201,7 +235,10 @@ function ImageDragOverlayNode({ activeItem }: { activeItem: { path: string; path
 
 function App() {
   const [activeImageDragItem, setActiveImageDragItem] = useState<{ path: string; paths: string[] } | null>(null);
-  const [activeVideoDrag, setActiveVideoDrag] = useState<Pick<VideoDragData, 'label' | 'icon'> | null>(null);
+  const [activeVideoDrag, setActiveVideoDrag] = useState<
+    (Pick<VideoDragData, 'label' | 'icon'> & { tile: boolean }) | null
+  >(null);
+  const [dragGrab, setDragGrab] = useState<Grab | null>(null);
 
   const { appSettings, theme, osPlatform, handleSettingsChange } = useSettingsStore(
     useShallow((state) => ({
@@ -959,10 +996,15 @@ function App() {
   }, []);
   const handleDragStart = (e: any) => {
     isDndDragging.current = true;
+    lastPointer = null;
+    window.addEventListener('pointermove', trackPointer, true);
+    setDragGrab(grabOf(e));
     if (e.active.data.current?.type === 'layout-tab') {
       setLayoutDragItem(e.active.data.current.panel as Panel);
     } else if (String(e.active.data.current?.type).startsWith('video-') || e.active.data.current?.type === BIN_DRAG) {
-      setActiveVideoDrag(e.active.data.current as VideoDragData);
+      const { label, icon, type } = e.active.data.current as
+        VideoDragData | { type: typeof BIN_DRAG; label: string; icon: VideoDragData['icon'] };
+      setActiveVideoDrag({ label, icon, tile: type !== BIN_DRAG });
     } else if (e.active.data.current?.type === 'library-image') {
       const { path, paths } = e.active.data.current;
       setActiveImageDragItem({ path, paths: draggedPaths(path, paths) });
@@ -985,6 +1027,7 @@ function App() {
 
   const resetDragState = () => {
     isDndDragging.current = false;
+    window.removeEventListener('pointermove', trackPointer, true);
     setLayoutDragItem(null);
     setActiveImageDragItem(null);
     setActiveVideoDrag(null);
@@ -1016,12 +1059,8 @@ function App() {
     const isPoolTile = String(active.id).startsWith('media-pool-');
 
     if (String(active.data.current?.type).startsWith('video-') && over?.data.current?.type === 'video-timeline') {
-      const pointer = e.activatorEvent as PointerEvent;
-      dropEffectOnTimeline(
-        active.data.current as VideoDragData,
-        pointer.clientX + e.delta.x,
-        pointer.clientY + e.delta.y,
-      );
+      const point = dropPoint(e);
+      dropEffectOnTimeline(active.data.current as VideoDragData, point.x, point.y);
     }
 
     if (!isPoolTile && active.data.current?.type === 'library-image' && over?.data.current?.type === 'folder') {
@@ -1040,12 +1079,8 @@ function App() {
     }
 
     if (active.data.current?.type === 'library-image' && over?.data.current?.type === 'video-timeline') {
-      const pointer = e.activatorEvent as PointerEvent;
-      dropMediaOnTimeline(
-        activeImageDragItem?.paths || [active.data.current.path],
-        pointer.clientX + e.delta.x,
-        pointer.clientY + e.delta.y,
-      );
+      const point = dropPoint(e);
+      dropMediaOnTimeline(activeImageDragItem?.paths || [active.data.current.path], point.x, point.y);
     }
 
     if (!isPoolTile && active.data.current?.type === 'library-image' && over?.data.current?.type === 'album') {
@@ -1238,27 +1273,30 @@ function App() {
                 />
               )}
             </div>
-            <DragOverlay
-              modifiers={activeImageDragItem || activeVideoDrag ? [trailCursorModifier] : undefined}
-              dropAnimation={null}
-            >
+            <DragOverlay dropAnimation={null}>
               {activeLayoutDragItem && ActiveOverlayIcon ? (
                 <div className="w-10 h-10 bg-surface shadow-2xl rounded-md flex items-center justify-center text-text-primary ring-1 ring-border-color">
                   <ActiveOverlayIcon size={20} />
                 </div>
               ) : null}
-              <TimelineDragOverlay>
-                {activeImageDragItem ? <ImageDragOverlayNode activeItem={activeImageDragItem} /> : null}
-                {activeVideoDrag ? (
-                  <DragChip>
-                    <div className="flex items-center gap-2 pl-2.5 pr-3.5 h-8 rounded-full bg-surface/95 backdrop-blur-sm shadow-xl ring-1 ring-border-color/60 text-text-primary text-[13px] font-medium whitespace-nowrap">
-                      <activeVideoDrag.icon size={15} className="text-accent" />
-                      {activeVideoDrag.label}
-                    </div>
-                  </DragChip>
-                ) : null}
-              </TimelineDragOverlay>
             </DragOverlay>
+            {(activeImageDragItem || activeVideoDrag) && (
+              <CursorChip grab={dragGrab}>
+                <TimelineDragOverlay>
+                  {activeImageDragItem ? <ImageDragOverlayNode activeItem={activeImageDragItem} /> : null}
+                  {activeVideoDrag?.tile ? (
+                    <ToolTileOverlay icon={activeVideoDrag.icon} label={activeVideoDrag.label} />
+                  ) : activeVideoDrag ? (
+                    <DragChip>
+                      <div className="flex items-center gap-2 pl-2.5 pr-3.5 h-8 rounded-full bg-surface/95 backdrop-blur-sm shadow-xl ring-1 ring-border-color/60 text-text-primary text-[13px] font-medium whitespace-nowrap">
+                        <activeVideoDrag.icon size={15} className="text-accent" />
+                        {activeVideoDrag.label}
+                      </div>
+                    </DragChip>
+                  ) : null}
+                </TimelineDragOverlay>
+              </CursorChip>
+            )}
             <FileDropTarget />
           </DndContext>
         </div>

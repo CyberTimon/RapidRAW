@@ -18,7 +18,9 @@ export default function PanelHeader({ title, chip, children }: PanelHeaderProps)
       ) : (
         title
       )}
-      {chip !== undefined && <div className="@container flex-1 min-w-0 flex items-center pl-0.5">{chip}</div>}
+      {chip !== undefined && (
+        <div className="@container flex-1 min-w-0 flex items-center justify-end pl-0.5">{chip}</div>
+      )}
       {children && <div className="ml-auto flex items-center gap-1 shrink-0">{children}</div>}
     </div>
   );

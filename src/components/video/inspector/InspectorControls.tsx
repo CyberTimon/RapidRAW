@@ -155,7 +155,7 @@ export function ActionButton({
   className,
   tooltip,
 }: {
-  icon: LucideIcon;
+  icon?: LucideIcon;
   label: string;
   onClick(): void;
   disabled?: boolean;
@@ -174,7 +174,7 @@ export function ActionButton({
       disabled={disabled}
       onClick={onClick}
     >
-      <Icon size={15} />
+      {Icon && <Icon size={15} />}
       <span className="truncate">{label}</span>
     </button>
   );
@@ -302,7 +302,7 @@ export function TextBox({
   onBlur?(): void;
 }) {
   return (
-    <div className="mb-3">
+    <div className="pt-0.5 mb-3">
       <AutoTextArea
         className={clsx(
           'w-full rounded-md border px-3 py-2 text-sm',

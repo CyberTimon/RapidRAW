@@ -7,6 +7,7 @@ use crate::render::uniforms::{AllAdjustments, MAX_MASKS};
 const MAX_CELL_SHARE: f32 = 0.08;
 const MIN_CELL: f32 = 2.0;
 const CELL_GROUPS: usize = MAX_MASKS / 4;
+const PHASE_GROUPS: usize = MAX_MASKS / 2;
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
@@ -14,13 +15,28 @@ struct Params {
     grid: Grid,
     global: [f32; 4],
     cells: [[f32; 4]; CELL_GROUPS],
+    phases: [[f32; 4]; PHASE_GROUPS],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pixelation {
     global: f32,
+    global_phase: [f32; 2],
     cells: [f32; MAX_MASKS],
+    phases: [[f32; 2]; MAX_MASKS],
     count: u32,
+}
+
+fn phase(amount: f32) -> [f32; 2] {
+    let mut state = (amount.to_bits() as u64).wrapping_add(0x9E37_79B9_7F4A_7C15);
+    let mut next = || {
+        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        ((z ^ (z >> 31)) >> 40) as f32 / (1u64 << 24) as f32
+    };
+    [next(), next()]
 }
 
 impl Pixelation {
@@ -35,13 +51,18 @@ impl Pixelation {
             .min(mask_layers)
             .min(MAX_MASKS as u32);
         let mut cells = [0.0; MAX_MASKS];
-        for (index, slot) in cells.iter_mut().enumerate().take(count as usize) {
-            *slot = cell(adjustments.mask_adjustments[index].pixelate);
+        let mut phases = [[0.0; 2]; MAX_MASKS];
+        for index in 0..count as usize {
+            let amount = adjustments.mask_adjustments[index].pixelate;
+            cells[index] = cell(amount);
+            phases[index] = phase(amount);
         }
         let global = cell(adjustments.global.pixelate);
         (global > 0.0 || cells.iter().any(|cell| *cell > 0.0)).then_some(Self {
             global,
+            global_phase: phase(adjustments.global.pixelate),
             cells,
+            phases,
             count,
         })
     }
@@ -66,10 +87,21 @@ impl Pixelation {
         for (index, cell) in self.cells.iter().enumerate() {
             cells[index / 4][index % 4] = *cell;
         }
+        let mut phases = [[0.0; 4]; PHASE_GROUPS];
+        for (index, phase) in self.phases.iter().enumerate() {
+            phases[index / 2][index % 2 * 2] = phase[0];
+            phases[index / 2][index % 2 * 2 + 1] = phase[1];
+        }
         let params = Params {
             grid: Grid::new(size),
-            global: [self.global, self.count as f32, 0.0, 0.0],
+            global: [
+                self.global,
+                self.count as f32,
+                self.global_phase[0],
+                self.global_phase[1],
+            ],
             cells,
+            phases,
         };
         let output = enc.texture("Pixelate", size, IMAGE_FORMAT);
         enc.run(

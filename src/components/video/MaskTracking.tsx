@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Invokes } from '../../types/invokes';
 import { useTranslation } from 'react-i18next';
 import type { ParseKeys } from 'i18next';
-import { Crosshair, Pipette, Sparkles, X } from 'lucide-react';
+import { Crosshair, Pipette, X } from 'lucide-react';
 import Slider from '../ui/Slider';
 import Switch from '../ui/Switch';
 import SegmentedControl from '../ui/SegmentedControl';
@@ -396,7 +396,7 @@ export default function MaskTrackingControls<T extends Trackable>({
               </Text>
             )}
             <ActionButton
-              icon={followsAll ? X : Sparkles}
+              icon={followsAll ? X : undefined}
               label={followsAll ? t('video.tracking.remove') : t('video.maskTracking.aiFollow')}
               disabled={tracking}
               onClick={() => (followsAll ? unfollow() : void follow())}
