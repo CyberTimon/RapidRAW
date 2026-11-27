@@ -8,7 +8,7 @@ import { useCloudStore } from '../store/useCloudStore';
 import { Adjustments, AiPatch, MaskContainer, Coord } from '../utils/adjustments';
 import { SubMask } from '../types/masks';
 import { Invokes } from '../types/invokes';
-import { prepareClipMaps } from '../store/videoIntegration';
+import { findStampSource, isVideoRetouch, prepareClipMaps } from '../store/videoIntegration';
 
 const getTransformAdjustments = (adj: Adjustments) => ({
   transformDistortion: adj.transformDistortion,
@@ -82,6 +82,8 @@ export function useAiMasking() {
         p.subMasks.some((sm: SubMask) => sm.id === subMaskId),
       );
       if (!patchDefinitionForBackend) return;
+      const liveStamp = isVideoRetouch();
+      if (liveStamp && source && !sourceVariant) return;
       const patchId = patchDefinitionForBackend.id;
       const previousParameters = patchDefinitionForBackend.subMasks.find(
         (sm: SubMask) => sm.id === subMaskId,
@@ -93,7 +95,7 @@ export function useAiMasking() {
         aiPatches: prev.aiPatches?.map((p: AiPatch) => (p.id === patchId ? { ...p, isLoading: true } : p)),
       }));
 
-      try {
+      const generatePatch = async (): Promise<{ patchData: AiPatch['patchData']; picked: Coord | null }> => {
         const isLiquify = patchDefinitionForBackend.subMasks.some((sm: SubMask) => sm.type === 'liquify');
         const isRetouch = patchDefinitionForBackend.subMasks.some((sm: SubMask) => sm.type === 'retouch');
         const command = isLiquify
@@ -108,12 +110,18 @@ export function useAiMasking() {
           sourcePoint: source ? [source.x, source.y] : null,
           sourceVariant,
         });
+        const { sourceX, sourceY, ...patchData } = JSON.parse(newPatchDataJson);
+        return { patchData, picked: sourceX !== undefined ? { x: sourceX, y: sourceY } : null };
+      };
 
-        const { sourceX, sourceY, ...newPatchData } = JSON.parse(newPatchDataJson);
+      try {
+        const { patchData, picked } = liveStamp
+          ? { patchData: null, picked: await findStampSource(patchDefinitionForBackend, sourceVariant) }
+          : await generatePatch();
         patchesSentToBackend.delete(patchId);
 
         const adoptPickedSource = (sm: SubMask) =>
-          sourceX !== undefined &&
+          picked &&
           sm.id === subMaskId &&
           sm.parameters?.sourceX === previousParameters?.sourceX &&
           sm.parameters?.sourceY === previousParameters?.sourceY;
@@ -124,11 +132,14 @@ export function useAiMasking() {
             p.id === patchId
               ? {
                   ...p,
-                  patchData: newPatchData,
+                  patchData,
                   isLoading: false,
                   subMasks: p.subMasks.map((sm: SubMask) =>
                     adoptPickedSource(sm)
-                      ? { ...sm, parameters: { ...sm.parameters, sourceX, sourceY, sourceVariant } }
+                      ? {
+                          ...sm,
+                          parameters: { ...sm.parameters, sourceX: picked!.x, sourceY: picked!.y, sourceVariant },
+                        }
                       : sm,
                   ),
                 }

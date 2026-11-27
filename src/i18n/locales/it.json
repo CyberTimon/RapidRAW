@@ -324,6 +324,7 @@
       "noRating": "Nessuna Valutazione",
       "openViewer": "Apri in una seconda finestra",
       "pasteAdjustments": "Incolla Regolazioni",
+      "copyPasteSettings": "Impostazioni di copia e incolla…",
       "productivity": "Produttività",
       "rating": "Valutazione",
       "ratingLabel_one": "{{count}} Stella",
@@ -3240,6 +3241,24 @@
       "maskArea": "Traccia l'area sotto la maschera",
       "customArea": "Traccia un'area che posizioni sul video"
     },
+    "stampTracking": {
+      "title": "Tracciamento",
+      "spot": "Zona",
+      "spotArea": "Traccia l'area ritoccata",
+      "source": "Origine",
+      "trackSpot": "Traccia zona",
+      "trackSource": "Traccia origine",
+      "spotTracked": "Zona tracciata per {{duration}}.",
+      "sourceTracked": "Origine tracciata per {{duration}}.",
+      "modes": {
+        "follow": "Segui",
+        "followTip": "L'origine si sposta con la zona tracciata",
+        "fixed": "Fissa",
+        "fixedTip": "L'origine resta nello stesso punto dell'inquadratura",
+        "track": "Tracciata",
+        "trackTip": "L'origine ha un proprio tracciamento"
+      }
+    },
     "mediaPool": {
       "addToProject": "Aggiungi al progetto",
       "addToTimeline": "Aggiungi alla timeline",
@@ -3472,7 +3491,7 @@
     "lookTarget": {
       "alsoSelected": "I pannelli modificano solo questa clip. «Incolla regolazioni» nella timeline si applica a tutte le clip selezionate.",
       "noCrop": "I livelli di regolazione non possono essere ritagliati.",
-      "photoOnly": "Le modifiche IA funzionano sulle clip foto.",
+      "mediaOnly": "I ritocchi funzionano sulle clip foto e video.",
       "offline": "Il media di questa clip è offline."
     },
     "viewer": {

@@ -324,6 +324,7 @@
       "noRating": "Keine Bewertung",
       "openViewer": "In zweitem Fenster öffnen",
       "pasteAdjustments": "Einstellungen einfügen",
+      "copyPasteSettings": "Einstellungen für Kopieren & Einfügen…",
       "productivity": "Produktivität",
       "rating": "Bewertung",
       "ratingLabel_one": "{{count}} Stern",
@@ -3159,6 +3160,24 @@
       "maskArea": "Den Bereich unter der Maske tracken",
       "customArea": "Einen Bereich tracken, den du auf dem Video platzierst"
     },
+    "stampTracking": {
+      "title": "Tracking",
+      "spot": "Stelle",
+      "spotArea": "Den Bereich unter der Stelle tracken",
+      "source": "Quelle",
+      "trackSpot": "Stelle tracken",
+      "trackSource": "Quelle tracken",
+      "spotTracked": "Stelle über {{duration}} getrackt.",
+      "sourceTracked": "Quelle über {{duration}} getrackt.",
+      "modes": {
+        "follow": "Folgen",
+        "followTip": "Die Quelle bewegt sich mit der getrackten Stelle",
+        "fixed": "Fest",
+        "fixedTip": "Die Quelle bleibt an derselben Stelle im Bild",
+        "track": "Getrackt",
+        "trackTip": "Die Quelle folgt ihrem eigenen Track"
+      }
+    },
     "mediaPool": {
       "addToProject": "Zum Projekt hinzufügen",
       "addToTimeline": "Zur Zeitleiste hinzufügen",
@@ -3388,7 +3407,7 @@
     "lookTarget": {
       "alsoSelected": "Panels bearbeiten nur diesen Clip. „Einstellungen einfügen“ in der Zeitleiste wirkt auf alle ausgewählten Clips.",
       "noCrop": "Einstellungsebenen können nicht zugeschnitten werden.",
-      "photoOnly": "KI-Bearbeitungen funktionieren bei Foto-Clips.",
+      "mediaOnly": "Retuschen funktionieren bei Foto- und Videoclips.",
       "offline": "Die Medien dieses Clips sind offline."
     },
     "viewer": {

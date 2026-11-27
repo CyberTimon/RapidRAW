@@ -21,6 +21,7 @@ use crate::render::gpu::processor::{RenderOutputPrecision, RenderRequest};
 use crate::render::options::RenderOptions;
 use crate::render::source::{RenderSource, SourceTransform};
 use crate::render::uniforms::get_all_adjustments_from_json;
+use crate::retouch::stamps::{StampCache, StampSpace};
 use crate::video::compose::ColorKey;
 use crate::video::engine::range_masks::{self, MaskSpace, RangeMasks};
 use crate::video::hash_of;
@@ -55,6 +56,7 @@ pub struct MaskCache {
     bitmaps: Arc<Vec<GrayImage>>,
     cutout: Option<Cutout>,
     ranges: Option<RangeMasks>,
+    stamps: StampCache,
 }
 
 impl MaskCache {
@@ -158,6 +160,7 @@ pub struct LookTarget<'a> {
     pub white_balance: Option<WhiteBalance>,
     pub maps: &'a [(&'static str, String)],
     pub follows: &'a [(String, Follow)],
+    pub stamps: bool,
 }
 
 enum MaskWarp {
@@ -346,6 +349,56 @@ pub fn masks_at(
     masks_following(app, path, json, time, size, &[])
 }
 
+fn oriented_frame(json: &Value, size: (u32, u32)) -> (f64, f64) {
+    if json["orientationSteps"].as_u64().unwrap_or(0) % 2 == 1 {
+        (size.1 as f64, size.0 as f64)
+    } else {
+        (size.0 as f64, size.1 as f64)
+    }
+}
+
+fn follow_along(track: &Value, time: f64, frame: (f64, f64)) -> Option<Follow> {
+    MotionTrack::deserialize(track)
+        .ok()
+        .and_then(|track| track.follow(time, frame))
+}
+
+pub fn patches_at(json: &Value, time: f64, size: (u32, u32)) -> Option<Value> {
+    let patches = json.get("aiPatches")?.as_array()?;
+    let tracked = |patch: &Value| {
+        ["track", "sourceTrack"]
+            .iter()
+            .any(|key| patch.get(*key).is_some_and(|track| !track.is_null()))
+    };
+    if !patches.iter().any(tracked) {
+        return None;
+    }
+    let frame = oriented_frame(json, size);
+    let mut patches = patches.clone();
+    for patch in &mut patches {
+        let warp_of = |key: &str| follow_along(&patch[key], time, frame).and_then(MaskWarp::of);
+        let spot = warp_of("track");
+        let own = warp_of("sourceTrack");
+        let source = match patch["sourceMode"].as_str() {
+            Some("fixed") => None,
+            Some("track") => own.as_ref(),
+            _ => spot.as_ref(),
+        };
+        let Some(sub_masks) = patch.get_mut("subMasks").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        for sub_mask in sub_masks {
+            if let Some(warp) = source {
+                warp.map_fields(&mut sub_mask["parameters"], "sourceX", "sourceY");
+            }
+            if let Some(warp) = &spot {
+                warp.apply(sub_mask);
+            }
+        }
+    }
+    Some(Value::Array(patches))
+}
+
 fn masks_following(
     app: &AppHandle,
     path: &str,
@@ -367,12 +420,7 @@ fn masks_following(
     if !animated {
         return None;
     }
-    let turned = json["orientationSteps"].as_u64().unwrap_or(0) % 2 == 1;
-    let frame = if turned {
-        (size.1 as f64, size.0 as f64)
-    } else {
-        (size.0 as f64, size.1 as f64)
-    };
+    let frame = oriented_frame(json, size);
     let mut masks = masks.clone();
     for mask in &mut masks {
         let resolved = mask["id"]
@@ -380,11 +428,7 @@ fn masks_following(
             .and_then(|id| follows.iter().find(|(key, _)| key == id))
             .map(|(_, follow)| follow.clone());
         let warp = resolved
-            .or_else(|| {
-                mask.get("track")
-                    .and_then(|track| MotionTrack::deserialize(track).ok())
-                    .and_then(|track| track.follow(time, frame))
-            })
+            .or_else(|| follow_along(&mask["track"], time, frame))
             .and_then(MaskWarp::of);
         let Some(sub_masks) = mask.get_mut("subMasks").and_then(Value::as_array_mut) else {
             continue;
@@ -443,6 +487,24 @@ pub fn render_look(
     .scaled(base_scale);
     let crop_offset = render_source.crop_offset();
     let (width, height) = render_source.size();
+    let stamp_space = StampSpace::new(
+        &render_source.transform,
+        source.size,
+        base_scale,
+        crop_offset,
+    );
+    let render_source = render_source.with_stamps(
+        target
+            .stamps
+            .then(|| {
+                let tracked = target
+                    .time
+                    .and_then(|time| patches_at(json, time, target.full_size));
+                let patches = tracked.as_ref().or_else(|| json.get("aiPatches"))?;
+                masks.stamps.get(patches.as_array()?, &stamp_space)
+            })
+            .flatten(),
+    );
 
     let tracked = target.time.and_then(|time| {
         masks_following(

@@ -29,13 +29,26 @@ import { useDelayedLoading } from '../../../hooks/useDelayedLoading';
 import { useTranslation } from 'react-i18next';
 import {
   isVideoPlaying as isPlaybackRunning,
+  isVideoRetouch,
   pausePlayback,
   sampleMaskReference,
+  shownStampContainer,
+  stampWarpsNow,
   useFollowEpoch,
   useMaskFrameTime,
   useVideoPlaying,
+  useVideoRetouch,
 } from '../../../store/videoIntegration';
-import { TrackedContainer, mapParameters, maskWarp, unmapUpdate } from '../../../utils/video/maskTracking';
+import {
+  StampContainer,
+  TrackedContainer,
+  mapParameters,
+  maskWarp,
+  shownStamp,
+  stampWarps,
+  storedStamp,
+  unmapUpdate,
+} from '../../../utils/video/maskTracking';
 import { useEditorStore, WgpuPhase } from '../../../store/useEditorStore';
 import { MIXER_SAMPLE_SCREEN_SIZE, useHslMixerPicker } from '../../../hooks/useHslMixerPicker';
 import { isPanelVisible, usableActivePanel, useUIStore } from '../../../store/useUIStore';
@@ -284,6 +297,27 @@ const getStoredAiSubMask = (id: string): SubMask | undefined =>
     .getState()
     .adjustments.aiPatches?.flatMap((p: AiPatch) => p.subMasks)
     .find((sm: SubMask) => sm.id === id);
+
+const stampOwner = (id: string | null) =>
+  id && isVideoRetouch()
+    ? (useEditorStore.getState().adjustments.aiPatches as Array<StampContainer> | undefined)?.find((patch) =>
+        patch.subMasks.some((subMask) => subMask.id === id),
+      )
+    : undefined;
+
+const getShownAiSubMask = (id: string): SubMask | undefined => {
+  const subMask = getStoredAiSubMask(id);
+  const owner = stampOwner(id);
+  return subMask && owner
+    ? { ...subMask, parameters: shownStamp(subMask.type, subMask.parameters ?? {}, stampWarpsNow(owner)) }
+    : subMask;
+};
+
+const storedAiParameters = (id: string | null, parameters: SubMask['parameters']) => {
+  const owner = stampOwner(id);
+  const subMask = owner?.subMasks.find((candidate) => candidate.id === id);
+  return owner && subMask && parameters ? storedStamp(subMask.type, parameters, stampWarpsNow(owner)) : parameters;
+};
 
 const interpolateLine = (start: Coord, end: Coord): Array<Coord> => {
   const dx = end.x - start.x;
@@ -1539,22 +1573,42 @@ const ImageCanvas = memo(
   }: ImageCanvasProps) => {
     const interactivePatch = useEditorStore((state) => state.interactivePatch);
     const isVideoPlaying = useVideoPlaying();
+    const liveStamps = useVideoRetouch() && isAiEditing;
     const maskContainer = isMasking
       ? (adjustments.masks.find((c: MaskContainer) => c.id === activeMaskContainerId) as TrackedContainer | undefined)
-      : undefined;
+      : liveStamps
+        ? (adjustments.aiPatches.find((p: AiPatch) => p.id === activeAiPatchContainerId) as StampContainer | undefined)
+        : undefined;
     const maskTrack = maskContainer?.track;
     const maskTime = useMaskFrameTime(maskContainer, true);
     const followEpoch = useFollowEpoch();
-    const maskTrackWarp = useMemo(() => {
-      const frame = getOrientedDimensions(
-        selectedImage.width || 0,
-        selectedImage.height || 0,
-        adjustments.orientationSteps ?? 0,
-      );
-      return maskWarp(maskTrack, maskTime, frame.width, frame.height);
-    }, [maskTrack, adjustments.orientationSteps, selectedImage.width, selectedImage.height, maskTime, followEpoch]);
+    const orientedFrame = useMemo(
+      () =>
+        getOrientedDimensions(selectedImage.width || 0, selectedImage.height || 0, adjustments.orientationSteps ?? 0),
+      [selectedImage.width, selectedImage.height, adjustments.orientationSteps],
+    );
+    const maskTrackWarp = useMemo(
+      () => maskWarp(maskTrack, maskTime, orientedFrame.width, orientedFrame.height),
+      [maskTrack, orientedFrame, maskTime, followEpoch],
+    );
+    const trackedStamp = liveStamps
+      ? (adjustments.aiPatches as Array<StampContainer>).find(
+          (patch) => !!patch.track?.keys.length || !!patch.sourceTrack?.keys.length,
+        )
+      : undefined;
+    const stampTime = useMaskFrameTime(trackedStamp, true);
+    const shownPatches = useMemo(
+      () =>
+        trackedStamp
+          ? (adjustments.aiPatches as Array<StampContainer>).map((patch) =>
+              shownStampContainer(patch, stampWarps(patch, stampTime, orientedFrame.width, orientedFrame.height)),
+            )
+          : adjustments.aiPatches,
+      [adjustments.aiPatches, trackedStamp, stampTime, orientedFrame, followEpoch],
+    );
     const storedParameters = useCallback(
       (id: string | null, parameters: SubMask['parameters']) => {
+        if (isAiEditing) return storedAiParameters(id, parameters);
         const stored =
           maskTrackWarp && parameters
             ? adjustments.masks.flatMap((c: MaskContainer) => c.subMasks).find((sm: SubMask) => sm.id === id)
@@ -1563,7 +1617,7 @@ const ImageCanvas = memo(
           ? unmapUpdate(stored.type, stored.parameters, parameters, maskTrackWarp)
           : parameters;
       },
-      [maskTrackWarp, adjustments.masks],
+      [maskTrackWarp, adjustments.masks, isAiEditing],
     );
     const updateSubMask = useCallback(
       (id: string | null, data: Partial<SubMask>) =>
@@ -1671,7 +1725,7 @@ const ImageCanvas = memo(
         directPatchStateRef.current.inFlight = true;
         directPatchStateRef.current.pending = false;
 
-        const storedParameters = getStoredAiSubMask(activeId)?.parameters;
+        const storedParameters = getShownAiSubMask(activeId)?.parameters;
         const storedSource =
           storedParameters?.sourceX !== undefined && storedParameters?.sourceY !== undefined
             ? { x: storedParameters.sourceX, y: storedParameters.sourceY }
@@ -1705,7 +1759,7 @@ const ImageCanvas = memo(
 
     const commitCloneLines = useCallback(
       (id: string, lines: Array<DrawnLine>, offset: Coord | null) => {
-        const parameters = getStoredAiSubMask(id)?.parameters;
+        const parameters = getShownAiSubMask(id)?.parameters;
         const center = getStrokeCenter(lines);
         const source = offset && center ? { x: center.x + offset.x, y: center.y + offset.y } : null;
         updateSubMask(id, {
@@ -1743,22 +1797,24 @@ const ImageCanvas = memo(
       [selectedImage, setAdjustments, onSelectAiPatchContainer, onSelectAiSubMask, t],
     );
 
-    const handleCloneSourceDrag = useCallback(
-      (source: Coord) => {
-        if (activeAiSubMaskId) triggerDirectPatch(activeAiSubMaskId, source);
-      },
-      [activeAiSubMaskId, triggerDirectPatch],
-    );
-
     const handleCloneSourceDragEnd = useCallback(
       (source: Coord) => {
         const id = useEditorStore.getState().activeAiSubMaskId;
         const subMask = id ? getStoredAiSubMask(id) : undefined;
         if (!subMask || !id) return;
-        updateSubMask(id, { parameters: { ...subMask.parameters, sourceX: source.x, sourceY: source.y } });
+        const moved = storedAiParameters(id, { sourceX: source.x, sourceY: source.y });
+        updateStoredSubMask(id, { parameters: { ...subMask.parameters, ...moved } });
         triggerDirectPatch(id, source);
       },
-      [updateSubMask, triggerDirectPatch],
+      [updateStoredSubMask, triggerDirectPatch],
+    );
+
+    const handleCloneSourceDrag = useCallback(
+      (source: Coord) => {
+        if (isVideoRetouch()) handleCloneSourceDragEnd(source);
+        else if (activeAiSubMaskId) triggerDirectPatch(activeAiSubMaskId, source);
+      },
+      [activeAiSubMaskId, triggerDirectPatch, handleCloneSourceDragEnd],
     );
 
     const viewportWidth = imageRenderSize.containerWidth;
@@ -1891,17 +1947,10 @@ const ImageCanvas = memo(
         return adjustments.masks.find((c: MaskContainer) => c.id === activeMaskContainerId);
       }
       if (isAiEditing) {
-        return adjustments.aiPatches.find((p: AiPatch) => p.id === activeAiPatchContainerId);
+        return shownPatches.find((p: AiPatch) => p.id === activeAiPatchContainerId);
       }
       return null;
-    }, [
-      adjustments.masks,
-      adjustments.aiPatches,
-      activeMaskContainerId,
-      activeAiPatchContainerId,
-      isMasking,
-      isAiEditing,
-    ]);
+    }, [adjustments.masks, shownPatches, activeMaskContainerId, activeAiPatchContainerId, isMasking, isAiEditing]);
 
     const isActivePatchLoading = useDelayedLoading(!!(activeContainer as AiPatch | undefined)?.isLoading);
 
@@ -1920,10 +1969,13 @@ const ImageCanvas = memo(
 
     const handlePreviewUpdate = useCallback(
       (id: string, preview: Partial<SubMask>) => {
-        if (!activeContainer || !onLiveMaskPreview) return;
+        const stored = isAiEditing
+          ? adjustments.aiPatches.find((patch: AiPatch) => patch.id === activeContainer?.id)
+          : activeContainer;
+        if (!stored || !onLiveMaskPreview) return;
         onLiveMaskPreview({
-          ...activeContainer,
-          subMasks: activeContainer.subMasks.map((sm: SubMask) =>
+          ...stored,
+          subMasks: stored.subMasks.map((sm: SubMask) =>
             sm.id === id
               ? {
                   ...sm,
@@ -1934,7 +1986,7 @@ const ImageCanvas = memo(
           ),
         });
       },
-      [activeContainer, onLiveMaskPreview, storedParameters],
+      [activeContainer, adjustments.aiPatches, isAiEditing, onLiveMaskPreview, storedParameters],
     );
 
     const effectiveImageDimensions = useMemo(() => {
@@ -2196,11 +2248,11 @@ const ImageCanvas = memo(
         });
       };
 
-      if (isAiEditing && adjustments.aiPatches) processContainers(adjustments.aiPatches, true);
+      if (isAiEditing && shownPatches) processContainers(shownPatches, true);
       if (isMasking && adjustments.masks) processContainers(adjustments.masks, false);
 
       return markers;
-    }, [adjustments, isAiEditing, isMasking]);
+    }, [adjustments, shownPatches, isAiEditing, isMasking]);
 
     useEffect(() => {
       if (isCropping && uncroppedAdjustedPreviewUrl) {
@@ -3521,7 +3573,7 @@ const ImageCanvas = memo(
           }
           const offset =
             stroke.offset ??
-            getCloneOffset(getStoredAiSubMask(stroke.id)?.parameters, stroke.lines, imageSpaceLine.points[0]);
+            getCloneOffset(getShownAiSubMask(stroke.id)?.parameters, stroke.lines, imageSpaceLine.points[0]);
           commitCloneLines(stroke.id, [...stroke.lines, imageSpaceLine], offset);
           return;
         }
@@ -4009,6 +4061,7 @@ const ImageCanvas = memo(
                           <Group ref={setMaskViewGroup}>
                             <MaskTrackArea
                               container={maskContainer}
+                              list={isMasking ? 'masks' : 'aiPatches'}
                               warp={maskTrackWarp}
                               frame={effectiveImageDimensions}
                               cropX={cropX}

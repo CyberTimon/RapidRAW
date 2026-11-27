@@ -107,6 +107,7 @@ pub async fn video_seek(
         image,
         time,
         deflicker.unwrap_or_default(),
+        true,
         load_epoch,
     )
     .await
@@ -125,6 +126,7 @@ pub async fn install_image(
     image: Arc<DynamicImage>,
     time: f64,
     deflicker: bool,
+    footage: bool,
     load_epoch: usize,
 ) -> Result<FrameSize, String> {
     let (width, height) = image.dimensions();
@@ -135,7 +137,7 @@ pub async fn install_image(
         .unwrap_or_else(|e| e.into_inner())
         .clone()
         .ok_or("Preview worker not running")?;
-    let source = crate::video::frame_source(path, image, time, deflicker);
+    let source = crate::video::frame_source(path, image, time, deflicker, footage);
     let size = FrameSize {
         width,
         height,

@@ -324,6 +324,7 @@
       "noRating": "Sem Avaliação",
       "openViewer": "Abrir em uma segunda janela",
       "pasteAdjustments": "Colar Ajustes",
+      "copyPasteSettings": "Configurações de copiar e colar…",
       "productivity": "Produtividade",
       "rating": "Avaliação",
       "ratingLabel_one": "{{count}} Estrela",
@@ -3240,6 +3241,24 @@
       "maskArea": "Rastrear a área sob a máscara",
       "customArea": "Rastrear uma área que você posiciona no vídeo"
     },
+    "stampTracking": {
+      "title": "Rastreamento",
+      "spot": "Área",
+      "spotArea": "Rastrear a área retocada",
+      "source": "Origem",
+      "trackSpot": "Rastrear área",
+      "trackSource": "Rastrear origem",
+      "spotTracked": "Área rastreada por {{duration}}.",
+      "sourceTracked": "Origem rastreada por {{duration}}.",
+      "modes": {
+        "follow": "Seguir",
+        "followTip": "A origem se move com a área rastreada",
+        "fixed": "Fixa",
+        "fixedTip": "A origem fica no mesmo lugar do quadro",
+        "track": "Rastreada",
+        "trackTip": "A origem tem seu próprio rastreamento"
+      }
+    },
     "mediaPool": {
       "addToProject": "Adicionar ao projeto",
       "addToTimeline": "Adicionar à linha do tempo",
@@ -3472,7 +3491,7 @@
     "lookTarget": {
       "alsoSelected": "Os painéis editam apenas este clipe. “Colar ajustes” na linha do tempo se aplica a todos os clipes selecionados.",
       "noCrop": "Camadas de ajuste não podem ser cortadas.",
-      "photoOnly": "Edições de IA funcionam em clipes de foto.",
+      "mediaOnly": "Retoques funcionam em clipes de foto e vídeo.",
       "offline": "A mídia deste clipe está offline."
     },
     "viewer": {

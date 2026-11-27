@@ -1700,6 +1700,7 @@ pub async fn load_image(
         as_shot,
         has_gain_map: !is_raw && file_has_gain_map(&source_path),
         source_time: None,
+        footage: false,
         lens_source: None,
     });
 

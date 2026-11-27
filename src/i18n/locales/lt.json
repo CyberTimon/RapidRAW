@@ -324,6 +324,7 @@
       "noRating": "Be įvertinimo",
       "openViewer": "Atidaryti antrame lange",
       "pasteAdjustments": "Įklijuoti koregavimus",
+      "copyPasteSettings": "Kopijavimo ir įklijavimo nustatymai…",
       "productivity": "Produktyvumas",
       "rating": "Įvertinimas",
       "ratingLabel_one": "{{count}} žvaigždutė",
@@ -3321,6 +3322,24 @@
       "maskArea": "Sekti sritį po kauke",
       "customArea": "Sekti sritį, kurią pažymite vaizde"
     },
+    "stampTracking": {
+      "title": "Sekimas",
+      "spot": "Sritis",
+      "spotArea": "Sekti sritį po retušu",
+      "source": "Šaltinis",
+      "trackSpot": "Sekti sritį",
+      "trackSource": "Sekti šaltinį",
+      "spotTracked": "Sritis sekta {{duration}}.",
+      "sourceTracked": "Šaltinis sektas {{duration}}.",
+      "modes": {
+        "follow": "Sekti kartu",
+        "followTip": "Šaltinis juda kartu su sekama sritimi",
+        "fixed": "Fiksuotas",
+        "fixedTip": "Šaltinis lieka toje pačioje kadro vietoje",
+        "track": "Sekamas",
+        "trackTip": "Šaltinis turi savo sekimą"
+      }
+    },
     "mediaPool": {
       "addToProject": "Pridėti į projektą",
       "addToTimeline": "Pridėti į laiko juostą",
@@ -3556,7 +3575,7 @@
     "lookTarget": {
       "alsoSelected": "Skydeliai redaguoja tik šį klipą. Komanda „Įklijuoti koregavimus“ laiko juostoje taikoma visiems pasirinktiems klipams.",
       "noCrop": "Koregavimo sluoksnių negalima apkarpyti.",
-      "photoOnly": "DI pakeitimai veikia nuotraukų klipuose.",
+      "mediaOnly": "Retušavimas veikia nuotraukų ir vaizdo įrašų klipuose.",
       "offline": "Šio klipo medija nepasiekiama."
     },
     "viewer": {

@@ -168,6 +168,7 @@ pub struct LoadedImage {
     pub as_shot: AsShot,
     pub has_gain_map: bool,
     pub source_time: Option<f64>,
+    pub footage: bool,
     pub lens_source: Option<String>,
 }
 

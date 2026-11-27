@@ -7,6 +7,7 @@ import Switch from '../ui/Switch';
 import Text from '../ui/Text';
 import { TextVariants } from '../../types/typography';
 import { useModalGate } from '../../store/useUIStore';
+import { useVideoKind } from '../../store/videoIntegration';
 
 interface CopyPasteSettingsModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ const DEFAULT_SETTINGS: CopyPasteSettings = {
 
 export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settings }: CopyPasteSettingsModalProps) {
   const { t } = useTranslation();
+  const inVideo = useVideoKind() !== 'none';
   const [isMounted, setIsMounted] = useState(false);
   useModalGate(isOpen);
   const [show, setShow] = useState(false);
@@ -122,16 +124,18 @@ export default function CopyPasteSettingsModal({ isOpen, onClose, onSave, settin
             />
           </div>
 
-          <div>
-            <Text variant={TextVariants.heading} className="block mb-2">
-              {t('modals.copyPaste.autoSyncTitle')}
-            </Text>
-            <Switch
-              label={t('modals.copyPaste.autoSyncLabel')}
-              checked={localSettings.autoSync}
-              onChange={(checked) => setLocalSettings((p) => ({ ...p, autoSync: checked }))}
-            />
-          </div>
+          {!inVideo && (
+            <div>
+              <Text variant={TextVariants.heading} className="block mb-2">
+                {t('modals.copyPaste.autoSyncTitle')}
+              </Text>
+              <Switch
+                label={t('modals.copyPaste.autoSyncLabel')}
+                checked={localSettings.autoSync}
+                onChange={(checked) => setLocalSettings((p) => ({ ...p, autoSync: checked }))}
+              />
+            </div>
+          )}
 
           <div>
             <div className="flex justify-between items-center mb-2">

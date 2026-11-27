@@ -54,7 +54,7 @@ import {
   withChannelKeys,
 } from './lookAnimation';
 import { channelGroupOf } from './maskPaths';
-import { TrackedContainer, joinTracks, shiftTrack, trackSpan } from './maskTracking';
+import { StampContainer, TrackedContainer, joinTracks, shiftTrack, trackSpan } from './maskTracking';
 import {
   ItemLocation,
   MAX_SPEED,
@@ -1891,6 +1891,9 @@ export const trackedSpans = (project: VideoProject, item: TimelineItem, sourceFp
     layerTrackSpan(project, item),
     ...((lookOf(project, item)?.masks ?? []) as Array<TrackedContainer>).map((container) =>
       maskTrackSpan(project, item, container.track, sourceFps),
+    ),
+    ...((lookOf(project, item)?.aiPatches ?? []) as Array<StampContainer>).flatMap((container) =>
+      [container.track, container.sourceTrack].map((track) => maskTrackSpan(project, item, track, sourceFps)),
     ),
   ].filter((span): span is [Ticks, Ticks] => span !== null);
 

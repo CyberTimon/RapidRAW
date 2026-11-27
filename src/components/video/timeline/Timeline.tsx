@@ -45,6 +45,7 @@ import {
   SkipForward,
   Snowflake,
   Split,
+  Settings,
   SwatchBook,
   Trash2,
   Type,
@@ -1661,6 +1662,11 @@ export default function Timeline() {
             disabled: !hasCopiedLook(),
             onClick: pasteCopiedLook,
             shortcut: 'video_paste_adjustments',
+          },
+          {
+            icon: Settings,
+            label: t('contextMenus.editor.copyPasteSettings'),
+            onClick: () => useUIStore.getState().setUI({ isCopyPasteSettingsModalOpen: true }),
           },
           { icon: SwatchBook, label: t('video.timeline.saveAsPreset'), onClick: () => savePresetFromItem(item.id) },
           ...(sharedLook

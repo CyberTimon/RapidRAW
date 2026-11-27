@@ -9,7 +9,7 @@ import { alignHaptic } from '../../utils/haptics';
 import { Point } from '../../utils/maskShapes';
 import { useVideoStore } from '../../store/useVideoStore';
 import { loadMaskSnaps, maskSnapPoints, useVideoMotion } from '../../store/videoMotion';
-import { MaskWarp, TrackedContainer, invertWarp, warpPoint, warpQuad } from '../../utils/video/maskTracking';
+import { MaskWarp, Trackable, invertWarp, warpPoint, warpQuad } from '../../utils/video/maskTracking';
 import { boundsQuad, isConvex, quadBounds, scaleQuad, snapCorner } from '../../utils/video/planar';
 import { Region, dragRegion, regionQuad } from '../../utils/video/tracking';
 import {
@@ -39,7 +39,8 @@ interface Size {
 }
 
 interface MaskTrackAreaProps {
-  container: TrackedContainer | null | undefined;
+  container: Trackable | null | undefined;
+  list: 'masks' | 'aiPatches';
   warp: MaskWarp | null;
   frame: Size;
   cropX: number;
@@ -71,6 +72,7 @@ const prefetchSnaps = (hovered: boolean) => {
 
 function AreaEditor({
   container,
+  list,
   area,
   warp,
   frame,
@@ -82,7 +84,7 @@ function AreaEditor({
   disabled,
   getPointer,
   setIsMaskHovered,
-}: Omit<MaskTrackAreaProps, 'hidden'> & { container: TrackedContainer; area: Quad; shown: boolean }) {
+}: Omit<MaskTrackAreaProps, 'hidden'> & { container: Trackable; area: Quad; shown: boolean }) {
   const { planar, busy } = useVideoMotion(
     useShallow((state) => ({ planar: state.trackKind === 'planar', busy: state.tracking !== null })),
   );
@@ -126,7 +128,9 @@ function AreaEditor({
     show(null);
     setAdjustments((previous: Adjustments) => ({
       ...previous,
-      masks: previous.masks.map((mask) => (mask.id === container.id ? { ...mask, trackArea } : mask)),
+      [list]: (previous[list] as Array<Trackable>).map((entry) =>
+        entry.id === container.id ? { ...entry, trackArea } : entry,
+      ),
     }));
   };
 

@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView};
 use serde_json::Value;
@@ -13,6 +14,7 @@ use crate::render::gpu::compute::{
 };
 use crate::render::gpu::context::GpuContext;
 use crate::render::image_processing::{downscale_f32_image, fitted_size};
+use crate::retouch::stamps::Stamps;
 
 const FRAME_ROTATE: u32 = 1;
 const WARP_LENS: u32 = 1;
@@ -111,7 +113,7 @@ impl Frame {
             .unwrap_or((0, 0, size.0, size.1))
     }
 
-    fn size(&self, size: (u32, u32)) -> (u32, u32) {
+    pub(crate) fn size(&self, size: (u32, u32)) -> (u32, u32) {
         let (_, _, w, h) = self.crop_rect(self.oriented_size(size));
         (w, h)
     }
@@ -180,6 +182,7 @@ pub struct RenderSource<'a> {
     pub id: u64,
     pub adjustments: &'a Value,
     pub transform: SourceTransform,
+    pub stamps: Option<Arc<Stamps>>,
 }
 
 impl<'a> RenderSource<'a> {
@@ -194,6 +197,7 @@ impl<'a> RenderSource<'a> {
             id,
             adjustments,
             transform,
+            stamps: None,
         }
     }
 
@@ -208,6 +212,7 @@ impl<'a> RenderSource<'a> {
             id,
             adjustments,
             transform,
+            stamps: None,
         }
     }
 
@@ -236,6 +241,10 @@ impl<'a> RenderSource<'a> {
             adjustments,
             SourceTransform::from_adjustments(path, adjustments),
         )
+    }
+
+    pub fn with_stamps(self, stamps: Option<Arc<Stamps>>) -> Self {
+        Self { stamps, ..self }
     }
 
     pub fn scaled(mut self, scale: f32) -> Self {
@@ -274,6 +283,9 @@ impl<'a> RenderSource<'a> {
         if self.transform.effects {
             crate::render::cache_utils::calculate_effects_hash(self.adjustments).hash(&mut hasher);
         }
+        if let Some(stamps) = &self.stamps {
+            stamps.key().hash(&mut hasher);
+        }
         hasher.finish()
     }
 
@@ -303,6 +315,11 @@ impl<'a> RenderSource<'a> {
         let working_size = transform.working_size(source.size);
         if working_size != source.size {
             stage(enc, &mut current, working_size, &downscale);
+        }
+        if let Some(stamps) = &self.stamps {
+            stage(enc, &mut current, working_size, &|enc, src, dst| {
+                stamps.encode(enc, src, dst)
+            });
         }
         if transform.effects {
             let adjustments = self.adjustments;

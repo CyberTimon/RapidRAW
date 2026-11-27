@@ -705,6 +705,7 @@ pub fn run() {
             ai::commands::cancel_ai_task,
             retouch::inpainting::invoke_generative_replace_with_mask_def,
             retouch::inpainting::generate_manual_cleanup_patch,
+            retouch::inpainting::find_clone_source,
             retouch::inpainting::generate_liquify_patch,
             retouch::inpainting::generate_retouch_patch,
             decode::image_loader::load_image,

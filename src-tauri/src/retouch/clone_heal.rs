@@ -1,6 +1,8 @@
 use image::{GrayImage, RgbImage};
 use rayon::prelude::*;
 
+use crate::masks::generation::SubMask;
+
 pub type Bounds = (usize, usize, usize, usize);
 
 const NO_NEIGHBOR: u32 = u32::MAX;
@@ -735,4 +737,36 @@ pub fn find_source_offset(
 
     let (ox, oy) = refined.map_or(coarse, |(_, offset)| offset);
     Some((ox as i32, oy as i32))
+}
+
+pub fn stroke_anchor(sub_masks: &[SubMask]) -> Option<(f64, f64)> {
+    let mut bounds = (
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+    );
+    let points = sub_masks
+        .iter()
+        .filter_map(|sm| sm.parameters.get("lines").and_then(|v| v.as_array()))
+        .flatten()
+        .filter_map(|line| line.get("points").and_then(|v| v.as_array()))
+        .flatten();
+    for point in points {
+        if let (Some(x), Some(y)) = (
+            point.get("x").and_then(|v| v.as_f64()),
+            point.get("y").and_then(|v| v.as_f64()),
+        ) {
+            bounds = (
+                bounds.0.min(x),
+                bounds.1.max(x),
+                bounds.2.min(y),
+                bounds.3.max(y),
+            );
+        }
+    }
+    bounds
+        .0
+        .is_finite()
+        .then(|| ((bounds.0 + bounds.1) / 2.0, (bounds.2 + bounds.3) / 2.0))
 }

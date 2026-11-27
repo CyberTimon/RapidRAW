@@ -870,7 +870,7 @@ function App() {
           );
         case Panel.Ai:
           return (
-            <LookPanelFrame needs="photo">
+            <LookPanelFrame needs="media">
               <AIPanel />
             </LookPanelFrame>
           );

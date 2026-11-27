@@ -324,6 +324,7 @@
       "noRating": "評価なし",
       "openViewer": "セカンドウィンドウで開く",
       "pasteAdjustments": "補正設定を貼り付け",
+      "copyPasteSettings": "コピーと貼り付けの設定…",
       "productivity": "生産性",
       "rating": "評価",
       "ratingLabel_one": "{{count}} つ星",
@@ -3159,6 +3160,24 @@
       "maskArea": "マスクの下の領域をトラッキング",
       "customArea": "動画上に配置した領域をトラッキング"
     },
+    "stampTracking": {
+      "title": "トラッキング",
+      "spot": "スポット",
+      "spotArea": "スポットの下の領域をトラッキング",
+      "source": "ソース",
+      "trackSpot": "スポットをトラッキング",
+      "trackSource": "ソースをトラッキング",
+      "spotTracked": "スポットを {{duration}} トラッキングしました。",
+      "sourceTracked": "ソースを {{duration}} トラッキングしました。",
+      "modes": {
+        "follow": "追従",
+        "followTip": "ソースはトラッキングしたスポットと一緒に動きます",
+        "fixed": "固定",
+        "fixedTip": "ソースはフレーム内の同じ位置に留まります",
+        "track": "個別トラッキング",
+        "trackTip": "ソースは独自のトラッキングに従います"
+      }
+    },
     "mediaPool": {
       "addToProject": "プロジェクトに追加",
       "addToTimeline": "タイムラインに追加",
@@ -3388,7 +3407,7 @@
     "lookTarget": {
       "alsoSelected": "パネルではこのクリップのみを編集します。タイムラインの「補正設定を貼り付け」は選択したすべてのクリップに適用されます。",
       "noCrop": "調整レイヤーは切り抜きできません。",
-      "photoOnly": "AI 編集は写真クリップで使用できます。",
+      "mediaOnly": "レタッチは写真クリップとビデオクリップで使用できます。",
       "offline": "このクリップのメディアはオフラインです。"
     },
     "viewer": {

@@ -324,6 +324,7 @@
       "noRating": "Žádné hodnocení",
       "openViewer": "Otevřít ve druhém okně",
       "pasteAdjustments": "Vložit úpravy",
+      "copyPasteSettings": "Nastavení kopírování a vkládání…",
       "productivity": "Produktivita",
       "rating": "Hodnocení",
       "ratingLabel_one": "{{count}} hvězdička",
@@ -3321,6 +3322,24 @@
       "maskArea": "Sledovat oblast pod maskou",
       "customArea": "Sledovat oblast, kterou umístíte na video"
     },
+    "stampTracking": {
+      "title": "Sledování",
+      "spot": "Oblast",
+      "spotArea": "Sledovat oblast pod retuší",
+      "source": "Zdroj",
+      "trackSpot": "Sledovat oblast",
+      "trackSource": "Sledovat zdroj",
+      "spotTracked": "Oblast sledována po dobu {{duration}}.",
+      "sourceTracked": "Zdroj sledován po dobu {{duration}}.",
+      "modes": {
+        "follow": "Následovat",
+        "followTip": "Zdroj se pohybuje se sledovanou oblastí",
+        "fixed": "Pevný",
+        "fixedTip": "Zdroj zůstává na stejném místě v záběru",
+        "track": "Sledovaný",
+        "trackTip": "Zdroj má vlastní sledování"
+      }
+    },
     "mediaPool": {
       "addToProject": "Přidat do projektu",
       "addToTimeline": "Přidat na časovou osu",
@@ -3556,7 +3575,7 @@
     "lookTarget": {
       "alsoSelected": "Panely upravují jen tento klip. Příkaz Vložit úpravy na časové ose platí pro všechny vybrané klipy.",
       "noCrop": "Vrstvy úprav nelze oříznout.",
-      "photoOnly": "AI úpravy fungují u klipů z fotografií.",
+      "mediaOnly": "Retuš funguje u klipů z fotografií a videí.",
       "offline": "Médium tohoto klipu je offline."
     },
     "viewer": {

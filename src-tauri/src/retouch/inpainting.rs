@@ -10,8 +10,7 @@ use crate::app::settings::load_settings;
 use crate::app::state::AppState;
 use crate::decode::image_loader::prepare_base_image;
 use crate::masks::generation::{
-    AiPatchDefinition, MaskDefinition, SubMask, generate_mask_bitmap,
-    resolve_warped_image_for_masks,
+    AiPatchDefinition, MaskDefinition, generate_mask_bitmap, resolve_warped_image_for_masks,
 };
 use crate::masks::morphology::{gaussian_blur_mask, grayscale_dilate};
 use crate::render::geometry::{Crop, inverse_transform_mask, inverse_transform_point};
@@ -255,38 +254,6 @@ fn encode_patch_result(
     }))
 }
 
-fn stroke_anchor(sub_masks: &[SubMask]) -> Option<(f64, f64)> {
-    let mut bounds = (
-        f64::INFINITY,
-        f64::NEG_INFINITY,
-        f64::INFINITY,
-        f64::NEG_INFINITY,
-    );
-    let points = sub_masks
-        .iter()
-        .filter_map(|sm| sm.parameters.get("lines").and_then(|v| v.as_array()))
-        .flatten()
-        .filter_map(|line| line.get("points").and_then(|v| v.as_array()))
-        .flatten();
-    for point in points {
-        if let (Some(x), Some(y)) = (
-            point.get("x").and_then(|v| v.as_f64()),
-            point.get("y").and_then(|v| v.as_f64()),
-        ) {
-            bounds = (
-                bounds.0.min(x),
-                bounds.1.max(x),
-                bounds.2.min(y),
-                bounds.3.max(y),
-            );
-        }
-    }
-    bounds
-        .0
-        .is_finite()
-        .then(|| ((bounds.0 + bounds.1) / 2.0, (bounds.2 + bounds.3) / 2.0))
-}
-
 fn display_point_for(
     target: (f64, f64),
     guess: (f64, f64),
@@ -348,6 +315,118 @@ fn visible_area(
     )
 }
 
+struct PickedSource {
+    offset: (i32, i32),
+    display: (f64, f64),
+}
+
+struct CleanupSpot {
+    source_image: Arc<RgbImage>,
+    is_raw: bool,
+    path: String,
+    mask_bitmap: image::GrayImage,
+    bounds: crate::retouch::clone_heal::Bounds,
+    anchor: (f64, f64),
+    raw_anchor: (f64, f64),
+    transformed: (f64, f64),
+    is_heal: bool,
+}
+
+impl CleanupSpot {
+    fn new(
+        patch_definition: &AiPatchDefinition,
+        current_adjustments: &Value,
+        state: &tauri::State<'_, AppState>,
+    ) -> Result<Self, String> {
+        let (source_image, is_raw, path) =
+            cached_source_image(&patch_definition.id, current_adjustments, state)?;
+        let (img_w, img_h) = source_image.dimensions();
+        let (trans_w, trans_h) = transformed_dimensions(img_w, img_h, current_adjustments);
+        let mask_bitmap = raw_patch_mask(
+            patch_definition,
+            &path,
+            current_adjustments,
+            state,
+            (trans_w, trans_h),
+        )?;
+        let bounds = calculate_mask_bounds(&mask_bitmap)?;
+        let anchor = crate::retouch::clone_heal::stroke_anchor(&patch_definition.sub_masks)
+            .ok_or("No brush strokes found for this spot.")?;
+        let transformed = (trans_w as f64, trans_h as f64);
+        let raw_anchor = inverse_transform_point(
+            anchor.0,
+            anchor.1,
+            transformed.0,
+            transformed.1,
+            &path,
+            current_adjustments,
+        );
+        let is_heal = patch_definition
+            .sub_masks
+            .iter()
+            .any(|sm| sm.mask_type.eq_ignore_ascii_case("heal"));
+        Ok(Self {
+            source_image,
+            is_raw,
+            path,
+            mask_bitmap,
+            bounds,
+            anchor,
+            raw_anchor,
+            transformed,
+            is_heal,
+        })
+    }
+
+    fn offset_to(&self, (x, y): (f64, f64), adjustments: &Value) -> (i32, i32) {
+        let (width, height) = self.transformed;
+        let raw = inverse_transform_point(x, y, width, height, &self.path, adjustments);
+        (
+            (raw.0 - self.raw_anchor.0).round() as i32,
+            (raw.1 - self.raw_anchor.1).round() as i32,
+        )
+    }
+
+    fn search(
+        &self,
+        source_variant: Option<u32>,
+        adjustments: &Value,
+    ) -> Result<PickedSource, String> {
+        let (img_w, img_h) = self.source_image.dimensions();
+        let (width, height) = self.transformed;
+        let search = |area| {
+            crate::retouch::clone_heal::find_source_offset(
+                &self.source_image,
+                &self.mask_bitmap,
+                self.bounds,
+                area,
+                self.is_heal,
+                source_variant.unwrap_or(0) as usize,
+            )
+        };
+        let full_area = (0, 0, img_w as i64, img_h as i64);
+        let offset = search(visible_area(
+            &self.path,
+            adjustments,
+            width,
+            height,
+            full_area,
+        ))
+        .or_else(|| search(full_area))
+        .ok_or("Could not find a matching source area for this spot.")?;
+        let target = (
+            self.raw_anchor.0 + offset.0 as f64,
+            self.raw_anchor.1 + offset.1 as f64,
+        );
+        let guess = (
+            self.anchor.0 + offset.0 as f64,
+            self.anchor.1 + offset.1 as f64,
+        );
+        let display = display_point_for(target, guess, width, height, &self.path, adjustments);
+        Ok(PickedSource { offset, display })
+    }
+}
+
 #[tauri::command]
 pub async fn generate_manual_cleanup_patch(
     patch_definition: AiPatchDefinition,
@@ -356,91 +435,42 @@ pub async fn generate_manual_cleanup_patch(
     source_variant: Option<u32>,
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
-    let (source_image, is_raw, path) =
-        cached_source_image(&patch_definition.id, &current_adjustments, &state)?;
-    let (img_w, img_h) = source_image.dimensions();
-    let (trans_w, trans_h) = transformed_dimensions(img_w, img_h, &current_adjustments);
-
-    let mask_bitmap = raw_patch_mask(
-        &patch_definition,
-        &path,
-        &current_adjustments,
-        &state,
-        (trans_w, trans_h),
-    )?;
-
-    let bounds = calculate_mask_bounds(&mask_bitmap)?;
-    let (min_x, max_x, min_y, max_y) = bounds;
-
-    let anchor = stroke_anchor(&patch_definition.sub_masks)
-        .ok_or("No brush strokes found for this spot.")?;
-    let (trans_w, trans_h) = (trans_w as f64, trans_h as f64);
-    let raw_anchor = inverse_transform_point(
-        anchor.0,
-        anchor.1,
-        trans_w,
-        trans_h,
-        &path,
-        &current_adjustments,
-    );
-
-    let is_heal = patch_definition
-        .sub_masks
-        .iter()
-        .any(|sm| sm.mask_type.eq_ignore_ascii_case("heal"));
-
+    let spot = CleanupSpot::new(&patch_definition, &current_adjustments, &state)?;
     let (offset, picked_source) = match source_point {
-        Some((x, y)) => {
-            let raw = inverse_transform_point(x, y, trans_w, trans_h, &path, &current_adjustments);
-            let offset = (
-                (raw.0 - raw_anchor.0).round() as i32,
-                (raw.1 - raw_anchor.1).round() as i32,
-            );
-            (offset, None)
-        }
+        Some(point) => (spot.offset_to(point, &current_adjustments), None),
         None => {
-            let search = |area| {
-                crate::retouch::clone_heal::find_source_offset(
-                    &source_image,
-                    &mask_bitmap,
-                    bounds,
-                    area,
-                    is_heal,
-                    source_variant.unwrap_or(0) as usize,
-                )
-            };
-            let full_area = (0, 0, img_w as i64, img_h as i64);
-            let offset = search(visible_area(
-                &path,
-                &current_adjustments,
-                trans_w,
-                trans_h,
-                full_area,
-            ))
-            .or_else(|| search(full_area))
-            .ok_or("Could not find a matching source area for this spot.")?;
-            let target = (
-                raw_anchor.0 + offset.0 as f64,
-                raw_anchor.1 + offset.1 as f64,
-            );
-            let guess = (anchor.0 + offset.0 as f64, anchor.1 + offset.1 as f64);
-            let display =
-                display_point_for(target, guess, trans_w, trans_h, &path, &current_adjustments);
-            (offset, Some(display))
+            let picked = spot.search(source_variant, &current_adjustments)?;
+            (picked.offset, Some(picked.display))
         }
     };
+    let (min_x, max_x, min_y, max_y) = spot.bounds;
 
-    let color_image = if is_heal {
-        crate::retouch::clone_heal::heal_patch(&source_image, &mask_bitmap, bounds, offset)
+    let color_image = if spot.is_heal {
+        crate::retouch::clone_heal::heal_patch(
+            &spot.source_image,
+            &spot.mask_bitmap,
+            spot.bounds,
+            offset,
+        )
     } else {
-        crate::retouch::clone_heal::clone_patch(&source_image, &mask_bitmap, bounds, offset)
+        crate::retouch::clone_heal::clone_patch(
+            &spot.source_image,
+            &spot.mask_bitmap,
+            spot.bounds,
+            offset,
+        )
     };
 
     let crop_w = (max_x - min_x + 1) as u32;
     let crop_h = (max_y - min_y + 1) as u32;
-    let output_mask =
-        image::imageops::crop_imm(&mask_bitmap, min_x as u32, min_y as u32, crop_w, crop_h)
-            .to_image();
+    let output_mask = image::imageops::crop_imm(
+        &spot.mask_bitmap,
+        min_x as u32,
+        min_y as u32,
+        crop_w,
+        crop_h,
+    )
+    .to_image();
 
     let mut result = encode_patch_result(
         &color_image,
@@ -449,7 +479,7 @@ pub async fn generate_manual_cleanup_patch(
         min_y as u32,
         crop_w,
         crop_h,
-        is_raw,
+        spot.is_raw,
         true,
         100,
         false,
@@ -459,6 +489,18 @@ pub async fn generate_manual_cleanup_patch(
         result["sourceY"] = serde_json::json!(y);
     }
     Ok(result.to_string())
+}
+
+#[tauri::command]
+pub async fn find_clone_source(
+    patch_definition: AiPatchDefinition,
+    current_adjustments: Value,
+    source_variant: Option<u32>,
+    state: tauri::State<'_, AppState>,
+) -> Result<(f64, f64), String> {
+    let spot = CleanupSpot::new(&patch_definition, &current_adjustments, &state)?;
+    spot.search(source_variant, &current_adjustments)
+        .map(|picked| picked.display)
 }
 
 #[allow(clippy::too_many_arguments)]

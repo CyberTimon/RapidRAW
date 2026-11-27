@@ -324,6 +324,7 @@
       "noRating": "Geen beoordeling",
       "openViewer": "Openen in tweede venster",
       "pasteAdjustments": "Aanpassingen plakken",
+      "copyPasteSettings": "Instellingen voor kopiëren en plakken…",
       "productivity": "Productiviteit",
       "rating": "Beoordeling",
       "ratingLabel_one": "{{count}} ster",
@@ -3159,6 +3160,24 @@
       "maskArea": "Het gebied onder het masker volgen",
       "customArea": "Een gebied volgen dat je op de video plaatst"
     },
+    "stampTracking": {
+      "title": "Volgen",
+      "spot": "Plek",
+      "spotArea": "Het gebied onder de plek volgen",
+      "source": "Bron",
+      "trackSpot": "Plek volgen",
+      "trackSource": "Bron volgen",
+      "spotTracked": "Plek {{duration}} gevolgd.",
+      "sourceTracked": "Bron {{duration}} gevolgd.",
+      "modes": {
+        "follow": "Meebewegen",
+        "followTip": "De bron beweegt mee met de gevolgde plek",
+        "fixed": "Vast",
+        "fixedTip": "De bron blijft op dezelfde plek in het beeld",
+        "track": "Gevolgd",
+        "trackTip": "De bron volgt een eigen track"
+      }
+    },
     "mediaPool": {
       "addToProject": "Toevoegen aan project",
       "addToTimeline": "Toevoegen aan tijdlijn",
@@ -3388,7 +3407,7 @@
     "lookTarget": {
       "alsoSelected": "Panelen bewerken alleen deze clip. Aanpassingen plakken in de tijdlijn geldt voor alle geselecteerde clips.",
       "noCrop": "Aanpassingslagen kunnen niet worden bijgesneden.",
-      "photoOnly": "AI-bewerkingen werken op fotoclips.",
+      "mediaOnly": "Retoucheren werkt op foto- en videoclips.",
       "offline": "De media van deze clip zijn offline."
     },
     "viewer": {

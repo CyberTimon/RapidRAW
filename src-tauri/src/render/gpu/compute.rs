@@ -73,10 +73,11 @@ pub enum Group {
     Pixelate,
     Flow,
     RangeMask,
+    Stamps,
 }
 
 impl Group {
-    const ALL: [Group; 11] = [
+    const ALL: [Group; 12] = [
         Group::Common,
         Group::Transform,
         Group::Relight,
@@ -88,6 +89,7 @@ impl Group {
         Group::Pixelate,
         Group::Flow,
         Group::RangeMask,
+        Group::Stamps,
     ];
 
     fn source(self) -> (&'static str, &'static [&'static str]) {
@@ -201,6 +203,12 @@ impl Group {
                     "rm_combine",
                     "rm_pack",
                     "rm_cutout",
+                ],
+            ),
+            Group::Stamps => (
+                include_str!("../../shaders/stamps.wgsl"),
+                &[
+                    "st_copy", "st_clone", "st_seed", "st_push", "st_pull", "st_relax", "st_heal",
                 ],
             ),
         }
@@ -333,7 +341,7 @@ impl ComputePipelines {
         for group in Group::ALL.into_iter().filter(|group| {
             !matches!(
                 group,
-                Group::Video | Group::VideoCompose | Group::Flow | Group::RangeMask
+                Group::Video | Group::VideoCompose | Group::Flow | Group::RangeMask | Group::Stamps
             )
         }) {
             self.compiled(device, group);
@@ -972,25 +980,23 @@ impl<'a> ComputeEncoder<'a> {
             })
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub fn run<P: bytemuck::Pod>(
-        &mut self,
-        group: Group,
-        entry: &str,
-        params: &P,
-        dst: (u32, u32),
-        inputs: &[&wgpu::TextureView],
-        out: Out,
-        bind: Bind,
-    ) {
-        let pipes = self.pipelines;
-        let uniform = self
-            .device
+    fn uniform<P: bytemuck::Pod>(&self, params: &P) -> wgpu::Buffer {
+        self.device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Compute Params"),
                 contents: bytemuck::bytes_of(params),
                 usage: wgpu::BufferUsages::UNIFORM,
-            });
+            })
+    }
+
+    fn bind_group(
+        &self,
+        uniform: &wgpu::Buffer,
+        inputs: &[&wgpu::TextureView],
+        out: Out,
+        bind: Bind,
+    ) -> wgpu::BindGroup {
+        let pipes = self.pipelines;
         fn view(binding: u32, view: &wgpu::TextureView) -> wgpu::BindGroupEntry<'_> {
             wgpu::BindGroupEntry {
                 binding,
@@ -1033,18 +1039,60 @@ impl<'a> ComputeEncoder<'a> {
                 resource: bind.data.unwrap_or(&pipes.dummy_data).as_entire_binding(),
             },
         ]);
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+        self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Compute BG"),
             layout: &pipes.bgl,
             entries: &entries,
-        });
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn run<P: bytemuck::Pod>(
+        &mut self,
+        group: Group,
+        entry: &str,
+        params: &P,
+        dst: (u32, u32),
+        inputs: &[&wgpu::TextureView],
+        out: Out,
+        bind: Bind,
+    ) {
+        let uniform = self.uniform(params);
+        let bind_group = self.bind_group(&uniform, inputs, out, bind);
         let groups = bind
             .groups
             .unwrap_or((dst.0.div_ceil(WORKGROUP), dst.1.div_ceil(WORKGROUP)));
         let mut pass = self.encoder.begin_compute_pass(&Default::default());
-        pass.set_pipeline(pipes.pipeline(self.device, group, entry));
+        pass.set_pipeline(self.pipelines.pipeline(self.device, group, entry));
         pass.set_bind_group(0, &bind_group, &[]);
         pass.dispatch_workgroups(groups.0, groups.1, 1);
+    }
+
+    pub fn iterate<P: bytemuck::Pod>(
+        &mut self,
+        group: Group,
+        entry: &str,
+        params: &P,
+        dst: (u32, u32),
+        pair: [&Slot; 2],
+        iterations: usize,
+    ) -> usize {
+        let uniform = self.uniform(params);
+        let steps = [(0, 1), (1, 0)].map(|(from, to)| {
+            self.bind_group(
+                &uniform,
+                &[&pair[from].view],
+                Out::F32(&pair[to].view),
+                Bind::default(),
+            )
+        });
+        let mut pass = self.encoder.begin_compute_pass(&Default::default());
+        pass.set_pipeline(self.pipelines.pipeline(self.device, group, entry));
+        for step in 0..iterations {
+            pass.set_bind_group(0, &steps[step % 2], &[]);
+            pass.dispatch_workgroups(dst.0.div_ceil(WORKGROUP), dst.1.div_ceil(WORKGROUP), 1);
+        }
+        iterations % 2
     }
 
     pub fn blur(&mut self, src: Tex, radius: u32, passes: u32, flags: u32) -> Tex {

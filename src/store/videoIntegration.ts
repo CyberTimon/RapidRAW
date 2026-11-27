@@ -12,10 +12,10 @@ import { Mask, MaskType } from '../types/masks';
 import { OPTION_SEPARATOR, Option, Panel } from '../types/ui';
 import { Adjustments, MaskContainer } from '../utils/adjustments';
 import { KEYBIND_DEFINITIONS, comboMapFor } from '../utils/keyboardUtils';
-import { TrackedContainer, VIDEO_AI_MASKS } from '../utils/video/maskTracking';
-import { fileName, frameSourceTime, locateItem, mediaOf } from '../utils/video/model';
+import { StampContainer, Trackable, VIDEO_AI_MASKS } from '../utils/video/maskTracking';
+import { fileName, locateItem, mediaOf } from '../utils/video/model';
 import { lookItemName } from '../utils/video/items';
-import { fpsLabel, roundFps, ticksToSeconds } from '../utils/video/time';
+import { fpsLabel, roundFps } from '../utils/video/time';
 import { useEditorStore } from './useEditorStore';
 import { useLibraryStore } from './useLibraryStore';
 import { isPanelVisible, useUIStore, type UIState } from './useUIStore';
@@ -26,7 +26,6 @@ import {
   closeVideoSession,
   currentProjectPath,
   leaveProjectForLibrary,
-  editorTimeOf,
   fileStem,
   getVideo,
   goToProjectHistory,
@@ -54,7 +53,7 @@ import {
   useVideoJobs,
   watchVideoJobs,
 } from './videoJobs';
-import { cancelJob, cancelTracking, maskClip, useVideoMotion } from './videoMotion';
+import { cancelJob, cancelTracking, maskFrameTime, useVideoMotion } from './videoMotion';
 import { leaveNested } from './videoNesting';
 import { isProgramView, requestProgramFrame, useProgramCanvas } from './videoView';
 import { isVideoShortcut, videoShortcutLive } from './videoShortcuts';
@@ -84,6 +83,8 @@ export { isProgramView, programCanvas, useProgramCanvas } from './videoView';
 export { videoShortcutMatcher } from './videoShortcuts';
 export { clearPresetSource, usePresetSource } from './videoPresets';
 export { restoreAfterCacheClear } from './videoMotion';
+export { findStampSource, isVideoRetouch, shownStampContainer, stampWarpsNow, useVideoRetouch } from './videoStamps';
+export { default as StampControls } from '../components/video/StampControls';
 export { CLIP_MAPS, dismissClipMaps, prepareClipMaps, useClipMaps, useVideoFrame } from './videoMaps';
 export type { ClipMaps, MapKind, VideoFrame } from './videoMaps';
 export type { VideoCachePart } from './videoMotion';
@@ -450,30 +451,22 @@ export const sampleMaskReference = (adjustments: Adjustments, x: number, y: numb
         y,
       }).catch(() => null);
 
-const followsFrames = (container: TrackedContainer) =>
+type FrameFollower = Pick<Trackable, 'subMasks' | 'track'> & Pick<StampContainer, 'sourceTrack'>;
+
+const followsFrames = (container: FrameFollower) =>
   !!container.track?.keys.length ||
+  !!container.sourceTrack?.keys.length ||
   container.subMasks.some((subMask) => !!subMask.parameters?.sequence || subMask.type === Mask.AiDepth);
 
-export const useMaskFrameRevision = (container: MaskContainer | null | undefined): number | null => {
+export const useMaskFrameRevision = (container: Pick<MaskContainer, 'subMasks'> | null | undefined): number | null => {
   const picked =
     useVideoKind() !== 'none' && !!container?.subMasks.some(({ type }) => FRAME_PICKED_MASKS.includes(type));
   return useEditorStore((state) => (picked ? state.displayRevision : null));
 };
 
-export const useMaskFrameTime = (container: MaskContainer | null | undefined, whilePlaying = false): number | null => {
+export const useMaskFrameTime = (container: FrameFollower | null | undefined, whilePlaying = false): number | null => {
   const follows = !!container && followsFrames(container);
-  return useVideoStore((state) => {
-    const { project, playhead } = state;
-    if (!follows || (state.isPlaying && !whilePlaying) || !state.session || !project) return null;
-    const layer = locateItem(project, state.editorItemId)?.item;
-    if (layer?.type === 'adjustment') return ticksToSeconds(editorTimeOf(project, layer, playhead) - layer.start);
-    const clip = maskClip();
-    if (!clip) return null;
-    const sourceFps = state.media[mediaOf(project, clip.media)?.path ?? '']?.fps;
-    return ticksToSeconds(
-      frameSourceTime(clip, editorTimeOf(project, clip, playhead), project.settings.fps, sourceFps),
-    );
-  });
+  return useVideoStore((state) => (follows ? maskFrameTime(state, whilePlaying) : null));
 };
 
 export const useFollowEpoch = () => useVideoMotion((state) => state.followEpoch);

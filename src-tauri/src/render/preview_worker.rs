@@ -13,15 +13,18 @@ use crate::render::gpu::display::{self, DisplayLayer};
 use crate::render::options::{RenderOptions, resolve_render_options};
 use crate::render::preview::{EditorRender, prepare_preview_source};
 use crate::render::source::RenderSource;
+use crate::retouch::stamps::{StampCache, StampSpace};
 use image::DynamicImage;
 use imgref::ImgRef;
 use rgb::{FromSlice, RGBA8};
 use std::panic;
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{Emitter, Manager, ipc::InvokeResponseBody};
+
+static PREVIEW_STAMPS: Mutex<StampCache> = Mutex::new(StampCache::new());
 
 #[allow(clippy::too_many_arguments)]
 fn process_preview_job(
@@ -201,6 +204,25 @@ fn process_preview_job(
         preview.scale
     };
     let unscaled_crop_offset = preview.unscaled_crop_offset;
+    let stamps = match adjustments_clone["aiPatches"].as_array() {
+        Some(patches) if loaded_image.footage => {
+            let space = StampSpace::new(
+                &processing_source.transform,
+                processing_source.pixels.dimensions(),
+                effective_scale,
+                (
+                    unscaled_crop_offset.0 * effective_scale,
+                    unscaled_crop_offset.1 * effective_scale,
+                ),
+            );
+            PREVIEW_STAMPS
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get(patches, &space)
+        }
+        _ => None,
+    };
+    let processing_source = processing_source.with_stamps(stamps);
 
     let pixel_roi = if is_interactive {
         roi.map(|(nx, ny, nw, nh)| crate::render::gpu::processor::Roi {

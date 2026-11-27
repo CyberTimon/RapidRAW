@@ -324,6 +324,7 @@
       "noRating": "Aucune note",
       "openViewer": "Ouvrir dans une seconde fenêtre",
       "pasteAdjustments": "Coller les ajustements",
+      "copyPasteSettings": "Réglages du copier-coller…",
       "productivity": "Productivité",
       "rating": "Note",
       "ratingLabel_one": "{{count}} Étoile",
@@ -3240,6 +3241,24 @@
       "maskArea": "Suivre la zone sous le masque",
       "customArea": "Suivre une zone placée sur la vidéo"
     },
+    "stampTracking": {
+      "title": "Suivi",
+      "spot": "Zone",
+      "spotArea": "Suivre la zone retouchée",
+      "source": "Source",
+      "trackSpot": "Suivre la zone",
+      "trackSource": "Suivre la source",
+      "spotTracked": "Zone suivie sur {{duration}}.",
+      "sourceTracked": "Source suivie sur {{duration}}.",
+      "modes": {
+        "follow": "Suivre",
+        "followTip": "La source se déplace avec la zone suivie",
+        "fixed": "Fixe",
+        "fixedTip": "La source reste au même endroit de l'image",
+        "track": "Suivie",
+        "trackTip": "La source a son propre suivi"
+      }
+    },
     "mediaPool": {
       "addToProject": "Ajouter au projet",
       "addToTimeline": "Ajouter à la timeline",
@@ -3472,7 +3491,7 @@
     "lookTarget": {
       "alsoSelected": "Les panneaux ne modifient que ce clip. « Coller les ajustements » dans la timeline s'applique à tous les clips sélectionnés.",
       "noCrop": "Les calques de réglage ne peuvent pas être recadrés.",
-      "photoOnly": "Les retouches IA fonctionnent sur les clips photo.",
+      "mediaOnly": "Les retouches fonctionnent sur les clips photo et vidéo.",
       "offline": "Le média de ce clip est hors ligne."
     },
     "viewer": {

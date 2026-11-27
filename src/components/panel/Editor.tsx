@@ -468,7 +468,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const isVideoPlaying = useVideoPlaying();
   const activeMaskContainer = isMasking
     ? adjustments.masks?.find((c: MaskContainer) => c.id === activeMaskContainerId)
-    : null;
+    : isAiEditing
+      ? adjustments.aiPatches?.find((p: AiPatch) => p.id === activeAiPatchContainerId)
+      : null;
   const maskFrameTime = useMaskFrameTime(activeMaskContainer);
   const maskFrameRevision = useMaskFrameRevision(activeMaskContainer);
   const maskFrameRef = useRef<{ time: number; width: number; height: number } | null>(null);

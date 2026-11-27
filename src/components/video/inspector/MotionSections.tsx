@@ -156,7 +156,7 @@ export function TrackingSection({ item }: { item: Trackable }) {
         {placing ? (
           <>
             <TrackKindControl disabled={running} />
-            <Tracker jobKey={item.id} onTrack={() => void trackLayer(item.id)} />
+            <Tracker jobs={[{ key: item.id, onTrack: () => void trackLayer(item.id) }]} />
             {!running && <ActionButton icon={X} label={t('video.tracking.cancel')} onClick={cancelTracking} />}
           </>
         ) : (

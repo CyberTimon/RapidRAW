@@ -7,6 +7,7 @@ export enum Invokes {
   CalculateAutoAdjustments = 'calculate_auto_adjustments',
   SampleWhiteBalance = 'sample_white_balance',
   SampleMaskReference = 'sample_mask_reference',
+  FindCloneSource = 'find_clone_source',
   CalculateAutoStraighten = 'calculate_auto_straighten',
   CancelAiTask = 'cancel_ai_task',
   CancelEditInApp = 'cancel_edit_in_app',

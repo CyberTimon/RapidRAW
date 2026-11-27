@@ -44,22 +44,22 @@ export function TrackKindControl({ disabled = false }: { disabled?: boolean }) {
   );
 }
 
-export function Tracker({
-  jobKey,
-  disabled = false,
-  onTrack,
-}: {
-  jobKey: string;
+export interface TrackJob {
+  key: string;
+  label?: string;
   disabled?: boolean;
   onTrack(): void;
-}) {
+}
+
+export function Tracker({ jobs }: { jobs: Array<TrackJob> }) {
   const { t } = useTranslation();
+  const keys = jobs.map((job) => job.key);
   const { direction, progress, busy, error } = useVideoMotion(
     useShallow((state) => ({
       direction: state.trackDirection,
-      progress: state.tracking?.key === jobKey ? state.tracking.progress : null,
+      progress: state.tracking && keys.includes(state.tracking.key) ? state.tracking.progress : null,
       busy: state.tracking !== null || Object.keys(state.aiFollow).length > 0,
-      error: state.trackError?.key === jobKey ? state.trackError.message : null,
+      error: state.trackError && keys.includes(state.trackError.key) ? state.trackError.message : null,
     })),
   );
   return (
@@ -71,10 +71,14 @@ export function Tracker({
         onChange={setTrackDirection}
       />
       {progress === null ? (
-        <Button className="w-full" disabled={disabled || busy} onClick={onTrack}>
-          <Crosshair size={16} />
-          {t('video.tracking.track')}
-        </Button>
+        <div className="flex gap-2">
+          {jobs.map((job) => (
+            <Button key={job.key} className="flex-1" disabled={job.disabled || busy} onClick={job.onTrack}>
+              <Crosshair size={16} />
+              {job.label ?? t('video.tracking.track')}
+            </Button>
+          ))}
+        </div>
       ) : (
         <JobProgress
           label={t('video.tracking.progress', { percent: Math.round(progress * 100) })}
@@ -95,11 +99,13 @@ export function TrackedRow({
   track,
   span,
   label,
+  durationKey = 'video.tracking.tracked',
   onRemove,
 }: {
   track: MotionTrack | null | undefined;
   span: [Ticks, Ticks] | null;
   label?: string;
+  durationKey?: 'video.tracking.tracked' | 'video.stampTracking.spotTracked' | 'video.stampTracking.sourceTracked';
   onRemove(): void;
 }) {
   const { t } = useTranslation();
@@ -108,7 +114,7 @@ export function TrackedRow({
   return (
     <div className="flex items-center gap-2">
       <Text variant={TextVariants.small} color={TextColors.secondary} className="flex-1 leading-snug">
-        {label ?? t('video.tracking.tracked', { duration: formatDuration(span ? span[1] - span[0] : 0) })}
+        {label ?? t(durationKey, { duration: formatDuration(span ? span[1] - span[0] : 0) })}
       </Text>
       {!busy && (
         <button type="button" className="shrink-0 text-sm text-accent hover:underline" onClick={onRemove}>

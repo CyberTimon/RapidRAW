@@ -294,7 +294,7 @@ export const isPanelAvailable = (state: UIState, panel: Panel) => {
   if (panel === Panel.Filmstrip) return state.activeView === 'editor';
   if (panel === Panel.FolderTree) return state.workspaceMode !== 'video';
   if (VIDEO_ONLY_PANELS.includes(panel)) return state.workspaceMode === 'video';
-  return panel !== Panel.Ai || !state.isVideoMedia;
+  return true;
 };
 
 const WORKSPACE_KEYS = [
@@ -430,7 +430,6 @@ export interface UIState {
   storedWorkspaces: Record<WorkspaceMode, WorkspaceLayout | null>;
   enterWorkspace: (mode: WorkspaceMode) => void;
   loadWorkspaces: (workspaces: Record<WorkspaceMode, WorkspaceLayout | null>) => void;
-  isVideoMedia: boolean;
 
   leftPanelWidth: number;
   rightPanelWidth: number;
@@ -513,7 +512,6 @@ export const useUIStore = create<UIState>((set, get) => ({
   isSettingsOpen: false,
   workspaceMode: 'photo',
   storedWorkspaces: { photo: null, video: null },
-  isVideoMedia: false,
 
   leftPanelWidth: DEFAULT_PANEL_WIDTH,
   rightPanelWidth: DEFAULT_PANEL_WIDTH,

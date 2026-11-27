@@ -324,6 +324,7 @@
       "noRating": "Sense puntuació",
       "openViewer": "Obre en una segona finestra",
       "pasteAdjustments": "Enganxar ajustaments",
+      "copyPasteSettings": "Opcions de copiar i enganxar…",
       "productivity": "Productivitat",
       "rating": "Puntuació",
       "ratingLabel_one": "{{count}} Estrella",
@@ -3240,6 +3241,24 @@
       "maskArea": "Seguir la zona sota la màscara",
       "customArea": "Seguir una zona que col·loques al vídeo"
     },
+    "stampTracking": {
+      "title": "Seguiment",
+      "spot": "Zona",
+      "spotArea": "Seguir la zona retocada",
+      "source": "Origen",
+      "trackSpot": "Seguir zona",
+      "trackSource": "Seguir origen",
+      "spotTracked": "Zona seguida durant {{duration}}.",
+      "sourceTracked": "Origen seguit durant {{duration}}.",
+      "modes": {
+        "follow": "Seguir",
+        "followTip": "L'origen es mou amb la zona seguida",
+        "fixed": "Fix",
+        "fixedTip": "L'origen es queda al mateix lloc del fotograma",
+        "track": "Seguit",
+        "trackTip": "L'origen té el seu propi seguiment"
+      }
+    },
     "mediaPool": {
       "addToProject": "Afegir al projecte",
       "addToTimeline": "Afegir a la línia de temps",
@@ -3472,7 +3491,7 @@
     "lookTarget": {
       "alsoSelected": "Els taulers només editen aquest clip. «Enganxar ajustaments» a la línia de temps s'aplica a tots els clips seleccionats.",
       "noCrop": "Les capes d'ajust no es poden retallar.",
-      "photoOnly": "Les edicions d'IA funcionen en clips de foto.",
+      "mediaOnly": "Els retocs funcionen en clips de foto i vídeo.",
       "offline": "El mitjà d'aquest clip no està disponible."
     },
     "viewer": {

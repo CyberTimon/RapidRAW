@@ -324,6 +324,7 @@
       "noRating": "Inget betyg",
       "openViewer": "Öppna i ett andra fönster",
       "pasteAdjustments": "Klistra in justeringar",
+      "copyPasteSettings": "Inställningar för kopiera och klistra in…",
       "productivity": "Produktivitet",
       "rating": "Betyg",
       "ratingLabel_one": "{{count}} stjärna",
@@ -3159,6 +3160,24 @@
       "maskArea": "Spåra området under masken",
       "customArea": "Spåra ett område som du placerar på videon"
     },
+    "stampTracking": {
+      "title": "Spårning",
+      "spot": "Punkt",
+      "spotArea": "Spåra området under punkten",
+      "source": "Källa",
+      "trackSpot": "Spåra punkt",
+      "trackSource": "Spåra källa",
+      "spotTracked": "Punkt spårad i {{duration}}.",
+      "sourceTracked": "Källa spårad i {{duration}}.",
+      "modes": {
+        "follow": "Följ",
+        "followTip": "Källan flyttas med den spårade punkten",
+        "fixed": "Fast",
+        "fixedTip": "Källan stannar på samma plats i bilden",
+        "track": "Spårad",
+        "trackTip": "Källan följer sin egen spårning"
+      }
+    },
     "mediaPool": {
       "addToProject": "Lägg till i projekt",
       "addToTimeline": "Lägg till i tidslinjen",
@@ -3388,7 +3407,7 @@
     "lookTarget": {
       "alsoSelected": "Panelerna redigerar bara det här klippet. Klistra in justeringar i tidslinjen gäller alla markerade klipp.",
       "noCrop": "Justeringslager kan inte beskäras.",
-      "photoOnly": "AI-redigeringar fungerar på fotoklipp.",
+      "mediaOnly": "Retuschering fungerar på foto- och videoklipp.",
       "offline": "Klippets media är offline."
     },
     "viewer": {

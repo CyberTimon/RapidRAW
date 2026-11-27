@@ -47,9 +47,12 @@ import { getOrientedDimensions } from '../utils/cropUtils';
 import { errorText, showError } from '../utils/errors';
 import { Adjustments, MaskContainer } from '../utils/adjustments';
 import { SubMask } from '../types/masks';
+import { getStrokeCenter } from '../utils/maskUtils';
 import {
   ResolvedFollow,
+  StampContainer,
   TrackRegion,
+  Trackable,
   TrackedContainer,
   VIDEO_AI_MASKS,
   boundsRegion,
@@ -84,6 +87,7 @@ import {
   editItemLook,
   editProject,
   editorClipAt,
+  editorTimeOf,
   getVideo,
   isCancelled,
   refreshLook,
@@ -365,7 +369,9 @@ const setAiFollow = (key: string, progress: number | null) =>
     return { aiFollow: progress === null ? rest : { ...rest, [key]: progress } };
   });
 
-const followsVideo = (container: MaskContainer) =>
+type FollowTarget = Pick<MaskContainer, 'id' | 'subMasks'>;
+
+const followsVideo = (container: FollowTarget) =>
   container.subMasks.some((subMask) => VIDEO_AI_MASKS.includes(subMask.type));
 
 type FollowSpan = [reference: number, first: number, last: number];
@@ -380,7 +386,7 @@ const followSpanOf = (subMask: SubMask): FollowSpan | null => {
   return Array.isArray(span) && span.length === 3 ? (span as FollowSpan) : null;
 };
 
-const followedSubMasks = (container: MaskContainer) =>
+const followedSubMasks = (container: FollowTarget) =>
   container.subMasks.filter((subMask) => VIDEO_AI_MASKS.includes(subMask.type) && !!subMask.parameters?.sequence);
 
 export const withSequences = (subMasks: Array<SubMask>, results: Map<string, FollowResult>) =>
@@ -419,7 +425,7 @@ const coversClip = (project: VideoProject, clip: ClipItem, sourceFps: number, su
   });
 };
 
-export const followsPlayedFrames = (container: MaskContainer) => {
+export const followsPlayedFrames = (container: FollowTarget) => {
   const { project, media } = getVideo();
   const clip = maskClip();
   const ref = project && clip ? mediaOf(project, clip.media) : null;
@@ -459,7 +465,7 @@ const runFollow = async (
 
 export const followAiMasks = async (
   itemId: string,
-  container: MaskContainer,
+  container: FollowTarget,
   apply: (results: Map<string, FollowResult>) => void,
 ) => {
   const { project, playhead, media } = getVideo();
@@ -1032,6 +1038,17 @@ const maskLayer = () => {
 
 export const maskItem = () => maskLayer()?.item ?? maskClip();
 
+export const maskFrameTime = (state: ReturnType<typeof getVideo>, whilePlaying: boolean): number | null => {
+  const { project, playhead } = state;
+  if ((state.isPlaying && !whilePlaying) || !state.session || !project) return null;
+  const layer = locateItem(project, state.editorItemId)?.item;
+  if (layer?.type === 'adjustment') return ticksToSeconds(editorTimeOf(project, layer, playhead) - layer.start);
+  const clip = maskClip();
+  if (!clip) return null;
+  const sourceFps = state.media[mediaOf(project, clip.media)?.path ?? '']?.fps;
+  return ticksToSeconds(frameSourceTime(clip, editorTimeOf(project, clip, playhead), project.settings.fps, sourceFps));
+};
+
 export const maskTrackKey = (containerId: string) => maskKey(maskItem()?.id ?? '', containerId);
 
 let maskSnaps: { key: string; project: VideoProject; points: Array<[number, number]> } | null = null;
@@ -1081,7 +1098,7 @@ export const maskSnapPoints = (width: number, height: number) => {
     : [];
 };
 
-const shownSubMasks = (container: TrackedContainer, time: number, width: number, height: number) => {
+const shownSubMasks = (container: Trackable, time: number, width: number, height: number) => {
   const warp = maskWarp(container.track, time, width, height);
   return warp
     ? container.subMasks.map((subMask) => ({
@@ -1096,12 +1113,7 @@ interface TrackTarget {
   quad: Quad;
 }
 
-const trackTarget = (
-  container: TrackedContainer,
-  time: number,
-  width: number,
-  height: number,
-): TrackTarget | string => {
+const trackTarget = (container: Trackable, time: number, width: number, height: number): TrackTarget | string => {
   const area = trackAreaAt(container, time, width, height);
   const region = area
     ? boundsRegion(quadBounds(area), width, height)
@@ -1118,7 +1130,7 @@ const sameKind = (track: MotionTrack | null | undefined) =>
 const layerMaskPlan = async (
   item: VisualItem,
   trackIndex: number,
-  container: TrackedContainer,
+  container: Trackable,
   update: (track: MotionTrack) => void,
 ): Promise<TrackPlan | string> => {
   const { project, playhead } = getVideo();
@@ -1153,7 +1165,7 @@ const layerMaskPlan = async (
 
 const maskPlan = async (
   clip: ClipItem | null,
-  container: TrackedContainer,
+  container: Trackable,
   update: (track: MotionTrack) => void,
 ): Promise<TrackPlan | string> => {
   const { project, playhead, media } = getVideo();
@@ -1228,13 +1240,36 @@ const maskPlan = async (
   };
 };
 
-export const trackMask = (container: TrackedContainer, update: (track: MotionTrack) => void) => {
+export const trackMask = (container: Trackable, update: (track: MotionTrack) => void) => {
   const layer = maskLayer();
   return runTrack(
     maskTrackKey(container.id),
     layer ? layerMaskPlan(layer.item, layer.trackIndex, container, update) : maskPlan(maskClip(), container, update),
   );
 };
+
+const stampSourceSpot = (container: StampContainer): Trackable => ({
+  id: `${container.id}:source`,
+  track: container.sourceTrack,
+  subMasks: container.subMasks.map((subMask) => {
+    const { lines = [], sourceX, sourceY } = subMask.parameters ?? {};
+    const center = getStrokeCenter(lines);
+    if (!center || sourceX === undefined || sourceY === undefined) return subMask;
+    const shift = ({ x, y }: { x: number; y: number }) => ({ x: x + sourceX - center.x, y: y + sourceY - center.y });
+    return {
+      ...subMask,
+      parameters: {
+        lines: lines.map((line: { points: Array<{ x: number; y: number }> }) => ({
+          ...line,
+          points: line.points.map(shift),
+        })),
+      },
+    };
+  }),
+});
+
+export const trackStampSource = (container: StampContainer, update: (track: MotionTrack) => void) =>
+  trackMask(stampSourceSpot(container), update);
 
 const maskFrameSize = (look: Adjustments) => {
   const { project, media } = getVideo();
@@ -1246,7 +1281,7 @@ const maskFrameSize = (look: Adjustments) => {
   return info ? getOrientedDimensions(info.width, info.height, look.orientationSteps ?? 0) : null;
 };
 
-export const defaultTrackArea = (container: TrackedContainer, look: Adjustments): Quad => {
+export const defaultTrackArea = (container: Trackable, look: Adjustments): Quad => {
   const size = maskFrameSize(look) ?? { width: 1, height: 1 };
   const shortSide = Math.min(size.width, size.height);
   const side = shortSide * REGION_SHARE;

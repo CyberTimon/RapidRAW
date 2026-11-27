@@ -8,17 +8,18 @@ import { TextColors, TextVariants, TextWeights } from '../../types/typography';
 import { lookTargetOf, useVideoStore } from '../../store/useVideoStore';
 import { mediaOf } from '../../utils/video/model';
 
-type LookNeed = 'clip' | 'photo';
+type LookNeed = 'clip' | 'media';
 
 const UNSUPPORTED: Record<LookNeed, ParseKeys> = {
   clip: 'video.lookTarget.noCrop',
-  photo: 'video.lookTarget.photoOnly',
+  media: 'video.lookTarget.mediaOnly',
 };
 
 const supports = (project: VideoProject, item: ClipItem | AdjustmentItem, need?: LookNeed) => {
   if (!need) return true;
   if (item.type !== 'clip') return false;
-  return need === 'clip' || mediaOf(project, item.media)?.kind === 'image';
+  const kind = mediaOf(project, item.media)?.kind;
+  return need === 'clip' || kind === 'image' || kind === 'video';
 };
 
 export function PanelNotice({ message }: { message: ParseKeys }) {

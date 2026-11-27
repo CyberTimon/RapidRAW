@@ -324,6 +324,7 @@
       "noRating": "Sin puntuación",
       "openViewer": "Abrir en una segunda ventana",
       "pasteAdjustments": "Pegar ajustes",
+      "copyPasteSettings": "Ajustes de copiar y pegar…",
       "productivity": "Productividad",
       "rating": "Puntuación",
       "ratingLabel_one": "{{count}} Estrella",
@@ -3240,6 +3241,24 @@
       "maskArea": "Seguir la zona bajo la máscara",
       "customArea": "Seguir una zona que colocas en el vídeo"
     },
+    "stampTracking": {
+      "title": "Seguimiento",
+      "spot": "Zona",
+      "spotArea": "Seguir la zona retocada",
+      "source": "Origen",
+      "trackSpot": "Seguir zona",
+      "trackSource": "Seguir origen",
+      "spotTracked": "Zona seguida durante {{duration}}.",
+      "sourceTracked": "Origen seguido durante {{duration}}.",
+      "modes": {
+        "follow": "Seguir",
+        "followTip": "El origen se mueve con la zona seguida",
+        "fixed": "Fijo",
+        "fixedTip": "El origen se queda en el mismo lugar del fotograma",
+        "track": "Seguido",
+        "trackTip": "El origen tiene su propio seguimiento"
+      }
+    },
     "mediaPool": {
       "addToProject": "Añadir al proyecto",
       "addToTimeline": "Añadir a la línea de tiempo",
@@ -3472,7 +3491,7 @@
     "lookTarget": {
       "alsoSelected": "Los paneles solo editan este clip. «Pegar ajustes» en la línea de tiempo se aplica a todos los clips seleccionados.",
       "noCrop": "Las capas de ajuste no se pueden recortar.",
-      "photoOnly": "Las ediciones de IA funcionan en clips de foto.",
+      "mediaOnly": "Los retoques funcionan en clips de foto y vídeo.",
       "offline": "El medio de este clip no está disponible."
     },
     "viewer": {

@@ -324,6 +324,7 @@
       "noRating": "無評分",
       "openViewer": "在第二視窗中開啟",
       "pasteAdjustments": "貼上調整",
+      "copyPasteSettings": "複製與貼上設定…",
       "productivity": "效率",
       "rating": "評分",
       "ratingLabel_one": "{{count}} 星",
@@ -3159,6 +3160,24 @@
       "maskArea": "追蹤遮色片下方的區域",
       "customArea": "追蹤你在影片上放置的區域"
     },
+    "stampTracking": {
+      "title": "追蹤",
+      "spot": "修補點",
+      "spotArea": "追蹤修補點下方的區域",
+      "source": "來源",
+      "trackSpot": "追蹤修補點",
+      "trackSource": "追蹤來源",
+      "spotTracked": "修補點已追蹤 {{duration}}。",
+      "sourceTracked": "來源已追蹤 {{duration}}。",
+      "modes": {
+        "follow": "跟隨",
+        "followTip": "來源隨追蹤的修補點一起移動",
+        "fixed": "固定",
+        "fixedTip": "來源保持在畫面中的同一位置",
+        "track": "獨立追蹤",
+        "trackTip": "來源使用自己的追蹤"
+      }
+    },
     "mediaPool": {
       "addToProject": "新增至專案",
       "addToTimeline": "新增至時間軸",
@@ -3388,7 +3407,7 @@
     "lookTarget": {
       "alsoSelected": "面板只會編輯此片段。在時間軸中使用「貼上調整」會套用到所有選取的片段。",
       "noCrop": "調整圖層無法裁切。",
-      "photoOnly": "AI 編輯僅適用於照片片段。",
+      "mediaOnly": "修飾適用於照片與影片片段。",
       "offline": "此片段的媒體已離線。"
     },
     "viewer": {

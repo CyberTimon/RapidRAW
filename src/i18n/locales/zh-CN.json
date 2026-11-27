@@ -324,6 +324,7 @@
       "noRating": "无评分",
       "openViewer": "在第二窗口中打开",
       "pasteAdjustments": "粘贴调整",
+      "copyPasteSettings": "复制与粘贴设置…",
       "productivity": "效率",
       "rating": "评分",
       "ratingLabel_one": "{{count}} 星",
@@ -3159,6 +3160,24 @@
       "maskArea": "跟踪蒙版下方的区域",
       "customArea": "跟踪你在视频上放置的区域"
     },
+    "stampTracking": {
+      "title": "跟踪",
+      "spot": "修补点",
+      "spotArea": "跟踪修补点下方的区域",
+      "source": "源",
+      "trackSpot": "跟踪修补点",
+      "trackSource": "跟踪源",
+      "spotTracked": "修补点已跟踪 {{duration}}。",
+      "sourceTracked": "源已跟踪 {{duration}}。",
+      "modes": {
+        "follow": "跟随",
+        "followTip": "源随跟踪的修补点一起移动",
+        "fixed": "固定",
+        "fixedTip": "源保持在画面中的同一位置",
+        "track": "独立跟踪",
+        "trackTip": "源使用自己的跟踪"
+      }
+    },
     "mediaPool": {
       "addToProject": "添加到项目",
       "addToTimeline": "添加到时间线",
@@ -3388,7 +3407,7 @@
     "lookTarget": {
       "alsoSelected": "面板仅编辑此片段。在时间线中使用“粘贴调整”会应用到所有选中的片段。",
       "noCrop": "调整图层无法裁剪。",
-      "photoOnly": "AI 编辑仅适用于照片片段。",
+      "mediaOnly": "修饰适用于照片和视频片段。",
       "offline": "此片段的媒体处于离线状态。"
     },
     "viewer": {

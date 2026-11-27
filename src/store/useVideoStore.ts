@@ -1568,14 +1568,6 @@ useEditorStore.subscribe((state, prev) => {
 const syncPanelTargets = () => {
   const { project, selection, session, editorItemId } = getVideo();
   const target = session?.kind === 'project' && project ? lookTargetOf(project, selection) : null;
-  const path = useEditorStore.getState().selectedImage?.path;
-  const targetKind = target?.type === 'clip' && project ? mediaOf(project, target.media)?.kind : null;
-  const isVideoMedia =
-    session?.kind === 'project'
-      ? targetKind === 'video' || targetKind === 'sequence'
-      : session?.kind === 'clip' && !!path && isVideoPath(path);
-  const ui = useUIStore.getState();
-  if (ui.isVideoMedia !== isVideoMedia) ui.setUI({ isVideoMedia });
   if (session?.kind === 'project' && (target?.id ?? null) !== editorItemId) void focusPlayhead();
 };
 

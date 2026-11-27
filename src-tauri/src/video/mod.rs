@@ -342,6 +342,7 @@ pub fn frame_source(
     image: Arc<DynamicImage>,
     time: f64,
     deflicker: bool,
+    footage: bool,
 ) -> LoadedImage {
     let (source_path, _) = crate::library::sidecars::parse_virtual_path(path);
     let reference = timelapse::frame_path(&source_path, Some(time));
@@ -365,6 +366,7 @@ pub fn frame_source(
         },
         has_gain_map: false,
         source_time: Some(time),
+        footage,
         lens_source: reference,
     }
 }
@@ -381,9 +383,20 @@ pub fn frame_adjustments(
     for (key, map) in ai_maps::frame_overrides(app, path, adjustments, time) {
         adjustments[key] = serde_json::Value::String(map);
     }
+    if let Some(patches) = adjustments
+        .get_mut("aiPatches")
+        .and_then(serde_json::Value::as_array_mut)
+    {
+        for patch in patches {
+            patch["patchData"] = serde_json::Value::Null;
+        }
+    }
     let size = image::GenericImageView::dimensions(&*frame.image);
     if let Some(masks) = engine::look::masks_at(app, path, adjustments, time, size) {
         adjustments["masks"] = masks;
+    }
+    if let Some(patches) = engine::look::patches_at(adjustments, time, size) {
+        adjustments["aiPatches"] = patches;
     }
 }
 

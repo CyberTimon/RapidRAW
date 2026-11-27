@@ -1,6 +1,6 @@
 import { Mask, SubMask } from '../../types/masks';
 import { MotionTrack, Quad, TrackKey } from '../../types/video';
-import type { MaskContainer } from '../adjustments';
+import type { AiPatch, MaskContainer } from '../adjustments';
 import { PenPoint, penBounds, rectangleBounds } from '../maskShapes';
 import {
   Bounds,
@@ -34,12 +34,26 @@ export const KEY_PRESETS = [
 
 export const DEFAULT_KEY: ColorKey = { color: KEY_PRESETS[0].color, tolerance: 50, softness: 10, spill: 50 };
 
-export type TrackedContainer = MaskContainer & {
+export interface Trackable {
+  id: string;
+  subMasks: Array<SubMask>;
   track?: MotionTrack | null;
   trackArea?: Quad | null;
-  cutout?: boolean;
-  key?: ColorKey | null;
-};
+}
+
+export type TrackedContainer = MaskContainer &
+  Trackable & {
+    cutout?: boolean;
+    key?: ColorKey | null;
+  };
+
+export type SourceMode = 'follow' | 'fixed' | 'track';
+
+export type StampContainer = AiPatch &
+  Trackable & {
+    sourceMode?: SourceMode;
+    sourceTrack?: MotionTrack | null;
+  };
 
 export interface Similarity {
   from: { x: number; y: number };
@@ -75,7 +89,16 @@ const resolvedOf = (track: MotionTrack, time: number | null) =>
 const MIN_REGION_SHARE = 0.04;
 const MAX_REGION_SHARE = 0.8;
 const LINEAR_REGION_SHARE = 0.2;
-const TRACKABLE = new Set<string>([Mask.Radial, Mask.Linear, Mask.Rectangle, Mask.Pen, Mask.Brush, Mask.Flow]);
+const TRACKABLE = new Set<string>([
+  Mask.Radial,
+  Mask.Linear,
+  Mask.Rectangle,
+  Mask.Pen,
+  Mask.Brush,
+  Mask.Flow,
+  Mask.Clone,
+  Mask.Heal,
+]);
 
 export const isTrackable = (subMask: SubMask) => TRACKABLE.has(subMask.type);
 
@@ -436,6 +459,37 @@ export const mapParameters = (type: string, parameters: Parameters | undefined, 
   return parameters;
 };
 
+export interface StampWarps {
+  spot: MaskWarp | null;
+  source: MaskWarp | null;
+}
+
+export const stampWarps = (
+  container: StampContainer,
+  time: number | null,
+  width: number,
+  height: number,
+): StampWarps => {
+  const spot = maskWarp(container.track, time, width, height);
+  const mode = container.sourceMode ?? 'follow';
+  if (mode === 'fixed') return { spot, source: null };
+  return { spot, source: mode === 'track' ? maskWarp(container.sourceTrack, time, width, height) : spot };
+};
+
+const movedSource = (parameters: Parameters, warp: MaskWarp | null): Parameters => {
+  if (!warp || parameters.sourceX === undefined || parameters.sourceY === undefined) return parameters;
+  const point = warpPoint(warp, parameters.sourceX, parameters.sourceY);
+  return { ...parameters, sourceX: point.x, sourceY: point.y };
+};
+
+export const shownStamp = (type: string, parameters: Parameters, { spot, source }: StampWarps): Parameters =>
+  movedSource((spot && mapParameters(type, parameters, spot)) || parameters, source);
+
+const inverseOf = (warp: MaskWarp | null) => (warp ? invertWarp(warp) : null);
+
+export const storedStamp = (type: string, parameters: Parameters, { spot, source }: StampWarps): Parameters =>
+  shownStamp(type, parameters, { spot: inverseOf(spot), source: inverseOf(source) });
+
 export const unmapUpdate = (
   type: string,
   stored: Parameters | undefined,
@@ -527,7 +581,7 @@ export const boundsRegion = ({ left, top, right, bottom }: Bounds, width: number
   height: (bottom - top) / height,
 });
 
-export const trackAreaAt = (container: TrackedContainer, time: number | null, width: number, height: number) =>
+export const trackAreaAt = (container: Trackable, time: number | null, width: number, height: number) =>
   container.trackArea
     ? warpQuad(maskWarp(container.track, time, width, height), scaleQuad(container.trackArea, width, height))
     : null;

@@ -324,6 +324,7 @@
       "noRating": "평점 없음",
       "openViewer": "보조 창에서 열기",
       "pasteAdjustments": "조정값 붙여넣기",
+      "copyPasteSettings": "복사 및 붙여넣기 설정…",
       "productivity": "생산성",
       "rating": "평점",
       "ratingLabel_one": "{{count}}점",
@@ -3159,6 +3160,24 @@
       "maskArea": "마스크 아래 영역 추적",
       "customArea": "동영상에 배치한 영역 추적"
     },
+    "stampTracking": {
+      "title": "추적",
+      "spot": "스팟",
+      "spotArea": "스팟 아래 영역 추적",
+      "source": "소스",
+      "trackSpot": "스팟 추적",
+      "trackSource": "소스 추적",
+      "spotTracked": "{{duration}} 동안 스팟을 추적했습니다.",
+      "sourceTracked": "{{duration}} 동안 소스를 추적했습니다.",
+      "modes": {
+        "follow": "따라가기",
+        "followTip": "소스가 추적된 스팟과 함께 움직입니다",
+        "fixed": "고정",
+        "fixedTip": "소스가 프레임의 같은 위치에 머뭅니다",
+        "track": "개별 추적",
+        "trackTip": "소스가 자체 추적을 따릅니다"
+      }
+    },
     "mediaPool": {
       "addToProject": "프로젝트에 추가",
       "addToTimeline": "타임라인에 추가",
@@ -3388,7 +3407,7 @@
     "lookTarget": {
       "alsoSelected": "패널에서는 이 클립만 편집합니다. 타임라인의 '조정값 붙여넣기'는 선택한 모든 클립에 적용됩니다.",
       "noCrop": "조정 레이어는 자를 수 없습니다.",
-      "photoOnly": "AI 편집은 사진 클립에서 작동합니다.",
+      "mediaOnly": "리터치는 사진 및 비디오 클립에서 작동합니다.",
       "offline": "이 클립의 미디어가 오프라인 상태입니다."
     },
     "viewer": {

@@ -1115,7 +1115,7 @@ pub async fn video_install_frame(
         )))
     })
     .await??;
-    install_image(&app_handle, &path, image, time, false, load_epoch).await
+    install_image(&app_handle, &path, image, time, false, false, load_epoch).await
 }
 
 #[tauri::command]

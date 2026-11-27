@@ -324,6 +324,7 @@
       "noRating": "No Rating",
       "openViewer": "Open in Second Window",
       "pasteAdjustments": "Paste Adjustments",
+      "copyPasteSettings": "Copy & Paste Settings…",
       "productivity": "Productivity",
       "rating": "Rating",
       "ratingLabel_one": "{{count}} Star",
@@ -3159,6 +3160,24 @@
       "maskArea": "Track the area under the mask",
       "customArea": "Track an area you place on the video"
     },
+    "stampTracking": {
+      "title": "Tracking",
+      "spot": "Spot",
+      "spotArea": "Track the area under the spot",
+      "source": "Source",
+      "trackSpot": "Track Spot",
+      "trackSource": "Track Source",
+      "spotTracked": "Spot tracked for {{duration}}.",
+      "sourceTracked": "Source tracked for {{duration}}.",
+      "modes": {
+        "follow": "Follow",
+        "followTip": "The source moves with the tracked spot",
+        "fixed": "Fixed",
+        "fixedTip": "The source stays at the same place in the frame",
+        "track": "Tracked",
+        "trackTip": "The source follows its own track"
+      }
+    },
     "mediaPool": {
       "addToProject": "Add to Project",
       "addToTimeline": "Add to Timeline",
@@ -3388,7 +3407,7 @@
     "lookTarget": {
       "alsoSelected": "Panels edit this clip only. Paste Adjustments in the timeline applies to all selected clips.",
       "noCrop": "Adjustment layers can't be cropped.",
-      "photoOnly": "AI edits work on photo clips.",
+      "mediaOnly": "Retouching works on photo and video clips.",
       "offline": "This clip's media is offline."
     },
     "viewer": {

@@ -69,6 +69,7 @@ import { useAiMasking } from '../../../hooks/useAiMasking';
 import { useCloudUsage } from '../../../hooks/useCloudUsage';
 import { useDelayedLoading } from '../../../hooks/useDelayedLoading';
 import ToolTile from '../../ui/ToolTile';
+import { StampControls, useVideoRetouch } from '../../../store/videoIntegration';
 
 export const STANDALONE_MASK_TYPES: Mask[] = [Mask.Clone, Mask.Heal, Mask.Liquify, Mask.Retouch];
 
@@ -437,6 +438,10 @@ export default function AIPanel() {
 
   const { cloudUsage, isSignedIn, isPro, aiProvider } = useCloudUsage();
   const isAiFree = aiProvider === 'ai-free';
+  const stampsOnly = useVideoRetouch();
+  const touchUpTypes = stampsOnly ? [] : AI_TOUCH_UP_TYPES;
+  const generativeTypes = isAiFree || stampsOnly ? [] : AI_GENERATIVE_CREATION_TYPES;
+  const creationGroups = [AI_DIRECT_PATCH_TYPES, touchUpTypes, generativeTypes].filter((types) => types.length > 0);
 
   const isGenerativeAvailable =
     (aiProvider === 'cloud' && isSignedIn && isPro) || (aiProvider === 'ai-connector' && isAIConnectorConnected);
@@ -727,14 +732,10 @@ export default function AIPanel() {
     let options: any[];
 
     if (!targetContainerId) {
-      options = [
-        ...buildMenu(AI_DIRECT_PATCH_TYPES, SubMaskMode.Additive),
-        { type: OPTION_SEPARATOR },
-        ...buildMenu(AI_TOUCH_UP_TYPES, SubMaskMode.Additive),
-        ...(isAiFree
-          ? []
-          : [{ type: OPTION_SEPARATOR }, ...buildMenu(AI_GENERATIVE_CREATION_TYPES, SubMaskMode.Additive)]),
-      ];
+      options = creationGroups.flatMap((types, index) => [
+        ...(index > 0 ? [{ type: OPTION_SEPARATOR }] : []),
+        ...buildMenu(types, SubMaskMode.Additive),
+      ]);
     } else {
       options = buildMenu(AI_SUB_MASK_COMPONENT_TYPES, SubMaskMode.Additive);
 
@@ -942,30 +943,16 @@ export default function AIPanel() {
       return;
     }
 
-    const manualSubMenu = AI_DIRECT_PATCH_TYPES.filter((maskType) => !maskType.disabled).map((maskType) => ({
-      label: formatMaskTypeName(maskType.type),
-      icon: maskType.icon,
-      onClick: () => handleAddAiPatchContainer(maskType.type),
-    }));
-
-    const touchUpSubMenu = AI_TOUCH_UP_TYPES.filter((maskType) => !maskType.disabled).map((maskType) => ({
-      label: formatMaskTypeName(maskType.type),
-      icon: maskType.icon,
-      onClick: () => handleAddAiPatchContainer(maskType.type),
-    }));
-
-    const genSubMenu = AI_GENERATIVE_CREATION_TYPES.filter((maskType) => !maskType.disabled).map((maskType) => ({
-      label: formatMaskTypeName(maskType.type),
-      icon: maskType.icon,
-      onClick: () => handleAddAiPatchContainer(maskType.type),
-    }));
-
-    const newEditSubMenu = [
-      ...manualSubMenu,
-      { type: OPTION_SEPARATOR },
-      ...touchUpSubMenu,
-      ...(isAiFree ? [] : [{ type: OPTION_SEPARATOR }, ...genSubMenu]),
-    ];
+    const newEditSubMenu = creationGroups.flatMap((types, index) => [
+      ...(index > 0 ? [{ type: OPTION_SEPARATOR }] : []),
+      ...types
+        .filter((maskType) => !maskType.disabled)
+        .map((maskType) => ({
+          label: formatMaskTypeName(maskType.type),
+          icon: maskType.icon,
+          onClick: () => handleAddAiPatchContainer(maskType.type),
+        })),
+    ]);
 
     showContextMenu(e.clientX, e.clientY, [
       {
@@ -1158,7 +1145,7 @@ export default function AIPanel() {
         </PanelHeader>
 
         <div className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col min-h-0 p-3">
-          {!isAiFree && (
+          {generativeTypes.length > 0 && (
             <div className="mb-4 shrink-0">
               <ConnectionStatus
                 aiProvider={aiProvider}
@@ -1208,27 +1195,31 @@ export default function AIPanel() {
                       ))}
                     </div>
 
-                    <Text variant={TextVariants.heading} className="mb-2">
-                      {t('editor.ai.touchUpTitle')}
-                    </Text>
-                    <div className="grid grid-cols-3 gap-2 mb-6" onClick={(e) => e.stopPropagation()}>
-                      {AI_TOUCH_UP_TYPES.map((maskType: MaskType) => (
-                        <DraggableGridItem
-                          key={maskType.type}
-                          maskType={maskType}
-                          isGenerating={hasAnyActiveAiTask}
-                          onClick={() => handleAddAiPatchContainer(maskType.type)}
-                        />
-                      ))}
-                    </div>
+                    {touchUpTypes.length > 0 && (
+                      <>
+                        <Text variant={TextVariants.heading} className="mb-2">
+                          {t('editor.ai.touchUpTitle')}
+                        </Text>
+                        <div className="grid grid-cols-3 gap-2 mb-6" onClick={(e) => e.stopPropagation()}>
+                          {touchUpTypes.map((maskType: MaskType) => (
+                            <DraggableGridItem
+                              key={maskType.type}
+                              maskType={maskType}
+                              isGenerating={hasAnyActiveAiTask}
+                              onClick={() => handleAddAiPatchContainer(maskType.type)}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
 
-                    {!isAiFree && (
+                    {generativeTypes.length > 0 && (
                       <>
                         <Text variant={TextVariants.heading} className="mb-2">
                           {t('editor.ai.generativeEditTitle')}
                         </Text>
                         <div className="grid grid-cols-3 gap-2" onClick={(e) => e.stopPropagation()}>
-                          {AI_GENERATIVE_CREATION_TYPES.map((maskType: MaskType) => (
+                          {generativeTypes.map((maskType: MaskType) => (
                             <DraggableGridItem
                               key={maskType.type}
                               maskType={maskType}
@@ -2213,13 +2204,16 @@ function SettingsPanel({
               )}
 
               {(activeSubMask.type === Mask.Clone || activeSubMask.type === Mask.Heal) && (
-                <CloneHealControls
-                  subMask={activeSubMask}
-                  container={displayContainer}
-                  updateSubMask={updateSubMask}
-                  updateContainer={updateContainer}
-                  onRegenerate={onManualCleanup}
-                />
+                <>
+                  <CloneHealControls
+                    subMask={activeSubMask}
+                    container={displayContainer}
+                    updateSubMask={updateSubMask}
+                    updateContainer={updateContainer}
+                    onRegenerate={onManualCleanup}
+                  />
+                  <StampControls container={displayContainer} updateContainer={updateContainer} />
+                </>
               )}
 
               {subMaskConfig.parameters?.map((param: any) => (

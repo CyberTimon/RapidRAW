@@ -59,6 +59,7 @@ import {
   ScanLine,
   MonitorUp,
   AppWindow,
+  Settings,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -490,6 +491,13 @@ export function useAppContextMenus(latestProps: UseAppContextMenusProps) {
           onClick: () => handlePasteAdjustments(),
           disabled: copiedAdjustments === null,
           shortcut: 'paste_adjustments',
+        },
+        {
+          needsLook: true,
+          videoOnly: true,
+          label: t('contextMenus.editor.copyPasteSettings'),
+          icon: Settings,
+          onClick: () => setUI({ isCopyPasteSettingsModalOpen: true }),
         },
         {
           needsLook: true,

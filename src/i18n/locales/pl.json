@@ -324,6 +324,7 @@
       "noRating": "Brak oceny",
       "openViewer": "Otwórz w drugim oknie",
       "pasteAdjustments": "Wklej ustawienia",
+      "copyPasteSettings": "Ustawienia kopiowania i wklejania…",
       "productivity": "Produktywność",
       "rating": "Ocena",
       "ratingLabel_one": "{{count}} Gwiazdka",
@@ -3321,6 +3322,24 @@
       "maskArea": "Śledź obszar pod maską",
       "customArea": "Śledź obszar umieszczony na filmie"
     },
+    "stampTracking": {
+      "title": "Śledzenie",
+      "spot": "Obszar",
+      "spotArea": "Śledź obszar pod retuszem",
+      "source": "Źródło",
+      "trackSpot": "Śledź obszar",
+      "trackSource": "Śledź źródło",
+      "spotTracked": "Obszar śledzony przez {{duration}}.",
+      "sourceTracked": "Źródło śledzone przez {{duration}}.",
+      "modes": {
+        "follow": "Podążaj",
+        "followTip": "Źródło porusza się razem ze śledzonym obszarem",
+        "fixed": "Stałe",
+        "fixedTip": "Źródło zostaje w tym samym miejscu kadru",
+        "track": "Śledzone",
+        "trackTip": "Źródło ma własne śledzenie"
+      }
+    },
     "mediaPool": {
       "addToProject": "Dodaj do projektu",
       "addToTimeline": "Dodaj do osi czasu",
@@ -3556,7 +3575,7 @@
     "lookTarget": {
       "alsoSelected": "Panele edytują tylko ten klip. Polecenie Wklej ustawienia na osi czasu działa na wszystkie zaznaczone klipy.",
       "noCrop": "Warstw korekcyjnych nie można kadrować.",
-      "photoOnly": "Edycje AI działają na klipach ze zdjęć.",
+      "mediaOnly": "Retusz działa na klipach ze zdjęć i wideo.",
       "offline": "Materiał tego klipu jest offline."
     },
     "viewer": {
