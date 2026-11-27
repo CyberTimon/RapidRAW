@@ -48,8 +48,13 @@ export const snapTicks = (ticks: Ticks, fps: FrameRate): Ticks => fromFrame(toFr
 
 export const pad = (value: number, length = 2) => String(value).padStart(length, '0');
 
+const timecodeRate = (fps: FrameRate) => Math.max(1, Math.round(fpsValue(fps)));
+
+export const timecodeSecondsToTicks = (seconds: number, fps: FrameRate): Ticks =>
+  fromFrame(seconds * timecodeRate(fps), fps);
+
 const timecodeParts = (ticks: Ticks, fps: FrameRate) => {
-  const rate = Math.max(1, Math.round(fpsValue(fps)));
+  const rate = timecodeRate(fps);
   const totalFrames = Math.max(0, toFrame(ticks, fps));
   const totalSeconds = Math.floor(totalFrames / rate);
   const totalMinutes = Math.floor(totalSeconds / 60);
@@ -70,8 +75,7 @@ export const parseTimecode = (text: string, fps: FrameRate): Ticks | null => {
   const parts = text.trim().split(/[:;.]/);
   if (parts.length > 4 || parts.some((part) => !/^\d+$/.test(part))) return null;
   const [frames = 0, seconds = 0, minutes = 0, hours = 0] = parts.map(Number).reverse();
-  const rate = Math.max(1, Math.round(fpsValue(fps)));
-  return fromFrame(((hours * 60 + minutes) * 60 + seconds) * rate + frames, fps);
+  return fromFrame(((hours * 60 + minutes) * 60 + seconds) * timecodeRate(fps) + frames, fps);
 };
 
 export const formatRulerTime = (ticks: Ticks, fps: FrameRate, withFrames: boolean) => {

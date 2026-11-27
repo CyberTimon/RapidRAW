@@ -159,6 +159,7 @@ import {
   secondsToTicks,
   snapTicks,
   ticksToSeconds,
+  timecodeSecondsToTicks,
 } from '../../../utils/video/time';
 import { alignHaptic } from '../../../utils/haptics';
 import CaptionLane from './CaptionLane';
@@ -201,7 +202,7 @@ import type { ShortcutAction } from '../../../utils/keyboardUtils';
 
 const MIN_PPS = 2;
 const MAX_PPS = 600;
-const RULER_STEPS = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
+const RULER_STEPS = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
 const MINOR_TICKS = 4;
 const SPEED_PRESETS = [0.25, 0.5, 1, 1.5, 2, 4];
 const TRACK_SCALE_SPEED = 0.0015;
@@ -506,13 +507,14 @@ const Ruler = memo(function Ruler({
   scroll: { start: number; end: number };
 }) {
   const fps = useProjectFps();
-  const step = RULER_STEPS.find((candidate) => candidate * pps >= 72) ?? RULER_STEPS.at(-1)!;
+  const unit = timeToX(timecodeSecondsToTicks(1, fps), pps);
+  const step = RULER_STEPS.find((candidate) => candidate * unit >= 72) ?? RULER_STEPS.at(-1)!;
   const minor = step / MINOR_TICKS;
-  const first = Math.max(0, Math.floor(scroll.start / pps / minor));
-  const last = Math.ceil(Math.min(ticksToSeconds(duration) + step, scroll.end / pps + step) / minor);
+  const first = Math.max(0, Math.floor(scroll.start / unit / minor));
+  const last = Math.ceil((Math.min(timeToX(duration, pps), scroll.end) / unit + step) / minor);
   const ticks: Array<ReactNode> = [];
   for (let index = first; index <= last; index++) {
-    const time = secondsToTicks(index * minor);
+    const time = timecodeSecondsToTicks(index * minor, fps);
     const isMajor = index % MINOR_TICKS === 0;
     ticks.push(
       <div
@@ -958,6 +960,8 @@ export default function Timeline() {
   const mattes = useMemo(() => matteRoles(shown?.videoTracks ?? []), [shown?.videoTracks]);
   const duration = shown ? sequenceDuration(shown) : 0;
   const contentWidth = Math.max(scroll.width, timeToX(duration, pps) + TRAILING_SPACE);
+  const fitPps = duration > 0 ? Math.max(1, scroll.width - FIT_MARGIN) / ticksToSeconds(duration) : MIN_PPS;
+  const minPps = Math.min(MIN_PPS, fitPps);
 
   const fitSpare = useCallback(() => {
     const el = scrollRef.current;
@@ -1136,7 +1140,7 @@ export default function Timeline() {
   const zoomTo = useCallback(
     (next: number, anchorX?: number, anchorTime?: number) => {
       const el = scrollRef.current;
-      const clamped = Math.min(MAX_PPS, Math.max(MIN_PPS, next));
+      const clamped = Math.min(MAX_PPS, Math.max(Math.min(minPps, pps), next));
       if (!el) {
         setVideo({ pixelsPerSecond: clamped });
         return;
@@ -1149,14 +1153,12 @@ export default function Timeline() {
         updateScroll();
       });
     },
-    [pps, updateScroll],
+    [pps, minPps, updateScroll],
   );
 
   const zoomToFit = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el || duration <= 0) return;
-    zoomTo((el.clientWidth - HEADER_WIDTH - FIT_MARGIN) / ticksToSeconds(duration), 0, 0);
-  }, [duration, zoomTo]);
+    if (duration > 0) zoomTo(fitPps, 0, 0);
+  }, [duration, fitPps, zoomTo]);
 
   const zoomOut = useCallback(() => zoomTo(pps / 1.5), [zoomTo, pps]);
   const zoomIn = useCallback(() => zoomTo(pps * 1.5), [zoomTo, pps]);
@@ -1950,7 +1952,7 @@ export default function Timeline() {
               />
               <input
                 type="range"
-                min={Math.log(MIN_PPS)}
+                min={Math.log(minPps)}
                 max={Math.log(MAX_PPS)}
                 step={0.01}
                 value={Math.log(pps)}
