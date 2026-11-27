@@ -10,6 +10,7 @@ from pathlib import Path
 
 ORT_VERSION = "1.24.4"
 ORT_MACOS_VERSION = "1.23.2"
+ORT_LINUX_VERSION = "1.25.1"
 DIRECTML_VERSION = "1.15.4"
 WEBGPU_EP_VERSION = "0.6.0"
 NUGET = "https://api.nuget.org/v3"
@@ -18,6 +19,7 @@ HF_FOLDER = f"onnxruntimes-v{ORT_VERSION}"
 
 ORT = ("Microsoft.ML.OnnxRuntime", ORT_VERSION)
 ORT_MACOS = ("Microsoft.ML.OnnxRuntime", ORT_MACOS_VERSION)
+ORT_LINUX = ("Microsoft.ML.OnnxRuntime", ORT_LINUX_VERSION)
 ORT_DIRECTML = ("Microsoft.ML.OnnxRuntime.DirectML", ORT_VERSION)
 DIRECTML = ("Microsoft.AI.DirectML", DIRECTML_VERSION)
 WEBGPU_EP = ("Microsoft.ML.OnnxRuntime.EP.WebGpu", WEBGPU_EP_VERSION)
@@ -31,12 +33,12 @@ RUNTIMES = [
      "onnxruntime-directml-windows-aarch64.dll", "onnxruntime.dll"),
     ("windows", "aarch64", DIRECTML, "bin/arm64-win/DirectML.dll",
      "directml-windows-aarch64.dll", "DirectML.dll"),
-    ("linux", "x86_64", ORT, "runtimes/linux-x64/native/libonnxruntime.so",
-     "libonnxruntime-linux-x86_64.so", "libonnxruntime.so"),
+    ("linux", "x86_64", ORT_LINUX, "runtimes/linux-x64/native/libonnxruntime.so",
+     f"libonnxruntime-{ORT_LINUX_VERSION}-linux-x86_64.so", "libonnxruntime.so"),
     ("linux", "x86_64", WEBGPU_EP, "runtimes/linux-x64/native/libonnxruntime_providers_webgpu.so",
      "libonnxruntime-providers-webgpu-linux-x86_64.so", "libonnxruntime_providers_webgpu.so"),
-    ("linux", "aarch64", ORT, "runtimes/linux-arm64/native/libonnxruntime.so",
-     "libonnxruntime-linux-aarch64.so", "libonnxruntime.so"),
+    ("linux", "aarch64", ORT_LINUX, "runtimes/linux-arm64/native/libonnxruntime.so",
+     f"libonnxruntime-{ORT_LINUX_VERSION}-linux-aarch64.so", "libonnxruntime.so"),
     ("linux", "aarch64", WEBGPU_EP, "runtimes/linux-arm64/native/libonnxruntime_providers_webgpu.so",
      "libonnxruntime-providers-webgpu-linux-aarch64.so", "libonnxruntime_providers_webgpu.so"),
     ("macos", "x86_64", ORT_MACOS, "runtimes/osx-x64/native/libonnxruntime.dylib",

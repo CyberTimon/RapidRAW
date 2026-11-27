@@ -99,9 +99,9 @@ fn runtime_libraries(
         ],
         ("linux", "x86_64") => vec![
             (
-                "libonnxruntime-linux-x86_64.so",
+                "libonnxruntime-1.25.1-linux-x86_64.so",
                 "libonnxruntime.so",
-                "d132535d051344ff5c64c9c200004150559049a81ed330eb4422c1962fb6b7e4",
+                "7a7c63fec274e9577477a0158a03a205e3ed9320b032a2df2b2a01b6ae1d3b94",
             ),
             (
                 "libonnxruntime-providers-webgpu-linux-x86_64.so",
@@ -111,9 +111,9 @@ fn runtime_libraries(
         ],
         ("linux", "aarch64") => vec![
             (
-                "libonnxruntime-linux-aarch64.so",
+                "libonnxruntime-1.25.1-linux-aarch64.so",
                 "libonnxruntime.so",
-                "52b2a0e75e79468404284fec38ad5ee1a7a996232274f5e1b84f3e793fb07554",
+                "e34095ad2791f1f05ed17324ede7873b4fdb4c136b3ba3f1dd5093d2e76d4192",
             ),
             (
                 "libonnxruntime-providers-webgpu-linux-aarch64.so",
@@ -234,11 +234,11 @@ fn ffmpeg_archive(target_os: &str, target_arch: &str) -> Option<(&'static str, &
         )),
         ("linux", "x86_64") => Some((
             "ffmpeg-linux-x86_64.tar.xz",
-            "da5832b8fbba08b2ac97abe4fcf0de1b26c38ee049b93fbb95c59c4f24d9d892",
+            "267e0e55eac67ed2e130700e03bd68391364a3b2e735d7c19731b4b3c0464461",
         )),
         ("linux", "aarch64") => Some((
             "ffmpeg-linux-aarch64.tar.xz",
-            "6b24b98564b033782893a4ce311056e24853f3cacd3a95519569492318c865e9",
+            "cc966e19104c6099d909522188de918c432cfd2e84907023672b2ec5eba5b071",
         )),
         ("macos", "aarch64") => Some((
             "ffmpeg-macos-aarch64.tar.gz",

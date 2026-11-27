@@ -327,19 +327,31 @@ EOF
   finish "$table" ffmpeg-macos-aarch64.tar.gz ffmpeg-macos-x86_64.tar.gz
 }
 
+origin_rpath() {
+  local archive="$1" name="$2" unpack="$WORK/rpath" library
+  rm -rf "$unpack"
+  mkdir -p "$unpack"
+  tar -xf "$archive" -C "$unpack"
+  for library in "$unpack/$name"/lib/*.so.*; do
+    patchelf --set-rpath '$ORIGIN' "$library"
+  done
+  (cd "$unpack" && tar --sort=name --owner=0 --group=0 -I "xz -9 -T1" -cf "$archive" "$name")
+  rm -rf "$unpack"
+}
+
 build_all_windows_linux() {
   echo "Builds the lean FFmpeg libraries for Windows x86_64/arm64 and Linux x86_64/arm64 inside the"
   echo "FFmpeg-Builds images ($BTBN_REGISTRY/<target>-lgpl-shared-9.0:$BTBN_TAG), which bring the cross"
   echo "toolchains and prebuilt dav1d, Opus, libvpx, SVT-AV1, OpenH264, Kvazaar, libvpl, AMF, NVENC and VA-API."
-  echo "Needs an x86_64 machine with Docker (usable without sudo), git and curl, about 15 GB of free space for"
+  echo "Needs an x86_64 machine with Docker (usable without sudo), git, curl and patchelf, about 15 GB of free space for"
   echo "Docker and the build (each image is about 2 GB to download and is removed again after its target),"
   echo "and takes 30 to 60 minutes, mostly downloading. On WSL the Docker data lives inside the WSL disk on C:."
   local missing="" tool
-  for tool in docker git curl; do
+  for tool in docker git curl patchelf; do
     command -v "$tool" > /dev/null || missing="$missing $tool"
   done
   if [ -n "$missing" ]; then
-    echo "Missing tools:$missing. On Ubuntu/WSL: sudo apt install docker.io git curl" >&2
+    echo "Missing tools:$missing. On Ubuntu/WSL: sudo apt install docker.io git curl patchelf" >&2
     exit 1
   fi
   if ! docker info > /dev/null 2>&1; then
@@ -392,6 +404,9 @@ build_all_windows_linux() {
       -v "$WORK":/ffbuild \
       "$image" bash /ffbuild/scripts/btbn-build.sh "$name"
     cp "$WORK/out/$name.$format" "$UPLOAD/$name.$format"
+    if [ "$os" = linux ]; then
+      origin_rpath "$UPLOAD/$name.$format" "$name"
+    fi
     rm -rf "${WORK:?}/$name"
     if [ -z "${KEEP_IMAGES:-}" ]; then
       docker image rm "$image" > /dev/null
