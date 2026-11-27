@@ -337,10 +337,8 @@ impl EditorRender {
         render: RenderOptions,
         image_generation: usize,
     ) -> Self {
-        let mask_definitions: Vec<MaskDefinition> = adjustments
-            .get("masks")
-            .and_then(|m| serde_json::from_value(m.clone()).ok())
-            .unwrap_or_default();
+        let mask_definitions: Vec<MaskDefinition> =
+            crate::masks::generation::mask_definitions_from(adjustments);
         let crop_offset = (
             unscaled_crop_offset.0 * scale,
             unscaled_crop_offset.1 * scale,

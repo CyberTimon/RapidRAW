@@ -150,10 +150,8 @@ pub async fn estimate_export_sizes(
         source.transform.output_fit = Some((ESTIMATE_DIM, ESTIMATE_DIM));
         let (img_w, img_h) = source.size();
         let scale = preview.scale * img_w as f32 / source_w.max(1) as f32;
-        let mask_definitions: Vec<MaskDefinition> = adjustments_clone
-            .get("masks")
-            .and_then(|m| serde_json::from_value(m.clone()).ok())
-            .unwrap_or_default();
+        let mask_definitions: Vec<MaskDefinition> =
+            crate::masks::generation::mask_definitions_from(&adjustments_clone);
 
         let scaled_crop_offset = (
             unscaled_crop_offset.0 * scale,
@@ -303,10 +301,8 @@ pub async fn estimate_export_sizes(
         };
         let total_scale = gpu_scale * raw_scale_factor;
 
-        let mask_definitions: Vec<MaskDefinition> = js_adjustments
-            .get("masks")
-            .and_then(|m| serde_json::from_value(m.clone()).ok())
-            .unwrap_or_default();
+        let mask_definitions: Vec<MaskDefinition> =
+            crate::masks::generation::mask_definitions_from(&js_adjustments);
         let scaled_crop_offset = (
             unscaled_crop_offset.0 * gpu_scale,
             unscaled_crop_offset.1 * gpu_scale,

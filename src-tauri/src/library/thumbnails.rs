@@ -526,11 +526,8 @@ fn generate_thumbnail_data_with_metadata(
         let (preview_w, preview_h) = source.size();
         let unscaled_crop_offset = crop_data.map_or((0.0, 0.0), |c| (c.x as f32, c.y as f32));
 
-        let mask_definitions: Vec<MaskDefinition> = meta
-            .adjustments
-            .get("masks")
-            .and_then(|m| serde_json::from_value(m.clone()).ok())
-            .unwrap_or_else(Vec::new);
+        let mask_definitions: Vec<MaskDefinition> =
+            crate::masks::generation::mask_definitions_from(&meta.adjustments);
 
         let mask_bitmaps = crate::masks::generation::get_cached_or_generate_masks(
             &state,

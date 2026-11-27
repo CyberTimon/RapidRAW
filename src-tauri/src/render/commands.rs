@@ -352,10 +352,8 @@ pub async fn generate_uncropped_preview(
         );
         let (preview_width, preview_height) = source.size();
 
-        let mask_definitions: Vec<MaskDefinition> = adjustments_clone
-            .get("masks")
-            .and_then(|m| serde_json::from_value(m.clone()).ok())
-            .unwrap_or_default();
+        let mask_definitions: Vec<MaskDefinition> =
+            crate::masks::generation::mask_definitions_from(&adjustments_clone);
 
         let mask_bitmaps = get_cached_or_generate_masks(
             &state,
@@ -449,10 +447,8 @@ pub async fn generate_preview_for_path(
         .scaled(scale);
         let crop_offset = source.crop_offset();
         let (img_w, img_h) = source.size();
-        let mask_definitions: Vec<MaskDefinition> = js_adjustments
-            .get("masks")
-            .and_then(|m| serde_json::from_value(m.clone()).ok())
-            .unwrap_or_default();
+        let mask_definitions: Vec<MaskDefinition> =
+            crate::masks::generation::mask_definitions_from(&js_adjustments);
 
         let warped_image = build_warped_image_for_masks(
             &base_image,

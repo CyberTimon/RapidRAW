@@ -102,6 +102,73 @@ pub struct AiPatchDefinition {
     pub sub_masks: Vec<SubMask>,
 }
 
+const AI_MASK_TYPES: [&str; 6] = [
+    "ai-subject",
+    "ai-foreground",
+    "ai-sky",
+    "ai-text",
+    "ai-face",
+    "ai-depth",
+];
+
+/// An AI mask is kept in the unrotated image, so it is placed with the image's own rotation
+/// and flips, not the ones it was made under: those go stale when the image is straightened
+/// or the mask is pasted onto an image with another crop.
+pub fn align_ai_sub_masks(sub_masks: &mut [SubMask], adjustments: &Value) {
+    let transform = [
+        (
+            "rotation",
+            adjustments
+                .get("rotation")
+                .cloned()
+                .unwrap_or(Value::from(0.0)),
+        ),
+        (
+            "flipHorizontal",
+            adjustments
+                .get("flipHorizontal")
+                .cloned()
+                .unwrap_or(Value::from(false)),
+        ),
+        (
+            "flipVertical",
+            adjustments
+                .get("flipVertical")
+                .cloned()
+                .unwrap_or(Value::from(false)),
+        ),
+        (
+            "orientationSteps",
+            adjustments
+                .get("orientationSteps")
+                .cloned()
+                .unwrap_or(Value::from(0)),
+        ),
+    ];
+    for sub_mask in sub_masks {
+        if !AI_MASK_TYPES.contains(&sub_mask.mask_type.as_str()) {
+            continue;
+        }
+        if let Some(params) = sub_mask.parameters.as_object_mut() {
+            for (key, value) in &transform {
+                params.insert(key.to_string(), value.clone());
+            }
+        }
+    }
+}
+
+/// The image's masks, ready to render.
+pub fn mask_definitions_from(adjustments: &Value) -> Vec<MaskDefinition> {
+    let mut definitions: Vec<MaskDefinition> = adjustments
+        .get("masks")
+        .and_then(|m| serde_json::from_value(m.clone()).ok())
+        .unwrap_or_default();
+    for definition in &mut definitions {
+        align_ai_sub_masks(&mut definition.sub_masks, adjustments);
+    }
+    definitions
+}
+
 fn generate_all_bitmap(width: u32, height: u32) -> GrayImage {
     GrayImage::from_pixel(width, height, Luma([255]))
 }
@@ -321,8 +388,18 @@ pub fn generate_mask_overlay(
         mask_def = mask_at_frame(&app_handle, &state, mask_def, orientation, frame);
     }
 
-    let parsed_mask_def: MaskDefinition = serde_json::from_value(mask_def)
+    let mut parsed_mask_def: MaskDefinition = serde_json::from_value(mask_def)
         .map_err(|e| format!("Failed to parse hydrated mask_def: {}", e))?;
+    if let Some(adj) = &js_adjustments {
+        let is_image_mask = adj["masks"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|mask| mask["id"].as_str() == Some(parsed_mask_def.id.as_str()));
+        if is_image_mask {
+            align_ai_sub_masks(&mut parsed_mask_def.sub_masks, adj);
+        }
+    }
 
     let scaled_crop_offset = (crop_offset.0 * scale, crop_offset.1 * scale);
 
@@ -561,5 +638,40 @@ pub fn get_cached_or_generate_masks(
     GeneratedMasks {
         bitmaps,
         cache_key: combined_hasher.finish(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn ai_masks_follow_the_image_rotation() {
+        let adjustments = json!({
+            "rotation": 3.5,
+            "flipHorizontal": true,
+            "orientationSteps": 1,
+            "masks": [{
+                "id": "m", "name": "Mask", "visible": true, "invert": false, "adjustments": {},
+                "subMasks": [
+                    { "id": "a", "type": "ai-foreground", "visible": true, "mode": "additive",
+                      "parameters": { "maskDataBase64": "x", "rotation": 0.0, "flipHorizontal": false,
+                                      "flipVertical": false, "orientationSteps": 0 } },
+                    { "id": "b", "type": "radial", "visible": true, "mode": "additive",
+                      "parameters": { "rotation": 10.0 } }
+                ]
+            }]
+        });
+        let definitions = mask_definitions_from(&adjustments);
+        let ai = &definitions[0].sub_masks[0].parameters;
+        assert_eq!(ai["rotation"], json!(3.5));
+        assert_eq!(ai["flipHorizontal"], json!(true));
+        assert_eq!(ai["flipVertical"], json!(false));
+        assert_eq!(ai["orientationSteps"], json!(1));
+        assert_eq!(
+            definitions[0].sub_masks[1].parameters["rotation"],
+            json!(10.0)
+        );
     }
 }

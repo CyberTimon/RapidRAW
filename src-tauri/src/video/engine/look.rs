@@ -466,9 +466,12 @@ pub fn render_look(
     ));
     if masks.key != mask_key {
         let source = tracked.as_ref().or_else(|| json.get("masks"));
-        let definitions: Vec<MaskDefinition> = source
+        let mut definitions: Vec<MaskDefinition> = source
             .and_then(|value| serde_json::from_value(value.clone()).ok())
             .unwrap_or_default();
+        for definition in &mut definitions {
+            crate::masks::generation::align_ai_sub_masks(&mut definition.sub_masks, json);
+        }
         let (generated, mut ranges) = range_masks::generate(
             context,
             &definitions,

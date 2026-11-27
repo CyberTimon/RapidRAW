@@ -1061,10 +1061,8 @@ pub fn get_all_adjustments_from_json(
     let mut mask_adjustments = [MaskAdjustments::default(); MAX_MASKS];
     let mut mask_count = 0;
 
-    let mask_definitions: Vec<MaskDefinition> = js_adjustments
-        .get("masks")
-        .and_then(|m| serde_json::from_value(m.clone()).ok())
-        .unwrap_or_default();
+    let mask_definitions: Vec<MaskDefinition> =
+        crate::masks::generation::mask_definitions_from(js_adjustments);
 
     for (i, mask_def) in mask_definitions
         .iter()
