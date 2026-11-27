@@ -336,7 +336,7 @@ const editorTargets = () => {
 };
 
 const applyLook = (patch: Partial<Adjustments>, ids: Array<string>, source: LookSource | null = null) => {
-  const { project, playhead, recordKeyframes } = getVideo();
+  const { project, playhead, recordKeyframes, recordFrom } = getVideo();
   if (!project) return;
   const fps = project.settings.fps;
   const rebound: Array<string> = [];
@@ -352,7 +352,9 @@ const applyLook = (patch: Partial<Adjustments>, ids: Array<string>, source: Look
         ? patch
         : { ...patch, masks: unboundMasks(patch.masks ?? [], sameFootage(next, item, source)) };
       const edited = { ...animateLook(stored, time), ...pasted };
-      return assignLook(next, id, recordLookEdit(stored, edited, time, time, recordKeyframes, frameTicks(fps) / 2))[0];
+      const anchor = recordFrom === null ? null : editorLookTime(next, item, recordFrom);
+      const recorded = recordLookEdit(stored, edited, time, time, recordKeyframes, frameTicks(fps) / 2, anchor);
+      return assignLook(next, id, recorded)[0];
     }, current),
   );
   if (rebound.length > 0) void followPastedAiMasks(rebound);
@@ -404,4 +406,8 @@ export const clearRange = () => {
 
 export const toggleSnapping = () => setVideo((state) => ({ snapping: !state.snapping }));
 
-export const toggleRecordKeyframes = () => setVideo((state) => ({ recordKeyframes: !state.recordKeyframes }));
+export const toggleRecordKeyframes = () =>
+  setVideo((state) => ({
+    recordKeyframes: !state.recordKeyframes,
+    recordFrom: state.recordKeyframes ? null : state.playhead,
+  }));

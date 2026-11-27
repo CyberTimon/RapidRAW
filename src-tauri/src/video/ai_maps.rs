@@ -36,6 +36,7 @@ const DIR: &str = "ai-maps";
 const VERSION: u32 = 2;
 const BLOCK_SECONDS: f64 = 4.0;
 const PREFETCH: usize = 2;
+const FALLBACK_BLOCKS: usize = 4;
 const KEY_LONGEST: u32 = 960;
 const FLOW_LONGEST: f32 = 480.0;
 const MAX_GAP_SECONDS: f64 = 0.5;
@@ -186,6 +187,21 @@ impl Block {
         self.frames.1 - self.frames.0 + 1
     }
 
+    fn request(&self, app: &AppHandle) {
+        if self.submit(app, false).is_some() {
+            return;
+        }
+        let stalled = app
+            .state::<JobManager>()
+            .list()
+            .iter()
+            .rfind(|job| job.key == self.id)
+            .is_none_or(|job| matches!(job.state, JobState::Done | JobState::Cancelled));
+        if stalled {
+            self.submit(app, true);
+        }
+    }
+
     fn submit(&self, app: &AppHandle, force: bool) -> Option<String> {
         if !ai_frames::first_request(&self.id) && !force {
             return None;
@@ -222,6 +238,7 @@ fn frame_reference(
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn lookup(
     app: &AppHandle,
     source: &Path,
@@ -229,6 +246,7 @@ fn lookup(
     look: &Value,
     time: f64,
     range: impl FnOnce(&MediaInfo) -> Option<(f64, f64)>,
+    forward: bool,
     missing: &mut Vec<Block>,
 ) -> Vec<(&'static str, String)> {
     let mut found = Vec::new();
@@ -246,34 +264,51 @@ fn lookup(
                 .collect()
         })
         .unwrap_or_default();
-    nearby.sort_by_key(|index| index.abs_diff(current));
+    nearby.sort_by_key(|index| ((*index > current) != forward, index.abs_diff(current)));
     for kind in kinds(look) {
         let Some(block) = Block::new(app, source, kind, &info, current) else {
             continue;
         };
-        match ai_frames::load(&block.target) {
-            Some(sequence) => {
-                if let Some(reference) = frame_reference(&sequence, &block, stream, time) {
-                    found.extend(
-                        requested_uses(look, kind)
-                            .map(|map_use| (map_use.map_key, reference.clone())),
-                    );
-                }
-            }
+        let reference = match ai_frames::load(&block.target) {
+            Some(sequence) => frame_reference(&sequence, &block, stream, time),
             None => {
-                block.submit(app, false);
+                block.request(app);
                 missing.push(block);
+                nearest_reference(app, source, kind, &info, &nearby, stream, time)
             }
+        };
+        if let Some(reference) = reference {
+            found.extend(
+                requested_uses(look, kind).map(|map_use| (map_use.map_key, reference.clone())),
+            );
         }
         for index in nearby.iter().take(PREFETCH) {
             if let Some(block) = Block::new(app, source, kind, &info, *index)
                 && !block.target.is_file()
             {
-                block.submit(app, false);
+                block.request(app);
             }
         }
     }
     found
+}
+
+fn nearest_reference(
+    app: &AppHandle,
+    source: &Path,
+    kind: EffectMapKind,
+    info: &MediaInfo,
+    nearby: &[u64],
+    stream: &str,
+    time: f64,
+) -> Option<String> {
+    let mut closest = nearby.to_vec();
+    closest.sort_by_key(|index| index.abs_diff(block_of(time)));
+    closest.into_iter().take(FALLBACK_BLOCKS).find_map(|index| {
+        let block = Block::new(app, source, kind, info, index)?;
+        let sequence = ai_frames::load(&block.target)?;
+        frame_reference(&sequence, &block, stream, time)
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -294,6 +329,7 @@ pub fn overrides(
         look,
         time,
         |info| Some(clip_range(project.settings.fps, clip, info)),
+        !clip.reverse,
         missing,
     )
 }
@@ -308,7 +344,16 @@ pub fn frame_overrides(
     if !is_video_file(&source) {
         return Vec::new();
     }
-    lookup(app, &source, path, look, time, |_| None, &mut Vec::new())
+    lookup(
+        app,
+        &source,
+        path,
+        look,
+        time,
+        |_| None,
+        true,
+        &mut Vec::new(),
+    )
 }
 
 fn block_at(app: &AppHandle, path: &str, kind: EffectMapKind, time: f64) -> Option<Block> {

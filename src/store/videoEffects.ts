@@ -5,14 +5,16 @@ import {
   ClipItem,
   Motion,
   MotionKind,
+  SolidItem,
   Ticks,
   TimelineItem,
+  TitleItem,
   TransitionKind,
   VideoProject,
   VisualItem,
 } from '../types/video';
 import { gapOf, minItemDuration, placeItem, setAnimation, tidy, withTransitionKind } from '../utils/video/edit';
-import { TRANSITIONS, isDirectional } from '../utils/video/effectRegistry';
+import { MOTIONS, TEXT_MOTIONS, TRANSITIONS, isDirectional } from '../utils/video/effectRegistry';
 import {
   TitlePreset,
   createAdjustmentItem,
@@ -138,6 +140,35 @@ export const transitionMenu = (clips: Array<ClipItem>): Array<Option> => {
           },
         ]
       : []),
+  ];
+};
+
+export type AnimatedItem = ClipItem | TitleItem | SolidItem;
+
+export const isAnimatedItem = (item: TimelineItem): item is AnimatedItem => ANIMATED_TYPES.includes(item.type);
+
+export const animationMenu = (item: AnimatedItem, edge: 'in' | 'out'): Array<Option> => {
+  const motion = item[edge === 'in' ? 'animIn' : 'animOut'];
+  const current = item[edge === 'in' ? 'fadeIn' : 'fadeOut'] > 0 ? (motion?.kind ?? 'fade') : null;
+  const kinds = item.type === 'title' ? [...MOTIONS, ...TEXT_MOTIONS] : MOTIONS;
+  const apply = (next: Motion | null) => editProject((project) => setAnimation(project, item.id, edge, next));
+  return [
+    ...kinds.map((kind) => ({
+      icon: kind === current ? Check : undefined,
+      label: i18n.t(`video.transitions.${kind}`),
+      onClick: () =>
+        apply({
+          kind,
+          ...(isDirectional(kind) ? { direction: motion?.direction ?? (edge === 'in' ? 'right' : 'left') } : {}),
+        }),
+    })),
+    { type: OPTION_SEPARATOR },
+    {
+      icon: Trash2,
+      label: i18n.t('video.timeline.removeTransition'),
+      isDestructive: true,
+      onClick: () => apply(null),
+    },
   ];
 };
 

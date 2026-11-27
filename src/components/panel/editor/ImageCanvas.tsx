@@ -43,7 +43,8 @@ import CompositionOverlays from './overlays/CompositionOverlays';
 import VideoCanvasOverlay from '../../video/VideoCanvasOverlay';
 import MaskTrackArea from '../../video/MaskTrackArea';
 import CropRotateArea from './overlays/CropRotateArea';
-import RelightLightShape, { RelightBasis } from './overlays/RelightLightShape';
+import { RelightBasis } from './overlays/RelightLightShape';
+import RelightLights from './overlays/RelightLights';
 import CenterMarkerShape, { CENTER_MARKERS } from './overlays/CenterMarkerShape';
 import CloneSourceOverlay from './overlays/CloneSourceOverlay';
 import {
@@ -2544,7 +2545,7 @@ const ImageCanvas = memo(
       };
     }, [mapRelightUvToCanvas, selectedImage?.width, selectedImage?.height]);
 
-    const showRelightLights = isRelightPickerActive && isRelightToolOpen && !isVideoPlaying;
+    const showRelightLights = isRelightPickerActive && isRelightToolOpen;
 
     useEffect(() => {
       if (isRelightPickerActive && !isRelightToolOpen) {
@@ -4114,23 +4115,21 @@ const ImageCanvas = memo(
                                 zoomScale={effectiveZoomScale}
                               />
                             )}
-                            {showRelightLights &&
-                              (adjustments.relightLights || []).map((light: RelightLight) => (
-                                <RelightLightShape
-                                  key={light.id}
-                                  light={light}
-                                  pos={mapRelightUvToCanvas(light)}
-                                  basis={relightBasis}
-                                  zoomScale={effectiveZoomScale}
-                                  isActive={light.id === activeRelightLightId}
-                                  onSelect={() => setEditor({ activeRelightLightId: light.id })}
-                                  onMove={(pos) => moveRelightLight(light.id, pos)}
-                                  onAim={(angle, elevation) => aimRelightLight(light.id, angle, elevation)}
-                                  onDragStateChange={(isDragging) => setEditor({ isSliderDragging: isDragging })}
-                                  onHoverChange={setIsMaskHovered}
-                                  onTouchInteraction={() => setIsMaskTouchInteracting(true)}
-                                />
-                              ))}
+                            {showRelightLights && (
+                              <RelightLights
+                                lights={adjustments.relightLights || []}
+                                activeId={activeRelightLightId}
+                                basis={relightBasis}
+                                zoomScale={effectiveZoomScale}
+                                toCanvas={mapRelightUvToCanvas}
+                                onSelect={(id) => setEditor({ activeRelightLightId: id })}
+                                onMove={moveRelightLight}
+                                onAim={aimRelightLight}
+                                onDragStateChange={(isDragging) => setEditor({ isSliderDragging: isDragging })}
+                                onHoverChange={setIsMaskHovered}
+                                onTouchInteraction={() => setIsMaskTouchInteracting(true)}
+                              />
+                            )}
                             {showCenterMarker && centerMarkerConfig && (
                               <CenterMarkerShape
                                 pos={centerMarkerPos}

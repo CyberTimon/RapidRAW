@@ -11,7 +11,7 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let lastRun = 0;
 const listeners = new Set<() => void>();
 
-const shownValues = () => {
+export const shownLookValues = () => {
   const { project, editorItemId, playhead, session } = getVideo();
   const item = session?.kind === 'project' && project ? locateItem(project, editorItemId)?.item : null;
   if (!project || !item || !hasLook(item)) return NO_VALUES;
@@ -34,7 +34,7 @@ const differs = (next: Map<string, number>) =>
 const update = () => {
   timer = null;
   lastRun = performance.now();
-  const next = shownValues();
+  const next = shownLookValues();
   if (!differs(next)) return;
   values = next;
   listeners.forEach((listener) => listener());
@@ -49,7 +49,7 @@ const schedule = () => {
 export const liveLookValue = (path: string) => values.get(path);
 
 export const subscribeLiveLook = (listener: () => void) => {
-  if (listeners.size === 0) values = shownValues();
+  if (listeners.size === 0) values = shownLookValues();
   listeners.add(listener);
   return () => {
     listeners.delete(listener);

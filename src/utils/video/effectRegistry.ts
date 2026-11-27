@@ -7,7 +7,10 @@ import {
   Moon,
   PanelLeftOpen,
   RotateCw,
+  Sparkles,
   Sun,
+  Type,
+  WholeWord,
   Wind,
   ZoomIn,
   type LucideIcon,
@@ -31,6 +34,18 @@ export const TRANSITION_ICONS: Record<TransitionKind, LucideIcon> = {
 };
 
 export const TRANSITIONS = Object.keys(TRANSITION_ICONS) as Array<TransitionKind>;
+
+export const MOTION_ICONS: Record<MotionKind, LucideIcon> = {
+  fade: Blend,
+  slide: PanelLeftOpen,
+  zoom: ZoomIn,
+  pop: Sparkles,
+  blur: Droplets,
+  wipe: ArrowRightToLine,
+  spin: RotateCw,
+  typewriter: Type,
+  words: WholeWord,
+};
 
 export const MOTIONS: Array<MotionKind> = ['fade', 'slide', 'zoom', 'pop', 'blur', 'wipe', 'spin'];
 

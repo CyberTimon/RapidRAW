@@ -8,7 +8,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { editProject, getVideo, selectItems, useVideoStore } from '../../store/useVideoStore';
 import { useProgramCanvas } from '../../store/videoView';
 import { editPin, setTrackingQuad, setTrackingRegion, useVideoMotion } from '../../store/videoMotion';
-import { setValueAt, valueAt } from '../../utils/video/animation';
+import { localTime, setValueAt, valueAt } from '../../utils/video/animation';
 import { updateItem, visualItemsAt } from '../../utils/video/edit';
 import { contentSize } from '../../utils/video/layouts';
 import { invertSimilarity, mapPoint, planeAt, sameCorners } from '../../utils/video/maskTracking';
@@ -309,9 +309,11 @@ export default function VideoCanvasOverlay({
     if (!drag) return;
     const { box } = drag;
     const { width, height } = settings;
-    const { playhead, recordKeyframes: record } = getVideo();
+    const { playhead, recordKeyframes: record, recordFrom } = getVideo();
     const local = playhead - box.item.start;
-    const tolerance = frameTicks(settings.fps) / 2;
+    const frame = frameTicks(settings.fps);
+    const tolerance = frame / 2;
+    const anchor = recordFrom === null ? null : localTime(recordFrom, box.item.start, box.item.duration, frame);
     const free = event.shiftKey;
     const update = (patch: Partial<Record<'x' | 'y' | 'scale' | 'rotation', number>>) =>
       editProject(
@@ -320,7 +322,7 @@ export default function VideoCanvasOverlay({
             if (!('transform' in item)) return item;
             const transform = { ...item.transform };
             (Object.entries(patch) as Array<[keyof typeof patch, number]>).forEach(([key, value]) => {
-              transform[key] = setValueAt(transform[key] as Animated, local, value, tolerance, record);
+              transform[key] = setValueAt(transform[key] as Animated, local, value, tolerance, record, anchor);
             });
             return { ...item, transform } as VisualItem;
           }),

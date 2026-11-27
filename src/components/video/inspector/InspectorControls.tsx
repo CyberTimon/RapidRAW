@@ -19,6 +19,7 @@ import {
   isAnimated,
   keyAt,
   keysWithin,
+  localTime,
   setEaseAt,
   setValueAt,
   toggleKeyAt,
@@ -320,9 +321,6 @@ export function TextBox({
 
 const ANIMATED_VALUE = 'value';
 
-const localTime = (playhead: Ticks, start: Ticks, duration: Ticks, frame: Ticks) =>
-  Math.min(Math.max(playhead - start, 0), Math.max(0, duration - frame));
-
 export const useAnimatedKeys = (values: Array<Animated>, start: Ticks, duration: Ticks) => {
   const animated = values.some(isAnimated);
   const frame = useVideoStore((state) => (state.project ? frameTicks(state.project.settings.fps) : 1));
@@ -347,6 +345,10 @@ export const useAnimatedKeys = (values: Array<Animated>, start: Ticks, duration:
     tolerance,
     onKey,
     now: () => localAt(getVideo().playhead),
+    anchor: () => {
+      const { recordKeyframes, recordFrom } = getVideo();
+      return recordKeyframes && recordFrom !== null ? localAt(recordFrom) : null;
+    },
     onPrevious: previous === undefined ? null : () => setPlayhead(start + previous),
     onNext: next === undefined ? null : () => setPlayhead(start + next),
   };
@@ -534,7 +536,8 @@ export function AnimatedSlider({
           if (!Number.isFinite(target)) return;
           const time = keys.now();
           const record = getVideo().recordKeyframes;
-          onEdit((currentValue) => setValueAt(currentValue, time, target, keys.tolerance, record), true);
+          const anchor = keys.anchor();
+          onEdit((currentValue) => setValueAt(currentValue, time, target, keys.tolerance, record, anchor), true);
         }}
       />
     </SliderKeyframeContext.Provider>

@@ -147,9 +147,25 @@ export const setEaseAt = (value: Animated, time: Ticks, tolerance: Ticks, preset
 
 const sortKeys = (keys: Array<Keyframe>) => [...keys].sort((a, b) => a.time - b.time);
 
-export const setValueAt = (value: Animated, time: Ticks, next: number, tolerance: Ticks, record = false): Animated => {
-  if (!isAnimated(value))
-    return record ? { value: next, keys: [{ time, value: next, ease: 'ease' }] } : { value: next };
+export const localTime = (time: Ticks, start: Ticks, duration: Ticks, frame: Ticks) =>
+  Math.min(Math.max(time - start, 0), Math.max(0, duration - frame));
+
+export const setValueAt = (
+  value: Animated,
+  time: Ticks,
+  next: number,
+  tolerance: Ticks,
+  record = false,
+  anchor: Ticks | null = null,
+): Animated => {
+  if (!isAnimated(value)) {
+    if (!record) return { value: next };
+    const keys: Array<Keyframe> = [{ time, value: next, ease: 'ease' }];
+    if (anchor !== null && Math.abs(anchor - time) > tolerance && value.value !== next) {
+      keys.push({ time: anchor, value: value.value, ease: 'ease' });
+    }
+    return { value: next, keys: sortKeys(keys) };
+  }
   const existing = keyAt(value, time, tolerance);
   const keys = existing
     ? value.keys!.map((key) => (key === existing ? { ...key, value: next } : key))

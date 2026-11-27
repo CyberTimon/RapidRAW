@@ -191,7 +191,11 @@ const startPlayback = async () => {
   const start = nearEnd || playhead < rangeStart ? rangeStart : playhead;
   debouncedSave.flush();
   prepareAtPlayhead.cancel();
-  setVideo({ isPlaying: true, playhead: start });
+  setVideo((state) => ({
+    isPlaying: true,
+    playhead: start,
+    recordFrom: state.recordKeyframes ? start : state.recordFrom,
+  }));
   clock = null;
   clockEnd = rangeEnd;
   loopFrom = loop ? rangeStart : null;

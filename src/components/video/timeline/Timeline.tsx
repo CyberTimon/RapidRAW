@@ -131,6 +131,7 @@ import {
   setCrossfade,
   DEFAULT_TRANSITION_SECONDS,
   setRangeEdge,
+  setItemFade,
   setTransitionDuration,
   slideItem,
   slipLinked,
@@ -790,6 +791,7 @@ type Interaction =
   | { kind: 'slip'; id: string; startX: number; moved: boolean }
   | { kind: 'slide'; id: string; startX: number; moved: boolean }
   | { kind: 'transition'; id: string; startX: number; side: number; duration: Ticks; moved: boolean }
+  | { kind: 'fade'; id: string; startX: number; edge: 'in' | 'out'; fade: Ticks; moved: boolean }
   | {
       kind: 'empty';
       x: number;
@@ -800,7 +802,7 @@ type Interaction =
       single: boolean;
     };
 
-type Drag = Extract<Interaction, { kind: 'move' | 'trim' | 'roll' | 'slip' | 'slide' | 'transition' }>;
+type Drag = Extract<Interaction, { kind: 'move' | 'trim' | 'roll' | 'slip' | 'slide' | 'transition' | 'fade' }>;
 
 type TimelineHandlers = ItemHandlers & {
   resizeTransition(event: ReactPointerEvent, item: ClipItem, side: number): void;
@@ -900,6 +902,7 @@ export default function Timeline() {
       pointerDown: (event, item) => itemActions.current?.pointerDown(event, item),
       trimStart: (event, item, edge) => itemActions.current?.trimStart(event, item, edge),
       slipStart: (event, item) => itemActions.current?.slipStart(event, item),
+      fadeStart: (event, item, edge) => itemActions.current?.fadeStart(event, item, edge),
       contextMenu: (event, item) => itemActions.current?.contextMenu(event, item),
       open: (item) => itemActions.current?.open(item),
       resizeTransition: (event, item, side) => itemActions.current?.resizeTransition(event, item, side),
@@ -1289,6 +1292,20 @@ export default function Timeline() {
     };
   };
 
+  const beginFade = (event: ReactPointerEvent, item: TimelineItem, edge: 'in' | 'out') => {
+    event.stopPropagation();
+    if (event.button !== 0 || rowOf(item)?.track.locked) return;
+    capture(event);
+    interactionRef.current = {
+      kind: 'fade',
+      id: item.id,
+      startX: event.clientX,
+      edge,
+      fade: edge === 'in' ? item.fadeIn : item.fadeOut,
+      moved: false,
+    };
+  };
+
   const beginMove = (event: ReactPointerEvent, item: TimelineItem, row: Row) => {
     event.stopPropagation();
     if (event.button !== 0 || !project) return;
@@ -1418,6 +1435,17 @@ export default function Timeline() {
     return { project: setTransitionDuration(base, interaction.id, interaction.duration + delta), snap: null };
   };
 
+  const fadedProject = (
+    base: VideoProject,
+    interaction: Extract<Interaction, { kind: 'fade' }>,
+    clientX: number,
+  ): Preview | null => {
+    if (!locateItem(base, interaction.id)) return null;
+    const delta = secondsToTicks((clientX - interaction.startX) / pps) * (interaction.edge === 'in' ? 1 : -1);
+    const edge = interaction.edge === 'in' ? 'fadeIn' : 'fadeOut';
+    return { project: setItemFade(base, interaction.id, edge, interaction.fade + delta), snap: null };
+  };
+
   const draggedProject = (base: VideoProject, interaction: Drag, clientX: number, clientY: number) =>
     interaction.kind === 'move'
       ? movedProject(base, interaction, clientX, clientY)
@@ -1425,7 +1453,9 @@ export default function Timeline() {
         ? shiftedProject(base, interaction, clientX)
         : interaction.kind === 'transition'
           ? resizedProject(base, interaction, clientX)
-          : trimmedProject(base, interaction, clientX);
+          : interaction.kind === 'fade'
+            ? fadedProject(base, interaction, clientX)
+            : trimmedProject(base, interaction, clientX);
 
   applyPointer.current = () => {
     const interaction = interactionRef.current;
@@ -1851,6 +1881,7 @@ export default function Timeline() {
       if (row) beginMove(event, item, row);
     },
     trimStart: (event, item, edge) => beginTrim(event, item, edge),
+    fadeStart: (event, item, edge) => beginFade(event, item, edge),
     slipStart: (event, item) => {
       const row = rowOf(item);
       if (event.altKey && event.shiftKey && row) beginMove(event, item, row);

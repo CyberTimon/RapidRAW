@@ -103,6 +103,7 @@ export const recordLookEdit = (
   time: Ticks,
   record: boolean,
   tolerance: Ticks,
+  anchor: Ticks | null = null,
 ): Adjustments => {
   const before = numericLeaves(animateLook(stored, editedAt));
   const after = numericLeaves(edited);
@@ -113,11 +114,12 @@ export const recordLookEdit = (
   after.forEach((value, path) => {
     if (before.get(path) === value) return;
     const keys = setValueAt(
-      channel(value, channels[path] ?? []),
+      channel(before.get(path) ?? value, channels[path] ?? []),
       time,
       value,
       tolerance,
       record && before.has(path),
+      anchor,
     ).keys;
     if (keys) channels[path] = keys;
   });

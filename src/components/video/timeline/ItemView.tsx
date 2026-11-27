@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { AudioItem, ClipItem, FrameRate, MediaInfo, Ticks, TimelineItem } from '../../../types/video';
+import { useContextMenu } from '../../../context/ContextMenuContext';
 import { useProcessStore } from '../../../store/useProcessStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { formatKeyCode } from '../../../utils/keyboardUtils';
@@ -26,6 +27,8 @@ import { BeatEntry, TimelineBeat, beatsOnTimeline } from '../../../store/videoBe
 import { MAX_DUCK_DB, useDuckCurves } from '../../../store/videoDucking';
 import { useProjectFps, useVideoStore } from '../../../store/useVideoStore';
 import { useTimelapseState } from '../../../store/videoTimelapse';
+import { AnimatedItem, animationMenu, isAnimatedItem } from '../../../store/videoEffects';
+import { MOTION_ICONS } from '../../../utils/video/effectRegistry';
 import {
   clipSpeed,
   fileName,
@@ -50,6 +53,7 @@ export interface ItemHandlers {
   pointerDown(event: ReactPointerEvent, item: TimelineItem): void;
   trimStart(event: ReactPointerEvent, item: TimelineItem, edge: 'start' | 'end'): void;
   slipStart(event: ReactPointerEvent, item: TimelineItem): void;
+  fadeStart(event: ReactPointerEvent, item: TimelineItem, edge: 'in' | 'out'): void;
   contextMenu(event: React.MouseEvent, item: TimelineItem): void;
   open(item: TimelineItem): void;
 }
@@ -94,6 +98,9 @@ interface ItemViewProps {
 }
 
 const MIN_SLIP_WIDTH = 48;
+const MIN_EDGE_WIDTH = 16;
+const EDGE_ICON_WIDTH = 22;
+const EDGE_LABEL_WIDTH = 64;
 const HEADER_PADDING = 6;
 const MIN_WAVE_BAND = 14;
 
@@ -162,6 +169,90 @@ function FadeRamps({
         />
       )}
     </>
+  );
+}
+
+function EdgeMarker({
+  item,
+  edge,
+  width,
+  pps,
+  isTarget,
+  canResize,
+  onResize,
+}: {
+  item: AnimatedItem;
+  edge: 'in' | 'out';
+  width: number;
+  pps: number;
+  isTarget: boolean;
+  canResize: boolean;
+  onResize(event: ReactPointerEvent): void;
+}) {
+  const { t } = useTranslation();
+  const { showContextMenu } = useContextMenu();
+  const fade = edge === 'in' ? item.fadeIn : item.fadeOut;
+  if (fade <= 0) return null;
+  const kind = item[edge === 'in' ? 'animIn' : 'animOut']?.kind ?? 'fade';
+  const Icon = MOTION_ICONS[kind];
+  const ramp = Math.min(width / 2, ticksToSeconds(fade) * pps);
+  const size = Math.min(width / 2, Math.max(MIN_EDGE_WIDTH, ramp));
+  const label = formatDuration(fade);
+  const isIn = edge === 'in';
+
+  const openMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    showContextMenu(event.clientX, event.clientY, animationMenu(item, edge));
+  };
+
+  return (
+    <div
+      className={clsx('group/edge absolute top-0 bottom-0 z-10', isIn ? 'left-0' : 'right-0')}
+      style={{ width: size }}
+      onContextMenu={openMenu}
+      data-tooltip={`${t(isIn ? 'video.inspector.animIn' : 'video.inspector.animOut')} · ${t(`video.transitions.${kind}`)} · ${label}`}
+    >
+      <div
+        className={clsx(
+          'absolute top-0 bottom-0 pointer-events-none transition-colors',
+          isIn ? 'left-0' : 'right-0',
+          isTarget ? 'bg-accent/55' : 'bg-black/45',
+        )}
+        style={{ width: ramp, clipPath: isIn ? 'polygon(0 0, 100% 0, 0 100%)' : 'polygon(0 0, 100% 0, 100% 100%)' }}
+      />
+      <div className="absolute inset-0 rounded-md ring-1 ring-inset ring-white/0 group-hover/edge:ring-white/40 transition-shadow pointer-events-none" />
+      {size >= EDGE_ICON_WIDTH && (
+        <div
+          className={clsx(
+            'absolute inset-x-0 top-4 bottom-0 flex items-center gap-1 px-1 text-white pointer-events-none',
+            isIn ? 'justify-start' : 'justify-end',
+          )}
+        >
+          <Icon size={12} className="shrink-0 drop-shadow" />
+          {size >= EDGE_LABEL_WIDTH && (
+            <span className="text-[10px] font-medium tabular-nums drop-shadow">{label}</span>
+          )}
+        </div>
+      )}
+      {canResize && (
+        <div
+          className={clsx(
+            'absolute top-0 bottom-0 w-1.5 z-20 cursor-ew-resize opacity-0 group-hover/edge:opacity-100 bg-white/40',
+            isIn ? 'right-0' : 'left-0',
+          )}
+          onPointerDown={onResize}
+        />
+      )}
+      {isTarget && (
+        <div
+          className={clsx(
+            'absolute top-0 bottom-0 w-0.5 bg-accent shadow-[0_0_6px] shadow-accent pointer-events-none',
+            isIn ? 'left-0' : 'right-0',
+          )}
+        />
+      )}
+    </div>
   );
 }
 
@@ -584,7 +675,22 @@ function ItemView({
     >
       {content}
       {beats && <BeatTicks beats={beats} start={item.start} pps={pps} />}
-      <FadeRamps fadeIn={item.fadeIn} fadeOut={item.fadeOut} width={width} pps={pps} target={dropEdge} />
+      {isAnimatedItem(item) ? (
+        (['in', 'out'] as const).map((edge) => (
+          <EdgeMarker
+            key={edge}
+            item={item}
+            edge={edge}
+            width={width}
+            pps={pps}
+            isTarget={dropEdge === edge}
+            canResize={!isLocked && !isGhost}
+            onResize={(event) => handlers.fadeStart(event, item, edge)}
+          />
+        ))
+      ) : (
+        <FadeRamps fadeIn={item.fadeIn} fadeOut={item.fadeOut} width={width} pps={pps} target={dropEdge} />
+      )}
       {matte && <MatteSpans spans={matte.spans} start={item.start} pps={pps} />}
       {isSelected && <div className="absolute inset-0 pointer-events-none bg-white/5" />}
       <div

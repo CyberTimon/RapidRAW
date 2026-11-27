@@ -59,6 +59,7 @@ use shutter::{ShutterInput, Steady};
 use titles::TitleStore;
 use transparency::transparent_still;
 
+const MAX_ASPECT_STEP: u32 = 64;
 const MEMORY_SHARE: u64 = 8;
 const MIN_CACHE_BYTES: u64 = 128 << 20;
 const MAX_CACHE_BYTES: u64 = 1 << 30;
@@ -221,11 +222,39 @@ pub fn canvas_for(project: &VideoProject, longest: Option<u32>) -> (u32, u32) {
         project.settings.width.max(2),
         project.settings.height.max(2),
     );
-    let scale = longest.map_or(1.0, |longest| {
-        (longest as f32 / width.max(height) as f32).min(1.0)
-    });
     let even = |value: f32| ((value / 2.0).round() as u32).max(1) * 2;
+    let Some(longest) = longest.filter(|longest| *longest < width.max(height)) else {
+        return (even(width as f32), even(height as f32));
+    };
+    if let Some(size) = exact_aspect(width, height, longest) {
+        return size;
+    }
+    let scale = longest as f32 / width.max(height) as f32;
     (even(width as f32 * scale), even(height as f32 * scale))
+}
+
+fn exact_aspect(width: u32, height: u32, longest: u32) -> Option<(u32, u32)> {
+    let gcd = |mut a: u32, mut b: u32| {
+        while b != 0 {
+            (a, b) = (b, a % b);
+        }
+        a
+    };
+    let divisor = gcd(width, height);
+    let unit = (width / divisor, height / divisor);
+    let step = if unit.0.is_multiple_of(2) && unit.1.is_multiple_of(2) {
+        1
+    } else {
+        2
+    };
+    let unit_long = unit.0.max(unit.1) * step;
+    if unit_long > MAX_ASPECT_STEP {
+        return None;
+    }
+    let ceiling = divisor / step * step;
+    let multiple =
+        ((longest as f32 / unit_long as f32).round() as u32 * step).clamp(step, ceiling.max(step));
+    Some((unit.0 * multiple, unit.1 * multiple))
 }
 
 fn output_color(hex: &str, space: OutputColorSpace) -> [f32; 3] {
@@ -759,7 +788,11 @@ fn fit_scale(canvas: (u32, u32), size: (u32, u32), fit: FitMode) -> f32 {
     let sx = canvas.0 as f32 / size.0.max(1) as f32;
     let sy = canvas.1 as f32 / size.1.max(1) as f32;
     match fit {
-        FitMode::Fit | FitMode::Blur => sx.min(sy),
+        FitMode::Fit | FitMode::Blur => {
+            let gap = (canvas.0 as f32 - size.0 as f32 * sx.min(sy))
+                .max(canvas.1 as f32 - size.1 as f32 * sx.min(sy));
+            if gap < 1.0 { sx.max(sy) } else { sx.min(sy) }
+        }
         FitMode::Fill => sx.max(sy),
     }
 }
