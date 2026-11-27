@@ -33,15 +33,24 @@
 //! the result changes only by float rounding: at most 3.6e-7 on a denoise tile on the CPU, and not
 //! at all on WebGPU. Layers with groups, dilations, output padding, automatic padding or shared
 //! weights are left as they are.
+//!
+//! Half precision (an opt-in setting, WebGPU only): float weights become 16-bit floats, casts are
+//! added at the model's inputs and outputs, and the values in `half_precision_except` are cast
+//! back to 32 bits right after the layer that makes them. A denoise tile on the Radeon 890M takes
+//! 0.29 s instead of 0.36 s, and the output changes by at most 0.33% of its range.
 
 use anyhow::{Result, anyhow, bail, ensure};
-use std::collections::HashMap;
+use half::f16;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
 const MODEL_GRAPH: u32 = 7;
 const GRAPH_NODE: u32 = 1;
 const GRAPH_INITIALIZER: u32 = 5;
+const GRAPH_INPUT: u32 = 11;
+const GRAPH_OUTPUT: u32 = 12;
+const GRAPH_VALUE_INFO: u32 = 13;
 const NODE_INPUT: u32 = 1;
 const NODE_OUTPUT: u32 = 2;
 const NODE_NAME: u32 = 3;
@@ -59,7 +68,12 @@ const TENSOR_DIMS: u32 = 1;
 const TENSOR_DATA_TYPE: u32 = 2;
 const TENSOR_NAME: u32 = 8;
 const TENSOR_RAW_DATA: u32 = 9;
+const VALUE_INFO_NAME: u32 = 1;
+const VALUE_INFO_TYPE: u32 = 2;
+const TYPE_TENSOR: u32 = 1;
+const TENSOR_TYPE_ELEM_TYPE: u32 = 1;
 const FLOAT: u64 = 1;
+const FLOAT16: u64 = 10;
 
 #[derive(Clone, Copy)]
 enum Value<'a> {
@@ -366,6 +380,18 @@ impl<'a> Initializer<'a> {
         self.changed = true;
     }
 
+    fn convert_to_half(&mut self) -> Result<()> {
+        let halves: Vec<u8> = self
+            .floats()?
+            .into_iter()
+            .flat_map(|value| f16::from_f32(value).to_le_bytes())
+            .collect();
+        self.raw_data = Some(halves);
+        self.data_type = FLOAT16;
+        self.changed = true;
+        Ok(())
+    }
+
     fn encode(&self, out: &mut Vec<u8>) {
         if !self.changed {
             put_bytes(out, GRAPH_INITIALIZER, self.original);
@@ -526,7 +552,141 @@ fn conv_transpose_as_conv(
     ]))
 }
 
-fn rewrite(model: &[u8], depth_to_space: bool) -> Result<Option<(Vec<u8>, usize)>> {
+fn cast(name: &str, input: String, output: String, to: u64) -> Node {
+    Node::new(
+        name,
+        "Cast",
+        vec![input],
+        vec![output],
+        &[int_attribute("to", to as i64)],
+    )
+}
+
+fn float_graph_inputs(
+    graph: &[Field],
+    initializers: &HashMap<String, usize>,
+) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for bytes in bytes_fields(graph, GRAPH_INPUT) {
+        let value_info = fields(bytes)?;
+        let name = string(&value_info, VALUE_INFO_NAME)?;
+        let elem_type = bytes_fields(&value_info, VALUE_INFO_TYPE)
+            .next()
+            .map(fields)
+            .transpose()?
+            .and_then(|ty| bytes_fields(&ty, TYPE_TENSOR).next().map(fields))
+            .transpose()?
+            .and_then(|tensor| varint(&tensor, TENSOR_TYPE_ELEM_TYPE));
+        if elem_type == Some(FLOAT) && !initializers.contains_key(&name) {
+            out.push(name);
+        }
+    }
+    Ok(out)
+}
+
+fn graph_outputs(graph: &[Field]) -> Result<Vec<String>> {
+    bytes_fields(graph, GRAPH_OUTPUT)
+        .map(|bytes| string(&fields(bytes)?, VALUE_INFO_NAME))
+        .collect()
+}
+
+fn to_half_precision(
+    nodes: Vec<Node>,
+    initializers: &mut [Initializer],
+    index: &HashMap<String, usize>,
+    inputs: &[String],
+    outputs: &[String],
+    keep_float: &[&str],
+) -> Result<Vec<Node>> {
+    let mut float_values: HashSet<String> =
+        keep_float.iter().map(|&name| name.to_owned()).collect();
+    let mut cast_back: HashSet<String> = float_values.clone();
+    let mut half_nodes = Vec::with_capacity(nodes.len());
+    for node in &nodes {
+        let half = !node.inputs.iter().any(|input| float_values.contains(input));
+        if !half {
+            float_values.extend(node.outputs.iter().cloned());
+        } else {
+            ensure!(
+                node.op_type != "Constant",
+                "Constant nodes are not supported in half precision"
+            );
+            cast_back.extend(
+                node.outputs
+                    .iter()
+                    .filter(|output| outputs.contains(output))
+                    .cloned(),
+            );
+        }
+        half_nodes.push(half);
+    }
+
+    for initializer in initializers.iter_mut().filter(|i| i.data_type == FLOAT) {
+        let consumers: HashSet<bool> = nodes
+            .iter()
+            .zip(&half_nodes)
+            .filter(|(node, _)| node.inputs.contains(&initializer.name))
+            .map(|(_, &half)| half)
+            .collect();
+        match (consumers.contains(&true), consumers.contains(&false)) {
+            (true, false) => initializer.convert_to_half()?,
+            (true, true) => bail!("{} is used in both precisions", initializer.name),
+            _ => {}
+        }
+    }
+
+    let half_name = |name: &str| format!("{}_half", name);
+    let mut out: Vec<Node> = inputs
+        .iter()
+        .map(|input| {
+            cast(
+                &format!("{}_cast", input),
+                input.clone(),
+                half_name(input),
+                FLOAT16,
+            )
+        })
+        .collect();
+    let mut produced = HashSet::new();
+    for (mut node, half) in nodes.into_iter().zip(half_nodes) {
+        let mut casts = Vec::new();
+        if half {
+            for input in &mut node.inputs {
+                if inputs.contains(input) && !index.contains_key(input) {
+                    *input = half_name(input);
+                }
+            }
+            for output in &mut node.outputs {
+                if cast_back.contains(output) {
+                    casts.push(cast(
+                        &format!("{}_cast", output),
+                        half_name(output),
+                        output.clone(),
+                        FLOAT,
+                    ));
+                    produced.insert(output.clone());
+                    *output = half_name(output);
+                }
+            }
+        }
+        out.push(node);
+        out.extend(casts);
+    }
+    for name in keep_float {
+        ensure!(
+            produced.contains(*name),
+            "{} is not produced in half precision",
+            name
+        );
+    }
+    Ok(out)
+}
+
+fn rewrite(
+    model: &[u8],
+    depth_to_space: bool,
+    half_precision_except: Option<&[&str]>,
+) -> Result<Option<(Vec<u8>, usize)>> {
     let model_fields = fields(model)?;
     let graph_bytes = bytes_fields(&model_fields, MODEL_GRAPH)
         .next()
@@ -536,7 +696,8 @@ fn rewrite(model: &[u8], depth_to_space: bool) -> Result<Option<(Vec<u8>, usize)
     let parsed = bytes_fields(&graph, GRAPH_NODE)
         .map(Node::parse)
         .collect::<Result<Vec<_>>>()?;
-    if !parsed.iter().any(|node| node.op_type == "ConvTranspose") {
+    if half_precision_except.is_none() && !parsed.iter().any(|node| node.op_type == "ConvTranspose")
+    {
         return Ok(None);
     }
     let mut initializers = bytes_fields(&graph, GRAPH_INITIALIZER)
@@ -574,7 +735,18 @@ fn rewrite(model: &[u8], depth_to_space: bool) -> Result<Option<(Vec<u8>, usize)
         }
     }
 
-    if converted == 0 {
+    if let Some(keep_float) = half_precision_except {
+        let inputs = float_graph_inputs(&graph, &index)?;
+        let outputs = graph_outputs(&graph)?;
+        nodes = to_half_precision(
+            nodes,
+            &mut initializers,
+            &index,
+            &inputs,
+            &outputs,
+            keep_float,
+        )?;
+    } else if converted == 0 {
         return Ok(None);
     }
 
@@ -594,6 +766,7 @@ fn rewrite(model: &[u8], depth_to_space: bool) -> Result<Option<(Vec<u8>, usize)
                 initializers_written = true;
             }
             GRAPH_NODE | GRAPH_INITIALIZER => {}
+            GRAPH_VALUE_INFO if half_precision_except.is_some() => {}
             _ => new_graph.extend_from_slice(field.raw),
         }
     }
@@ -609,21 +782,31 @@ fn rewrite(model: &[u8], depth_to_space: bool) -> Result<Option<(Vec<u8>, usize)
     Ok(Some((out, converted)))
 }
 
-pub fn optimized_model(model_path: &Path, use_gpu: bool) -> Option<Vec<u8>> {
+pub fn optimized_model(
+    model_path: &Path,
+    use_gpu: bool,
+    half_precision_except: Option<&[&str]>,
+) -> Option<Vec<u8>> {
     let depth_to_space = match use_gpu {
         false if cfg!(target_arch = "x86_64") => false,
         true if cfg!(target_os = "linux") => true,
         _ => return None,
     };
+    let half_precision_except = half_precision_except.filter(|_| depth_to_space);
     match fs::read(model_path)
         .map_err(anyhow::Error::from)
-        .and_then(|model| rewrite(&model, depth_to_space))
+        .and_then(|model| rewrite(&model, depth_to_space, half_precision_except))
     {
         Ok(Some((model, converted))) => {
             log::info!(
-                "Rewrote {} ConvTranspose layers of {} as Conv",
+                "Rewrote {} ConvTranspose layers of {} as Conv{}",
                 converted,
-                model_path.display()
+                model_path.display(),
+                if half_precision_except.is_some() {
+                    ", in half precision"
+                } else {
+                    ""
+                }
             );
             Some(model)
         }

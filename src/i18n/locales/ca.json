@@ -2381,6 +2381,8 @@
           "description": "Executa màscares, etiquetatge i substitució generativa simple en aquest ordinador.",
           "gpuAcceleration": "Acceleració per GPU",
           "gpuAccelerationDesc": "Executa la reducció de soroll, les màscares, els mapes de profunditat i l'etiquetatge a la targeta gràfica. Desactiva-ho si les funcions d'IA fallen o donen resultats incorrectes.",
+          "halfPrecision": "Mitja precisió",
+          "halfPrecisionDesc": "Executa la reducció de soroll amb IA a la targeta gràfica amb precisió de 16 bits. És més ràpid, però el resultat pot variar molt lleugerament.",
           "title": "IA integrada"
         },
         "description": "Tria on s'executen les funcions d'IA.",

@@ -2381,6 +2381,8 @@
           "description": "Executa máscaras, marcação e substituição generativa simples neste computador.",
           "gpuAcceleration": "Aceleração por GPU",
           "gpuAccelerationDesc": "Executa redução de ruído, máscaras, mapas de profundidade e marcação na placa de vídeo. Desative se os recursos de IA travarem ou parecerem errados.",
+          "halfPrecision": "Meia precisão",
+          "halfPrecisionDesc": "Executa a redução de ruído com IA na placa gráfica com precisão de 16 bits. É mais rápido, mas o resultado pode diferir muito ligeiramente.",
           "title": "IA Integrada"
         },
         "description": "Escolha onde os recursos de IA são executados.",

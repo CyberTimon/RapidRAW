@@ -2381,6 +2381,8 @@
           "description": "Exécute les masques, l'étiquetage et le remplacement génératif simple sur cet ordinateur.",
           "gpuAcceleration": "Accélération GPU",
           "gpuAccelerationDesc": "Exécute le débruitage, les masques, les cartes de profondeur et l'étiquetage sur la carte graphique. Désactivez-la si les fonctions d'IA plantent ou donnent de mauvais résultats.",
+          "halfPrecision": "Demi-précision",
+          "halfPrecisionDesc": "Exécute le débruitage IA sur la carte graphique en précision 16 bits. C'est plus rapide, mais le résultat peut différer très légèrement.",
           "title": "IA intégrée"
         },
         "description": "Choisissez où s'exécutent les fonctions d'IA.",

@@ -2310,6 +2310,8 @@
           "description": "Kör masker, taggning och enkel generativ ersättning på den här datorn.",
           "gpuAcceleration": "GPU-acceleration",
           "gpuAccelerationDesc": "Kör brusreducering, masker, djupkartor och taggning på grafikkortet. Stäng av detta om AI-funktioner kraschar eller ser fel ut.",
+          "halfPrecision": "Halv precision",
+          "halfPrecisionDesc": "Kör AI-brusreducering på grafikkortet med 16-bitars precision. Det går snabbare, men resultatet kan skilja sig mycket lite.",
           "title": "Inbyggd AI"
         },
         "description": "Välj var AI-funktionerna körs.",

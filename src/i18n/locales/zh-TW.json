@@ -2310,6 +2310,8 @@
           "description": "在這台電腦上執行遮色片、標籤和簡單的生成式取代。",
           "gpuAcceleration": "GPU 加速",
           "gpuAccelerationDesc": "在顯示卡上執行降噪、遮色片、深度圖和標籤。如果 AI 功能當機或結果異常，請關閉此選項。",
+          "halfPrecision": "半精度",
+          "halfPrecisionDesc": "在顯示卡上以 16 位元精度執行 AI 降噪。速度更快，但結果可能會有極其細微的差異。",
           "title": "內建 AI"
         },
         "description": "選擇 AI 功能的執行位置。",

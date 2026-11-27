@@ -2452,6 +2452,8 @@
           "description": "Vykdo kaukes, žymėjimą ir paprastą generatyvinį pakeitimą šiame kompiuteryje.",
           "gpuAcceleration": "GPU spartinimas",
           "gpuAccelerationDesc": "Vykdo triukšmo slopinimą, kaukes, gylio žemėlapius ir žymėjimą vaizdo plokštėje. Išjunkite, jei DI funkcijos stringa ar veikia netinkamai.",
+          "halfPrecision": "Pusinis tikslumas",
+          "halfPrecisionDesc": "Vykdo DI triukšmo slopinimą vaizdo plokštėje 16 bitų tikslumu. Tai greičiau, bet rezultatas gali labai nežymiai skirtis.",
           "title": "Integruotas DI"
         },
         "description": "Pasirinkite, kur veikia DI funkcijos.",

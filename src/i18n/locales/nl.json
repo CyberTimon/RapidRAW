@@ -2310,6 +2310,8 @@
           "description": "Voert maskers, tagging en eenvoudige generatieve vervanging uit op deze computer.",
           "gpuAcceleration": "GPU-versnelling",
           "gpuAccelerationDesc": "Voert ruisonderdrukking, maskers, dieptekaarten en tagging uit op de grafische kaart. Schakel dit uit als AI-functies crashen of er verkeerd uitzien.",
+          "halfPrecision": "Halve precisie",
+          "halfPrecisionDesc": "Voert AI-ruisonderdrukking uit op de videokaart met 16-bits precisie. Dit is sneller, maar het resultaat kan heel licht afwijken.",
           "title": "Ingebouwde AI"
         },
         "description": "Kies waar AI-functies worden uitgevoerd.",

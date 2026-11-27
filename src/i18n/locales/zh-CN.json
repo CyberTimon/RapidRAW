@@ -2310,6 +2310,8 @@
           "description": "在这台电脑上运行蒙版、标签和简单的生成式替换。",
           "gpuAcceleration": "GPU 加速",
           "gpuAccelerationDesc": "在显卡上运行降噪、蒙版、深度图和标签。如果 AI 功能崩溃或结果异常，请关闭此选项。",
+          "halfPrecision": "半精度",
+          "halfPrecisionDesc": "在显卡上以 16 位精度运行 AI 降噪。速度更快，但结果可能会有极其细微的差异。",
           "title": "内置 AI"
         },
         "description": "选择 AI 功能的运行位置。",

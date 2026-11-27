@@ -2381,6 +2381,8 @@
           "description": "Ejecuta máscaras, etiquetado y reemplazo generativo simple en este equipo.",
           "gpuAcceleration": "Aceleración por GPU",
           "gpuAccelerationDesc": "Ejecuta la reducción de ruido, las máscaras, los mapas de profundidad y el etiquetado en la tarjeta gráfica. Desactívala si las funciones de IA fallan o dan resultados incorrectos.",
+          "halfPrecision": "Media precisión",
+          "halfPrecisionDesc": "Ejecuta la reducción de ruido con IA en la tarjeta gráfica con precisión de 16 bits. Es más rápido, pero el resultado puede variar muy ligeramente.",
           "title": "IA integrada"
         },
         "description": "Elige dónde se ejecutan las funciones de IA.",

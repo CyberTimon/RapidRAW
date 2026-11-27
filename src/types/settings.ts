@@ -102,6 +102,7 @@ export interface AppSettings {
   videoCacheLimitGb?: number;
   aiConnectorAddress?: string;
   aiGpuAcceleration?: boolean;
+  aiHalfPrecision?: boolean;
   aiProvider?: string;
   decorations?: any;
   editorPreviewResolution?: number;

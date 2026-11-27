@@ -2452,6 +2452,8 @@
           "description": "Uruchamia maski, tagowanie i prostą generatywną zamianę na tym komputerze.",
           "gpuAcceleration": "Akceleracja GPU",
           "gpuAccelerationDesc": "Uruchamia odszumianie, maski, mapy głębi i tagowanie na karcie graficznej. Wyłącz, jeśli funkcje AI się zawieszają lub dają złe wyniki.",
+          "halfPrecision": "Połowiczna precyzja",
+          "halfPrecisionDesc": "Uruchamia odszumianie AI na karcie graficznej z 16-bitową precyzją. Jest szybsze, ale wynik może się bardzo nieznacznie różnić.",
           "title": "Wbudowane AI"
         },
         "description": "Wybierz, gdzie działają funkcje AI.",
