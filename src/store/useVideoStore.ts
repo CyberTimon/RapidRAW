@@ -802,8 +802,31 @@ export const deleteSelection = () => {
   setVideo({ selection: [] });
 };
 
+const editedLook = (project: VideoProject, item: ClipItem | AdjustmentItem, adjustments: Adjustments) => {
+  const { playhead, recordKeyframes, recordFrom, isPlaying } = getVideo();
+  const shown = shownLook?.itemId === item.id ? shownLook : null;
+  const stored = projectLook(project, item);
+  const shownTime = editorLookTime(project, item, playhead);
+  const editedAt = shown?.time ?? shownTime;
+  return recordLookEdit(
+    stored,
+    adjustments,
+    editedAt,
+    isPlaying ? shownTime : editedAt,
+    recordKeyframes,
+    frameTicks(project.settings.fps) / 2,
+    recordFrom === null ? null : editorLookTime(project, item, recordFrom),
+  );
+};
+
+export const liveLook = (project: VideoProject, itemId: string, adjustments: Adjustments) => {
+  const item = lookItem(project, itemId);
+  if (!item || (shownLook?.itemId === item.id && shownLook.adjustments === adjustments)) return adjustments;
+  return editedLook(project, item, adjustments);
+};
+
 export const saveVideoLook = (path: string, adjustments: Adjustments) => {
-  const { project, session, editorItemId, playhead, recordKeyframes, recordFrom, isPlaying } = getVideo();
+  const { project, session, editorItemId } = getVideo();
   if (session?.kind !== 'project' || !project) return false;
   const item = lookItem(project, editorItemId);
   const matches =
@@ -813,19 +836,8 @@ export const saveVideoLook = (path: string, adjustments: Adjustments) => {
   if (!item || !matches) return true;
   const shown = shownLook?.itemId === item.id ? shownLook : null;
   if (shown?.adjustments === adjustments) return true;
-  const fps = project.settings.fps;
   const stored = projectLook(project, item);
-  const shownTime = editorLookTime(project, item, playhead);
-  const editedAt = shown?.time ?? shownTime;
-  const next = recordLookEdit(
-    stored,
-    adjustments,
-    editedAt,
-    isPlaying ? shownTime : editedAt,
-    recordKeyframes,
-    frameTicks(fps) / 2,
-    recordFrom === null ? null : editorLookTime(project, item, recordFrom),
-  );
+  const next = editedLook(project, item, adjustments);
   if (shown) shown.adjustments = adjustments;
   if (isSameValue(next, stored)) return true;
   recordProject(assignLook(project, item.id, next)[0], `look:${item.id}`);

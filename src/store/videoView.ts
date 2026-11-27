@@ -18,6 +18,7 @@ import {
   editorTimeOf,
   getVideo,
   isProjectSession,
+  liveLook,
   lookTargetOf,
   notifyFrameError,
   useVideoStore,
@@ -298,7 +299,7 @@ export const viewRequest = async (project: VideoProject, compare = true, fill = 
       if (hasLook(item)) lookOverrides[item.id] = null;
     });
   } else if (editorItemId) {
-    lookOverrides[editorItemId] = editor.adjustments;
+    lookOverrides[editorItemId] = liveLook(project, editorItemId, editor.adjustments);
   }
   return {
     targetResolution: viewerResolution(project),
