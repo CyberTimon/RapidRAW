@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>RapidRAW Web</title>
+<style>
+body{margin:0;height:100vh;display:flex;flex-direction:column;font:14px system-ui;background:#111;color:#ccc}
+header{display:flex;align-items:center;padding:.5em .5em .5em 1.2em;background:#1b1b1b;user-select:none}
+h1{flex:1;margin:0;font-size:14px;font-weight:600}h1 small{margin-left:.6em;color:#777;font-weight:400;font-size:12px}
+header button{width:2.4em;height:2em;border:0;background:none;color:#999;font-size:15px;cursor:pointer}
+header button:hover{color:#fff;background:#333}
+main{flex:1;overflow:auto;padding:1.5em 2em}
+#s{font-size:16px}#s.ok{color:#7c7}
+#hint,#calls{color:#888;margin:.6em 0}
+#urls a{display:block;margin:.4em 0;color:#8bf;font-size:16px}
+#lib{margin:1.2em 0;padding:.8em 1em;border-radius:8px;background:#1b1b1b}#lib.todo{outline:1px solid #c9a24a}
+#lib code{color:#ddd}#lib button{margin-left:.8em;padding:.3em .9em;border:0;border-radius:6px;background:#333;color:#eee;cursor:pointer}
+#lib p{margin:.4em 0 0;color:#888;font-size:12px}
+#log{margin-top:1.5em;color:#777;font:12px ui-monospace,monospace;white-space:pre-wrap}
+</style></head>
+<body>
+<header data-tauri-drag-region><h1 data-tauri-drag-region>RapidRAW Web <small id="ver"></small></h1>
+<button id="min" title="Minimize">&#x2013;</button><button id="close" title="Stop and close">&#x2715;</button></header>
+<main><div id="s">Starting…</div><div id="hint"></div><div id="urls"></div><div id="calls"></div>
+<div id="lib">Photo library: <code id="libpath">…</code><button id="libpick">Choose…</button>
+<p>The folder with your photos on this computer. It is always listed first in the browser's Files tab and folder pickers.</p></div><pre id="log"></pre></main>
+<script type="module" src="./bridge.ts"></script></body></html>
