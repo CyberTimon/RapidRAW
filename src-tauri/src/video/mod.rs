@@ -116,15 +116,9 @@ fn poster_time(info: &ffmpeg::MediaInfo) -> f64 {
     (info.duration * 0.1).min(POSTER_MAX_SECONDS)
 }
 
-pub fn poster_frame(path: &Path, at: Option<f64>) -> Result<DynamicImage, String> {
+pub fn poster_frame(path: &Path) -> Result<DynamicImage, String> {
     let info = ffmpeg::probe(path)?;
-    let frame = match at.filter(|time| time.is_finite() && *time >= 0.0) {
-        Some(time) => {
-            frames::decode_frame(path, &info, time.min((info.duration - 0.05).max(0.0)), None)
-        }
-        None => frames::decode_poster(path, &info, poster_time(&info), None),
-    };
-    frame.map(Arc::unwrap_or_clone)
+    frames::decode_poster(path, &info, poster_time(&info), None).map(Arc::unwrap_or_clone)
 }
 
 pub fn thumbnail_frame(path: &Path, longest: u32) -> Result<DynamicImage, String> {
@@ -138,10 +132,6 @@ pub fn thumbnail_frame(path: &Path, longest: u32) -> Result<DynamicImage, String
     )?);
     crate::render::image_processing::apply_working_display_to_srgb(&mut image, false);
     Ok(image)
-}
-
-pub fn poster_seconds(adjustments: &serde_json::Value) -> Option<f64> {
-    adjustments.get("video")?.get("poster")?.as_f64()
 }
 
 pub fn decode_pristine(path: &Path) -> Result<(DynamicImage, HashMap<String, String>), String> {

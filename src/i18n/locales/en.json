@@ -2800,12 +2800,9 @@
       "mute": "Mute",
       "openInTimeline": "Open in Timeline",
       "position": "Position",
-      "setThumbnail": "Set as Thumbnail",
-      "thumbnailFrame": "Thumbnail",
       "trimEnd": "Trim end, double-click to reset",
       "trimStart": "Trim start, double-click to reset",
-      "unmute": "Unmute",
-      "thumbnailSet": "Thumbnail updated"
+      "unmute": "Unmute"
     },
     "effectsPanel": {
       "add": "Add",

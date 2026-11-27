@@ -2946,12 +2946,9 @@
       "mute": "Ztlumit",
       "openInTimeline": "Otevřít na časové ose",
       "position": "Poloha",
-      "setThumbnail": "Nastavit jako miniaturu",
-      "thumbnailFrame": "Miniatura",
       "trimEnd": "Zkrátit konec, dvojklikem obnovíte",
       "trimStart": "Zkrátit začátek, dvojklikem obnovíte",
-      "unmute": "Zrušit ztlumení",
-      "thumbnailSet": "Miniatura aktualizována"
+      "unmute": "Zrušit ztlumení"
     },
     "effectsPanel": {
       "add": "Přidat",

@@ -86,7 +86,7 @@ pub fn load_and_composite(
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<(DynamicImage, f32)> {
     let base_image = if is_video_file(path) {
-        crate::video::poster_frame(Path::new(path), crate::video::poster_seconds(adjustments))
+        crate::video::poster_frame(Path::new(path))
             .map_err(|e| anyhow!(e))?
     } else {
         load_base_image_from_bytes(bytes, path, use_fast_raw_dev, settings, cancel_token)?
@@ -157,7 +157,7 @@ pub fn load_base_image_from_bytes(
     let remove_hot_pixels = settings.remove_hot_pixels.unwrap_or(true);
 
     if is_video_file(path_for_ext_check) {
-        return crate::video::poster_frame(Path::new(path_for_ext_check), None)
+        return crate::video::poster_frame(Path::new(path_for_ext_check))
             .map_err(|e| anyhow!(e));
     }
 
@@ -886,7 +886,7 @@ pub fn gain_layer_for(
 pub fn load_display_image(bytes: &[u8], path: &str) -> Result<DynamicImage> {
     if is_video_file(path) {
         let mut image =
-            crate::video::poster_frame(Path::new(path), None).map_err(|e| anyhow!(e))?;
+            crate::video::poster_frame(Path::new(path)).map_err(|e| anyhow!(e))?;
         apply_working_display_to_srgb(&mut image, false);
         return Ok(image);
     }

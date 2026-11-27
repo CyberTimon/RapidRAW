@@ -2873,12 +2873,9 @@
       "mute": "Disattiva audio",
       "openInTimeline": "Apri nella timeline",
       "position": "Posizione",
-      "setThumbnail": "Imposta come miniatura",
-      "thumbnailFrame": "Miniatura",
       "trimEnd": "Rifila la fine, doppio clic per ripristinare",
       "trimStart": "Rifila l'inizio, doppio clic per ripristinare",
-      "unmute": "Riattiva audio",
-      "thumbnailSet": "Miniatura aggiornata"
+      "unmute": "Riattiva audio"
     },
     "effectsPanel": {
       "add": "Aggiungi",

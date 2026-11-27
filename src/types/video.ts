@@ -391,7 +391,6 @@ export interface RecentProject {
 export interface ClipSettings {
   in: number;
   out: number | null;
-  poster: number | null;
   muted: boolean;
 }
 

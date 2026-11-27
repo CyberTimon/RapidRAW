@@ -2946,12 +2946,9 @@
       "mute": "Wycisz",
       "openInTimeline": "Otwórz na osi czasu",
       "position": "Pozycja",
-      "setThumbnail": "Ustaw jako miniaturę",
-      "thumbnailFrame": "Miniatura",
       "trimEnd": "Przytnij koniec, dwuklik resetuje",
       "trimStart": "Przytnij początek, dwuklik resetuje",
-      "unmute": "Wyłącz wyciszenie",
-      "thumbnailSet": "Zaktualizowano miniaturę"
+      "unmute": "Wyłącz wyciszenie"
     },
     "effectsPanel": {
       "add": "Dodaj",

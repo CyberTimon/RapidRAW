@@ -2873,12 +2873,9 @@
       "mute": "Silenciar",
       "openInTimeline": "Obrir a la línia de temps",
       "position": "Posició",
-      "setThumbnail": "Definir com a miniatura",
-      "thumbnailFrame": "Miniatura",
       "trimEnd": "Retallar el final, doble clic per restablir",
       "trimStart": "Retallar l'inici, doble clic per restablir",
-      "unmute": "Activar el so",
-      "thumbnailSet": "Miniatura actualitzada"
+      "unmute": "Activar el so"
     },
     "effectsPanel": {
       "add": "Afegir",

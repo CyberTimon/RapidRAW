@@ -2873,12 +2873,9 @@
       "mute": "Couper le son",
       "openInTimeline": "Ouvrir dans la timeline",
       "position": "Position",
-      "setThumbnail": "Définir comme miniature",
-      "thumbnailFrame": "Miniature",
       "trimEnd": "Rogner la fin, double-clic pour réinitialiser",
       "trimStart": "Rogner le début, double-clic pour réinitialiser",
-      "unmute": "Rétablir le son",
-      "thumbnailSet": "Miniature mise à jour"
+      "unmute": "Rétablir le son"
     },
     "effectsPanel": {
       "add": "Ajouter",

@@ -2800,12 +2800,9 @@
       "mute": "Ljud av",
       "openInTimeline": "Öppna i tidslinjen",
       "position": "Position",
-      "setThumbnail": "Använd som miniatyr",
-      "thumbnailFrame": "Miniatyr",
       "trimEnd": "Trimma slutet, dubbelklicka för att återställa",
       "trimStart": "Trimma början, dubbelklicka för att återställa",
-      "unmute": "Ljud på",
-      "thumbnailSet": "Miniatyren har uppdaterats"
+      "unmute": "Ljud på"
     },
     "effectsPanel": {
       "add": "Lägg till",

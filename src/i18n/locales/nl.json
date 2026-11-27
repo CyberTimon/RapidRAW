@@ -2800,12 +2800,9 @@
       "mute": "Dempen",
       "openInTimeline": "Openen in tijdlijn",
       "position": "Positie",
-      "setThumbnail": "Instellen als miniatuur",
-      "thumbnailFrame": "Miniatuur",
       "trimEnd": "Einde trimmen, dubbelklik om te herstellen",
       "trimStart": "Begin trimmen, dubbelklik om te herstellen",
-      "unmute": "Dempen opheffen",
-      "thumbnailSet": "Miniatuur bijgewerkt"
+      "unmute": "Dempen opheffen"
     },
     "effectsPanel": {
       "add": "Toevoegen",

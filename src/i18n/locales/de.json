@@ -2800,12 +2800,9 @@
       "mute": "Stummschalten",
       "openInTimeline": "In Zeitleiste öffnen",
       "position": "Position",
-      "setThumbnail": "Als Miniatur festlegen",
-      "thumbnailFrame": "Miniatur",
       "trimEnd": "Ende trimmen, Doppelklick zum Zurücksetzen",
       "trimStart": "Anfang trimmen, Doppelklick zum Zurücksetzen",
-      "unmute": "Ton einschalten",
-      "thumbnailSet": "Miniatur aktualisiert"
+      "unmute": "Ton einschalten"
     },
     "effectsPanel": {
       "add": "Hinzufügen",

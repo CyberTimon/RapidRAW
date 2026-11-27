@@ -2800,12 +2800,9 @@
       "mute": "ミュート",
       "openInTimeline": "タイムラインで開く",
       "position": "位置",
-      "setThumbnail": "サムネイルに設定",
-      "thumbnailFrame": "サムネイル",
       "trimEnd": "終わりをトリミング、ダブルクリックでリセット",
       "trimStart": "始まりをトリミング、ダブルクリックでリセット",
-      "unmute": "ミュート解除",
-      "thumbnailSet": "サムネイルを更新しました"
+      "unmute": "ミュート解除"
     },
     "effectsPanel": {
       "add": "追加",

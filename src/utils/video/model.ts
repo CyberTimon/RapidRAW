@@ -209,7 +209,7 @@ export const localForSource = (item: Sourced, offset: Ticks, fps: FrameRate): Ti
   return direction * fromFrame(frames, fps);
 };
 
-const DEFAULT_CLIP_SETTINGS: ClipSettings = { in: 0, out: null, poster: null, muted: false };
+const DEFAULT_CLIP_SETTINGS: ClipSettings = { in: 0, out: null, muted: false };
 
 export const clipSettingsOf = (video: Adjustments['video']): ClipSettings => ({ ...DEFAULT_CLIP_SETTINGS, ...video });
 

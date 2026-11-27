@@ -2800,12 +2800,9 @@
       "mute": "靜音",
       "openInTimeline": "在時間軸中開啟",
       "position": "位置",
-      "setThumbnail": "設為縮圖",
-      "thumbnailFrame": "縮圖",
       "trimEnd": "修剪結尾，按兩下重設",
       "trimStart": "修剪開頭，按兩下重設",
-      "unmute": "取消靜音",
-      "thumbnailSet": "縮圖已更新"
+      "unmute": "取消靜音"
     },
     "effectsPanel": {
       "add": "新增",

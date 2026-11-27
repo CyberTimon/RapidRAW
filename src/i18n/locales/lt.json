@@ -2946,12 +2946,9 @@
       "mute": "Nutildyti",
       "openInTimeline": "Atidaryti laiko juostoje",
       "position": "Padėtis",
-      "setThumbnail": "Nustatyti kaip miniatiūrą",
-      "thumbnailFrame": "Miniatiūra",
       "trimEnd": "Patrumpinti pabaigą, dukart spustelėkite, kad atstatytumėte",
       "trimStart": "Patrumpinti pradžią, dukart spustelėkite, kad atstatytumėte",
-      "unmute": "Įjungti garsą",
-      "thumbnailSet": "Miniatiūra atnaujinta"
+      "unmute": "Įjungti garsą"
     },
     "effectsPanel": {
       "add": "Pridėti",

@@ -2800,12 +2800,9 @@
       "mute": "음소거",
       "openInTimeline": "타임라인에서 열기",
       "position": "위치",
-      "setThumbnail": "썸네일로 설정",
-      "thumbnailFrame": "썸네일",
       "trimEnd": "끝 트리밍, 더블클릭하여 초기화",
       "trimStart": "시작 트리밍, 더블클릭하여 초기화",
-      "unmute": "음소거 해제",
-      "thumbnailSet": "썸네일이 업데이트되었습니다"
+      "unmute": "음소거 해제"
     },
     "effectsPanel": {
       "add": "추가",

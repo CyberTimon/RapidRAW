@@ -2800,12 +2800,9 @@
       "mute": "静音",
       "openInTimeline": "在时间线中打开",
       "position": "位置",
-      "setThumbnail": "设为缩略图",
-      "thumbnailFrame": "缩略图",
       "trimEnd": "修剪结尾，双击重置",
       "trimStart": "修剪开头，双击重置",
-      "unmute": "取消静音",
-      "thumbnailSet": "缩略图已更新"
+      "unmute": "取消静音"
     },
     "effectsPanel": {
       "add": "添加",

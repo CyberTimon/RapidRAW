@@ -2873,12 +2873,9 @@
       "mute": "Silenciar",
       "openInTimeline": "Abrir na linha do tempo",
       "position": "Posição",
-      "setThumbnail": "Definir como miniatura",
-      "thumbnailFrame": "Miniatura",
       "trimEnd": "Aparar fim, clique duplo para redefinir",
       "trimStart": "Aparar início, clique duplo para redefinir",
-      "unmute": "Ativar som",
-      "thumbnailSet": "Miniatura atualizada"
+      "unmute": "Ativar som"
     },
     "effectsPanel": {
       "add": "Adicionar",

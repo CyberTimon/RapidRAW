@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEv
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { Camera, Clapperboard, ImagePlay, Repeat, Volume2, VolumeX } from 'lucide-react';
+import { Camera, Clapperboard, Repeat, Volume2, VolumeX } from 'lucide-react';
 import Text from '../ui/Text';
 import { TextColors, TextVariants } from '../../types/typography';
 import { ClipSettings, FrameRate, Ticks } from '../../types/video';
@@ -11,9 +11,9 @@ import { useProcessStore } from '../../store/useProcessStore';
 import { createVideoProject, setPlayhead, useVideoStore } from '../../store/useVideoStore';
 import { holdSeekResume, toggleLoop } from '../../store/videoPlayback';
 import { exportVideoFrame } from '../../store/videoExport';
-import { TrimEdge, resetTrim, setPoster, setTrim, toggleClipMute } from '../../store/videoClip';
+import { TrimEdge, resetTrim, setTrim, toggleClipMute } from '../../store/videoClip';
 import { clipSettingsOf, sequenceDuration, trimRange } from '../../utils/video/model';
-import { formatTimecode, frameTicks, secondsToTicks, snapTicks } from '../../utils/video/time';
+import { formatTimecode, frameTicks, snapTicks } from '../../utils/video/time';
 import { useMediaImage } from './timeline/media';
 import StripCanvas, { filmTiles } from './timeline/StripCanvas';
 import Timecode, { PlayheadState, PlayheadTimecode, usePlayheadEffect } from './timeline/Timecode';
@@ -134,7 +134,6 @@ function ClipTrack({ path, duration, fps, settings }: TrackProps) {
   const end = liveTrim?.edge === 'out' ? liveTrim.time : savedEnd;
   const isTrimmed = start > 0 || end < duration;
   const percent = (time: Ticks) => percentOf(time, duration);
-  const poster = settings.poster === null ? null : secondsToTicks(settings.poster);
 
   const place = useCallback(
     ({ playhead }: PlayheadState) => {
@@ -227,13 +226,6 @@ function ClipTrack({ path, duration, fps, settings }: TrackProps) {
           }}
         />
       )}
-      {poster !== null && (
-        <div
-          className="absolute bottom-0 w-2.5 h-2.5 -translate-x-1/2 rotate-45 -mb-1.5 bg-accent shadow-sm"
-          style={{ left: `${percent(poster)}%` }}
-          data-tooltip={t('video.clipBar.thumbnailFrame')}
-        />
-      )}
       <div
         data-edge="in"
         className={clsx(handleClass, 'rounded-l-md')}
@@ -272,12 +264,6 @@ export default function ClipBar({ compact = false }: { compact?: boolean }) {
   const video = useEditorStore((state) => (state.selectedImage?.path === path ? state.adjustments.video : undefined));
   const loop = useVideoStore((state) => state.loop);
   const settings = useMemo(() => clipSettingsOf(video), [video]);
-  const onPoster = useVideoStore(
-    (state) =>
-      !!state.project &&
-      settings.poster !== null &&
-      Math.abs(secondsToTicks(settings.poster) - state.playhead) < frameTicks(state.project.settings.fps) / 2,
-  );
 
   if (!path || !project) return null;
 
@@ -304,13 +290,6 @@ export default function ClipBar({ compact = false }: { compact?: boolean }) {
       </Text>
       <ClipTrack path={path} duration={duration} fps={fps} settings={settings} />
       <div className="flex items-center shrink-0">
-        <BarButton
-          icon={ImagePlay}
-          label={t('video.clipBar.setThumbnail')}
-          onClick={setPoster}
-          active={onPoster}
-          disabled={!ready}
-        />
         <BarButton
           icon={Camera}
           label={t('video.frame.export')}

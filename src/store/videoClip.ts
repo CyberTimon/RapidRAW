@@ -1,5 +1,4 @@
 import i18n from 'i18next';
-import { toast } from 'react-toastify';
 import { ClipSettings, Ticks } from '../types/video';
 import { clipSettingsOf, sequenceDuration, trimRange } from '../utils/video/model';
 import { frameTicks, snapTicks, ticksToSeconds } from '../utils/video/time';
@@ -12,10 +11,10 @@ export type TrimEdge = 'in' | 'out';
 const toSeconds = (ticks: Ticks) => Math.round(ticksToSeconds(ticks) * 1e6) / 1e6;
 
 const isDefault = (settings: ClipSettings) =>
-  settings.in === 0 && settings.out === null && settings.poster === null && !settings.muted;
+  settings.in === 0 && settings.out === null && !settings.muted;
 
 const sameSettings = (a: ClipSettings, b: ClipSettings) =>
-  a.in === b.in && a.out === b.out && a.poster === b.poster && a.muted === b.muted;
+  a.in === b.in && a.out === b.out && a.muted === b.muted;
 
 const clipContext = () => {
   const { session, project } = getVideo();
@@ -74,13 +73,6 @@ export const resetTrim = (edge: TrimEdge) => {
     (current) => (edge === 'in' ? { ...current, in: 0 } : { ...current, out: null }),
     i18n.t('video.clipBar.history.trim'),
   );
-};
-
-export const setPoster = () => {
-  if (!clipContext()) return;
-  const poster = toSeconds(getVideo().playhead);
-  updateClipSettings((current) => ({ ...current, poster }), i18n.t('video.clipBar.thumbnailFrame'));
-  toast.success(i18n.t('video.clipBar.thumbnailSet'));
 };
 
 export const toggleClipMute = () => {
