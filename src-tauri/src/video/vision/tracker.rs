@@ -39,6 +39,7 @@ const REFRESH: f32 = 0.85;
 const MIN_VISIBLE: f32 = 0.5;
 const COAST_DAMPING: f32 = 0.8;
 const RESET_AFTER: u32 = 3;
+pub const LEAVING: f32 = 0.5;
 const FLAT: f32 = 1e-8;
 
 #[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
@@ -200,6 +201,15 @@ impl RegionTracker {
         tracker.reference = tracker.templates(&tracker.previous);
         tracker.anchor = tracker.reference.clone();
         tracker
+    }
+
+    pub fn leaving(&self) -> bool {
+        self.visible(
+            &self.previous.0[self.base],
+            self.base,
+            &self.grids[0],
+            self.pose,
+        ) < LEAVING
     }
 
     pub fn update(&mut self, frame: &GrayFrame) -> Option<TrackSample> {

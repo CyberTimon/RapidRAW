@@ -3248,8 +3248,8 @@
       "source": "Source",
       "trackSpot": "Suivre la zone",
       "trackSource": "Suivre la source",
-      "spotTracked": "Zone suivie sur {{duration}}.",
-      "sourceTracked": "Source suivie sur {{duration}}.",
+      "spotDone": "Zone · {{duration}}",
+      "sourceDone": "Source · {{duration}}",
       "modes": {
         "follow": "Suivre",
         "followTip": "La source se déplace avec la zone suivie",
@@ -3344,9 +3344,7 @@
       },
       "lost": "Objet perdu. Essayez un cadre plus grand.",
       "stabilize": "Stabiliser",
-      "tracking": "Suivre un objet",
-      "trackMotion": "Sélectionner un objet",
-      "followScale": "Échelle et rotation"
+      "tracking": "Suivre un objet"
     },
     "nesting": {
       "back": "Retour",
@@ -3458,12 +3456,33 @@
       "progress": "Suivi… {{percent}} %",
       "cancel": "Annuler",
       "noClip": "Placez la tête de lecture sur un clip vidéo.",
-      "tracked": "Suivi sur {{duration}}.",
+      "done": "Suivi · {{duration}}",
       "remove": "Supprimer",
-      "position": "Position",
-      "planar": "Planaire",
-      "pinToPlane": "Épingler au plan",
-      "notConvex": "Le contour du plan se croise."
+      "position": "Objet",
+      "planar": "Surface",
+      "positionTip": "Suit n'importe quoi : personnes, visages ou objets",
+      "planarTip": "Suit une surface plane comme un écran, un mur ou un panneau",
+      "notConvex": "Le contour du plan se croise.",
+      "attach": {
+        "title": "Attache",
+        "move": "Déplacer",
+        "transform": "Transformer",
+        "perspective": "Perspective",
+        "pin": "Épingler",
+        "moveTip": "Suit uniquement la position",
+        "transformTip": "Suit la position, l'échelle et la rotation",
+        "perspectiveTip": "Suit la surface en perspective",
+        "pinTip": "Se place exactement sur la surface suivie"
+      },
+      "fit": {
+        "title": "Ajustement",
+        "fill": "Remplir",
+        "fit": "Ajuster",
+        "stretch": "Étirer",
+        "fillTip": "Couvre la surface et recadre ce qui dépasse",
+        "fitTip": "Affiche le calque entier dans la surface",
+        "stretchTip": "Étire le calque jusqu'aux coins de la surface"
+      }
     },
     "transitions": {
       "blur": "Flou",

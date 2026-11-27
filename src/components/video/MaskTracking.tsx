@@ -24,13 +24,25 @@ import {
   VIDEO_AI_MASKS,
   isPlanar,
   isTrackable,
+  sameCorners,
+  SHAPE_ATTACH,
 } from '../../utils/video/maskTracking';
-import { maskTrackSpan } from '../../utils/video/edit';
+import { maskTrackCoverage, maskTrackSpan } from '../../utils/video/edit';
+import { formatDuration } from '../../utils/video/time';
+import { useShallow } from 'zustand/react/shallow';
 import { lookOf } from '../../utils/video/model';
 import { numericLeaves } from '../../utils/video/lookAnimation';
 import { useEditorLookItem, useLookKeyframes } from './inspector/LookKeyframes';
 import { ActionButton, ColorRow, IconToggle } from './inspector/InspectorControls';
-import { JobProgress, KeyframesRow, TrackJob, TrackKindControl, TrackedRow, Tracker } from './TrackControls';
+import {
+  AttachControl,
+  JobProgress,
+  KeyframesRow,
+  TrackJob,
+  useAttachChoice,
+  TrackKindControl,
+  Tracker,
+} from './TrackControls';
 import {
   cancelJob,
   clearTrackError,
@@ -43,6 +55,7 @@ import {
   setTrackKind,
   trackMask,
   unfollowSubMask,
+  useTrackDone,
   useVideoMotion,
   withSequences,
 } from '../../store/videoMotion';
@@ -251,9 +264,36 @@ export default function MaskTrackingControls<T extends Trackable>({
   useEffect(() => {
     if (tracked) setTrackKind(planarTrack ? 'planar' : 'position');
   }, [container?.id, tracked, planarTrack]);
+  const span = useVideoStore(
+    useShallow((state) => {
+      const item = state.project ? maskItem() : null;
+      return item && state.project
+        ? maskTrackSpan(state.project, item, container?.track, sourceFpsOf(state.project, item))
+        : null;
+    }),
+  );
+  const coverage = useVideoStore(
+    useShallow((state) => {
+      const item = state.project ? maskItem() : null;
+      return item && state.project
+        ? maskTrackCoverage(state.project, item, container?.track, sourceFpsOf(state.project, item))
+        : null;
+    }),
+  );
+  const trackedItem = project ? maskItem() : null;
+  const done = useTrackDone(trackedItem, container?.track, coverage, {
+    changed: !sameCorners(container?.track?.area ?? null, container?.trackArea ?? null),
+    onClipBelow: trackedItem?.type === 'adjustment',
+  });
+  const attach = useAttachChoice(
+    jobKey,
+    container?.track,
+    SHAPE_ATTACH,
+    (next) =>
+      container?.track && updateContainer(container.id, { track: { ...container.track, attach: next } } as Partial<T>),
+  );
   if (!isVideo || !container) return null;
   const trackable = container.subMasks.some(isTrackable);
-  const trackedItem = project ? maskItem() : null;
   const followsFrames =
     aiSubMasks.length > 0 &&
     aiSubMasks.every((subMask) => {
@@ -301,16 +341,6 @@ export default function MaskTrackingControls<T extends Trackable>({
           {t(kind === 'mask' ? 'video.maskTracking.title' : 'video.stampTracking.title')}
         </Text>
       </div>
-      <TrackedRow
-        track={container.track}
-        span={
-          trackedItem && project
-            ? maskTrackSpan(project, trackedItem, container.track, sourceFpsOf(project, trackedItem))
-            : null
-        }
-        durationKey={kind === 'stamp' ? 'video.stampTracking.spotTracked' : 'video.tracking.tracked'}
-        onRemove={() => updateContainer(container.id, { track: null } as Partial<T>)}
-      />
       {trackable && (
         <div className="grid grid-cols-2 gap-2">
           <SegmentedControl
@@ -329,14 +359,23 @@ export default function MaskTrackingControls<T extends Trackable>({
           <TrackKindControl disabled={tracking} />
         </div>
       )}
+      {trackable && (
+        <AttachControl options={attach.options} value={attach.value} disabled={tracking} onChange={attach.choose} />
+      )}
       {children}
       <Tracker
         jobs={[
           {
             key: jobKey,
             label: jobs.length > 0 ? t('video.stampTracking.trackSpot') : undefined,
+            done: done
+              ? t(kind === 'stamp' ? 'video.stampTracking.spotDone' : 'video.tracking.done', {
+                  duration: formatDuration(span ? span[1] - span[0] : 0),
+                })
+              : null,
             disabled: !trackable,
             onTrack: track,
+            onRemove: tracked ? () => updateContainer(container.id, { track: null } as Partial<T>) : undefined,
           },
           ...jobs,
         ]}

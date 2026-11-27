@@ -3167,8 +3167,8 @@
       "source": "ソース",
       "trackSpot": "スポットをトラッキング",
       "trackSource": "ソースをトラッキング",
-      "spotTracked": "スポットを {{duration}} トラッキングしました。",
-      "sourceTracked": "ソースを {{duration}} トラッキングしました。",
+      "spotDone": "スポット · {{duration}}",
+      "sourceDone": "ソース · {{duration}}",
       "modes": {
         "follow": "追従",
         "followTip": "ソースはトラッキングしたスポットと一緒に動きます",
@@ -3262,9 +3262,7 @@
       },
       "lost": "対象を見失いました。より大きなボックスを試してください。",
       "stabilize": "スタビライズ",
-      "tracking": "オブジェクトに追従",
-      "trackMotion": "オブジェクトを選択",
-      "followScale": "スケールと回転"
+      "tracking": "オブジェクトに追従"
     },
     "nesting": {
       "back": "戻る",
@@ -3374,12 +3372,33 @@
       "progress": "トラッキング中… {{percent}}%",
       "cancel": "キャンセル",
       "noClip": "再生ヘッドを動画クリップの上に移動してください。",
-      "tracked": "{{duration}} トラッキングしました。",
+      "done": "トラッキング済み · {{duration}}",
       "remove": "削除",
-      "position": "位置",
+      "position": "オブジェクト",
       "planar": "平面",
-      "pinToPlane": "平面に固定",
-      "notConvex": "平面の輪郭が交差しています。"
+      "positionTip": "人物、顔、物体など何でもトラッキングします",
+      "planarTip": "画面、壁、看板などの平らな面をトラッキングします",
+      "notConvex": "平面の輪郭が交差しています。",
+      "attach": {
+        "title": "追従方法",
+        "move": "移動",
+        "transform": "変形",
+        "perspective": "遠近",
+        "pin": "固定",
+        "moveTip": "位置のみに追従します",
+        "transformTip": "位置、スケール、回転に追従します",
+        "perspectiveTip": "平面に遠近感を付けて追従します",
+        "pinTip": "トラッキングした平面にぴったり重なります"
+      },
+      "fit": {
+        "title": "フィット",
+        "fill": "塗りつぶし",
+        "fit": "全体を表示",
+        "stretch": "引き伸ばし",
+        "fillTip": "平面を覆い、はみ出した部分を切り取ります",
+        "fitTip": "レイヤー全体を平面内に表示します",
+        "stretchTip": "レイヤーを平面の四隅に合わせて引き伸ばします"
+      }
     },
     "transitions": {
       "blur": "ブラー",

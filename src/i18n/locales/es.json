@@ -3248,8 +3248,8 @@
       "source": "Origen",
       "trackSpot": "Seguir zona",
       "trackSource": "Seguir origen",
-      "spotTracked": "Zona seguida durante {{duration}}.",
-      "sourceTracked": "Origen seguido durante {{duration}}.",
+      "spotDone": "Zona · {{duration}}",
+      "sourceDone": "Origen · {{duration}}",
       "modes": {
         "follow": "Seguir",
         "followTip": "El origen se mueve con la zona seguida",
@@ -3344,9 +3344,7 @@
       },
       "lost": "Se perdió el objeto. Prueba con un recuadro más grande.",
       "stabilize": "Estabilizar",
-      "tracking": "Seguir objeto",
-      "trackMotion": "Seleccionar objeto",
-      "followScale": "Escala y rotación"
+      "tracking": "Seguir objeto"
     },
     "nesting": {
       "back": "Atrás",
@@ -3458,12 +3456,33 @@
       "progress": "Siguiendo… {{percent}}%",
       "cancel": "Cancelar",
       "noClip": "Coloca el cabezal de reproducción sobre un clip de vídeo.",
-      "tracked": "Seguido durante {{duration}}.",
+      "done": "Seguido · {{duration}}",
       "remove": "Quitar",
-      "position": "Posición",
-      "planar": "Planar",
-      "pinToPlane": "Fijar al plano",
-      "notConvex": "El contorno del plano se cruza consigo mismo."
+      "position": "Objeto",
+      "planar": "Superficie",
+      "positionTip": "Sigue cualquier cosa: personas, caras u objetos",
+      "planarTip": "Sigue una superficie plana como una pantalla, una pared o un cartel",
+      "notConvex": "El contorno del plano se cruza consigo mismo.",
+      "attach": {
+        "title": "Anclaje",
+        "move": "Mover",
+        "transform": "Transformar",
+        "perspective": "Perspectiva",
+        "pin": "Fijar",
+        "moveTip": "Sigue solo la posición",
+        "transformTip": "Sigue posición, escala y rotación",
+        "perspectiveTip": "Sigue la superficie en perspectiva",
+        "pinTip": "Se coloca exactamente sobre la superficie seguida"
+      },
+      "fit": {
+        "title": "Ajuste",
+        "fill": "Rellenar",
+        "fit": "Encajar",
+        "stretch": "Estirar",
+        "fillTip": "Cubre la superficie y recorta lo que sobra",
+        "fitTip": "Muestra la capa entera dentro de la superficie",
+        "stretchTip": "Estira la capa hasta las esquinas de la superficie"
+      }
     },
     "transitions": {
       "blur": "Desenfoque",

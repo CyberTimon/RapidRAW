@@ -3167,8 +3167,8 @@
       "source": "Source",
       "trackSpot": "Track Spot",
       "trackSource": "Track Source",
-      "spotTracked": "Spot tracked for {{duration}}.",
-      "sourceTracked": "Source tracked for {{duration}}.",
+      "spotDone": "Spot · {{duration}}",
+      "sourceDone": "Source · {{duration}}",
       "modes": {
         "follow": "Follow",
         "followTip": "The source moves with the tracked spot",
@@ -3262,9 +3262,7 @@
       },
       "lost": "Lost the object. Try a larger box.",
       "stabilize": "Stabilize",
-      "tracking": "Follow Object",
-      "trackMotion": "Select Object",
-      "followScale": "Scale and Rotation"
+      "tracking": "Follow Object"
     },
     "nesting": {
       "back": "Back",
@@ -3374,12 +3372,33 @@
       "progress": "Tracking… {{percent}}%",
       "cancel": "Cancel",
       "noClip": "Move the playhead over a video clip.",
-      "tracked": "Tracked for {{duration}}.",
+      "done": "Tracked · {{duration}}",
       "remove": "Remove",
-      "position": "Position",
-      "planar": "Planar",
-      "pinToPlane": "Pin to Plane",
-      "notConvex": "The plane outline crosses itself."
+      "position": "Object",
+      "planar": "Surface",
+      "positionTip": "Tracks anything, such as people, faces or objects",
+      "planarTip": "Tracks a flat surface, such as a screen, wall or sign",
+      "notConvex": "The plane outline crosses itself.",
+      "attach": {
+        "title": "Attach",
+        "move": "Move",
+        "transform": "Transform",
+        "perspective": "Perspective",
+        "pin": "Pin",
+        "moveTip": "Follows the position only",
+        "transformTip": "Follows position, scale and rotation",
+        "perspectiveTip": "Follows the surface in perspective",
+        "pinTip": "Sits exactly on the tracked surface"
+      },
+      "fit": {
+        "title": "Fit",
+        "fill": "Fill",
+        "fit": "Fit",
+        "stretch": "Stretch",
+        "fillTip": "Covers the surface and crops what overflows",
+        "fitTip": "Shows the whole layer inside the surface",
+        "stretchTip": "Stretches the layer to the surface corners"
+      }
     },
     "transitions": {
       "blur": "Blur",

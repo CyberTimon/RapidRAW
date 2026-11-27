@@ -3248,8 +3248,8 @@
       "source": "Origem",
       "trackSpot": "Rastrear área",
       "trackSource": "Rastrear origem",
-      "spotTracked": "Área rastreada por {{duration}}.",
-      "sourceTracked": "Origem rastreada por {{duration}}.",
+      "spotDone": "Área · {{duration}}",
+      "sourceDone": "Origem · {{duration}}",
       "modes": {
         "follow": "Seguir",
         "followTip": "A origem se move com a área rastreada",
@@ -3344,9 +3344,7 @@
       },
       "lost": "O objeto foi perdido. Tente uma caixa maior.",
       "stabilize": "Estabilizar",
-      "tracking": "Seguir objeto",
-      "trackMotion": "Selecionar objeto",
-      "followScale": "Escala e rotação"
+      "tracking": "Seguir objeto"
     },
     "nesting": {
       "back": "Voltar",
@@ -3458,12 +3456,33 @@
       "progress": "Rastreando… {{percent}}%",
       "cancel": "Cancelar",
       "noClip": "Mova o indicador de reprodução sobre um clipe de vídeo.",
-      "tracked": "Rastreado por {{duration}}.",
+      "done": "Rastreado · {{duration}}",
       "remove": "Remover",
-      "position": "Posição",
-      "planar": "Planar",
-      "pinToPlane": "Fixar no plano",
-      "notConvex": "O contorno do plano cruza a si mesmo."
+      "position": "Objeto",
+      "planar": "Superfície",
+      "positionTip": "Rastreia qualquer coisa: pessoas, rostos ou objetos",
+      "planarTip": "Rastreia uma superfície plana como uma tela, uma parede ou uma placa",
+      "notConvex": "O contorno do plano cruza a si mesmo.",
+      "attach": {
+        "title": "Fixação",
+        "move": "Mover",
+        "transform": "Transformar",
+        "perspective": "Perspectiva",
+        "pin": "Fixar",
+        "moveTip": "Segue apenas a posição",
+        "transformTip": "Segue posição, escala e rotação",
+        "perspectiveTip": "Segue a superfície em perspectiva",
+        "pinTip": "Fica exatamente sobre a superfície rastreada"
+      },
+      "fit": {
+        "title": "Ajuste",
+        "fill": "Preencher",
+        "fit": "Encaixar",
+        "stretch": "Esticar",
+        "fillTip": "Cobre a superfície e corta o que sobra",
+        "fitTip": "Mostra a camada inteira dentro da superfície",
+        "stretchTip": "Estica a camada até os cantos da superfície"
+      }
     },
     "transitions": {
       "blur": "Desfoque",

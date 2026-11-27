@@ -54,7 +54,7 @@ import {
   withChannelKeys,
 } from './lookAnimation';
 import { channelGroupOf } from './maskPaths';
-import { StampContainer, TrackedContainer, joinTracks, shiftTrack, trackSpan } from './maskTracking';
+import { StampContainer, TrackedContainer, frozenTrack, joinTracks, shiftTrack, trackSpan } from './maskTracking';
 import {
   ItemLocation,
   MAX_SPEED,
@@ -81,7 +81,7 @@ import {
   varies,
 } from './model';
 import { frameTicks, fromFrame, secondsToTicks, snapTicks, ticksToSeconds, toFrame } from './time';
-import { pinnedQuad, placementAt } from './tracking';
+import { placementAt, shownQuad } from './tracking';
 import { scaleQuad } from './planar';
 
 const MIN_ITEM_FRAMES = 2;
@@ -1555,6 +1555,7 @@ export const insertFreeze = (
   id: string,
   time: Ticks,
   hold: Ticks,
+  size: { width: number; height: number },
   sourceFps?: number,
 ): [VideoProject, string | null] => {
   const location = locateItem(project, id);
@@ -1568,8 +1569,9 @@ export const insertFreeze = (
   const before = at === item.start;
   const local = Math.min(at - item.start, item.duration - frame);
   const { width, height } = project.settings;
-  const pose = item.transform.track ? placementAt(item.transform, local, width, height) : null;
-  const pin = pose && pinnedQuad(item.transform, local, width, height);
+  const frozen = item.transform.track && frozenTrack(item.transform.track, ticksToSeconds(local), width / height);
+  const pose = item.transform.track && !frozen ? placementAt(item.transform, local, width, height) : null;
+  const pin = pose && shownQuad(item.transform, size, local, width, height);
   const {
     link: _link,
     reverse: _reverse,
@@ -1580,7 +1582,7 @@ export const insertFreeze = (
   } = mapAnimated(
     item,
     (value) => ({ value: valueAt(value, local) }),
-    () => null,
+    (track) => frozenTrack(track, ticksToSeconds(local), width / height),
   );
   const freeze: ClipItem = {
     ...still,
@@ -1592,6 +1594,7 @@ export const insertFreeze = (
           scale: { value: pose.scale },
           rotation: { value: pose.rotation },
           ...(pin && { pin: scaleQuad(pin, 1 / width, 1 / height) }),
+          ...(pin && !item.transform.pin && { pinFit: 'stretch' as const }),
         }
       : still.transform,
     id: uuidv4(),
@@ -1859,32 +1862,60 @@ const anchoredTicks = (project: VideoProject, item: TimelineItem, anchor: TrackA
     : null;
 };
 
-const spanIn = (
+type TrackTicks = ((seconds: number) => Ticks) | null;
+
+const spanIn = (item: TimelineItem, track: MotionTrack | null | undefined, toTicks: TrackTicks) =>
+  visibleSpan(item, toTicks ? trackSpan(track)?.map(toTicks) : undefined);
+
+const coverageIn = (item: TimelineItem, track: MotionTrack | null | undefined, toTicks: TrackTicks) => {
+  if (!track?.keys.length || !toTicks) return null;
+  const first = toTicks(track.keys[0].time);
+  const last = toTicks(track.keys[track.keys.length - 1].time);
+  const ascending = first <= last;
+  const exitsBefore = ascending ? track.exits?.start : track.exits?.end;
+  const exitsAfter = ascending ? track.exits?.end : track.exits?.start;
+  return visibleSpan(item, [
+    exitsBefore ? 0 : Math.min(first, last),
+    exitsAfter ? item.duration : Math.max(first, last),
+  ]);
+};
+
+const layerTicks = (project: VideoProject, track: MotionTrack | null | undefined, item: TimelineItem): TrackTicks =>
+  track?.anchor ? anchoredTicks(project, item, track.anchor) : secondsToTicks;
+
+const maskTicks = (
+  project: VideoProject,
   item: TimelineItem,
   track: MotionTrack | null | undefined,
-  toTicks: ((seconds: number) => Ticks) | null,
-) => visibleSpan(item, toTicks ? trackSpan(track)?.map(toTicks) : undefined);
+  sourceFps?: number,
+): TrackTicks =>
+  track?.anchor
+    ? anchoredTicks(project, item, track.anchor)
+    : item.type === 'clip'
+      ? (seconds: number) => sourceLocal(item, seconds, project.settings.fps, sourceFps)
+      : secondsToTicks;
 
-export const layerTrackSpan = (project: VideoProject, item: TimelineItem) => {
-  const track = 'transform' in item ? item.transform.track : null;
-  return spanIn(item, track, track?.anchor ? anchoredTicks(project, item, track.anchor) : secondsToTicks);
-};
+const layerTrackOf = (item: TimelineItem) => ('transform' in item ? item.transform.track : null);
+
+export const layerTrackSpan = (project: VideoProject, item: TimelineItem) =>
+  spanIn(item, layerTrackOf(item), layerTicks(project, layerTrackOf(item), item));
+
+export const layerTrackCoverage = (project: VideoProject, item: TimelineItem) =>
+  coverageIn(item, layerTrackOf(item), layerTicks(project, layerTrackOf(item), item));
 
 export const maskTrackSpan = (
   project: VideoProject,
   item: TimelineItem,
   track: MotionTrack | null | undefined,
   sourceFps?: number,
-) =>
-  spanIn(
-    item,
-    track,
-    track?.anchor
-      ? anchoredTicks(project, item, track.anchor)
-      : item.type === 'clip'
-        ? (seconds: number) => sourceLocal(item, seconds, project.settings.fps, sourceFps)
-        : secondsToTicks,
-  );
+) => spanIn(item, track, maskTicks(project, item, track, sourceFps));
+
+export const maskTrackCoverage = (
+  project: VideoProject,
+  item: TimelineItem,
+  track: MotionTrack | null | undefined,
+  sourceFps?: number,
+) => coverageIn(item, track, maskTicks(project, item, track, sourceFps));
 
 export const trackedSpans = (project: VideoProject, item: TimelineItem, sourceFps?: number): Array<[Ticks, Ticks]> =>
   [

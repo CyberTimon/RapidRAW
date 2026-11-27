@@ -1,6 +1,6 @@
 import { FrameRate, Quad, Ticks, TimelineItem, TrackKey, Transform } from '../../types/video';
 import { valueAt } from './animation';
-import { mapPoint, planeWarp, trackSimilarity } from './maskTracking';
+import { followsSurface, mapPoint, planeWarp, trackSimilarity } from './maskTracking';
 import { boundsQuad, mapQuad, scaleQuad } from './planar';
 import { itemEnd } from './model';
 import { frameTicks, snapTicks, ticksToSeconds } from './time';
@@ -76,7 +76,10 @@ export interface Placement {
 }
 
 export const layerSimilarity = (transform: Transform, local: Ticks, width: number, height: number) =>
-  trackSimilarity(transform.track, ticksToSeconds(local), width, height);
+  followsSurface(transform.track) ? null : trackSimilarity(transform.track, ticksToSeconds(local), width, height);
+
+export const layerSurface = (transform: Transform, local: Ticks, width: number, height: number) =>
+  transform.pin ? null : planeWarp(transform.track, ticksToSeconds(local), width, height);
 
 export const placementAt = (transform: Transform, local: Ticks, width: number, height: number): Placement => {
   const x = (0.5 + valueAt(transform.x, local)) * width;
@@ -103,6 +106,39 @@ export const pinnedQuad = (transform: Transform, local: Ticks, width: number, he
     const point = mapPoint(similarity, x, y);
     return [point.x, point.y];
   }) as Quad;
+};
+
+export const layerQuad = (
+  transform: Transform,
+  size: { width: number; height: number },
+  local: Ticks,
+  width: number,
+  height: number,
+): Quad => {
+  const placed = placementAt(transform, local, width, height);
+  const angle = (placed.rotation * Math.PI) / 180;
+  const corner = (sx: number, sy: number): [number, number] => {
+    const dx = (sx * size.width * placed.scale) / 2;
+    const dy = (sy * size.height * placed.scale) / 2;
+    return [
+      placed.x + dx * Math.cos(angle) - dy * Math.sin(angle),
+      placed.y + dx * Math.sin(angle) + dy * Math.cos(angle),
+    ];
+  };
+  return [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
+};
+
+export const shownQuad = (
+  transform: Transform,
+  size: { width: number; height: number },
+  local: Ticks,
+  width: number,
+  height: number,
+): Quad | null => {
+  const pinned = pinnedQuad(transform, local, width, height);
+  if (pinned) return pinned;
+  const surface = layerSurface(transform, local, width, height);
+  return surface && mapQuad(surface, layerQuad(transform, size, local, width, height));
 };
 
 export type Region = { x: number; y: number; width: number; height: number };

@@ -3167,8 +3167,8 @@
       "source": "Källa",
       "trackSpot": "Spåra punkt",
       "trackSource": "Spåra källa",
-      "spotTracked": "Punkt spårad i {{duration}}.",
-      "sourceTracked": "Källa spårad i {{duration}}.",
+      "spotDone": "Punkt · {{duration}}",
+      "sourceDone": "Källa · {{duration}}",
       "modes": {
         "follow": "Följ",
         "followTip": "Källan flyttas med den spårade punkten",
@@ -3262,9 +3262,7 @@
       },
       "lost": "Objektet tappades. Prova en större ruta.",
       "stabilize": "Stabilisera",
-      "tracking": "Följ objekt",
-      "trackMotion": "Välj objekt",
-      "followScale": "Skala och rotation"
+      "tracking": "Följ objekt"
     },
     "nesting": {
       "back": "Tillbaka",
@@ -3374,12 +3372,33 @@
       "progress": "Spårar… {{percent}} %",
       "cancel": "Avbryt",
       "noClip": "Flytta spelhuvudet över ett videoklipp.",
-      "tracked": "Spårat i {{duration}}.",
+      "done": "Spårat · {{duration}}",
       "remove": "Ta bort",
-      "position": "Position",
-      "planar": "Planär",
-      "pinToPlane": "Fäst på plan",
-      "notConvex": "Planets kontur korsar sig själv."
+      "position": "Objekt",
+      "planar": "Yta",
+      "positionTip": "Spårar vad som helst, som personer, ansikten eller föremål",
+      "planarTip": "Spårar en plan yta som en skärm, vägg eller skylt",
+      "notConvex": "Planets kontur korsar sig själv.",
+      "attach": {
+        "title": "Fästning",
+        "move": "Flytta",
+        "transform": "Transformera",
+        "perspective": "Perspektiv",
+        "pin": "Fäst",
+        "moveTip": "Följer bara positionen",
+        "transformTip": "Följer position, skala och rotation",
+        "perspectiveTip": "Följer ytan i perspektiv",
+        "pinTip": "Ligger exakt på den spårade ytan"
+      },
+      "fit": {
+        "title": "Anpassning",
+        "fill": "Fyll",
+        "fit": "Anpassa",
+        "stretch": "Sträck",
+        "fillTip": "Täcker ytan och beskär det som sticker ut",
+        "fitTip": "Visar hela lagret inom ytan",
+        "stretchTip": "Sträcker lagret till ytans hörn"
+      }
     },
     "transitions": {
       "blur": "Oskärpa",

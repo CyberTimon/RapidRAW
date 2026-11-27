@@ -5,7 +5,7 @@ use serde::{Deserialize, Deserializer};
 use serde_json::Value;
 
 use crate::video::camera_log::CameraLog;
-use crate::video::tracking::{Corners, MotionTrack, lenient_corners};
+use crate::video::tracking::{Corners, MotionTrack, PinFit, lenient_corners};
 
 pub const TICKS_PER_SECOND: i64 = 705_600_000;
 const MIN_SPEED: f64 = 0.1;
@@ -243,6 +243,8 @@ pub struct Transform {
     pub track: Option<MotionTrack>,
     #[serde(default, deserialize_with = "lenient_corners")]
     pub pin: Option<Corners>,
+    #[serde(default)]
+    pub pin_fit: PinFit,
 }
 
 impl Default for Transform {
@@ -258,6 +260,7 @@ impl Default for Transform {
             flip_v: false,
             track: None,
             pin: None,
+            pin_fit: PinFit::default(),
         }
     }
 }

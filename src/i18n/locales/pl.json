@@ -3329,8 +3329,8 @@
       "source": "Źródło",
       "trackSpot": "Śledź obszar",
       "trackSource": "Śledź źródło",
-      "spotTracked": "Obszar śledzony przez {{duration}}.",
-      "sourceTracked": "Źródło śledzone przez {{duration}}.",
+      "spotDone": "Obszar · {{duration}}",
+      "sourceDone": "Źródło · {{duration}}",
       "modes": {
         "follow": "Podążaj",
         "followTip": "Źródło porusza się razem ze śledzonym obszarem",
@@ -3426,9 +3426,7 @@
       },
       "lost": "Zgubiono obiekt. Spróbuj większej ramki.",
       "stabilize": "Stabilizuj",
-      "tracking": "Śledź obiekt",
-      "trackMotion": "Wybierz obiekt",
-      "followScale": "Skala i obrót"
+      "tracking": "Śledź obiekt"
     },
     "nesting": {
       "back": "Wstecz",
@@ -3542,12 +3540,33 @@
       "progress": "Śledzenie… {{percent}}%",
       "cancel": "Anuluj",
       "noClip": "Ustaw głowicę nad klipem wideo.",
-      "tracked": "Śledzono przez {{duration}}.",
+      "done": "Śledzono · {{duration}}",
       "remove": "Usuń",
-      "position": "Pozycja",
-      "planar": "Płaszczyznowe",
-      "pinToPlane": "Przypnij do płaszczyzny",
-      "notConvex": "Obrys płaszczyzny przecina sam siebie."
+      "position": "Obiekt",
+      "planar": "Powierzchnia",
+      "positionTip": "Śledzi wszystko: osoby, twarze lub przedmioty",
+      "planarTip": "Śledzi płaską powierzchnię, np. ekran, ścianę lub szyld",
+      "notConvex": "Obrys płaszczyzny przecina sam siebie.",
+      "attach": {
+        "title": "Dołączenie",
+        "move": "Przesuń",
+        "transform": "Przekształć",
+        "perspective": "Perspektywa",
+        "pin": "Przypnij",
+        "moveTip": "Podąża tylko za pozycją",
+        "transformTip": "Podąża za pozycją, skalą i obrotem",
+        "perspectiveTip": "Podąża za powierzchnią w perspektywie",
+        "pinTip": "Leży dokładnie na śledzonej powierzchni"
+      },
+      "fit": {
+        "title": "Dopasowanie",
+        "fill": "Wypełnij",
+        "fit": "Dopasuj",
+        "stretch": "Rozciągnij",
+        "fillTip": "Pokrywa powierzchnię i przycina nadmiar",
+        "fitTip": "Pokazuje całą warstwę wewnątrz powierzchni",
+        "stretchTip": "Rozciąga warstwę do narożników powierzchni"
+      }
     },
     "transitions": {
       "blur": "Rozmycie",

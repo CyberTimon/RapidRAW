@@ -3167,8 +3167,8 @@
       "source": "소스",
       "trackSpot": "스팟 추적",
       "trackSource": "소스 추적",
-      "spotTracked": "{{duration}} 동안 스팟을 추적했습니다.",
-      "sourceTracked": "{{duration}} 동안 소스를 추적했습니다.",
+      "spotDone": "스팟 · {{duration}}",
+      "sourceDone": "소스 · {{duration}}",
       "modes": {
         "follow": "따라가기",
         "followTip": "소스가 추적된 스팟과 함께 움직입니다",
@@ -3262,9 +3262,7 @@
       },
       "lost": "대상을 놓쳤습니다. 더 큰 상자를 시도해 보세요.",
       "stabilize": "안정화",
-      "tracking": "개체 추적",
-      "trackMotion": "개체 선택",
-      "followScale": "배율 및 회전"
+      "tracking": "개체 추적"
     },
     "nesting": {
       "back": "뒤로",
@@ -3374,12 +3372,33 @@
       "progress": "추적 중… {{percent}}%",
       "cancel": "취소",
       "noClip": "재생 헤드를 동영상 클립 위로 옮기세요.",
-      "tracked": "{{duration}} 동안 추적했습니다.",
+      "done": "추적됨 · {{duration}}",
       "remove": "제거",
-      "position": "위치",
+      "position": "물체",
       "planar": "평면",
-      "pinToPlane": "평면에 고정",
-      "notConvex": "평면 윤곽선이 서로 교차합니다."
+      "positionTip": "사람, 얼굴, 물체 등 무엇이든 추적합니다",
+      "planarTip": "화면, 벽, 간판 같은 평평한 면을 추적합니다",
+      "notConvex": "평면 윤곽선이 서로 교차합니다.",
+      "attach": {
+        "title": "부착 방식",
+        "move": "이동",
+        "transform": "변형",
+        "perspective": "원근",
+        "pin": "고정",
+        "moveTip": "위치만 따라갑니다",
+        "transformTip": "위치, 배율, 회전을 따라갑니다",
+        "perspectiveTip": "평면을 원근감 있게 따라갑니다",
+        "pinTip": "추적한 평면에 정확히 놓입니다"
+      },
+      "fit": {
+        "title": "맞춤",
+        "fill": "채우기",
+        "fit": "맞추기",
+        "stretch": "늘이기",
+        "fillTip": "평면을 덮고 넘치는 부분을 자릅니다",
+        "fitTip": "레이어 전체를 평면 안에 표시합니다",
+        "stretchTip": "레이어를 평면 모서리에 맞게 늘입니다"
+      }
     },
     "transitions": {
       "blur": "흐림",

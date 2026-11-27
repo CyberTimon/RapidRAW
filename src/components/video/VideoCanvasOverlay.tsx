@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import clsx from 'clsx';
 import { Panel } from '../../types/ui';
 import { Animated, MediaInfo, Quad, Ticks, Transform, VideoProject, VisualItem } from '../../types/video';
+import { Homography, invert, project } from '../../utils/video/planar';
 import { useUIStore } from '../../store/useUIStore';
 import { editProject, getVideo, selectItems, useVideoStore } from '../../store/useVideoStore';
 import { useProgramCanvas } from '../../store/videoView';
@@ -14,7 +15,7 @@ import { contentSize } from '../../utils/video/layouts';
 import { invertSimilarity, mapPoint, planeAt, sameCorners } from '../../utils/video/maskTracking';
 import { frameTicks, ticksToSeconds } from '../../utils/video/time';
 import { alignHaptic } from '../../utils/haptics';
-import { Region, dragRegion, layerSimilarity, pinnedQuad, placementAt } from '../../utils/video/tracking';
+import { Region, dragRegion, layerSimilarity, layerSurface, pinnedQuad, placementAt } from '../../utils/video/tracking';
 import { PlaneOutline, QuadEditor } from './PlaneOverlay';
 
 const SNAP_PX = 6;
@@ -38,6 +39,7 @@ interface Box {
   rotation: number;
   quad: Quad | null;
   plane: Quad | null;
+  surface: Homography | null;
 }
 
 type DragMode = 'move' | 'scale' | 'rotate';
@@ -73,6 +75,7 @@ const boxFor = (
     rotation: placed.rotation,
     quad: pinnedQuad(item.transform, local, width, height),
     plane: planeAt(item.transform.track, ticksToSeconds(local), width, height),
+    surface: layerSurface(item.transform, local, width, height),
   };
 };
 
@@ -87,7 +90,17 @@ const sameBox = (a: Box, b: Box) =>
   a.height === b.height &&
   a.rotation === b.rotation &&
   sameCorners(a.quad, b.quad) &&
-  sameCorners(a.plane, b.plane);
+  sameCorners(a.plane, b.plane) &&
+  (a.surface === b.surface ||
+    (!!a.surface && !!b.surface && a.surface.every((value, index) => value === b.surface![index])));
+
+const pointOn = (warp: Homography | null, point: { x: number; y: number }) => {
+  const mapped = warp && project(warp, point.x, point.y);
+  return mapped ? { x: mapped[0], y: mapped[1] } : point;
+};
+
+const surfaceCss = (m: Homography, unit: number) =>
+  `matrix3d(${[m[0], m[3], 0, m[6] / unit, m[1], m[4], 0, m[7] / unit, 0, 0, 1, 0, m[2] * unit, m[5] * unit, 0, m[8]].join(',')})`;
 
 const boxesAt = (project: VideoProject, playhead: Ticks, media: Record<string, MediaInfo>) =>
   visualItemsAt(project, playhead)
@@ -328,25 +341,29 @@ export default function VideoCanvasOverlay({
           }),
         `canvas-${drag.mode}:${box.item.id}`,
       );
+    const back = box.surface && invert(box.surface);
     if (drag.mode === 'move') {
       const dx = (event.clientX - drag.pointerX) / (unit * zoom);
       const dy = (event.clientY - drag.pointerY) / (unit * zoom);
       const tolerance = SNAP_PX / (unit * zoom);
-      const centerX = box.centerX + dx;
-      const centerY = box.centerY + dy;
+      const shown = pointOn(box.surface, { x: box.centerX, y: box.centerY });
+      const centerX = shown.x + dx;
+      const centerY = shown.y + dy;
       const snappedX = free ? centerX : snap(centerX, [width / 2, box.width / 2, width - box.width / 2], tolerance);
       const snappedY = free ? centerY : snap(centerY, [height / 2, box.height / 2, height - box.height / 2], tolerance);
       setGuides({ x: snappedX === width / 2 && !free, y: snappedY === height / 2 && !free });
       alignHaptic(drag, snappedX !== centerX && snappedX, snappedY !== centerY && snappedY);
       const similarity = layerSimilarity((box.item as { transform: Transform }).transform, local, width, height);
-      const center = similarity
-        ? mapPoint(invertSimilarity(similarity), snappedX, snappedY)
-        : { x: snappedX, y: snappedY };
+      const center = back
+        ? pointOn(back, { x: snappedX, y: snappedY })
+        : similarity
+          ? mapPoint(invertSimilarity(similarity), snappedX, snappedY)
+          : { x: snappedX, y: snappedY };
       update({ x: center.x / width - 0.5, y: center.y / height - 0.5 });
       return;
     }
-    const point = toCanvas(event.clientX, event.clientY, event.currentTarget as HTMLElement);
-    const start = toCanvas(drag.pointerX, drag.pointerY, event.currentTarget as HTMLElement);
+    const point = pointOn(back, toCanvas(event.clientX, event.clientY, event.currentTarget as HTMLElement));
+    const start = pointOn(back, toCanvas(drag.pointerX, drag.pointerY, event.currentTarget as HTMLElement));
     if (drag.mode === 'scale') {
       const distance = Math.hypot(point.x - box.centerX, point.y - box.centerY);
       const initial = Math.max(1, Math.hypot(start.x - box.centerX, start.y - box.centerY));
@@ -438,7 +455,7 @@ export default function VideoCanvasOverlay({
           );
         const width = box.width * unit;
         const height = box.height * unit;
-        return (
+        const frame = (
           <div
             key={box.item.id}
             className={clsx(
@@ -495,6 +512,21 @@ export default function VideoCanvasOverlay({
                 onPointerCancel={end}
               />
             )}
+          </div>
+        );
+        if (!box.surface) return frame;
+        return (
+          <div
+            key={box.item.id}
+            className="absolute left-0 top-0 pointer-events-none"
+            style={{
+              width: settings.width * unit,
+              height: settings.height * unit,
+              transformOrigin: '0 0',
+              transform: surfaceCss(box.surface, unit),
+            }}
+          >
+            {frame}
           </div>
         );
       })}

@@ -33,7 +33,7 @@ use crate::render::hdr::Headroom;
 use crate::render::image_processing::downscale_f32_image;
 use crate::render::options::{RenderOptions, resolve_render_options};
 use crate::render::source::{Frame, SourceTransform};
-use crate::video::compose::{self, BlendMode, LayerPass, Placement, TextEdge};
+use crate::video::compose::{self, BlendMode, Coverage, LayerPass, Placement, TextEdge};
 use crate::video::geometry::{
     ClipGeometry, ClipSpace, FollowView, FrameGeometry, Framing, IDENTITY, affine, cell_crop,
     oriented, scaling, shift, stabilizing,
@@ -44,7 +44,7 @@ use crate::video::model::{
     VideoProject, ramp_offsets, seconds,
 };
 use crate::video::stabilization::{self, ClipStabilization, MAX_ZOOM, MotionAnalysis};
-use crate::video::tracking::{Anchor, Corners, Follow, MotionTrack, pin_corners, pin_extent};
+use crate::video::tracking::{Anchor, Follow, MotionTrack, pin_corners, pin_extent};
 use crate::video::vision::Homography;
 use crate::video::vision::Similarity;
 use crate::video::{ffmpeg, hash_of, proxy, reverse, timelapse};
@@ -506,6 +506,11 @@ struct Placed {
     follows: Vec<(i64, Follow)>,
 }
 
+enum Projection {
+    Mapped(Homography, Option<[f32; 4]>),
+    Hidden,
+}
+
 struct Pose {
     k: f32,
     sin: f32,
@@ -562,7 +567,10 @@ impl Placed {
         let (cw, ch) = (self.canvas_size.0 as f32, self.canvas_size.1 as f32);
         let local = self.span.local + offset;
         let motion = self.motion(offset);
-        let tracked = self.follow(offset).and_then(|follow| follow.similar);
+        let tracked = self
+            .follow(offset)
+            .filter(|follow| follow.plane.is_none())
+            .and_then(|follow| follow.similar);
         let k = base_scale * t.scale.at(local).max(0.001) as f32 * motion.scale;
         let k = tracked
             .as_ref()
@@ -603,9 +611,13 @@ impl Placed {
         let t = &self.transform;
         let local = self.span.local + offset;
         let motion = self.motion(offset);
-        if let Some(pin) = &t.pin {
-            let opacity = (t.opacity.at(local) as f32 * motion.opacity).clamp(0.0, 1.0);
-            return self.pinned(pin, offset, content, correction, opacity, blend);
+        match self.projection(offset, content, base_scale) {
+            Some(Projection::Mapped(to_canvas, window)) => {
+                let opacity = (t.opacity.at(local) as f32 * motion.opacity).clamp(0.0, 1.0);
+                return self.projected(&to_canvas, window, content, correction, opacity, blend);
+            }
+            Some(Projection::Hidden) => return self.hidden(),
+            None => {}
         }
         let Pose {
             k,
@@ -652,89 +664,126 @@ impl Placed {
                 [m10, m11, lcy + shift[1] - (m10 * px + m11 * py)],
             ],
             perspective: None,
+            coverage: None,
             opacity: (t.opacity.at(local) as f32 * motion.opacity).clamp(0.0, 1.0),
             blend,
         }
     }
 
     fn to_canvas(&self, offset: i64) -> Option<Homography> {
-        let (width, height) = (self.content.0 as f64, self.content.1 as f64);
-        if let Some(pin) = &self.transform.pin {
-            return self.unpinned(pin, offset, self.content)?.inverse();
+        match self.projection(offset, self.content, self.base_scale) {
+            Some(Projection::Mapped(to_canvas, _)) => Some(to_canvas),
+            Some(Projection::Hidden) => None,
+            None => Some(self.posed(offset, self.content, self.base_scale)),
         }
-        let pose = self.pose(offset, self.base_scale);
+    }
+
+    fn hidden(&self) -> Placement {
+        Placement {
+            opacity: 0.0,
+            ..Placement::fit(self.canvas_size, self.canvas_size)
+        }
+    }
+
+    fn posed(&self, offset: i64, content: (f32, f32), base_scale: f32) -> Homography {
+        let (width, height) = (content.0 as f64, content.1 as f64);
+        let pose = self.pose(offset, base_scale);
         let [k, sin, cos, fx, fy, px, py] = [
             pose.k, pose.sin, pose.cos, pose.fx, pose.fy, pose.px, pose.py,
         ]
         .map(f64::from);
-        Some(shift(-0.5 * width, -0.5 * height).then(&affine([
+        shift(-0.5 * width, -0.5 * height).then(&affine([
             cos * fx * k,
             -sin * fy * k,
             px,
             sin * fx * k,
             cos * fy * k,
             py,
-        ])))
+        ]))
     }
 
-    fn unpinned(&self, pin: &Corners, offset: i64, content: (f32, f32)) -> Option<Homography> {
+    fn projection(&self, offset: i64, content: (f32, f32), base_scale: f32) -> Option<Projection> {
         let t = &self.transform;
+        let follow = self.follow(offset);
+        let Some(pin) = &t.pin else {
+            let plane = follow?.plane?;
+            return Some(Projection::Mapped(
+                self.posed(offset, content, base_scale).then(&plane),
+                None,
+            ));
+        };
         let canvas = (self.canvas_size.0 as f64, self.canvas_size.1 as f64);
-        let quad = pin_corners(pin, self.follow(offset).as_ref(), canvas);
         let (width, height) = (content.0 as f64, content.1 as f64);
-        let unit = Homography([1.0 / width, 0.0, 0.0, 0.0, 1.0 / height, 0.0, 0.0, 0.0, 1.0]);
-        let mut matrix =
-            Homography::from_square(&quad).and_then(|square| unit.then(&square).inverse())?;
-        if t.flip_h {
-            matrix = matrix.then(&Homography([
-                -1.0, 0.0, width, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0,
-            ]));
-        }
-        if t.flip_v {
-            matrix = matrix.then(&Homography([
-                1.0, 0.0, 0.0, 0.0, -1.0, height, 0.0, 0.0, 1.0,
-            ]));
-        }
-        Some(matrix)
+        let frame = t.pin_fit.frame(pin, canvas, (width, height));
+        let unit = Homography([
+            frame.scale.0,
+            0.0,
+            frame.offset.0,
+            0.0,
+            frame.scale.1,
+            frame.offset.1,
+            0.0,
+            0.0,
+            1.0,
+        ]);
+        let flip = Homography([
+            if t.flip_h { -1.0 } else { 1.0 },
+            0.0,
+            if t.flip_h { width } else { 0.0 },
+            0.0,
+            if t.flip_v { -1.0 } else { 1.0 },
+            if t.flip_v { height } else { 0.0 },
+            0.0,
+            0.0,
+            1.0,
+        ]);
+        let quad = pin_corners(pin, follow.as_ref(), canvas);
+        Some(match Homography::from_square(&quad) {
+            Some(to_quad) => Projection::Mapped(
+                flip.then(&unit).then(&to_quad),
+                Some(frame.window.map(|value| value as f32)),
+            ),
+            None => Projection::Hidden,
+        })
     }
 
-    fn pinned(
+    fn projected(
         &self,
-        pin: &Corners,
-        offset: i64,
+        to_canvas: &Homography,
+        window: Option<[f32; 4]>,
         content: (f32, f32),
         correction: Option<Similarity>,
         opacity: f32,
         blend: BlendMode,
     ) -> Placement {
         let (width, height) = (content.0 as f64, content.1 as f64);
-        let Some(mut matrix) = self.unpinned(pin, offset, content) else {
-            return Placement {
-                opacity: 0.0,
-                ..Placement::fit(self.canvas_size, self.canvas_size)
-            };
+        let Some(mut matrix) = to_canvas.inverse() else {
+            return self.hidden();
         };
+        let mut to_frame = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
         if let Some(correction) = correction {
             let (sin, cos) = (correction.angle as f64).sin_cos();
             let s = (correction.scale as f64).max(0.001);
             let [a, b, c, d] = [cos / s, sin / s, -sin / s, cos / s];
             let shift = [correction.dx as f64 * width, correction.dy as f64 * height];
             let (cx, cy) = (width * 0.5, height * 0.5);
-            matrix = matrix.then(&Homography([
-                a,
-                b,
+            let (e, f) = (
                 cx - a * cx - b * cy - (a * shift[0] + b * shift[1]),
-                c,
-                d,
                 cy - c * cx - d * cy - (c * shift[0] + d * shift[1]),
-                0.0,
-                0.0,
-                1.0,
-            ]));
+            );
+            matrix = matrix.then(&Homography([a, b, e, c, d, f, 0.0, 0.0, 1.0]));
+            let det = a * d - b * c;
+            let (ia, ib, ic, id) = (d / det, -b / det, -c / det, a / det);
+            to_frame = [[ia, ib, -(ia * e + ib * f)], [ic, id, -(ic * e + id * f)]];
         }
+        let coverage = Coverage {
+            bounds: window.unwrap_or([0.0, 0.0, width as f32, height as f32]),
+            to_frame: to_frame.map(|row| row.map(|value| value as f32)),
+        };
         let m = matrix.0;
         Placement::projective(
             [[m[0], m[1], m[2]], [m[3], m[4], m[5]], [m[6], m[7], m[8]]],
+            Some(coverage),
             opacity,
             blend,
         )
@@ -1431,13 +1480,15 @@ impl Engine {
             .map_or(1.0, MotionTrack::max_scale);
         let magnification = match &clip.transform.pin {
             Some(pin) => {
-                let [across, down] = pin_extent(
-                    pin,
-                    clip.transform.track.as_ref(),
-                    (canvas.0 as f64, canvas.1 as f64),
-                    current,
-                );
-                (across / framed.0.max(1) as f64).max(down / framed.1.max(1) as f64) as f32
+                let reach = (canvas.0 as f64, canvas.1 as f64);
+                let [across, down] = pin_extent(pin, clip.transform.track.as_ref(), reach, current);
+                let (width, height) = (framed.0.max(1) as f64, framed.1.max(1) as f64);
+                let [left, top, right, bottom] = clip
+                    .transform
+                    .pin_fit
+                    .frame(pin, reach, (width, height))
+                    .window;
+                (across / (right - left).max(1.0)).max(down / (bottom - top).max(1.0)) as f32
             }
             None => {
                 fit_scale(canvas, framed, clip.fit)

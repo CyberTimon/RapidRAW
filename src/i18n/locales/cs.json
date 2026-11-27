@@ -3329,8 +3329,8 @@
       "source": "Zdroj",
       "trackSpot": "Sledovat oblast",
       "trackSource": "Sledovat zdroj",
-      "spotTracked": "Oblast sledována po dobu {{duration}}.",
-      "sourceTracked": "Zdroj sledován po dobu {{duration}}.",
+      "spotDone": "Oblast · {{duration}}",
+      "sourceDone": "Zdroj · {{duration}}",
       "modes": {
         "follow": "Následovat",
         "followTip": "Zdroj se pohybuje se sledovanou oblastí",
@@ -3426,9 +3426,7 @@
       },
       "lost": "Objekt ztracen. Zkuste větší rámeček.",
       "stabilize": "Stabilizovat",
-      "tracking": "Sledovat objekt",
-      "trackMotion": "Vybrat objekt",
-      "followScale": "Měřítko a otočení"
+      "tracking": "Sledovat objekt"
     },
     "nesting": {
       "back": "Zpět",
@@ -3542,12 +3540,33 @@
       "progress": "Sledování… {{percent}} %",
       "cancel": "Zrušit",
       "noClip": "Přesuňte přehrávací hlavu nad video klip.",
-      "tracked": "Sledováno po dobu {{duration}}.",
+      "done": "Sledováno · {{duration}}",
       "remove": "Odebrat",
-      "position": "Poloha",
-      "planar": "Rovinné",
-      "pinToPlane": "Připnout k rovině",
-      "notConvex": "Obrys roviny protíná sám sebe."
+      "position": "Objekt",
+      "planar": "Plocha",
+      "positionTip": "Sleduje cokoli: lidi, obličeje nebo předměty",
+      "planarTip": "Sleduje rovnou plochu, např. obrazovku, zeď nebo ceduli",
+      "notConvex": "Obrys roviny protíná sám sebe.",
+      "attach": {
+        "title": "Připojení",
+        "move": "Posun",
+        "transform": "Transformace",
+        "perspective": "Perspektiva",
+        "pin": "Připnout",
+        "moveTip": "Sleduje jen polohu",
+        "transformTip": "Sleduje polohu, měřítko a otočení",
+        "perspectiveTip": "Sleduje plochu v perspektivě",
+        "pinTip": "Leží přesně na sledované ploše"
+      },
+      "fit": {
+        "title": "Přizpůsobení",
+        "fill": "Vyplnit",
+        "fit": "Přizpůsobit",
+        "stretch": "Roztáhnout",
+        "fillTip": "Pokryje plochu a ořízne přesah",
+        "fitTip": "Zobrazí celou vrstvu uvnitř plochy",
+        "stretchTip": "Roztáhne vrstvu do rohů plochy"
+      }
     },
     "transitions": {
       "blur": "Rozmazání",

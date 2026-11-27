@@ -125,7 +125,8 @@ fn tracked_boxes(
             tracking::Target::Region(region),
             None,
             &|value| progress(TRACKING_SHARE * (run_index as f32 + value) / runs.len() as f32),
-        )?;
+        )?
+        .samples;
         for (offset, &index) in run.iter().enumerate() {
             if let Some(sample) = samples.get(offset + 1).copied().flatten() {
                 let half_width = (initial[2] - initial[0]) / 2.0 * sample.scale as f64;

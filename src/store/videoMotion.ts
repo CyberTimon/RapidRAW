@@ -7,8 +7,12 @@ import {
   FrameRate,
   MediaInfo,
   MotionTrack,
+  PinFit,
   Quad,
   Ticks,
+  TimelineItem,
+  TrackAttach,
+  TrackExits,
   TrackKey,
   VideoProject,
   VisualItem,
@@ -34,6 +38,7 @@ import {
   TrackSample,
   clampIntoItem,
   keptSamples,
+  layerQuad,
   maxTrackGap,
   pinnedQuad,
   placementAt,
@@ -55,9 +60,16 @@ import {
   Trackable,
   TrackedContainer,
   VIDEO_AI_MASKS,
+  attachOf,
   boundsRegion,
+  referenceCorners,
+  sameCorners,
   extendPlane,
   extendTrack,
+  followsSurface,
+  LAYER_ATTACH,
+  SHAPE_ATTACH,
+  chosenAttach,
   invertSimilarity,
   isPlanar,
   mapParameters,
@@ -131,6 +143,7 @@ interface MotionState {
   trackError: { key: string; message: string } | null;
   trackDirection: TrackDirection;
   trackKind: TrackKind;
+  pendingAttach: Record<string, TrackAttach>;
   snaps: Array<[number, number]>;
   aiFollow: Record<string, number>;
   aiEpoch: number;
@@ -145,6 +158,7 @@ export const useVideoMotion = create<MotionState>(() => ({
   trackError: null,
   trackDirection: 'both',
   trackKind: 'position',
+  pendingAttach: {},
   snaps: [],
   aiFollow: {},
   aiEpoch: 0,
@@ -620,6 +634,68 @@ export const followPastedAiMasks = async (itemIds: Array<string>) => {
 
 export const setTrackDirection = (trackDirection: TrackDirection) => setMotion({ trackDirection });
 
+export const setPendingAttach = (key: string, attach: TrackAttach | null) =>
+  useVideoMotion.setState(({ pendingAttach }) => {
+    const { [key]: _previous, ...rest } = pendingAttach;
+    return { pendingAttach: attach ? { ...rest, [key]: attach } : rest };
+  });
+
+const takePendingAttach = (key: string) => {
+  const attach = useVideoMotion.getState().pendingAttach[key];
+  if (attach)
+    useVideoMotion.setState(({ pendingAttach }) => {
+      const { [key]: _taken, ...rest } = pendingAttach;
+      return { pendingAttach: rest };
+    });
+  return attach;
+};
+
+const wantedRange = (
+  project: VideoProject,
+  item: TimelineItem,
+  playhead: Ticks,
+  direction: TrackDirection,
+  onClipBelow: boolean,
+): [Ticks, Ticks] | null => {
+  const fps = project.settings.fps;
+  let [start, end] = [item.start, itemEnd(item)];
+  if (onClipBelow) {
+    const location = locateItem(project, item.id);
+    const clip =
+      location && location.item.type !== 'audio'
+        ? clipBelow(project, location.item, location.trackIndex, trackStart(item, playhead, fps))
+        : null;
+    if (!clip) return null;
+    [start, end] = [Math.max(start, clip.start), Math.min(end, itemEnd(clip))];
+  }
+  const range = playedRange(project);
+  const low = Math.max(start, range ? range[0] : start) - item.start;
+  const high = Math.min(end, range ? range[1] : end) - item.start - frameTicks(fps);
+  const at = Math.min(high, Math.max(low, trackStart(item, playhead, fps) - item.start));
+  if (direction === 'forward') return [at, high];
+  if (direction === 'backward') return [low, at];
+  return [low, high];
+};
+
+export const useTrackDone = (
+  item: TimelineItem | null,
+  track: MotionTrack | null | undefined,
+  coverage: [Ticks, Ticks] | null,
+  { changed = false, onClipBelow = false }: { changed?: boolean; onClipBelow?: boolean } = {},
+) => {
+  const kind = useVideoMotion((state) => state.trackKind);
+  const direction = useVideoMotion((state) => state.trackDirection);
+  return useVideoStore((state) => {
+    if (!item || !track?.keys.length || !coverage || changed || !state.project) return false;
+    if (isPlanar(track) !== (kind === 'planar')) return false;
+    const wanted = wantedRange(state.project, item, state.playhead, direction, onClipBelow);
+    if (!wanted) return false;
+    const [from, to] = wanted;
+    const slack = frameTicks(state.project.settings.fps);
+    return coverage[0] <= from + slack && coverage[1] >= to - slack;
+  });
+};
+
 let detected: { key: string; points: Promise<Array<[number, number]>> } | null = null;
 
 const detectedCorners = (path: string, time: number) => {
@@ -683,11 +759,8 @@ export const startTrackingPlacement = (itemId: string) => {
   const local = time - item.start;
   const placed = placementAt(item.transform, local, width, height);
   const region = { x: placed.x - side / 2, y: placed.y - side / 2, width: side, height: side };
-  const planar = isPlanar(item.transform.track) || !!item.transform.pin;
-  const trackKind = planar ? 'planar' : useVideoMotion.getState().trackKind;
   setMotion({
     trackError: null,
-    trackKind,
     snaps: [],
     placing: {
       itemId,
@@ -698,7 +771,7 @@ export const startTrackingPlacement = (itemId: string) => {
         regionQuad(region),
     },
   });
-  if (trackKind === 'planar') void loadSnaps(itemId);
+  if (useVideoMotion.getState().trackKind === 'planar') void loadSnaps(itemId);
 };
 
 export const setTrackingRegion = (region: Region) =>
@@ -717,6 +790,11 @@ export const cancelTracking = () => {
   else setMotion({ placing: null, trackError: null, snaps: [] });
 };
 
+interface TimelineExits {
+  before: boolean;
+  after: boolean;
+}
+
 interface TrackPlan {
   clip: ClipItem;
   path: string;
@@ -724,15 +802,21 @@ interface TrackPlan {
   region: { cx: number; cy: number; width: number; height: number };
   quad?: Quad;
   lost: string;
-  apply(samples: Array<[Ticks, TrackSample]>): void;
+  apply(samples: Array<[Ticks, TrackSample]>, exits: TimelineExits): void;
 }
+
+const trackExits = (times: Array<number>, { before, after }: TimelineExits): TrackExits =>
+  times.length > 1 && times[0] > times[times.length - 1]
+    ? { start: after, end: before }
+    : { start: before, end: after };
 
 const trackClipRegion = async (
   plan: TrackPlan,
   fps: FrameRate,
   onProgress: (fraction: number) => void,
-): Promise<Array<[Ticks, TrackSample]>> => {
+): Promise<{ samples: Array<[Ticks, TrackSample]>; exits: TimelineExits }> => {
   const tracked = new Map<Ticks, TrackSample>();
+  const exits: TimelineExits = { before: false, after: false };
   const sourceFps = getVideo().media[plan.path]?.fps;
   const runs = trackRuns(useVideoMotion.getState().trackDirection);
   const maxGap = maxTrackGap(fpsValue(fps));
@@ -742,7 +826,7 @@ const trackClipRegion = async (
     if (cancelled) throw new Error('Tracking cancelled');
     const channel = new Channel<number>();
     channel.onmessage = (progress) => onProgress((runIndex + progress) / runs.length);
-    const samples = await invoke<Array<TrackSample | null>>(Invokes.VideoTrack, {
+    const result = await invoke<{ samples: Array<TrackSample | null>; exited: boolean }>(Invokes.VideoTrack, {
       request: {
         path: plan.path,
         region: plan.region,
@@ -752,9 +836,10 @@ const trackClipRegion = async (
       },
       onProgress: channel,
     });
-    keptSamples(samples, maxGap).forEach(([index, sample]) => tracked.set(times[index], sample));
+    keptSamples(result.samples, maxGap).forEach(([index, sample]) => tracked.set(times[index], sample));
+    exits[run === 'forward' ? 'after' : 'before'] = result.exited;
   }
-  return [...tracked.entries()].sort(([a], [b]) => a - b);
+  return { samples: [...tracked.entries()].sort(([a], [b]) => a - b), exits };
 };
 
 const runTrack = async (key: string, planned: Promise<TrackPlan | string>) => {
@@ -768,11 +853,11 @@ const runTrack = async (key: string, planned: Promise<TrackPlan | string>) => {
   cancelled = false;
   setMotion({ tracking: { key, progress: 0 }, trackError: null });
   try {
-    const samples = await trackClipRegion(plan, project.settings.fps, (progress) =>
+    const { samples, exits } = await trackClipRegion(plan, project.settings.fps, (progress) =>
       setMotion({ tracking: { key, progress } }),
     );
     if (samples.length < 2) throw new Error(plan.lost);
-    plan.apply(samples);
+    plan.apply(samples, exits);
     void requestProgramFrame();
     return true;
   } catch (error) {
@@ -831,7 +916,7 @@ const canvasPlan = async (
     span: playedSpan(project, start, Math.max(item.start, clip.start), Math.min(itemEnd(item), itemEnd(clip))),
     region: { cx: center[0], cy: center[1], width: bounds.right - bounds.left, height: bounds.bottom - bounds.top },
     lost,
-    apply: (samples) => {
+    apply: (samples, exits) => {
       const keys = samples.map(([time, sample]): TrackKey => ({
         time: timeOf(time),
         x: sample.cx,
@@ -847,6 +932,10 @@ const canvasPlan = async (
         width,
         height,
         (kept) => thinTrack(kept, [width * scale, height * scale, radius, radius]),
+        trackExits(
+          keys.map((key) => key.time),
+          exits,
+        ),
       );
       apply({ ...track, anchor: anchorOf(clip, space, base) });
     },
@@ -885,12 +974,21 @@ const planePlan = async (
     span: playedSpan(project, start, Math.max(item.start, clip.start), Math.min(itemEnd(item), itemEnd(clip))),
     ...planeTarget(source),
     lost,
-    apply: (samples) => {
+    apply: (samples, exits) => {
       const keys = samples.flatMap(([time, sample]) =>
         sample.corners ? [{ time: timeOf(time), corners: sample.corners }] : [],
       );
-      const track = extendPlane(base && isPlanar(base) ? base : null, timeOf(start), keys, width, height, (kept) =>
-        thinTrack(kept, [width * scale, height * scale, side / 2, side / 2]),
+      const track = extendPlane(
+        base && isPlanar(base) ? base : null,
+        timeOf(start),
+        keys,
+        width,
+        height,
+        (kept) => thinTrack(kept, [width * scale, height * scale, side / 2, side / 2]),
+        trackExits(
+          keys.map((key) => key.time),
+          exits,
+        ),
       );
       apply({ ...track, anchor: anchorOf(clip, space, base && isPlanar(base) ? base : null) });
     },
@@ -907,15 +1005,30 @@ const layerPlan = async (itemId: string): Promise<TrackPlan | string> => {
   const { width, height } = project.settings;
   const start = trackStart(item, playhead, project.settings.fps);
   const previous = item.transform.track;
-  const positionOnly = previous?.keys.length && !previous.reframe ? !!previous.positionOnly : true;
+  const planar = trackKind === 'planar';
+  const kept = previous?.keys.length && !previous.reframe ? attachOf(previous) : null;
+  const attach = chosenAttach(LAYER_ATTACH, planar, useVideoMotion.getState().pendingAttach[itemId], kept);
   const apply = (track: MotionTrack) => {
     editProject((current) =>
       updateItem<VisualItem>(current, item.id, (target) =>
         'transform' in target
-          ? ({ ...target, transform: { ...target.transform, track: { ...track, positionOnly } } } as VisualItem)
+          ? ({
+              ...target,
+              transform: {
+                ...target.transform,
+                track: { ...track, attach },
+                ...(kept === 'pin' && attach !== 'pin' && { pin: null }),
+                ...(attach === 'pin' &&
+                  !sameCorners(referenceCorners(previous), referenceCorners(track)) && {
+                    pin: surfacePin(track),
+                    pinFit: target.transform.pinFit ?? 'fill',
+                  }),
+              },
+            } as VisualItem)
           : target,
       ),
     );
+    takePendingAttach(itemId);
     setMotion({ placing: null, snaps: [] });
   };
   if (trackKind === 'planar')
@@ -944,22 +1057,6 @@ const layerPlan = async (itemId: string): Promise<TrackPlan | string> => {
   );
 };
 
-const layerQuad = (project: VideoProject, item: VisualItem, local: Ticks, media: Record<string, MediaInfo>): Quad => {
-  const { width, height } = project.settings;
-  const size = contentSize(project, item, media);
-  const placed = placementAt((item as ClipItem).transform, local, width, height);
-  const angle = (placed.rotation * Math.PI) / 180;
-  const corner = (sx: number, sy: number): [number, number] => {
-    const dx = (sx * size.width * placed.scale) / 2;
-    const dy = (sy * size.height * placed.scale) / 2;
-    return [
-      placed.x + dx * Math.cos(angle) - dy * Math.sin(angle),
-      placed.y + dx * Math.sin(angle) + dy * Math.cos(angle),
-    ];
-  };
-  return [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
-};
-
 const pinUnwarp = (item: VisualItem, local: Ticks, width: number, height: number) => {
   if (!('transform' in item)) return null;
   const warp: Homography | null = planeWarp(item.transform.track, ticksToSeconds(local), width, height);
@@ -980,10 +1077,22 @@ export const setCornerPin = (itemId: string, enabled: boolean) => {
   editProject((project) =>
     updateItem<VisualItem>(project, itemId, (item) => {
       if (!('transform' in item)) return item;
-      if (!enabled) return { ...item, transform: { ...item.transform, pin: null } } as VisualItem;
+      if (!enabled) {
+        const track = item.transform.track;
+        const fromSurface = track && attachOf(track) === 'pin';
+        return {
+          ...item,
+          transform: {
+            ...item.transform,
+            pin: null,
+            ...(fromSurface && { track: { ...track, attach: 'perspective' } }),
+          },
+        } as VisualItem;
+      }
       const { width, height } = project.settings;
       const local = clampIntoItem(item, playhead) - item.start;
-      const corners = pinUnwarp(item, local, width, height)?.(layerQuad(project, item, local, media));
+      const own = layerQuad(item.transform, contentSize(project, item, media), local, width, height);
+      const corners = followsSurface(item.transform.track) ? own : pinUnwarp(item, local, width, height)?.(own);
       return corners
         ? ({ ...item, transform: { ...item.transform, pin: scaleQuad(corners, 1 / width, 1 / height) } } as VisualItem)
         : item;
@@ -1010,15 +1119,42 @@ export const editPin = (itemId: string, quad: Quad, mergeKey: string) => {
   );
 };
 
-export const pinToPlane = (itemId: string) =>
+const surfacePin = (track: MotionTrack) => {
+  const corners = (track.reference ?? track.keys[0]).corners!;
+  return track.anchor ? mapQuad(track.anchor.canvas, corners) : corners;
+};
+
+export const setTrackAttach = (itemId: string, attach: TrackAttach) =>
   editProject((project) =>
     updateItem<VisualItem>(project, itemId, (item) => {
-      if (!('transform' in item) || !isPlanar(item.transform.track)) return item;
-      const track = item.transform.track!;
-      const corners = (track.reference ?? track.keys[0]).corners!;
-      const pin = track.anchor ? mapQuad(track.anchor.canvas, corners) : corners;
-      return pin ? ({ ...item, transform: { ...item.transform, pin } } as VisualItem) : item;
+      const track = 'transform' in item ? item.transform.track : null;
+      if (!('transform' in item) || !track?.keys.length) return item;
+      const pinned = attach === 'pin' && isPlanar(track) ? surfacePin(track) : null;
+      if (attach === 'pin' && !pinned) return item;
+      const transform = { ...item.transform, track: { ...track, attach } };
+      if (pinned) Object.assign(transform, { pin: pinned, pinFit: item.transform.pinFit ?? 'fill' });
+      else if (attachOf(track) === 'pin') transform.pin = null;
+      return { ...item, transform } as VisualItem;
     }),
+  );
+
+export const removeLayerTrack = (itemId: string) =>
+  editProject((project) =>
+    updateItem<VisualItem>(project, itemId, (item) => {
+      if (!('transform' in item) || !item.transform.track) return item;
+      const fromSurface = attachOf(item.transform.track) === 'pin';
+      return {
+        ...item,
+        transform: { ...item.transform, track: null, ...(fromSurface && { pin: null }) },
+      } as VisualItem;
+    }),
+  );
+
+export const setPinFit = (itemId: string, pinFit: PinFit) =>
+  editProject((project) =>
+    updateItem<VisualItem>(project, itemId, (item) =>
+      'transform' in item ? ({ ...item, transform: { ...item.transform, pinFit } } as VisualItem) : item,
+    ),
   );
 
 export const trackLayer = (itemId: string) => runTrack(itemId, layerPlan(itemId));
@@ -1208,19 +1344,32 @@ const maskPlan = async (
     return {
       ...plan,
       ...planeTarget(quad),
-      apply: (samples) => {
+      apply: (samples, exits) => {
         const keys = samples.flatMap(([time, sample]) => {
           const corners = sample.corners?.map(([x, y]) => toFrame(x, y));
           return corners?.every(Boolean) ? [{ time: timeOf(time), corners: corners as Quad }] : [];
         });
-        update(extendPlane(previous, startSource, keys, frameWidth, frameHeight, thin));
+        update(
+          extendPlane(
+            previous,
+            startSource,
+            keys,
+            frameWidth,
+            frameHeight,
+            thin,
+            trackExits(
+              keys.map((key) => key.time),
+              exits,
+            ),
+          ),
+        );
       },
     };
   }
   return {
     ...plan,
     region: { cx: center[0], cy: center[1], width: bounds.right - bounds.left, height: bounds.bottom - bounds.top },
-    apply: (samples) => {
+    apply: (samples, exits) => {
       const keys = samples.flatMap(([time, sample]): Array<TrackKey> => {
         const point = toFrame(sample.cx, sample.cy);
         return point
@@ -1235,16 +1384,39 @@ const maskPlan = async (
             ]
           : [];
       });
-      update(extendTrack(previous, startSource, origin, keys, frameWidth, frameHeight, thin));
+      update(
+        extendTrack(
+          previous,
+          startSource,
+          origin,
+          keys,
+          frameWidth,
+          frameHeight,
+          thin,
+          trackExits(
+            keys.map((key) => key.time),
+            exits,
+          ),
+        ),
+      );
     },
   };
 };
 
 export const trackMask = (container: Trackable, update: (track: MotionTrack) => void) => {
   const layer = maskLayer();
+  const key = maskTrackKey(container.id);
+  const finish = (track: MotionTrack) => {
+    const previous = container.track?.keys.length ? attachOf(container.track) : null;
+    update({
+      ...track,
+      area: container.trackArea ?? null,
+      attach: chosenAttach(SHAPE_ATTACH, isPlanar(track), takePendingAttach(key), previous),
+    });
+  };
   return runTrack(
-    maskTrackKey(container.id),
-    layer ? layerMaskPlan(layer.item, layer.trackIndex, container, update) : maskPlan(maskClip(), container, update),
+    key,
+    layer ? layerMaskPlan(layer.item, layer.trackIndex, container, finish) : maskPlan(maskClip(), container, finish),
   );
 };
 

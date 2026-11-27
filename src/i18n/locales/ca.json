@@ -3248,8 +3248,8 @@
       "source": "Origen",
       "trackSpot": "Seguir zona",
       "trackSource": "Seguir origen",
-      "spotTracked": "Zona seguida durant {{duration}}.",
-      "sourceTracked": "Origen seguit durant {{duration}}.",
+      "spotDone": "Zona · {{duration}}",
+      "sourceDone": "Origen · {{duration}}",
       "modes": {
         "follow": "Seguir",
         "followTip": "L'origen es mou amb la zona seguida",
@@ -3344,9 +3344,7 @@
       },
       "lost": "S'ha perdut l'objecte. Prova un requadre més gran.",
       "stabilize": "Estabilitzar",
-      "tracking": "Seguir un objecte",
-      "trackMotion": "Seleccionar un objecte",
-      "followScale": "Escala i rotació"
+      "tracking": "Seguir un objecte"
     },
     "nesting": {
       "back": "Enrere",
@@ -3458,12 +3456,33 @@
       "progress": "S'està seguint… {{percent}}%",
       "cancel": "Cancel·lar",
       "noClip": "Col·loca el capçal de reproducció sobre un clip de vídeo.",
-      "tracked": "Seguit durant {{duration}}.",
+      "done": "Seguit · {{duration}}",
       "remove": "Treure",
-      "position": "Posició",
-      "planar": "Planar",
-      "pinToPlane": "Fixar al pla",
-      "notConvex": "El contorn del pla s'encreua amb ell mateix."
+      "position": "Objecte",
+      "planar": "Superfície",
+      "positionTip": "Segueix qualsevol cosa: persones, cares o objectes",
+      "planarTip": "Segueix una superfície plana com una pantalla, una paret o un rètol",
+      "notConvex": "El contorn del pla s'encreua amb ell mateix.",
+      "attach": {
+        "title": "Ancoratge",
+        "move": "Moure",
+        "transform": "Transformar",
+        "perspective": "Perspectiva",
+        "pin": "Fixar",
+        "moveTip": "Segueix només la posició",
+        "transformTip": "Segueix posició, escala i rotació",
+        "perspectiveTip": "Segueix la superfície en perspectiva",
+        "pinTip": "Es col·loca exactament sobre la superfície seguida"
+      },
+      "fit": {
+        "title": "Ajust",
+        "fill": "Omplir",
+        "fit": "Encabir",
+        "stretch": "Estirar",
+        "fillTip": "Cobreix la superfície i retalla el que sobra",
+        "fitTip": "Mostra la capa sencera dins la superfície",
+        "stretchTip": "Estira la capa fins a les cantonades de la superfície"
+      }
     },
     "transitions": {
       "blur": "Desenfocament",

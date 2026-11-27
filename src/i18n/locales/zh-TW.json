@@ -3167,8 +3167,8 @@
       "source": "來源",
       "trackSpot": "追蹤修補點",
       "trackSource": "追蹤來源",
-      "spotTracked": "修補點已追蹤 {{duration}}。",
-      "sourceTracked": "來源已追蹤 {{duration}}。",
+      "spotDone": "修補點 · {{duration}}",
+      "sourceDone": "來源 · {{duration}}",
       "modes": {
         "follow": "跟隨",
         "followTip": "來源隨追蹤的修補點一起移動",
@@ -3262,9 +3262,7 @@
       },
       "lost": "目標遺失。請嘗試更大的框。",
       "stabilize": "穩定",
-      "tracking": "跟隨物件",
-      "trackMotion": "選取物件",
-      "followScale": "縮放與旋轉"
+      "tracking": "跟隨物件"
     },
     "nesting": {
       "back": "返回",
@@ -3374,12 +3372,33 @@
       "progress": "正在追蹤… {{percent}}%",
       "cancel": "取消",
       "noClip": "請將播放磁頭移到影片片段上。",
-      "tracked": "已追蹤 {{duration}}。",
+      "done": "已追蹤 · {{duration}}",
       "remove": "移除",
-      "position": "位置",
+      "position": "物體",
       "planar": "平面",
-      "pinToPlane": "固定至平面",
-      "notConvex": "平面輪廓自我交叉。"
+      "positionTip": "追蹤任何對象，例如人物、臉部或物體",
+      "planarTip": "追蹤平整的表面，例如螢幕、牆面或招牌",
+      "notConvex": "平面輪廓自我交叉。",
+      "attach": {
+        "title": "附著方式",
+        "move": "移動",
+        "transform": "變形",
+        "perspective": "透視",
+        "pin": "固定",
+        "moveTip": "僅跟隨位置",
+        "transformTip": "跟隨位置、縮放與旋轉",
+        "perspectiveTip": "以透視方式跟隨平面",
+        "pinTip": "精確貼合追蹤的平面"
+      },
+      "fit": {
+        "title": "適配",
+        "fill": "填滿",
+        "fit": "符合",
+        "stretch": "延展",
+        "fillTip": "覆蓋平面並裁掉超出部分",
+        "fitTip": "在平面內顯示整個圖層",
+        "stretchTip": "將圖層延展至平面的四個角"
+      }
     },
     "transitions": {
       "blur": "模糊",

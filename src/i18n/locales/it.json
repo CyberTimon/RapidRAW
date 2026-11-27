@@ -3248,8 +3248,8 @@
       "source": "Origine",
       "trackSpot": "Traccia zona",
       "trackSource": "Traccia origine",
-      "spotTracked": "Zona tracciata per {{duration}}.",
-      "sourceTracked": "Origine tracciata per {{duration}}.",
+      "spotDone": "Zona · {{duration}}",
+      "sourceDone": "Origine · {{duration}}",
       "modes": {
         "follow": "Segui",
         "followTip": "L'origine si sposta con la zona tracciata",
@@ -3344,9 +3344,7 @@
       },
       "lost": "Oggetto perso. Prova un riquadro più grande.",
       "stabilize": "Stabilizza",
-      "tracking": "Segui oggetto",
-      "trackMotion": "Seleziona oggetto",
-      "followScale": "Scala e rotazione"
+      "tracking": "Segui oggetto"
     },
     "nesting": {
       "back": "Indietro",
@@ -3458,12 +3456,33 @@
       "progress": "Tracciamento… {{percent}}%",
       "cancel": "Annulla",
       "noClip": "Sposta l'indicatore di riproduzione su una clip video.",
-      "tracked": "Tracciato per {{duration}}.",
+      "done": "Tracciato · {{duration}}",
       "remove": "Rimuovi",
-      "position": "Posizione",
-      "planar": "Planare",
-      "pinToPlane": "Fissa al piano",
-      "notConvex": "Il contorno del piano si interseca."
+      "position": "Oggetto",
+      "planar": "Superficie",
+      "positionTip": "Traccia qualsiasi cosa: persone, volti o oggetti",
+      "planarTip": "Traccia una superficie piana come uno schermo, un muro o un cartello",
+      "notConvex": "Il contorno del piano si interseca.",
+      "attach": {
+        "title": "Aggancio",
+        "move": "Sposta",
+        "transform": "Trasforma",
+        "perspective": "Prospettiva",
+        "pin": "Fissa",
+        "moveTip": "Segue solo la posizione",
+        "transformTip": "Segue posizione, scala e rotazione",
+        "perspectiveTip": "Segue la superficie in prospettiva",
+        "pinTip": "Si posiziona esattamente sulla superficie tracciata"
+      },
+      "fit": {
+        "title": "Adattamento",
+        "fill": "Riempi",
+        "fit": "Adatta",
+        "stretch": "Allunga",
+        "fillTip": "Copre la superficie e ritaglia ciò che avanza",
+        "fitTip": "Mostra l'intero livello dentro la superficie",
+        "stretchTip": "Allunga il livello fino agli angoli della superficie"
+      }
     },
     "transitions": {
       "blur": "Sfocatura",

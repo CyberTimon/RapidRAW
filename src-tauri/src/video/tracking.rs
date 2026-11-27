@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use tauri::ipc::Channel;
 
@@ -19,6 +19,8 @@ const PLANE_SIDE: u32 = 1920;
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 const BACKWARD_CHUNK_FRAMES: i64 = 48;
 const FRAME_EPSILON: f64 = 1e-6;
+const EXIT_WINDOW: f64 = 0.3;
+const EXIT_SETTLE: f64 = 0.5;
 
 static CANCEL: AtomicBool = AtomicBool::new(false);
 static RUNNING: AtomicBool = AtomicBool::new(false);
@@ -74,6 +76,19 @@ impl Follower {
             Self::Plane(tracker) => tracker.update(frame),
         }
     }
+
+    fn leaving(&self) -> bool {
+        match self {
+            Self::Region(tracker) => tracker.leaving(),
+            Self::Plane(tracker) => tracker.leaving(),
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct TrackRun {
+    pub samples: Vec<Option<TrackSample>>,
+    pub exited: bool,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -112,14 +127,84 @@ pub struct Anchor {
     canvas: [f64; 9],
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum Attach {
+    Move,
+    Transform,
+    Perspective,
+    Pin,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum PinFit {
+    #[default]
+    Stretch,
+    Fit,
+    Fill,
+}
+
+pub struct PinFrame {
+    pub scale: (f64, f64),
+    pub offset: (f64, f64),
+    pub window: [f64; 4],
+}
+
+impl PinFit {
+    pub fn frame(self, pin: &Corners, canvas: (f64, f64), content: (f64, f64)) -> PinFrame {
+        let (width, height) = (content.0.max(1.0), content.1.max(1.0));
+        let pick = match self {
+            Self::Stretch => {
+                return PinFrame {
+                    scale: (1.0 / width, 1.0 / height),
+                    offset: (0.0, 0.0),
+                    window: [0.0, 0.0, width, height],
+                };
+            }
+            Self::Fit => f64::min,
+            Self::Fill => f64::max,
+        };
+        let [a, b, c, d] = pin.map(|[x, y]| [x * canvas.0, y * canvas.1]);
+        let length = |p: [f64; 2], q: [f64; 2]| (p[0] - q[0]).hypot(p[1] - q[1]);
+        let aspect = (length(a, b) + length(d, c)) / (length(a, d) + length(b, c)).max(1e-9);
+        let size = pick(aspect / width, 1.0 / height);
+        let scale = (size / aspect, size);
+        let offset = (
+            (aspect - width * size) / (2.0 * aspect),
+            (1.0 - height * size) / 2.0,
+        );
+        PinFrame {
+            scale,
+            offset,
+            window: [
+                (-offset.0 / scale.0).max(0.0),
+                (-offset.1 / scale.1).max(0.0),
+                ((1.0 - offset.0) / scale.0).min(width),
+                ((1.0 - offset.1) / scale.1).min(height),
+            ],
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+struct Exits {
+    #[serde(default)]
+    start: bool,
+    #[serde(default)]
+    end: bool,
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct MotionTrack {
     #[serde(default)]
     keys: Vec<TrackKey>,
     #[serde(default)]
     reference: Option<TrackKey>,
-    #[serde(default, rename = "positionOnly")]
-    position_only: bool,
+    #[serde(default)]
+    attach: Option<Attach>,
+    #[serde(default)]
+    exits: Exits,
     #[serde(default)]
     pub anchor: Option<Anchor>,
 }
@@ -185,7 +270,54 @@ fn inverse(m: Linear) -> Option<Linear> {
 }
 
 impl MotionTrack {
-    fn pose_at(&self, time: f64) -> Option<TrackKey> {
+    fn pose_at(&self, time: f64, aspect: f64) -> Option<TrackKey> {
+        let (first, last) = (self.keys.first()?, self.keys.last()?);
+        if time > last.time && self.exits.end {
+            return self.continued(*last, last.time - EXIT_WINDOW, time, aspect);
+        }
+        if time < first.time && self.exits.start {
+            return self.continued(*first, first.time + EXIT_WINDOW, time, aspect);
+        }
+        self.interpolated(time)
+    }
+
+    fn continued(&self, edge: TrackKey, toward: f64, time: f64, aspect: f64) -> Option<TrackKey> {
+        let (first, last) = (self.keys.first()?.time, self.keys.last()?.time);
+        let inner = self.interpolated(toward.clamp(first, last))?;
+        let span = edge.time - inner.time;
+        if span.abs() < FRAME_EPSILON {
+            return Some(TrackKey { time, ..edge });
+        }
+        let elapsed = time - edge.time;
+        let settled = EXIT_SETTLE * (1.0 - (-elapsed.abs() / EXIT_SETTLE).exp()) * elapsed.signum();
+        let rate = |at_edge: f64, inside: f64| (at_edge - inside) / span;
+        let (x, y) = (
+            edge.x + rate(edge.x, inner.x) * elapsed,
+            edge.y + rate(edge.y, inner.y) * elapsed,
+        );
+        let growth = (rate(edge.scale.max(1e-3).ln(), inner.scale.max(1e-3).ln()) * settled).exp();
+        let turn = rate(edge.rotation, inner.rotation) * settled;
+        let (sin, cos) = turn.sin_cos();
+        let corners = edge.corners.map(|corners| {
+            corners.map(|[cx, cy]| {
+                let (dx, dy) = ((cx - edge.x) * aspect, cy - edge.y);
+                [
+                    x + growth * (cos * dx - sin * dy) / aspect,
+                    y + growth * (sin * dx + cos * dy),
+                ]
+            })
+        });
+        Some(TrackKey {
+            time,
+            x,
+            y,
+            scale: edge.scale * growth,
+            rotation: edge.rotation + turn,
+            corners,
+        })
+    }
+
+    fn interpolated(&self, time: f64) -> Option<TrackKey> {
         let after = self.keys.partition_point(|key| key.time <= time);
         match (
             after.checked_sub(1).map(|index| self.keys[index]),
@@ -220,10 +352,23 @@ impl MotionTrack {
         self.keys.iter().all(|key| key.corners.is_some())
     }
 
+    pub fn attach(&self) -> Attach {
+        self.attach
+            .unwrap_or(if self.planar() && !self.keys.is_empty() {
+                Attach::Perspective
+            } else {
+                Attach::Transform
+            })
+    }
+
+    fn surface(&self) -> bool {
+        self.planar() && matches!(self.attach(), Attach::Perspective | Attach::Pin)
+    }
+
     fn warp(&self, time: f64, (width, height): (f64, f64)) -> Option<TrackWarp> {
         let reference = self.reference()?;
-        let pose = self.pose_at(time)?;
-        let (scale, angle) = if self.position_only {
+        let pose = self.pose_at(time, width / height.max(1.0))?;
+        let (scale, angle) = if self.attach() == Attach::Move {
             (1.0, 0.0)
         } else {
             (
@@ -245,13 +390,15 @@ impl MotionTrack {
         &self,
         (width, height): (f64, f64),
     ) -> Option<impl Fn(f64) -> Option<Homography> + '_> {
-        if !self.planar() {
+        if !self.surface() {
             return None;
         }
         let scaled = move |corners: Corners| corners.map(|[x, y]| [x * width, y * height]);
         let from = Homography::from_square(&scaled(self.reference()?.corners?))?.inverse();
         Some(move |time| {
-            let to = Homography::from_square(&scaled(self.pose_at(time)?.corners?))?;
+            let to = Homography::from_square(&scaled(
+                self.pose_at(time, width / height.max(1.0))?.corners?,
+            ))?;
             Some(from?.then(&to))
         })
     }
@@ -264,7 +411,7 @@ impl MotionTrack {
             similar: self.warp(time, frame),
             plane: self.planes(frame).and_then(|planes| planes(time)),
             corners: self
-                .pose_at(time)
+                .pose_at(time, frame.0 / frame.1.max(1.0))
                 .and_then(|pose| pose.corners)
                 .filter(|_| self.planar())
                 .map(|corners| corners.map(|[x, y]| [x * frame.0, y * frame.1])),
@@ -280,7 +427,7 @@ impl MotionTrack {
     ) -> Option<Follow> {
         let anchor = self.anchor.as_ref()?;
         let reference = self.reference()?;
-        let pose = self.pose_at(time)?;
+        let pose = self.pose_at(time, source.0.max(1) as f64 / source.1.max(1) as f64)?;
         let at_reference = Homography(anchor.canvas).then(&scaling(canvas.0, canvas.1));
         let (width, height) = (source.0.max(1) as f64, source.1.max(1) as f64);
         let placed = |key: &TrackKey, map: &Homography| -> Option<([f64; 2], Linear)> {
@@ -295,7 +442,7 @@ impl MotionTrack {
         let (from, before) = placed(&reference, &at_reference)?;
         let (to, after) = placed(&pose, to_canvas)?;
         let linear = product(after, inverse(before)?);
-        let (scale, angle) = if self.position_only {
+        let (scale, angle) = if self.attach() == Attach::Move {
             (1.0, 0.0)
         } else {
             (
@@ -309,7 +456,7 @@ impl MotionTrack {
             .corners
             .filter(|_| self.planar())
             .and_then(|corners| map_corners(&corners, to_canvas));
-        let plane = corners.and_then(|to| {
+        let plane = corners.filter(|_| self.surface()).and_then(|to| {
             let from = map_corners(&reference.corners?, &at_reference)?;
             Some(
                 Homography::from_square(&from)?
@@ -325,7 +472,7 @@ impl MotionTrack {
     }
 
     pub fn max_scale(&self) -> f64 {
-        if self.position_only {
+        if self.attach() == Attach::Move {
             return 1.0;
         }
         let reference = self.reference().map_or(1.0, |key| key.scale.max(1e-3));
@@ -463,9 +610,12 @@ pub fn track_region(
     target: Target,
     max_gap: Option<usize>,
     progress: &dyn Fn(f32),
-) -> Result<Vec<Option<TrackSample>>, String> {
+) -> Result<TrackRun, String> {
     if times.is_empty() {
-        return Ok(Vec::new());
+        return Ok(TrackRun {
+            samples: Vec::new(),
+            exited: false,
+        });
     }
     let backward = times.len() > 1 && times[1] < times[0];
     if times
@@ -554,7 +704,11 @@ pub fn track_region(
             index += 1;
         }
     }
-    Ok(run.samples)
+    let exited = run.missing > 0 && run.tracker.as_ref().is_some_and(Follower::leaving);
+    Ok(TrackRun {
+        samples: run.samples,
+        exited,
+    })
 }
 
 fn shown_frame(time: f64, step: f64, fps: f64) -> i64 {
@@ -565,7 +719,7 @@ fn shown_frame(time: f64, step: f64, fps: f64) -> i64 {
 pub async fn video_track(
     request: TrackRequest,
     on_progress: Channel<f32>,
-) -> Result<Vec<Option<TrackSample>>, String> {
+) -> Result<TrackRun, String> {
     let exclusive = begin()?;
     blocking(move || {
         let _exclusive = exclusive;

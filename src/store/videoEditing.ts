@@ -31,6 +31,7 @@ import {
   unlinkItems,
 } from '../utils/video/edit';
 import { removeCaptions } from '../utils/video/captions';
+import { contentSize } from '../utils/video/layouts';
 import { animateLook, recordLookEdit } from '../utils/video/lookAnimation';
 import type { TrackedContainer } from '../utils/video/maskTracking';
 import { allItems, hasLook, itemEnd, locateItem, lookOf, mediaDurationTicks, mediaOf } from '../utils/video/model';
@@ -272,7 +273,8 @@ export const freezeFrame = (id?: string) => {
   const sourceFps = sourceFpsOf(project, clip);
   let frozen = null as string | null;
   editProject((current) => {
-    const [next, freezeId] = insertFreeze(current, clip.id, playhead, secondsToTicks(FREEZE_SECONDS), sourceFps);
+    const size = contentSize(current, clip, getVideo().media);
+    const [next, freezeId] = insertFreeze(current, clip.id, playhead, secondsToTicks(FREEZE_SECONDS), size, sourceFps);
     frozen = freezeId;
     return next;
   });

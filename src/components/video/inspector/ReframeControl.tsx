@@ -45,7 +45,7 @@ export function ReframeRow({ item }: { item: ClipItem }) {
       {running ? (
         <ReframeProgress ids={[item.id]} />
       ) : track?.reframe ? (
-        <TrackedRow track={track} span={null} label={t('video.reframe.done')} onRemove={() => removeReframe(item.id)} />
+        <TrackedRow track={track} label={t('video.reframe.done')} onRemove={() => removeReframe(item.id)} />
       ) : (
         <ActionButton icon={Focus} label={t('video.reframe.action')} onClick={() => void reframeClips([item.id])} />
       )}

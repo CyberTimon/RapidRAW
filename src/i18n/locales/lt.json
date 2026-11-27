@@ -3329,8 +3329,8 @@
       "source": "Šaltinis",
       "trackSpot": "Sekti sritį",
       "trackSource": "Sekti šaltinį",
-      "spotTracked": "Sritis sekta {{duration}}.",
-      "sourceTracked": "Šaltinis sektas {{duration}}.",
+      "spotDone": "Sritis · {{duration}}",
+      "sourceDone": "Šaltinis · {{duration}}",
       "modes": {
         "follow": "Sekti kartu",
         "followTip": "Šaltinis juda kartu su sekama sritimi",
@@ -3426,9 +3426,7 @@
       },
       "lost": "Objektas prarastas. Pabandykite didesnį rėmelį.",
       "stabilize": "Stabilizuoti",
-      "tracking": "Sekti objektą",
-      "trackMotion": "Pasirinkti objektą",
-      "followScale": "Mastelis ir pasukimas"
+      "tracking": "Sekti objektą"
     },
     "nesting": {
       "back": "Atgal",
@@ -3542,12 +3540,33 @@
       "progress": "Sekama… {{percent}}%",
       "cancel": "Atšaukti",
       "noClip": "Perkelkite atkūrimo galvutę virš vaizdo klipo.",
-      "tracked": "Sekta {{duration}}.",
+      "done": "Sekta · {{duration}}",
       "remove": "Pašalinti",
-      "position": "Padėtis",
-      "planar": "Plokštuminis",
-      "pinToPlane": "Prisegti prie plokštumos",
-      "notConvex": "Plokštumos kontūras kerta pats save."
+      "position": "Objektas",
+      "planar": "Paviršius",
+      "positionTip": "Seka bet ką: žmones, veidus ar daiktus",
+      "planarTip": "Seka plokščią paviršių, pvz., ekraną, sieną ar ženklą",
+      "notConvex": "Plokštumos kontūras kerta pats save.",
+      "attach": {
+        "title": "Prisegimas",
+        "move": "Perkelti",
+        "transform": "Transformuoti",
+        "perspective": "Perspektyva",
+        "pin": "Prisegti",
+        "moveTip": "Seka tik padėtį",
+        "transformTip": "Seka padėtį, mastelį ir pasukimą",
+        "perspectiveTip": "Seka paviršių perspektyvoje",
+        "pinTip": "Guli tiksliai ant sekamo paviršiaus"
+      },
+      "fit": {
+        "title": "Pritaikymas",
+        "fill": "Užpildyti",
+        "fit": "Sutalpinti",
+        "stretch": "Ištempti",
+        "fillTip": "Uždengia paviršių ir apkerpa perteklių",
+        "fitTip": "Rodo visą sluoksnį paviršiaus viduje",
+        "stretchTip": "Ištempia sluoksnį iki paviršiaus kampų"
+      }
     },
     "transitions": {
       "blur": "Suliejimas",

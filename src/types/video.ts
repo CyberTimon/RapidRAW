@@ -106,12 +106,23 @@ export interface TrackAnchor {
   canvas: Homography;
 }
 
+export type TrackAttach = 'move' | 'transform' | 'perspective' | 'pin';
+
+export type PinFit = 'fill' | 'fit' | 'stretch';
+
 export interface MotionTrack {
   keys: Array<TrackKey>;
   reference?: TrackKey | null;
   reframe?: boolean;
-  positionOnly?: boolean;
+  attach?: TrackAttach;
+  exits?: TrackExits;
+  area?: Quad | null;
   anchor?: TrackAnchor | null;
+}
+
+export interface TrackExits {
+  start?: boolean;
+  end?: boolean;
 }
 
 export interface Transform {
@@ -125,6 +136,7 @@ export interface Transform {
   flipV: boolean;
   track?: MotionTrack | null;
   pin?: Quad | null;
+  pinFit?: PinFit;
 }
 
 export type BlendMode =

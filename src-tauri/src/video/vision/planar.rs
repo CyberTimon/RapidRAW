@@ -4,7 +4,7 @@ use super::features::detect;
 use super::flow::track;
 use super::frame::{GrayFrame, Pyramid};
 use super::geometry::{Homography, Pair, ransac, solve};
-use super::tracker::{TrackSample, spread};
+use super::tracker::{LEAVING, TrackSample, spread};
 
 pub type Quad = [[f32; 2]; 4];
 type Corners = [[f64; 2]; 4];
@@ -228,6 +228,24 @@ impl PlaneTracker {
 
     pub fn first_sample(&mut self) -> TrackSample {
         self.sample(1.0)
+    }
+
+    pub fn leaving(&self) -> bool {
+        const STEPS: usize = 8;
+        let [width, height] = self.frame.map(f64::from);
+        let [a, b, c, d] = self.corners;
+        let inside = (0..STEPS * STEPS)
+            .filter(|index| {
+                let u = ((index % STEPS) as f64 + 0.5) / STEPS as f64;
+                let v = ((index / STEPS) as f64 + 0.5) / STEPS as f64;
+                let [x, y] = [0, 1].map(|axis| {
+                    (1.0 - v) * ((1.0 - u) * a[axis] + u * b[axis])
+                        + v * ((1.0 - u) * d[axis] + u * c[axis])
+                });
+                (0.0..width).contains(&x) && (0.0..height).contains(&y)
+            })
+            .count();
+        (inside as f32) < LEAVING * (STEPS * STEPS) as f32
     }
 
     pub fn update(&mut self, frame: &GrayFrame) -> Option<TrackSample> {

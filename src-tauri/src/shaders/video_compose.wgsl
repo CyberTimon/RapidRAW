@@ -1,6 +1,6 @@
 struct Params {
     grid: Grid,
-    values: array<vec4<f32>, 4>,
+    values: array<vec4<f32>, 6>,
     modes: array<vec4<u32>, 2>,
 }
 
@@ -144,9 +144,15 @@ fn vc_pin(@builtin(global_invocation_id) id: vec3<u32>) {
     let position = vec2<f32>(dot(row_x.xyz, p), dot(row_y.xyz, p)) / depth;
     let along_x = (vec2<f32>(row_x.x, row_y.x) - position * row_w.x) / depth;
     let along_y = (vec2<f32>(row_x.y, row_y.y) - position * row_w.y) / depth;
-    let size = params.values[3].xy;
-    let reach = vec2<f32>(length(vec2<f32>(along_x.x, along_y.x)), length(vec2<f32>(along_x.y, along_y.y)));
-    let inside = clamp(min(position, size - position) / max(reach, vec2<f32>(1e-6)) + 0.5, vec2<f32>(0.0), vec2<f32>(1.0));
+    let low = params.values[3].xy;
+    let high = params.values[3].zw;
+    let frame_x = params.values[4];
+    let frame_y = params.values[5];
+    let framed = vec2<f32>(dot(frame_x.xy, position) + frame_x.z, dot(frame_y.xy, position) + frame_y.z);
+    let framed_x = vec2<f32>(dot(frame_x.xy, along_x), dot(frame_y.xy, along_x));
+    let framed_y = vec2<f32>(dot(frame_x.xy, along_y), dot(frame_y.xy, along_y));
+    let reach = vec2<f32>(length(vec2<f32>(framed_x.x, framed_y.x)), length(vec2<f32>(framed_x.y, framed_y.y)));
+    let inside = clamp(min(framed - low, high - framed) / max(reach, vec2<f32>(1e-6)) + 0.5, vec2<f32>(0.0), vec2<f32>(1.0));
     let coverage = inside.x * inside.y * row_x.w;
     if (coverage <= 0.0) {
         textureStore(out_f16, id.xy, canvas);

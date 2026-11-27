@@ -3167,8 +3167,8 @@
       "source": "Bron",
       "trackSpot": "Plek volgen",
       "trackSource": "Bron volgen",
-      "spotTracked": "Plek {{duration}} gevolgd.",
-      "sourceTracked": "Bron {{duration}} gevolgd.",
+      "spotDone": "Plek · {{duration}}",
+      "sourceDone": "Bron · {{duration}}",
       "modes": {
         "follow": "Meebewegen",
         "followTip": "De bron beweegt mee met de gevolgde plek",
@@ -3262,9 +3262,7 @@
       },
       "lost": "Object kwijt. Probeer een groter kader.",
       "stabilize": "Stabiliseren",
-      "tracking": "Object volgen",
-      "trackMotion": "Object selecteren",
-      "followScale": "Schaal en rotatie"
+      "tracking": "Object volgen"
     },
     "nesting": {
       "back": "Terug",
@@ -3374,12 +3372,33 @@
       "progress": "Volgen… {{percent}}%",
       "cancel": "Annuleren",
       "noClip": "Plaats de afspeelkop op een videoclip.",
-      "tracked": "{{duration}} gevolgd.",
+      "done": "Gevolgd · {{duration}}",
       "remove": "Verwijderen",
-      "position": "Positie",
-      "planar": "Planair",
-      "pinToPlane": "Vastzetten op vlak",
-      "notConvex": "De omtrek van het vlak kruist zichzelf."
+      "position": "Object",
+      "planar": "Vlak",
+      "positionTip": "Volgt alles, zoals personen, gezichten of objecten",
+      "planarTip": "Volgt een plat vlak zoals een scherm, muur of bord",
+      "notConvex": "De omtrek van het vlak kruist zichzelf.",
+      "attach": {
+        "title": "Koppeling",
+        "move": "Verplaatsen",
+        "transform": "Transformeren",
+        "perspective": "Perspectief",
+        "pin": "Vastzetten",
+        "moveTip": "Volgt alleen de positie",
+        "transformTip": "Volgt positie, schaal en rotatie",
+        "perspectiveTip": "Volgt het vlak in perspectief",
+        "pinTip": "Ligt precies op het gevolgde vlak"
+      },
+      "fit": {
+        "title": "Passen",
+        "fill": "Vullen",
+        "fit": "Passend",
+        "stretch": "Uitrekken",
+        "fillTip": "Bedekt het vlak en snijdt af wat uitsteekt",
+        "fitTip": "Toont de hele laag binnen het vlak",
+        "stretchTip": "Rekt de laag uit naar de hoeken van het vlak"
+      }
     },
     "transitions": {
       "blur": "Vervagen",

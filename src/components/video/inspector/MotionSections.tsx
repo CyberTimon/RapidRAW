@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
-import { Crosshair, Pin, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import SegmentedControl from '../../ui/SegmentedControl';
-import Switch from '../../ui/Switch';
 import Text from '../../ui/Text';
 import { TextVariants } from '../../../types/typography';
 import { ClipItem, SolidItem, TitleItem, Transform } from '../../../types/video';
@@ -11,27 +10,35 @@ import {
   STABILIZE_LEVELS,
   TRACKED_CHANNELS,
   cancelTracking,
-  pinToPlane,
+  removeLayerTrack,
+  setPinFit,
   setStabilizeLevel,
+  setTrackAttach,
+  setTrackKind,
   stabilizeLevelOf,
   startTrackingPlacement,
   trackLayer,
   useVideoMotion,
+  useTrackDone,
   watchAnalysis,
 } from '../../../store/videoMotion';
 import { useVideoStore } from '../../../store/useVideoStore';
 import { keyAt, removeKeyAt, toggleKeyAt } from '../../../utils/video/animation';
-import { layerTrackSpan } from '../../../utils/video/edit';
-import { isPlanar } from '../../../utils/video/maskTracking';
-import { JobProgress, KeyframesRow, TrackKindControl, TrackedRow, Tracker } from '../TrackControls';
+import { layerTrackCoverage, layerTrackSpan } from '../../../utils/video/edit';
+import { LAYER_ATTACH, isPlanar } from '../../../utils/video/maskTracking';
+import { formatDuration } from '../../../utils/video/time';
+import {
+  AttachControl,
+  JobProgress,
+  KeyframesRow,
+  PinFitControl,
+  TrackKindControl,
+  Tracker,
+  useAttachChoice,
+} from '../TrackControls';
 import { ActionButton, InspectorSection, editItem, useAnimatedKeys } from './InspectorControls';
 
 type Trackable = ClipItem | TitleItem | SolidItem;
-
-const samePin = (track: Trackable['transform']['track'], pin: Trackable['transform']['pin']) => {
-  const corners = (track?.reference ?? track?.keys[0])?.corners;
-  return !!corners && !!pin && corners.every(([x, y], index) => x === pin[index][0] && y === pin[index][1]);
-};
 
 export function StabilizeSection({ item, path }: { item: ClipItem; path: string }) {
   const { t } = useTranslation();
@@ -116,59 +123,41 @@ export function TrackingSection({ item }: { item: Trackable }) {
     [item.id],
   );
 
-  const span = useVideoStore(useShallow((state) => (state.project ? layerTrackSpan(state.project, item) : null)));
   const tracked = item.transform.track?.reframe ? null : item.transform.track;
+  const hasTrack = !!tracked?.keys.length;
   const planar = isPlanar(tracked);
-  const pinned = planar && !!item.transform.pin;
+  useEffect(() => {
+    if (hasTrack) setTrackKind(planar ? 'planar' : 'position');
+  }, [item.id, hasTrack, planar]);
+  const span = useVideoStore(useShallow((state) => (state.project ? layerTrackSpan(state.project, item) : null)));
+  const coverage = useVideoStore(
+    useShallow((state) => (state.project && hasTrack ? layerTrackCoverage(state.project, item) : null)),
+  );
+  const done = useTrackDone(item, tracked, coverage, { onClipBelow: true }) && !placing;
+  const attach = useAttachChoice(item.id, tracked, LAYER_ATTACH, (next) => setTrackAttach(item.id, next));
 
   return (
     <InspectorSection id="tracking" title={t('video.motion.tracking')}>
       <div className="space-y-2">
-        <TrackedRow
-          track={tracked}
-          span={span}
-          onRemove={() =>
-            editItem<Trackable>(item.id, null, (current) => ({
-              ...current,
-              transform: { ...current.transform, track: null },
-            }))
-          }
+        <TrackKindControl disabled={running} />
+        <AttachControl options={attach.options} value={attach.value} disabled={running} onChange={attach.choose} />
+        {attach.value === 'pin' && (
+          <PinFitControl
+            value={item.transform.pinFit ?? (item.transform.pin ? 'stretch' : 'fill')}
+            onChange={(fit) => setPinFit(item.id, fit)}
+          />
+        )}
+        <Tracker
+          jobs={[
+            {
+              key: item.id,
+              done: done ? t('video.tracking.done', { duration: formatDuration(span ? span[1] - span[0] : 0) }) : null,
+              onTrack: () => (placing ? void trackLayer(item.id) : startTrackingPlacement(item.id)),
+              onRemove: hasTrack ? () => removeLayerTrack(item.id) : undefined,
+            },
+          ]}
         />
-        {!!tracked?.keys.length && !pinned && (
-          <Switch
-            label={t('video.motion.followScale')}
-            checked={!tracked.positionOnly}
-            onChange={(follows: boolean) =>
-              editItem<Trackable>(item.id, null, (current) =>
-                current.transform.track
-                  ? {
-                      ...current,
-                      transform: {
-                        ...current.transform,
-                        track: { ...current.transform.track, positionOnly: !follows },
-                      },
-                    }
-                  : current,
-              )
-            }
-          />
-        )}
-        {placing ? (
-          <>
-            <TrackKindControl disabled={running} />
-            <Tracker jobs={[{ key: item.id, onTrack: () => void trackLayer(item.id) }]} />
-            {!running && <ActionButton icon={X} label={t('video.tracking.cancel')} onClick={cancelTracking} />}
-          </>
-        ) : (
-          <ActionButton
-            icon={Crosshair}
-            label={t('video.motion.trackMotion')}
-            onClick={() => startTrackingPlacement(item.id)}
-          />
-        )}
-        {planar && !placing && !samePin(tracked, item.transform.pin) && (
-          <ActionButton icon={Pin} label={t('video.tracking.pinToPlane')} onClick={() => pinToPlane(item.id)} />
-        )}
+        {placing && !running && <ActionButton icon={X} label={t('video.tracking.cancel')} onClick={cancelTracking} />}
         <TransformKeyframes item={item} />
       </div>
     </InspectorSection>

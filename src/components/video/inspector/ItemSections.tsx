@@ -50,7 +50,9 @@ import {
 } from '../../../types/video';
 import { editProject, getVideo, setPlayhead, useVideoStore } from '../../../store/useVideoStore';
 import { contentSize } from '../../../utils/video/layouts';
-import { prepareReverse, setClipReversed, setCornerPin, useVideoMotion } from '../../../store/videoMotion';
+import { prepareReverse, setClipReversed, setCornerPin, setPinFit, useVideoMotion } from '../../../store/videoMotion';
+import { attachOf } from '../../../utils/video/maskTracking';
+import { PinFitControl } from '../TrackControls';
 import { setTransitionKind } from '../../../store/videoEffects';
 import { useUIStore } from '../../../store/useUIStore';
 import {
@@ -266,6 +268,11 @@ export function TransformSection({ item, pinnable = true }: { item: Transformabl
             checked={pinned}
             onChange={(enabled: boolean) => setCornerPin(item.id, enabled)}
           />
+          {pinned && attachOf(transform.track) !== 'pin' && (
+            <div className="mt-2">
+              <PinFitControl value={transform.pinFit ?? 'stretch'} onChange={(fit) => setPinFit(item.id, fit)} />
+            </div>
+          )}
         </div>
       )}
       {item.type === 'clip' && <ReframeRow item={item} />}

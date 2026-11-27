@@ -1,15 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import SegmentedControl from '../ui/SegmentedControl';
-import Text from '../ui/Text';
-import { TextColors, TextVariants } from '../../types/typography';
 import { useVideoStore } from '../../store/useVideoStore';
 import { sourceFpsOf } from '../../store/videoEditing';
-import { maskItem, maskTrackKey, trackStampSource, useVideoMotion } from '../../store/videoMotion';
+import { maskItem, maskTrackKey, trackStampSource, useTrackDone, useVideoMotion } from '../../store/videoMotion';
 import { stampWarpsNow, useVideoRetouch } from '../../store/videoStamps';
-import { maskTrackSpan } from '../../utils/video/edit';
+import { maskTrackCoverage, maskTrackSpan } from '../../utils/video/edit';
+import { formatDuration } from '../../utils/video/time';
+import { useShallow } from 'zustand/react/shallow';
 import { SourceMode, StampContainer, shownStamp, storedStamp } from '../../utils/video/maskTracking';
 import MaskTrackingControls, { ownedUpdater } from './MaskTracking';
-import { TrackedRow } from './TrackControls';
+import { ChoiceRow } from './TrackControls';
 
 const SOURCE_MODES: Array<SourceMode> = ['follow', 'fixed', 'track'];
 
@@ -25,10 +24,29 @@ export default function StampControls({
   const project = useVideoStore((state) => state.project);
   const sourceKey = useVideoStore(() => maskTrackKey(`${container.id}:source`));
   const tracking = useVideoMotion((state) => state.tracking !== null);
+  const span = useVideoStore(
+    useShallow((state) => {
+      const item = state.project ? maskItem() : null;
+      return item && state.project
+        ? maskTrackSpan(state.project, item, container.sourceTrack, sourceFpsOf(state.project, item))
+        : null;
+    }),
+  );
+  const coverage = useVideoStore(
+    useShallow((state) => {
+      const item = state.project ? maskItem() : null;
+      return item && state.project
+        ? maskTrackCoverage(state.project, item, container.sourceTrack, sourceFpsOf(state.project, item))
+        : null;
+    }),
+  );
+  const trackedItem = project ? maskItem() : null;
+  const done = useTrackDone(trackedItem, container.sourceTrack, coverage, {
+    onClipBelow: trackedItem?.type === 'adjustment',
+  });
   if (!isVideo) return null;
   const mode = container.sourceMode ?? 'follow';
   const hasSource = container.subMasks.some((subMask) => subMask.parameters?.sourceX !== undefined);
-  const trackedItem = project ? maskItem() : null;
 
   const setMode = (sourceMode: SourceMode) => {
     const before = stampWarpsNow(container);
@@ -61,40 +79,30 @@ export default function StampControls({
               {
                 key: sourceKey,
                 label: t('video.stampTracking.trackSource'),
+                done: done
+                  ? t('video.stampTracking.sourceDone', { duration: formatDuration(span ? span[1] - span[0] : 0) })
+                  : null,
                 disabled: !hasSource,
                 onTrack: trackSource,
+                onRemove: container.sourceTrack?.keys.length
+                  ? () => updateContainer(container.id, { sourceTrack: null })
+                  : undefined,
               },
             ]
           : []
       }
     >
-      <div className="space-y-1.5">
-        <Text variant={TextVariants.small} color={TextColors.secondary} className="block">
-          {t('video.stampTracking.source')}
-        </Text>
-        <SegmentedControl
-          options={SOURCE_MODES.map((id) => ({
-            id,
-            label: t(`video.stampTracking.modes.${id}`),
-            tooltip: t(`video.stampTracking.modes.${id}Tip`),
-          }))}
-          value={mode}
-          disabled={tracking}
-          onChange={setMode}
-        />
-      </div>
-      {mode === 'track' && (
-        <TrackedRow
-          track={container.sourceTrack}
-          span={
-            trackedItem && project
-              ? maskTrackSpan(project, trackedItem, container.sourceTrack, sourceFpsOf(project, trackedItem))
-              : null
-          }
-          durationKey="video.stampTracking.sourceTracked"
-          onRemove={() => updateContainer(container.id, { sourceTrack: null })}
-        />
-      )}
+      <ChoiceRow
+        label={t('video.stampTracking.source')}
+        options={SOURCE_MODES.map((id) => ({
+          id,
+          label: t(`video.stampTracking.modes.${id}`),
+          tooltip: t(`video.stampTracking.modes.${id}Tip`),
+        }))}
+        value={mode}
+        disabled={tracking}
+        onChange={setMode}
+      />
     </MaskTrackingControls>
   );
 }

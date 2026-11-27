@@ -3167,8 +3167,8 @@
       "source": "Quelle",
       "trackSpot": "Stelle tracken",
       "trackSource": "Quelle tracken",
-      "spotTracked": "Stelle über {{duration}} getrackt.",
-      "sourceTracked": "Quelle über {{duration}} getrackt.",
+      "spotDone": "Stelle · {{duration}}",
+      "sourceDone": "Quelle · {{duration}}",
       "modes": {
         "follow": "Folgen",
         "followTip": "Die Quelle bewegt sich mit der getrackten Stelle",
@@ -3262,9 +3262,7 @@
       },
       "lost": "Objekt verloren. Versuche einen größeren Rahmen.",
       "stabilize": "Stabilisieren",
-      "tracking": "Objekt folgen",
-      "trackMotion": "Objekt auswählen",
-      "followScale": "Skalierung und Drehung"
+      "tracking": "Objekt folgen"
     },
     "nesting": {
       "back": "Zurück",
@@ -3374,12 +3372,33 @@
       "progress": "Tracking… {{percent}}%",
       "cancel": "Abbrechen",
       "noClip": "Bewege die Abspielposition über einen Videoclip.",
-      "tracked": "Über {{duration}} getrackt.",
+      "done": "Getrackt · {{duration}}",
       "remove": "Entfernen",
-      "position": "Position",
-      "planar": "Planar",
-      "pinToPlane": "An Ebene anheften",
-      "notConvex": "Der Umriss der Ebene überschneidet sich."
+      "position": "Objekt",
+      "planar": "Fläche",
+      "positionTip": "Trackt alles, etwa Personen, Gesichter oder Objekte",
+      "planarTip": "Trackt eine flache Fläche wie einen Bildschirm, eine Wand oder ein Schild",
+      "notConvex": "Der Umriss der Ebene überschneidet sich.",
+      "attach": {
+        "title": "Verankerung",
+        "move": "Bewegen",
+        "transform": "Transformieren",
+        "perspective": "Perspektive",
+        "pin": "Anheften",
+        "moveTip": "Folgt nur der Position",
+        "transformTip": "Folgt Position, Skalierung und Drehung",
+        "perspectiveTip": "Folgt der Fläche in Perspektive",
+        "pinTip": "Liegt genau auf der getrackten Fläche"
+      },
+      "fit": {
+        "title": "Anpassung",
+        "fill": "Füllen",
+        "fit": "Einpassen",
+        "stretch": "Strecken",
+        "fillTip": "Bedeckt die Fläche und schneidet Überstehendes ab",
+        "fitTip": "Zeigt die ganze Ebene innerhalb der Fläche",
+        "stretchTip": "Streckt die Ebene auf die Ecken der Fläche"
+      }
     },
     "transitions": {
       "blur": "Unschärfe",

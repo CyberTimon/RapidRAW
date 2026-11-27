@@ -52,9 +52,16 @@ pub enum BlendMode {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Coverage {
+    pub bounds: [f32; 4],
+    pub to_frame: [[f32; 3]; 2],
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Placement {
     pub canvas_to_layer: [[f32; 3]; 2],
     pub perspective: Option<[f32; 3]>,
+    pub coverage: Option<Coverage>,
     pub opacity: f32,
     pub blend: BlendMode,
 }
@@ -80,12 +87,18 @@ impl Placement {
                 [0.0, 1.0 / scale, -offset(canvas.1, layer.1) / scale],
             ],
             perspective: None,
+            coverage: None,
             opacity: 1.0,
             blend: BlendMode::Normal,
         }
     }
 
-    pub fn projective(canvas_to_layer: Projective, opacity: f32, blend: BlendMode) -> Self {
+    pub fn projective(
+        canvas_to_layer: Projective,
+        coverage: Option<Coverage>,
+        opacity: f32,
+        blend: BlendMode,
+    ) -> Self {
         let largest = canvas_to_layer
             .iter()
             .flatten()
@@ -95,6 +108,7 @@ impl Placement {
         Self {
             canvas_to_layer: [x, y],
             perspective: Some(w),
+            coverage,
             opacity,
             blend,
         }
@@ -115,8 +129,15 @@ impl Placement {
         let w = self.perspective.unwrap_or([0.0, 0.0, 1.0]);
         let shift =
             |row: [f32; 3], by: f32| std::array::from_fn(|index| row[index] - by * w[index]);
+        let coverage = self.coverage.map(|coverage| Coverage {
+            to_frame: coverage
+                .to_frame
+                .map(|[a, b, t]| [a, b, t + a * ox + b * oy]),
+            ..coverage
+        });
         Self {
             canvas_to_layer: [shift(x, ox), shift(y, oy)],
+            coverage,
             ..*self
         }
     }
@@ -176,7 +197,7 @@ pub enum Packing {
 #[derive(Debug, Default, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct Params {
     grid: Grid,
-    values: [[f32; 4]; 4],
+    values: [[f32; 4]; 6],
     modes: [[u32; 4]; 2],
 }
 
@@ -432,6 +453,12 @@ fn pinned_composite(
         .canvas_to_layer
         .map(|row| row.map(|value| value * scale));
     let [wx, wy, wz] = perspective;
+    let Coverage { bounds, to_frame } = placement.coverage.unwrap_or(Coverage {
+        bounds: [0.0, 0.0, width as f32, height as f32],
+        to_frame: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+    });
+    let [left, top, right, bottom] = bounds.map(|value| value * scale);
+    let [row_x, row_y] = to_frame.map(|[a, b, t]| [a, b, t * scale, 0.0]);
     pass(
         enc,
         "vc_pin",
@@ -440,7 +467,9 @@ fn pinned_composite(
             .with(0, [x[0], x[1], x[2], placement.opacity.clamp(0.0, 1.0)])
             .with(1, [y[0], y[1], y[2], 0.0])
             .with(2, [wx, wy, wz, 0.0])
-            .with(3, [width as f32 * scale, height as f32 * scale, 0.0, 0.0])
+            .with(3, [left, top, right, bottom])
+            .with(4, row_x)
+            .with(5, row_y)
             .modes(0, [placement.blend as u32, MAX_PIN_TAPS, 0, 0]),
     )
 }
