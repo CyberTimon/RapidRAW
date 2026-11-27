@@ -75,7 +75,7 @@ import {
   useProjectFps,
   useVideoStore,
 } from '../../../store/useVideoStore';
-import { editAudio, playInToOut, toggleLoop } from '../../../store/videoPlayback';
+import { editAudio, holdSeekResume, playInToOut, toggleLoop } from '../../../store/videoPlayback';
 import { exportFrame, nextFrame, previousFrame, toStart } from '../../../store/videoShortcuts';
 import { beatPathOf, loadBeats, useVideoBeats } from '../../../store/videoBeats';
 import { useDuckCurveSync } from '../../../store/videoDucking';
@@ -454,11 +454,13 @@ function PlayheadLine({
   pps,
   scrollRef,
   visibleRef,
+  onFollow,
   onPointerDown,
 }: {
   pps: number;
   scrollRef: RefObject<HTMLDivElement | null>;
   visibleRef: RefObject<Visible>;
+  onFollow(): void;
   onPointerDown(e: ReactPointerEvent): void;
 }) {
   const gripRef = useRef<HTMLDivElement>(null);
@@ -472,8 +474,9 @@ function PlayheadLine({
       const { start, end } = visibleRef.current;
       if (!el || !isPlaying || (x >= start && x <= end - 40)) return;
       el.scrollLeft = Math.round(Math.max(0, x - (end - start) * 0.1));
+      if (moving) onFollow();
     },
-    [pps, scrollRef, visibleRef],
+    [pps, scrollRef, visibleRef, onFollow],
   );
   usePlayheadMotion(place);
   return (
@@ -988,6 +991,8 @@ export default function Timeline() {
     return () => observer.disconnect();
   }, [updateScroll, fitSpare]);
 
+  const followPlayhead = useCallback(() => flushSync(updateScroll), [updateScroll]);
+
   baseHeightRef.current = layout ? layout.height - spare : 0;
   const projectId = project?.id ?? null;
   const anchorKey = resize?.anchor ?? null;
@@ -1213,6 +1218,7 @@ export default function Timeline() {
     event.stopPropagation();
     capture(event);
     interactionRef.current = { kind: 'scrub' };
+    holdSeekResume(true);
     setPlayhead(pointerTime(event.clientX));
   };
 
@@ -1468,6 +1474,7 @@ export default function Timeline() {
   };
 
   const finishInteraction = () => {
+    holdSeekResume(false);
     cancelAnimationFrame(frameRef.current);
     frameRef.current = 0;
     const interaction = interactionRef.current;
@@ -2114,7 +2121,13 @@ export default function Timeline() {
                   style={marquee}
                 />
               )}
-              <PlayheadLine pps={pps} scrollRef={scrollRef} visibleRef={visibleRef} onPointerDown={beginScrub} />
+              <PlayheadLine
+                pps={pps}
+                scrollRef={scrollRef}
+                visibleRef={visibleRef}
+                onFollow={followPlayhead}
+                onPointerDown={beginScrub}
+              />
             </div>
           </div>
         </div>

@@ -9,7 +9,7 @@ import { ClipSettings, FrameRate, Ticks } from '../../types/video';
 import { useEditorStore } from '../../store/useEditorStore';
 import { useProcessStore } from '../../store/useProcessStore';
 import { createVideoProject, setPlayhead, useVideoStore } from '../../store/useVideoStore';
-import { toggleLoop } from '../../store/videoPlayback';
+import { holdSeekResume, toggleLoop } from '../../store/videoPlayback';
 import { exportVideoFrame } from '../../store/videoExport';
 import { TrimEdge, resetTrim, setPoster, setTrim, toggleClipMute } from '../../store/videoClip';
 import { clipSettingsOf, sequenceDuration, trimRange } from '../../utils/video/model';
@@ -159,6 +159,7 @@ function ClipTrack({ path, duration, fps, settings }: TrackProps) {
       TrimEdge | undefined;
     lastEdgeRef.current = edge ?? null;
     event.currentTarget.setPointerCapture(event.pointerId);
+    holdSeekResume(true);
     if (edge) {
       dragRef.current = { kind: 'trim', edge, time: null };
       return;
@@ -184,6 +185,7 @@ function ClipTrack({ path, duration, fps, settings }: TrackProps) {
   };
 
   const handlePointerUp = () => {
+    holdSeekResume(false);
     const drag = dragRef.current;
     dragRef.current = null;
     setLiveTrim(null);

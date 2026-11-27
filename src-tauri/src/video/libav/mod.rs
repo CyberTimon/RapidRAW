@@ -19,7 +19,7 @@ use sys::avformat::AvFormat;
 use sys::avutil::AvUtil;
 use sys::types::*;
 
-pub const AGAIN: c_int = -11;
+pub const AGAIN: c_int = -libc::EAGAIN;
 pub const END: c_int = -541_478_725;
 pub const NO_PTS: i64 = i64::MIN;
 pub const TIME_BASE: AVRational = AVRational {

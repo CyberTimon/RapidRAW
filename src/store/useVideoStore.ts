@@ -80,7 +80,7 @@ import { useLibraryStore } from './useLibraryStore';
 import { useProcessStore } from './useProcessStore';
 import { useSettingsStore } from './useSettingsStore';
 import { useUIStore } from './useUIStore';
-import { pause, prepareAtPlayhead } from './videoPlayback';
+import { continueAfterSeek, isResumingAfterSeek, pause, prepareAtPlayhead } from './videoPlayback';
 import { prepareTimelapses } from './videoTimelapse';
 import { cancelTranscription } from './videoCaptions';
 import { ensureTitleRasters, isProgramView, requestProgramFrame, showsPresets } from './videoView';
@@ -747,9 +747,11 @@ export const focusPlayhead = async () => {
 export const setPlayhead = (time: Ticks) => {
   const { project, isPlaying } = getVideo();
   if (!project) return;
+  const resume = isPlaying || isResumingAfterSeek();
   if (isPlaying) pause();
   setVideo({ playhead: clampPlayhead(project, time) });
   void focusPlayhead();
+  if (resume) continueAfterSeek();
 };
 
 export const stepFrames = (frames: number) => {
