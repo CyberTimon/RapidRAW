@@ -16,6 +16,7 @@ wanted="zlib libdav1d libopus libvpx libsvtav1 libopenh264 libkvazaar ffnvcodec 
 case "$TARGET" in
   win64 | winarm64)
     os=windows
+    wanted="${wanted/ libkvazaar/}"
     platform=(--disable-w32threads --enable-pthreads)
     ;;
   linux64 | linuxarm64)

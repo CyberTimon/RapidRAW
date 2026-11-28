@@ -226,11 +226,11 @@ fn ffmpeg_archive(target_os: &str, target_arch: &str) -> Option<(&'static str, &
     match (target_os, target_arch) {
         ("windows", "x86_64") => Some((
             "ffmpeg-windows-x86_64.zip",
-            "8345e3e681a1929104d995d0cb7980b1fdb04a5f92ab064812e05d1c52f28e71",
+            "a363110e8b739a0092a95aa985bd27cb1ae3737f67a9447b61d85e48fe5be84e",
         )),
         ("windows", "aarch64") => Some((
             "ffmpeg-windows-aarch64.zip",
-            "b9bb8a9a39b1d1dfad8a5af80661ff556feaa672d4923984d234da6f7af2140a",
+            "7d99304c5d1c5b896e54e29a4590d7ac5711fca1c7c67aadd9c67e5a44b983d1",
         )),
         ("linux", "x86_64") => Some((
             "ffmpeg-linux-x86_64.tar.xz",

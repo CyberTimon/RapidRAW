@@ -316,13 +316,23 @@ pub fn video_settings(
             target.unwrap_or_else(|| option("b", bit_rate(info.codec, level, fps, size))),
             option("allow_skip_frames", "0"),
         ]),
-        "libkvazaar" => match target {
-            Some(target) => options.extend([option("kvazaar-params", "preset=fast"), target]),
-            None => options.push(option(
-                "kvazaar-params",
-                format!("preset=fast,qp={}", ["22", "26", "31"][level]),
-            )),
-        },
+        "libkvazaar" => {
+            let simd = if cfg!(all(windows, target_arch = "x86_64")) {
+                ",cpuid=0"
+            } else {
+                ""
+            };
+            match target {
+                Some(target) => options.extend([
+                    option("kvazaar-params", format!("preset=fast{simd}")),
+                    target,
+                ]),
+                None => options.push(option(
+                    "kvazaar-params",
+                    format!("preset=fast,qp={}{simd}", ["22", "26", "31"][level]),
+                )),
+            }
+        }
         "libsvtav1" => options.extend([
             option("preset", "6"),
             target.unwrap_or_else(|| option("crf", ["28", "34", "40"][level])),
