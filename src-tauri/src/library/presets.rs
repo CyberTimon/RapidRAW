@@ -98,10 +98,8 @@ pub async fn generate_preset_preview(
         let (scale_for_gpu, unscaled_crop_offset) = (preview.scale, preview.unscaled_crop_offset);
         let (img_w, img_h) = source.size();
 
-        let mask_definitions: Vec<MaskDefinition> = js_adjustments
-            .get("masks")
-            .and_then(|m| serde_json::from_value(m.clone()).ok())
-            .unwrap_or_default();
+        let mask_definitions: Vec<MaskDefinition> =
+            crate::masks::generation::mask_definitions_from(&js_adjustments);
 
         let scaled_crop_offset = (
             unscaled_crop_offset.0 * scale_for_gpu,
@@ -295,10 +293,8 @@ pub async fn generate_all_community_previews(
                     RenderSource::edited(&converted, source_id, image_path, &scaled_adjustments);
                 let (img_w, img_h) = source.size();
 
-                let mask_definitions: Vec<MaskDefinition> = scaled_adjustments
-                    .get("masks")
-                    .and_then(|m| serde_json::from_value(m.clone()).ok())
-                    .unwrap_or_else(Vec::new);
+                let mask_definitions: Vec<MaskDefinition> =
+                    crate::masks::generation::mask_definitions_from(&scaled_adjustments);
 
                 let unscaled_crop_offset = js_adjustments
                     .get("crop")

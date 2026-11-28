@@ -79,10 +79,8 @@ fn process_image_for_export_pipeline(
     let crop_offset = source.crop_offset();
     let (img_w, img_h) = source.size();
 
-    let mask_definitions: Vec<MaskDefinition> = js_adjustments
-        .get("masks")
-        .and_then(|m| serde_json::from_value(m.clone()).ok())
-        .unwrap_or_default();
+    let mask_definitions: Vec<MaskDefinition> =
+        crate::masks::generation::mask_definitions_from(js_adjustments);
 
     let warped_image = build_warped_image_for_masks(
         base_image,
