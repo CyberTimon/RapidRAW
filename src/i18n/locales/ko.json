@@ -2310,6 +2310,8 @@
           "description": "마스크, 태그 지정, 간단한 생성형 교체를 이 컴퓨터에서 실행합니다.",
           "gpuAcceleration": "GPU 가속",
           "gpuAccelerationDesc": "노이즈 제거, 마스크, 깊이 맵, 태그 지정을 그래픽 카드에서 실행합니다. AI 기능이 충돌하거나 결과가 이상하면 끄세요.",
+          "halfPrecision": "반정밀도",
+          "halfPrecisionDesc": "AI 노이즈 제거를 그래픽 카드에서 16비트 정밀도로 실행합니다. 더 빠르지만 결과가 아주 약간 다를 수 있습니다.",
           "title": "내장 AI"
         },
         "description": "AI 기능을 실행할 위치를 선택하세요.",

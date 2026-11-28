@@ -2310,6 +2310,8 @@
           "description": "Führt Masken, Tagging und einfaches generatives Ersetzen auf diesem Computer aus.",
           "gpuAcceleration": "GPU-Beschleunigung",
           "gpuAccelerationDesc": "Führt Entrauschen, Masken, Tiefenkarten und Tagging auf der Grafikkarte aus. Deaktiviere es, wenn KI-Funktionen abstürzen oder falsch aussehen.",
+          "halfPrecision": "Halbe Genauigkeit",
+          "halfPrecisionDesc": "Führt KI-Entrauschen auf der Grafikkarte mit 16-Bit-Genauigkeit aus. Das ist schneller, aber das Ergebnis kann minimal abweichen.",
           "title": "Integrierte KI"
         },
         "description": "Wähle, wo KI-Funktionen ausgeführt werden.",

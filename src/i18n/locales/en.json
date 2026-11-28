@@ -2310,6 +2310,8 @@
           "description": "Runs masks, tagging and simple generative replace on this computer.",
           "gpuAcceleration": "GPU Acceleration",
           "gpuAccelerationDesc": "Runs denoise, masks, depth maps and tagging on the graphics card. Turn it off if AI features crash or look wrong.",
+          "halfPrecision": "Half Precision",
+          "halfPrecisionDesc": "Runs AI denoise on the graphics card in 16-bit precision. It is faster, but the result can differ very slightly.",
           "title": "Built-in AI"
         },
         "description": "Choose where AI features run.",

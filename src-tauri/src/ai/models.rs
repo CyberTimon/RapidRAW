@@ -672,7 +672,10 @@ fn create_session(
     use_gpu: bool,
     patch: Option<ModelPatch>,
     fixed_dims: &[(&str, i64)],
+    half_precision_except: Option<&[&str]>,
 ) -> ort::Result<Session> {
+    let model =
+        crate::ai::onnx_rewrite::optimized_model(model_path, use_gpu, half_precision_except);
     let mut builder = session_builder()?;
     if use_gpu || kind == SessionKind::OneShot {
         builder = builder.with_memory_pattern(false)?;
@@ -692,12 +695,18 @@ fn create_session(
     let mut builder = builder.with_execution_providers([cpu])?;
     match patch {
         Some(patch) => {
-            let model = patch()?;
-            let mut session = builder.edit_from_file(model_path)?;
-            session.apply_model(&model)?;
+            let patch = patch()?;
+            let mut session = match &model {
+                Some(model) => builder.edit_from_memory(model)?,
+                None => builder.edit_from_file(model_path)?,
+            };
+            session.apply_model(&patch)?;
             session.into_session()
         }
-        None => builder.commit_from_file(model_path),
+        None => match &model {
+            Some(model) => builder.commit_from_memory(model),
+            None => builder.commit_from_file(model_path),
+        },
     }
 }
 
@@ -707,7 +716,7 @@ fn build_session(
     use_gpu: bool,
     patch: Option<ModelPatch>,
 ) -> Result<Session> {
-    build_session_with_dims(model_path, kind, use_gpu, patch, &[])
+    build_session_with_dims(model_path, kind, use_gpu, patch, &[], None)
 }
 
 fn build_session_with_dims(
@@ -716,9 +725,17 @@ fn build_session_with_dims(
     use_gpu: bool,
     patch: Option<ModelPatch>,
     fixed_dims: &[(&str, i64)],
+    half_precision_except: Option<&[&str]>,
 ) -> Result<Session> {
     if use_gpu && GPU_STATUS.load(Ordering::Acquire) < GPU_FAILED && gpu_provider_available() {
-        match create_session(model_path, kind, true, patch, fixed_dims) {
+        match create_session(
+            model_path,
+            kind,
+            true,
+            patch,
+            fixed_dims,
+            half_precision_except,
+        ) {
             Ok(session) => {
                 let _ = GPU_STATUS.compare_exchange(
                     GPU_IDLE,
@@ -735,7 +752,14 @@ fn build_session_with_dims(
             ),
         }
     }
-    Ok(create_session(model_path, kind, false, patch, fixed_dims)?)
+    Ok(create_session(
+        model_path, kind, false, patch, fixed_dims, None,
+    )?)
+}
+
+fn gpu_half_precision_enabled(app_handle: &tauri::AppHandle) -> bool {
+    crate::app::settings::load_settings(app_handle.clone())
+        .is_ok_and(|settings| settings.ai_half_precision.unwrap_or(false))
 }
 
 pub fn gpu_acceleration_enabled(app_handle: &tauri::AppHandle) -> bool {
@@ -1059,11 +1083,13 @@ pub async fn get_or_init_denoise_model(
     download_and_verify_model(app_handle, &models_dir, &DENOISE_ASSET).await?;
 
     let model_path = models_dir.join(DENOISE_FILENAME);
-    let session = build_session(
+    let session = build_session_with_dims(
         &model_path,
         SessionKind::Persistent,
         gpu_acceleration_enabled(app_handle),
         Some(denoise_crop_as_slice),
+        &[],
+        gpu_half_precision_enabled(app_handle).then_some(&["conv2d_9"]),
     )?;
     let denoise_model = Arc::new(Mutex::new(session));
 
@@ -1105,6 +1131,7 @@ pub async fn get_or_init_upscale_model(
         gpu_acceleration_enabled(app_handle),
         None,
         &UPSCALE_SPATIAL_DIMS.map(|dim| (dim, tile)),
+        None,
     )?;
     let upscale_model = Arc::new(Mutex::new(session));
 

@@ -2381,6 +2381,8 @@
           "description": "Esegue maschere, tagging e semplici sostituzioni generative su questo computer.",
           "gpuAcceleration": "Accelerazione GPU",
           "gpuAccelerationDesc": "Esegue riduzione del rumore, maschere, mappe di profondità e tagging sulla scheda grafica. Disattivala se le funzioni IA si bloccano o danno risultati errati.",
+          "halfPrecision": "Mezza precisione",
+          "halfPrecisionDesc": "Esegue la riduzione rumore IA sulla scheda grafica con precisione a 16 bit. È più veloce, ma il risultato può differire molto leggermente.",
           "title": "AI Integrata"
         },
         "description": "Scegli dove vengono eseguite le funzioni IA.",

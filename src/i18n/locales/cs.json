@@ -2452,6 +2452,8 @@
           "description": "Spouští masky, značkování a jednoduchou generativní náhradu na tomto počítači.",
           "gpuAcceleration": "Akcelerace GPU",
           "gpuAccelerationDesc": "Spouští odšumění, masky, hloubkové mapy a značkování na grafické kartě. Vypněte, pokud funkce AI padají nebo dávají chybné výsledky.",
+          "halfPrecision": "Poloviční přesnost",
+          "halfPrecisionDesc": "Spouští AI odšumění na grafické kartě s 16bitovou přesností. Je rychlejší, ale výsledek se může velmi mírně lišit.",
           "title": "Vestavěná AI"
         },
         "description": "Vyberte, kde běží funkce AI.",

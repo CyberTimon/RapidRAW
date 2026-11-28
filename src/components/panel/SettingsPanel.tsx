@@ -1332,7 +1332,7 @@ export default function SettingsPanel({
                               description={t('settings.processing.ai.cpu.description')}
                             />
                             {(osPlatform === 'windows' || osPlatform === 'macos' || osPlatform === 'linux') && (
-                              <div className="mt-6">
+                              <div className="mt-6 space-y-6">
                                 <SettingItem
                                   inline
                                   label={t('settings.processing.ai.cpu.gpuAcceleration')}
@@ -1346,6 +1346,21 @@ export default function SettingsPanel({
                                     }
                                   />
                                 </SettingItem>
+                                {osPlatform === 'linux' && (appSettings?.aiGpuAcceleration ?? true) && (
+                                  <SettingItem
+                                    inline
+                                    label={t('settings.processing.ai.cpu.halfPrecision')}
+                                    tooltip={t('settings.processing.ai.cpu.halfPrecisionDesc')}
+                                  >
+                                    <Switch
+                                      checked={appSettings?.aiHalfPrecision ?? false}
+                                      id="ai-half-precision-toggle"
+                                      onChange={(checked) =>
+                                        onSettingsChange({ ...appSettings, aiHalfPrecision: checked })
+                                      }
+                                    />
+                                  </SettingItem>
+                                )}
                               </div>
                             )}
                           </motion.div>
