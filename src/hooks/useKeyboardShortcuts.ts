@@ -815,6 +815,8 @@ export const useKeyboardShortcuts = ({
       const target = event.target;
       const isInputTarget =
         target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable) ||
         (target instanceof HTMLInputElement && !NON_TEXT_INPUT_TYPES.has(target.type));
       if (isInputTarget) return;
 

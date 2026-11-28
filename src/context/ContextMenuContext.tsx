@@ -382,15 +382,21 @@ export function ContextMenuProvider({ children }: ContextMenuProviderProps) {
       }
     };
 
+    // Typing a long value scrolls the text inside an input of an interactive submenu, which must not close it.
+    const handleScroll = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest('[role="menu"]')) return;
+      hideContextMenu();
+    };
+
     if (menuState.isVisible) {
       document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', hideContextMenu, true);
+      window.addEventListener('scroll', handleScroll, true);
       document.addEventListener('keydown', handleKeyDown);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', hideContextMenu, true);
+      window.removeEventListener('scroll', handleScroll, true);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [menuState.isVisible, hideContextMenu]);
