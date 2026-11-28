@@ -227,8 +227,6 @@ pub fn run_ai_upscale(
     run_tiled(rgb_img, session, UPSCALE_TILE, scale, on_progress)
 }
 
-// RawRefinery model uses 256×256 tiles with a 4-pixel margin and 3-pixel blend overlap.
-// Inputs are named: "batch_rgb" (the tile) and "conditioning" (1×1 scalar).
 const RAWREFINERY_CS: usize = 256;
 const RAWREFINERY_MARGIN: usize = 4;
 const RAWREFINERY_COND: f32 = 15.0;
