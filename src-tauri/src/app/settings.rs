@@ -748,6 +748,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub keybinds: HashMap<String, Vec<String>>,
     #[serde(default)]
+    pub speed_edit_adjustments: Option<Vec<String>>,
+    #[serde(default)]
     pub thumbnail_worker_threads: Option<u32>,
     #[serde(default)]
     pub image_cache_size: Option<u32>,
@@ -977,6 +979,7 @@ impl Default for AppSettings {
             zoom_speed_multiplier: Some(1.0),
             zoom_photo_to_pixel_click: Some(false),
             keybinds: HashMap::new(),
+            speed_edit_adjustments: None,
             #[cfg(target_os = "android")]
             thumbnail_worker_threads: Some(2),
             #[cfg(not(target_os = "android"))]

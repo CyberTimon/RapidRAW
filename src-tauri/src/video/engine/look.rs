@@ -486,7 +486,7 @@ pub fn render_look(
         SourceTransform::from_adjustments(target.path, json),
     )
     .scaled(base_scale)
-    .as_footage(target.footage);
+    .with_footage(target.footage);
     let crop_offset = render_source.crop_offset();
     let (width, height) = render_source.size();
     let stamp_space = StampSpace::new(

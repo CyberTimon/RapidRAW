@@ -250,7 +250,7 @@ impl<'a> RenderSource<'a> {
         Self { stamps, ..self }
     }
 
-    pub fn as_footage(self, footage: bool) -> Self {
+    pub fn with_footage(self, footage: bool) -> Self {
         Self { footage, ..self }
     }
 
