@@ -1,3 +1,8 @@
+export interface LibraryGridRow {
+  top: number;
+  items: Array<{ path: string; center: number }>;
+}
+
 export enum RawStatus {
   All = 'all',
   NonRawOnly = 'nonRawOnly',

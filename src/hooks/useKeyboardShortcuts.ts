@@ -760,9 +760,58 @@ export const useKeyboardShortcuts = ({
         },
       },
       {
+        match: (e: KeyboardEvent, s: ShortcutState) =>
+          s.ui.activeView === 'library' &&
+          ['Home', 'End', 'PageUp', 'PageDown'].includes(e.code) &&
+          !e.defaultPrevented &&
+          !e.isComposing &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          !e.shiftKey &&
+          !s.ui.isCreateAlbumModalOpen &&
+          !s.ui.isCreateAlbumGroupModalOpen &&
+          !s.ui.isRenameAlbumModalOpen &&
+          !(
+            e.target instanceof Element &&
+            e.target.closest(
+              'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="combobox"]',
+            )
+          ) &&
+          !document.querySelector('[role="dialog"], [role="listbox"], [role="menu"], [data-dropdown-menu]'),
+        execute: (e: KeyboardEvent, s: ShortcutState) => {
+          const rows = s.library.libraryGridRows;
+          if (rows.length === 0) return;
+          e.preventDefault();
+          const backwards = e.code === 'Home' || e.code === 'PageUp';
+          let path = e.code === 'End' || e.code === 'PageUp' ? rows.at(-1)!.items.at(-1)!.path : rows[0].items[0].path;
+          if (e.code === 'PageUp' || e.code === 'PageDown') {
+            const rowIndex = rows.findIndex((row) =>
+              row.items.some((item) => item.path === s.library.libraryActivePath),
+            );
+            if (rowIndex !== -1) {
+              const row = rows[rowIndex];
+              const direction = backwards ? -1 : 1;
+              const targetTop = row.top + direction * s.library.libraryViewportHeight;
+              let targetIndex = Math.max(0, Math.min(rows.length - 1, rowIndex + direction));
+              for (let i = targetIndex + direction; i >= 0 && i < rows.length; i += direction) {
+                if (Math.abs(rows[i].top - targetTop) >= Math.abs(rows[targetIndex].top - targetTop)) break;
+                targetIndex = i;
+              }
+              const center = row.items.find((item) => item.path === s.library.libraryActivePath)!.center;
+              path = rows[targetIndex].items.reduce((best, item) =>
+                Math.abs(item.center - center) < Math.abs(best.center - center) ? item : best,
+              ).path;
+            }
+          }
+          s.library.setLibrary({ libraryActivePath: path, multiSelectedPaths: [path], selectionAnchorPath: path });
+          handleImageSelect(path, false);
+        },
+      },
+      {
         match: (e: KeyboardEvent, s: any) =>
           s.ui.activeView === 'library' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code),
-        execute: (e: KeyboardEvent, s: any) => {
+        execute: (e: KeyboardEvent, s: ShortcutState) => {
           e.preventDefault();
           const activePath = s.library.libraryActivePath;
           if (!activePath || sortedListRef.current.length === 0) return;
@@ -772,13 +821,15 @@ export const useKeyboardShortcuts = ({
           };
           const isVertical = e.code === 'ArrowUp' || e.code === 'ArrowDown';
           const isNext = e.code === 'ArrowRight' || e.code === 'ArrowDown';
-          const gridRows: Array<Array<{ path: string; center: number }>> = s.library.libraryGridRows;
-          const rowIndex = isVertical ? gridRows.findIndex((row) => row.some((item) => item.path === activePath)) : -1;
+          const gridRows = s.library.libraryGridRows;
+          const rowIndex = isVertical
+            ? gridRows.findIndex((row) => row.items.some((item) => item.path === activePath))
+            : -1;
           if (rowIndex !== -1) {
             const targetRow = gridRows[rowIndex + (isNext ? 1 : -1)];
             if (!targetRow) return;
-            const center = gridRows[rowIndex].find((item) => item.path === activePath)!.center;
-            const closest = targetRow.reduce((best, item) =>
+            const center = gridRows[rowIndex].items.find((item) => item.path === activePath)!.center;
+            const closest = targetRow.items.reduce((best, item) =>
               Math.abs(item.center - center) < Math.abs(best.center - center) ? item : best,
             );
             selectPath(closest.path);

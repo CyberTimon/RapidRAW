@@ -7,6 +7,7 @@ import {
   SortDirection,
   AlbumItem,
   ColumnWidths,
+  LibraryGridRow,
 } from '../types/library';
 import { Adjustments, INITIAL_ADJUSTMENTS } from '../utils/adjustments';
 
@@ -55,7 +56,8 @@ interface LibraryState {
   isViewLoading: boolean;
   libraryScrollTop: number;
   listColumnWidths: ColumnWidths;
-  libraryGridRows: Array<Array<{ path: string; center: number }>>;
+  libraryGridRows: LibraryGridRow[];
+  libraryViewportHeight: number;
 
   // Navigation History
   navHistory: NavHistoryItem[];
@@ -97,6 +99,7 @@ export const useLibraryStore = create<LibraryState>((set) => ({
   isViewLoading: false,
   libraryScrollTop: 0,
   libraryGridRows: [],
+  libraryViewportHeight: 0,
   listColumnWidths: {
     thumbnail: 4,
     name: 20,
