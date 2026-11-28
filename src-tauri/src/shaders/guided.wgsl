@@ -184,7 +184,7 @@ const TB_CLIP_BAND: f32 = 0.1;
 const TB_CLIP_FLAT: f32 = 0.02;
 const TB_CLIP_LO: f32 = 0.0005;
 const TB_CLIP_HI: f32 = 0.0015;
-const TB_CLIP_FOOTAGE_HI: f32 = 0.02;
+const TB_FOOTAGE_WHITE: f32 = 24.0;
 const TB_CLIP_HEADROOM: f32 = 8.0;
 const TB_CLIP_NEAR_LO: f32 = 0.25;
 const TB_CLIP_NEAR_HI: f32 = 1.0;
@@ -415,8 +415,13 @@ fn tb_peak(@builtin(local_invocation_index) li: u32) {
         below += bin;
     }
     let clipped = f32(atomicLoad(&tb_clipped));
-    let confidence = smoothstep(TB_CLIP_LO, select(TB_CLIP_HI, TB_CLIP_FOOTAGE_HI, params.footage != 0u), clipped / f32(count));
-    textureStore(dst, vec2<u32>(2u, 0u), vec4<f32>(peak + (1.0 - confidence) * TB_CLIP_HEADROOM, confidence, peak, key));
+    var confidence = smoothstep(TB_CLIP_LO, TB_CLIP_HI, clipped / f32(count));
+    var white = peak + (1.0 - confidence) * TB_CLIP_HEADROOM;
+    if (params.footage != 0u) {
+        confidence = 0.0;
+        white = TB_FOOTAGE_WHITE;
+    }
+    textureStore(dst, vec2<u32>(2u, 0u), vec4<f32>(white, confidence, peak, key));
 }
 
 @compute @workgroup_size(8, 8, 1)
