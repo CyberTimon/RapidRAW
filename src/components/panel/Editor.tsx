@@ -522,7 +522,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
     return {
       minScale: Math.max(0.1, minScale),
-      maxScale: Math.max(20, maxScale),
+      maxScale: Math.max(1, maxScale),
     };
   }, [selectedImage, imageRenderSize.scale, originalSize]);
 
@@ -1921,7 +1921,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         lastWgpuTransformRef.current = currentTransform;
         isInvoking = true;
 
-        const isZoomedIn = scale >= maxScaleRef.current - 0.5;
+        const isZoomedIn = scale >= maxScaleRef.current * 0.975;
 
         const sentPath = state.path;
 
@@ -2657,7 +2657,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   }
 
   const isZoomActionActive = !isPanningDisabled;
-  const isMaxZoom = transformScale >= maxScaleRef.current - 0.5;
+  const isMaxZoom = transformScale >= maxScaleRef.current * 0.975;
 
   let cursorStyle = 'default';
   if ((isShiftPressed && !isBrushActive && !isCropping) || straightenDragLine) {
