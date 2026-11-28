@@ -648,9 +648,6 @@ const TreeNode = memo(function TreeNode({
 
   const handleNameClick = () => {
     onFolderSelect(node.path);
-  };
-
-  const handleNameDoubleClick = () => {
     if (hasChildren) {
       onToggle(node.path);
     }
@@ -707,7 +704,7 @@ const TreeNode = memo(function TreeNode({
           <RowIcon icon={ResolvedIcon} iconKey={iconKey} />
         </div>
 
-        <span onDoubleClick={handleNameDoubleClick} className="min-w-0 flex-1 select-none">
+        <span className="min-w-0 flex-1 select-none">
           <span className="block truncate">{node.name}</span>
         </span>
 

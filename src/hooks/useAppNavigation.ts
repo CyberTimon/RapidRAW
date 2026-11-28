@@ -418,7 +418,7 @@ export function useAppNavigation({ clearThumbnailQueue, refs }: AppNavigationPro
                 current = current.substring(0, nextParentIndex);
               }
             }
-            newExpandedFolders.add(relevantRoot);
+            if (path !== relevantRoot) newExpandedFolders.add(relevantRoot);
           }
         }
 
