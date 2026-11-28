@@ -2308,6 +2308,12 @@
         },
         "cpu": {
           "description": "在这台电脑上运行蒙版、标签和简单的生成式替换。",
+          "denoiseModel": "AI 降噪模型",
+          "denoiseModelDesc": "用于降噪的 AI 模型。NIND 是默认模型；RawRefinery 使用不同的网络架构，可能更适合某些图像。",
+          "denoiseModels": {
+            "nind": "NIND（默认）",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "GPU 加速",
           "gpuAccelerationDesc": "在显卡上运行降噪、蒙版、深度图和标签。如果 AI 功能崩溃或结果异常，请关闭此选项。",
           "title": "内置 AI"

@@ -2308,6 +2308,12 @@
         },
         "cpu": {
           "description": "Voert maskers, tagging en eenvoudige generatieve vervanging uit op deze computer.",
+          "denoiseModel": "AI-ruisonderdrukkingsmodel",
+          "denoiseModelDesc": "Het AI-model voor ruisonderdrukking. NIND is de standaard; RawRefinery gebruikt een andere netwerkarchitectuur die voor sommige afbeeldingen beter kan werken.",
+          "denoiseModels": {
+            "nind": "NIND (standaard)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "GPU-versnelling",
           "gpuAccelerationDesc": "Voert ruisonderdrukking, maskers, dieptekaarten en tagging uit op de grafische kaart. Schakel dit uit als AI-functies crashen of er verkeerd uitzien.",
           "title": "Ingebouwde AI"

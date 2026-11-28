@@ -2308,6 +2308,12 @@
         },
         "cpu": {
           "description": "마스크, 태그 지정, 간단한 생성형 교체를 이 컴퓨터에서 실행합니다.",
+          "denoiseModel": "AI 노이즈 제거 모델",
+          "denoiseModelDesc": "노이즈 제거에 사용되는 AI 모델입니다. NIND가 기본값이며, RawRefinery는 일부 이미지에 더 잘 맞을 수 있는 다른 네트워크 아키텍처를 사용합니다.",
+          "denoiseModels": {
+            "nind": "NIND (기본값)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "GPU 가속",
           "gpuAccelerationDesc": "노이즈 제거, 마스크, 깊이 맵, 태그 지정을 그래픽 카드에서 실행합니다. AI 기능이 충돌하거나 결과가 이상하면 끄세요.",
           "title": "내장 AI"

@@ -2308,6 +2308,12 @@
         },
         "cpu": {
           "description": "マスク、タグ付け、シンプルな生成置換をこのコンピューター上で実行します。",
+          "denoiseModel": "AIノイズ除去モデル",
+          "denoiseModelDesc": "ノイズ除去に使用するAIモデルです。NINDがデフォルトで、RawRefineryは一部の画像により適した異なるネットワーク構造を使用します。",
+          "denoiseModels": {
+            "nind": "NIND (デフォルト)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "GPUアクセラレーション",
           "gpuAccelerationDesc": "ノイズ除去、マスク、深度マップ、タグ付けをグラフィックカードで実行します。AI 機能がクラッシュしたり結果がおかしい場合はオフにしてください。",
           "title": "内蔵AI"

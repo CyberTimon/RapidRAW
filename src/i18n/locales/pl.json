@@ -2450,6 +2450,12 @@
         },
         "cpu": {
           "description": "Uruchamia maski, tagowanie i prostą generatywną zamianę na tym komputerze.",
+          "denoiseModel": "Model odszumiania AI",
+          "denoiseModelDesc": "Model AI używany do odszumiania. NIND jest domyślny; RawRefinery używa innej architektury sieci, która może lepiej pasować do niektórych zdjęć.",
+          "denoiseModels": {
+            "nind": "NIND (domyślny)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "Akceleracja GPU",
           "gpuAccelerationDesc": "Uruchamia odszumianie, maski, mapy głębi i tagowanie na karcie graficznej. Wyłącz, jeśli funkcje AI się zawieszają lub dają złe wyniki.",
           "title": "Wbudowane AI"

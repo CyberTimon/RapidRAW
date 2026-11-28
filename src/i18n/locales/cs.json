@@ -2450,6 +2450,12 @@
         },
         "cpu": {
           "description": "Spouští masky, značkování a jednoduchou generativní náhradu na tomto počítači.",
+          "denoiseModel": "Model odšumění AI",
+          "denoiseModelDesc": "Model AI používaný pro odšumění. NIND je výchozí; RawRefinery používá jinou síťovou architekturu, která může lépe vyhovovat některým snímkům.",
+          "denoiseModels": {
+            "nind": "NIND (výchozí)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "Akcelerace GPU",
           "gpuAccelerationDesc": "Spouští odšumění, masky, hloubkové mapy a značkování na grafické kartě. Vypněte, pokud funkce AI padají nebo dávají chybné výsledky.",
           "title": "Vestavěná AI"
