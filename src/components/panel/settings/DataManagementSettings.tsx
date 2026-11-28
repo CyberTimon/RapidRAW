@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import clsx from 'clsx';
 import { FolderOpen, Loader2, RefreshCw, RotateCcw, Trash2 } from 'lucide-react';
 import Text from '../../ui/Text';
-import { TooltipLabel } from './SettingItem';
+import { settingTitle, TooltipLabel } from './SettingItem';
 import { TextColors, TextVariants, TextWeights } from '../../../types/typography';
 import { AppSettings } from '../../../types/settings';
 import { Invokes } from '../../../types/invokes';
@@ -577,11 +577,11 @@ export default function DataManagementSettings({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <div className="flex items-start justify-between gap-4 mb-3">
           <div>
-            <Text variant={TextVariants.heading} className="mb-2">
+            <Text variant={settingTitle} className="mb-2">
               {t('settings.data.storageTitle')}
             </Text>
             <Text variant={TextVariants.small}>
@@ -617,7 +617,7 @@ export default function DataManagementSettings({
       </div>
 
       <div>
-        <Text variant={TextVariants.heading} className="mb-2">
+        <Text variant={settingTitle} className="mb-2">
           {t('settings.data.libraryAndWorkspace')}
         </Text>
         <div className="divide-y divide-border-color">

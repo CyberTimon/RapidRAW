@@ -152,7 +152,6 @@
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "细节",
       "blueYellow": "蓝/黄",
-      "capture": "捕获",
       "centre": "居中",
       "chromaticAberration": "色差",
       "clarity": "清晰度",
@@ -1970,8 +1969,7 @@
       },
       "title": "鼠标控制",
       "zoom": "缩放速度倍率",
-      "zoomClick": "缩放照片至 100%",
-      "zoomClickDesc": "单击时缩放至 100%",
+      "zoomClick": "单击时缩放至 100%",
       "zoomClickInfo": "单击照片会直接缩放至 100%，以检查清晰度和噪点。关闭时，单击会逐步放大。",
       "zoomDesc": "使用滚轮或捏合手势时画布缩放的速度。"
     },
@@ -2070,14 +2068,8 @@
     "general": {
       "createXmp": "创建缺失的 XMP 文件",
       "createXmpDesc": "为没有 XMP 文件的照片写入一个，让其他应用也能看到评分、颜色标签和标签。",
-      "createXmpMissing": "缺失时创建 XMP",
       "displayEditIcon": "显示编辑图标",
       "displayEditIconDesc": "在图库中用图标标记已编辑的照片。",
-      "enableFocusMode": "启用专注模式",
-      "enableNeutralGreyCanvas": "启用中性灰背景",
-      "enableOsTitlebar": "启用系统标题栏",
-      "enableToolFocusMode": "启用工具专注模式",
-      "enableXmpSync": "启用 XMP 同步",
       "focusMode": "专注模式",
       "focusModeDesc": "打开一个面板时关闭其他面板。",
       "folderImageCounts": "文件夹图像计数",
@@ -2091,7 +2083,6 @@
       "neutralGreyCanvas": "中性灰画布",
       "neutralGreyCanvasDesc": "无论使用何种主题，都在中性灰背景上显示照片，便于判断色彩和曝光。",
       "poppins": "Poppins",
-      "showImageCounts": "显示图像计数",
       "system": "系统默认",
       "theme": "主题",
       "themeDesc": "界面的配色。",
@@ -2104,8 +2095,7 @@
       "uiScaleDesc": "独立于系统显示缩放。紧凑尺寸可在小屏幕上显示更多内容。",
       "uiScaleLarge": "大",
       "xmpSync": "XMP 元数据同步",
-      "xmpSyncDesc": "将评分、颜色标签和标签与 XMP 附属文件同步。",
-      "showEditIcon": "在已编辑的缩略图上显示"
+      "xmpSyncDesc": "将评分、颜色标签和标签与 XMP 附属文件同步。"
     },
     "keybinds": {
       "actions": {
@@ -2284,6 +2274,7 @@
           "title": "无 AI"
         },
         "cloud": {
+          "description": "通过订阅在 RapidRAW 服务器上运行生成式编辑。无需设置或强大的 GPU，即可获得与自托管相同的结果，同时也是对本项目的支持。",
           "signedIn": {
             "active": "云端订阅已激活",
             "inactive": "无有效订阅",
@@ -2303,24 +2294,22 @@
             "retry": "重试连接",
             "unsupported": "云端登录目前仅在桌面设备上可用。"
           },
-          "title": "云端服务",
-          "tooltip": "通过订阅在 RapidRAW 服务器上运行生成式编辑。无需设置或强大的 GPU，即可获得与自托管相同的结果，同时也是对本项目的支持。"
+          "title": "云端服务"
         },
         "connector": {
           "address": "AI 连接器地址",
           "addressDesc": "正在运行的 AI Connector 的地址和端口。",
+          "description": "使用你自己的 ComfyUI 服务器进行生成式编辑和自定义工作流。免费，但需要性能足够的 GPU 和正在运行的 ComfyUI。",
           "failed": "连接失败。",
           "success": "连接成功！",
           "test": "测试",
           "testing": "测试中...",
-          "title": "自托管（RapidRAW AI 连接器）",
-          "tooltip": "使用你自己的 ComfyUI 服务器进行生成式编辑和自定义工作流。免费，但需要性能足够的 GPU 和正在运行的 ComfyUI。"
+          "title": "自托管（RapidRAW AI 连接器）"
         },
         "cpu": {
           "description": "在这台电脑上运行蒙版、标签和简单的生成式替换。",
           "gpuAcceleration": "GPU 加速",
           "gpuAccelerationDesc": "在显卡上运行降噪、蒙版、深度图和标签。如果 AI 功能崩溃或结果异常，请关闭此选项。",
-          "gpuAccelerationLabel": "为 AI 模型使用 GPU",
           "title": "内置 AI"
         },
         "description": "选择 AI 功能的运行位置。",
@@ -2332,9 +2321,8 @@
         },
         "title": "生成式 AI"
       },
-      "alwaysDecodeRaw": "始终解码 RAW",
+      "alwaysDecodeRaw": "始终为缩略图解码 RAW",
       "alwaysDecodeRawDesc": "为缩略图解码 RAW 文件，而不是使用内嵌的 JPEG。如果缩略图与打开的照片不同，请开启此选项。",
-      "alwaysDecodeRawLabel": "始终为缩略图解码 RAW",
       "backend": "处理后端",
       "backendDesc": "用于处理的图形 API。除非其他选项能解决崩溃问题，否则请保持“自动”。",
       "backendFallback": "{{failed}} 在此 GPU 上启动时崩溃，因此暂时使用 {{using}}。",
@@ -2370,20 +2358,18 @@
         "addCamera": "添加相机…",
         "applyToNonRaw": "同时应用于非 RAW 文件",
         "applyToNonRawDesc": "包括 JPEG、TIFF 和 PNG。相机直出的 JPEG 通常已经过处理，默认值可能会导致处理过度。",
-        "autoLensCorrection": "自动镜头校正",
         "autoLensCorrectionDesc": "根据每张照片元数据中的镜头配置文件，校正畸变、色差和暗角。",
         "cameraDefaults": "按相机设置默认值",
         "cameraDefaultsDesc": "这些相机拍摄的照片使用各自的预设；其他相机使用默认预设。",
         "cameraPresetMissing": "所选预设已被删除，因此该相机使用默认预设。",
         "description": "设置默认值后，RAW 缩略图将重新渲染而不使用内嵌预览，因此首次加载较慢。",
-        "lensCorrection": "镜头校正",
+        "lensCorrection": "自动镜头校正",
         "noCamerasFound": "在打开的文件夹中未找到其他相机。",
         "noPreset": "无（中性）",
         "preset": "默认预设",
         "presetMissing": "所选预设已被删除，因此未编辑的照片使用中性值。",
         "removeCamera": "移除相机",
         "sameAsAllCameras": "与所有相机相同",
-        "scope": "应用于",
         "sliderReset": "滑块重置",
         "sliderResetDefaults": "默认调整",
         "sliderResetDesc": "双击或快速编辑时滑块恢复到的值。蒙版滑块始终重置为中性值。",
@@ -2410,7 +2396,6 @@
         "remove": "移除",
         "title": "在其他程序中编辑"
       },
-      "enableLivePreviews": "启用实时预览",
       "ffmpeg": "FFmpeg",
       "ffmpegDesc": "解码和编码视频与音频。RapidRAW 自带一份副本。",
       "ffmpegBundledDesc": "视频使用内置的 FFmpeg {{version}}。",
@@ -2432,7 +2417,6 @@
       "images": "张图像",
       "linuxCompat": "Linux 兼容模式",
       "linuxCompatDesc": "规避导致窗口空白的 GPU 驱动错误。X11 上的 Nvidia 已自动应用此方案。",
-      "linuxCompatLabel": "启用兼容模式",
       "livePreviewQuality": "实时预览质量",
       "livePreviewQualityDesc": "拖动滑块时的分辨率和压缩。“性能优先”响应更快。",
       "livePreviews": "实时交互式预览",
@@ -2443,7 +2427,6 @@
         "dynamic": "动态",
         "static": "固定分辨率"
       },
-      "nativeDpi": "以原生 DPI 渲染",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9 引擎",
         "appleRaw9Desc": "使用 Apple 的 Core Image 解码，可在神经网络引擎上降噪，但速度较慢。需要 macOS 27 和受支持的相机；其他文件使用内置解码器。",
@@ -2453,18 +2436,14 @@
         "baselineExposureAmount": "基础量",
         "baselineExposureAmountDesc": "添加到 RAW 文件的曝光量。darktable 使用 +0.7 EV。",
         "baselineExposureDesc": "将 RAW 文件提亮一个固定值；如有 DNG BaselineExposure 标签，则使用该标签的值。",
+        "captureSharpening": "捕获锐化",
+        "captureSharpeningDesc": "恢复 RAW 文件中因镜头、传感器和去马赛克而损失的细节。",
         "colorNr": "基础颜色降噪",
         "colorNrDesc": "在 RAW 处理管线早期去除彩色噪点。",
         "defaultNonRawTonemapper": "默认非 RAW 色调映射",
         "defaultNonRawTonemapperDesc": "用于所有非 RAW 图像的色调映射。",
         "defaultRawTonemapper": "默认 RAW 色调映射",
         "defaultRawTonemapperDesc": "用于所有 RAW 文件的色调映射。",
-        "enableAppleRaw9": "对 RAW 文件使用 Apple RAW 9",
-        "enableBaselineExposure": "对 RAW 文件应用基础曝光",
-        "enableHighlightPreservation": "补偿相机的高光保护模式",
-        "enableHotPixels": "去除热像素和坏点",
-        "enablePreprocessingNonRaws": "对非 RAW 图像启用",
-        "enableTonemapperOverride": "启用色调映射覆盖",
         "highlightPreservation": "高光保护补偿",
         "highlightPreservationDesc": "恢复由富士 DR200/DR400 或尼康动态 D-Lighting 等模式降低的曝光。",
         "highlightRecovery": "RAW 高光恢复",
@@ -2518,7 +2497,6 @@
       "wgpuDescAndroid": "在 Android 上不可用。",
       "wgpuDescLinuxExperimental": "在 Linux 上为实验性功能，可能不稳定。",
       "wgpuDescLinuxX11": "在 X11 上不可用。",
-      "wgpuLabel": "启用直接 WGPU 渲染",
       "workerThreads": "缩略图工作线程数",
       "workerThreadsDesc": "线程越多，文件夹加载越快，但占用的 CPU 和内存也越多。",
       "wgpuDesc": "直接在 GPU 上绘制预览，而不经过网页视图，从而获得更快的实时预览。"
@@ -2531,7 +2509,6 @@
       "aiTagging": "AI 标签",
       "aiTaggingDesc": "使用本地 CLIP 模型为照片添加标签以便搜索。会下载模型，并减慢文件夹浏览速度。",
       "amount": "数量",
-      "automaticAiTagging": "自动 AI 标签",
       "clearCustomTooltip": "清除 AI 标签列表",
       "clearShortcutsTooltip": "清除标签快捷方式",
       "customList": "自定义 AI 标签列表",

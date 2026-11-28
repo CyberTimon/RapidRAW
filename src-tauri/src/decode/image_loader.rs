@@ -1,3 +1,4 @@
+use crate::adjustments::capture_sharpening::Capture;
 use crate::app::settings::{AppSettings, load_settings};
 use crate::app::state::{AppState, LoadedImage};
 use crate::decode::avif::ContainerColor;
@@ -146,6 +147,31 @@ pub fn load_base_image_from_bytes(
     settings: &AppSettings,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
 ) -> Result<DynamicImage> {
+    let (image, capture) = decode_base_image(
+        bytes,
+        path_for_ext_check,
+        use_fast_raw_dev,
+        settings,
+        cancel_token,
+    )?;
+    if !use_fast_raw_dev {
+        crate::adjustments::capture_sharpening::remember(
+            path_for_ext_check,
+            image.dimensions(),
+            capture,
+            settings,
+        );
+    }
+    Ok(image)
+}
+
+fn decode_base_image(
+    bytes: &[u8],
+    path_for_ext_check: &str,
+    use_fast_raw_dev: bool,
+    settings: &AppSettings,
+    cancel_token: Option<(Arc<AtomicUsize>, usize)>,
+) -> Result<(DynamicImage, Option<Capture>)> {
     let highlight_compression = settings.raw_highlight_compression.unwrap_or(2.5);
     let linear_mode = settings.linear_raw_mode.clone();
     let color_nr_amount = settings
@@ -156,7 +182,9 @@ pub fn load_base_image_from_bytes(
     let remove_hot_pixels = settings.remove_hot_pixels.unwrap_or(true);
 
     if is_video_file(path_for_ext_check) {
-        return crate::video::poster_frame(Path::new(path_for_ext_check)).map_err(|e| anyhow!(e));
+        return crate::video::poster_frame(Path::new(path_for_ext_check))
+            .map(|image| (image, None))
+            .map_err(|e| anyhow!(e));
     }
 
     crate::metadata::sidecar::persist_exif_if_missing(
@@ -184,7 +212,7 @@ pub fn load_base_image_from_bytes(
         match crate::decode::apple_raw::develop_raw9(bytes, path_for_ext_check) {
             Ok(image) => {
                 record_embedded_preview(false);
-                return Ok(image);
+                return Ok((image, None));
             }
             Err(e) => log::warn!(
                 "Apple RAW 9 unavailable for '{}', falling back to rawler: {}",
@@ -208,14 +236,7 @@ pub fn load_base_image_from_bytes(
         }) {
             Ok(Ok((image, capture))) => {
                 record_embedded_preview(false);
-                if !use_fast_raw_dev {
-                    crate::adjustments::capture_sharpening::remember(
-                        path_for_ext_check,
-                        image.dimensions(),
-                        capture,
-                    );
-                }
-                Ok(image)
+                Ok((image, Some(capture)))
             }
             Ok(Err(e)) => {
                 let classified = classify_raw_develop_error(path_for_ext_check, e);
@@ -231,12 +252,14 @@ pub fn load_base_image_from_bytes(
                 );
                 embedded_preview_instead(bytes, path_for_ext_check)
                     .inspect(|_| record_embedded_preview(true))
+                    .map(|image| (image, None))
                     .ok_or(classified)
             }
             Err(_) => {
                 log::error!("Panic while processing RAW file: {}", path_for_ext_check);
                 embedded_preview_instead(bytes, path_for_ext_check)
                     .inspect(|_| record_embedded_preview(true))
+                    .map(|image| (image, None))
                     .ok_or_else(|| anyhow!("Failed to process RAW file: {}", path_for_ext_check))
             }
         }
@@ -245,11 +268,12 @@ pub fn load_base_image_from_bytes(
         if let Some(peak) = linear_peak {
             crate::decode::as_shot::record_source_peak(path_for_ext_check, peak);
         }
-        Ok(if apply_to_non_raws && !use_fast_raw_dev {
+        let image = if apply_to_non_raws && !use_fast_raw_dev {
             crate::decode::develop::enhance(image, color_nr_amount)
         } else {
             image
-        })
+        };
+        Ok((image, None))
     }
 }
 

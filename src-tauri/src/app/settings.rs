@@ -154,7 +154,6 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "clarity",
         "structure",
         "dehaze",
-        "captureSharpening",
         "sharpness",
         "sharpnessThreshold",
         "centré",
@@ -800,6 +799,8 @@ pub struct AppSettings {
     #[serde(default)]
     pub raw_preprocessing_color_nr: Option<f32>,
     #[serde(default)]
+    pub capture_sharpening: Option<f32>,
+    #[serde(default)]
     pub apply_preprocessing_to_non_raws: Option<bool>,
     #[serde(default)]
     pub use_apple_raw9: Option<bool>,
@@ -1011,6 +1012,7 @@ impl Default for AppSettings {
             hide_collapsed_panels: Some(false),
             folder_icons: Some(HashMap::new()),
             raw_preprocessing_color_nr: Some(0.5),
+            capture_sharpening: Some(100.0),
             apply_preprocessing_to_non_raws: Some(false),
             use_apple_raw9: Some(false),
             remove_hot_pixels: Some(true),
@@ -1146,12 +1148,77 @@ pub fn load_settings(app_handle: AppHandle) -> Result<AppSettings, String> {
     Ok(settings)
 }
 
+const WATERMARK_INTEGER_FIELDS: [&str; 3] =
+    ["watermarkScale", "watermarkSpacing", "watermarkOpacity"];
+
+fn export_preset_objects(
+    settings: &mut Value,
+) -> impl Iterator<Item = &mut serde_json::Map<String, Value>> {
+    settings
+        .get_mut("exportPresets")
+        .and_then(Value::as_array_mut)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_object_mut)
+}
+
+fn settings_to_disk_json(settings: &AppSettings) -> Result<String, String> {
+    let json = serde_json::to_string(settings).map_err(|e| e.to_string())?;
+    let mut value: Value = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+    for preset in export_preset_objects(&mut value) {
+        for field in WATERMARK_INTEGER_FIELDS {
+            let Some(exact) = preset.get(field).and_then(Value::as_f64) else {
+                continue;
+            };
+            let whole = exact.round().max(0.0);
+            preset.insert(field.to_string(), Value::from(whole as u32));
+            if exact != whole {
+                preset.insert(format!("{field}Exact"), Value::from(exact));
+            }
+        }
+    }
+    serde_json::to_string_pretty(&value).map_err(|e| e.to_string())
+}
+
+fn settings_from_disk_json(content: &str) -> AppSettings {
+    let Ok(mut value) = serde_json::from_str::<Value>(content) else {
+        return AppSettings::default();
+    };
+    for preset in export_preset_objects(&mut value) {
+        for field in WATERMARK_INTEGER_FIELDS {
+            if let Some(exact) = preset.remove(&format!("{field}Exact")) {
+                preset.insert(field.to_string(), exact);
+            }
+        }
+    }
+    if let Ok(settings) = AppSettings::deserialize(&value) {
+        return settings;
+    }
+
+    let (Value::Object(saved), Ok(Value::Object(mut merged))) =
+        (value, serde_json::to_value(AppSettings::default()))
+    else {
+        return AppSettings::default();
+    };
+    for (key, entry) in saved {
+        let fallback = merged.insert(key.clone(), entry);
+        if AppSettings::deserialize(&Value::Object(merged.clone())).is_err() {
+            log::warn!("Ignoring the unreadable setting {key}");
+            match fallback {
+                Some(fallback) => merged.insert(key, fallback),
+                None => merged.remove(&key),
+            };
+        }
+    }
+    AppSettings::deserialize(&Value::Object(merged)).unwrap_or_default()
+}
+
 fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String> {
     let path = get_settings_path(app_handle)?;
 
     let mut settings: AppSettings = if path.exists() {
         let content = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        serde_json::from_str(&content).unwrap_or_default()
+        settings_from_disk_json(&content)
     } else {
         AppSettings::default()
     };
@@ -1225,7 +1292,7 @@ fn read_settings_from_disk(app_handle: &AppHandle) -> Result<AppSettings, String
         }
     }
 
-    if settings_modified && let Ok(json_string) = serde_json::to_string_pretty(&settings) {
+    if settings_modified && let Ok(json_string) = settings_to_disk_json(&settings) {
         let _ = crate::library::file_ops::write_file_atomic(&path, json_string.as_bytes());
     }
 
@@ -1253,7 +1320,7 @@ pub fn save_settings(mut settings: AppSettings, app_handle: AppHandle) -> Result
         settings.use_wgpu_renderer = stored.use_wgpu_renderer;
     }
     let path = get_settings_path(&app_handle)?;
-    let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    let json_string = settings_to_disk_json(&settings)?;
     crate::library::file_ops::write_file_atomic(&path, json_string.as_bytes())
         .map_err(|e| e.to_string())?;
     *settings_cache() = None;

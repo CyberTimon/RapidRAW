@@ -40,7 +40,7 @@ import Dropdown, { OptionItem } from '../ui/Dropdown';
 import SegmentedControl from '../ui/SegmentedControl';
 import Switch from '../ui/Switch';
 import Input from '../ui/Input';
-import Slider from '../ui/Slider';
+import Slider, { SliderChangeEvent } from '../ui/Slider';
 import { ThemeProps, THEMES, DEFAULT_THEME_ID } from '../../utils/themes';
 import { useTranslation } from 'react-i18next';
 import { Invokes } from '../../types/invokes';
@@ -66,7 +66,7 @@ import ImmichSettings from '../immich/ImmichSettings';
 import DataManagementSettings from './settings/DataManagementSettings';
 import DefaultAdjustmentsSettings from './settings/DefaultAdjustmentsSettings';
 import EditInAppsSettings from './settings/EditInAppsSettings';
-import SettingItem, { SettingsSection, TooltipLabel } from './settings/SettingItem';
+import SettingItem, { SettingsSection, settingTitle, TooltipLabel } from './settings/SettingItem';
 import { applyUiScale, clampUiScale, getDevicePixelRatio, UI_SCALE_PRESETS } from '../../utils/displayScale';
 import type { ParseKeys } from 'i18next';
 
@@ -728,6 +728,7 @@ export default function SettingsPanel({
     thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? 4,
     imageCacheSize: appSettings?.imageCacheSize ?? 5,
     rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
+    captureSharpening: appSettings?.captureSharpening ?? 100,
     applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
     useAppleRaw9: appSettings?.useAppleRaw9 ?? false,
     removeHotPixels: appSettings?.removeHotPixels ?? true,
@@ -867,6 +868,7 @@ export default function SettingsPanel({
       thumbnailWorkerThreads: appSettings?.thumbnailWorkerThreads ?? 4,
       imageCacheSize: appSettings?.imageCacheSize ?? 5,
       rawPreprocessingColorNr: appSettings?.rawPreprocessingColorNr ?? 0.5,
+      captureSharpening: appSettings?.captureSharpening ?? 100,
       applyPreprocessingToNonRaws: appSettings?.applyPreprocessingToNonRaws ?? false,
       useAppleRaw9: appSettings?.useAppleRaw9 ?? false,
       removeHotPixels: appSettings?.removeHotPixels ?? true,
@@ -893,6 +895,7 @@ export default function SettingsPanel({
       if (
         key === 'rawHighlightCompression' ||
         key === 'rawPreprocessingColorNr' ||
+        key === 'captureSharpening' ||
         key === 'applyPreprocessingToNonRaws' ||
         key === 'useAppleRaw9' ||
         key === 'removeHotPixels'
@@ -1107,7 +1110,7 @@ export default function SettingsPanel({
                   className="space-y-10"
                 >
                   <SettingsSection title={t('settings.general.title')}>
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                       <SettingItem label={t('settings.general.theme')} tooltip={t('settings.general.themeDesc')}>
                         <Dropdown
                           onChange={(value: any) => onSettingsChange({ ...appSettings, theme: value })}
@@ -1148,12 +1151,15 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      <div className="space-y-4">
-                        <SettingItem label={t('settings.general.xmpSync')} tooltip={t('settings.general.xmpSyncDesc')}>
+                      <div className="space-y-3">
+                        <SettingItem
+                          inline
+                          label={t('settings.general.xmpSync')}
+                          tooltip={t('settings.general.xmpSyncDesc')}
+                        >
                           <Switch
                             checked={appSettings?.enableXmpSync ?? true}
                             id="enable-xmp-sync-toggle"
-                            label={t('settings.general.enableXmpSync')}
                             onChange={(checked) => {
                               const newSettings = { ...appSettings, enableXmpSync: checked };
                               if (!checked) {
@@ -1175,13 +1181,13 @@ export default function SettingsPanel({
                             >
                               <div className="pl-4 border-l-2 border-border-color ml-1">
                                 <SettingItem
+                                  inline
                                   label={t('settings.general.createXmp')}
                                   tooltip={t('settings.general.createXmpDesc')}
                                 >
                                   <Switch
                                     checked={appSettings?.createXmpIfMissing ?? false}
                                     id="create-xmp-missing-toggle"
-                                    label={t('settings.general.createXmpMissing')}
                                     onChange={(checked) =>
                                       onSettingsChange({ ...appSettings, createXmpIfMissing: checked })
                                     }
@@ -1194,73 +1200,73 @@ export default function SettingsPanel({
                       </div>
 
                       <SettingItem
+                        inline
                         label={t('settings.general.folderImageCounts')}
                         tooltip={t('settings.general.folderImageCountsDesc')}
                       >
                         <Switch
                           checked={appSettings?.enableFolderImageCounts ?? false}
                           id="folder-image-counts-toggle"
-                          label={t('settings.general.showImageCounts')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, enableFolderImageCounts: checked })}
                         />
                       </SettingItem>
 
                       <SettingItem
+                        inline
                         label={t('settings.general.neutralGreyCanvas')}
                         tooltip={t('settings.general.neutralGreyCanvasDesc')}
                       >
                         <Switch
                           checked={appSettings?.editorNeutralGreyBg ?? false}
                           id="neutral-grey-bg-toggle"
-                          label={t('settings.general.enableNeutralGreyCanvas')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, editorNeutralGreyBg: checked })}
                         />
                       </SettingItem>
 
                       <SettingItem
+                        inline
                         label={t('settings.general.displayEditIcon')}
                         tooltip={t('settings.general.displayEditIconDesc')}
                       >
                         <Switch
                           checked={appSettings?.displayEditIcon ?? true}
                           id="display-edit-icon-toggle"
-                          label={t('settings.general.showEditIcon')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, displayEditIcon: checked })}
                         />
                       </SettingItem>
 
                       <SettingItem
+                        inline
                         label={t('settings.general.focusMode')}
                         tooltip={t('settings.general.focusModeDesc')}
                       >
                         <Switch
                           checked={appSettings?.enableFocusMode ?? false}
                           id="focus-mode-toggle"
-                          label={t('settings.general.enableFocusMode')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, enableFocusMode: checked })}
                         />
                       </SettingItem>
 
                       <SettingItem
+                        inline
                         label={t('settings.general.toolFocusMode')}
                         tooltip={t('settings.general.toolFocusModeDesc')}
                       >
                         <Switch
                           checked={appSettings?.enableToolFocusMode ?? false}
                           id="tool-focus-mode-toggle"
-                          label={t('settings.general.enableToolFocusMode')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, enableToolFocusMode: checked })}
                         />
                       </SettingItem>
 
                       <SettingItem
+                        inline
                         label={t('settings.general.hideCollapsedPanels')}
                         tooltip={t('settings.general.hideCollapsedPanelsDesc')}
                       >
                         <Switch
                           checked={appSettings?.hideCollapsedPanels ?? false}
                           id="hide-collapsed-panels-toggle"
-                          label={t('settings.general.hideCollapsedPanels')}
                           onChange={(checked) => onSettingsChange({ ...appSettings, hideCollapsedPanels: checked })}
                         />
                       </SettingItem>
@@ -1288,13 +1294,13 @@ export default function SettingsPanel({
 
                       {osPlatform === 'linux' && (
                         <SettingItem
+                          inline
                           label={t('settings.general.nativeTitlebar')}
                           tooltip={t('settings.general.nativeTitlebarDesc')}
                         >
                           <Switch
                             checked={appSettings?.decorations ?? false}
                             id="native-titlebar-toggle"
-                            label={t('settings.general.enableOsTitlebar')}
                             onChange={(checked) => {
                               onSettingsChange({ ...appSettings, decorations: checked });
                               getCurrentWindow().setDecorations(checked).catch(console.error);
@@ -1307,11 +1313,11 @@ export default function SettingsPanel({
 
                   <SettingsSection
                     title={t('settings.processing.ai.title')}
-                    tooltip={t('settings.processing.ai.description')}
+                    description={t('settings.processing.ai.description')}
                   >
                     <AiProviderSwitch selectedProvider={aiProvider} onProviderChange={handleProviderChange} />
 
-                    <div className="mt-8">
+                    <div className="mt-6">
                       <AnimatePresence mode="wait">
                         {aiProvider === 'cpu' && (
                           <motion.div
@@ -1323,18 +1329,18 @@ export default function SettingsPanel({
                           >
                             <SettingItem
                               label={t('settings.processing.ai.cpu.title')}
-                              tooltip={t('settings.processing.ai.cpu.description')}
+                              description={t('settings.processing.ai.cpu.description')}
                             />
                             {(osPlatform === 'windows' || osPlatform === 'macos' || osPlatform === 'linux') && (
-                              <div className="mt-8">
+                              <div className="mt-6">
                                 <SettingItem
+                                  inline
                                   label={t('settings.processing.ai.cpu.gpuAcceleration')}
                                   tooltip={t('settings.processing.ai.cpu.gpuAccelerationDesc')}
                                 >
                                   <Switch
                                     checked={appSettings?.aiGpuAcceleration ?? true}
                                     id="ai-gpu-acceleration-toggle"
-                                    label={t('settings.processing.ai.cpu.gpuAccelerationLabel')}
                                     onChange={(checked) =>
                                       onSettingsChange({ ...appSettings, aiGpuAcceleration: checked })
                                     }
@@ -1355,7 +1361,7 @@ export default function SettingsPanel({
                           >
                             <SettingItem
                               label={t('settings.processing.ai.aiFree.title')}
-                              tooltip={t('settings.processing.ai.aiFree.description')}
+                              description={t('settings.processing.ai.aiFree.description')}
                             />
                           </motion.div>
                         )}
@@ -1368,14 +1374,14 @@ export default function SettingsPanel({
                             exit={{ opacity: 0, x: -10 }}
                             transition={{ duration: 0.2 }}
                           >
-                            <div className="space-y-8">
+                            <div className="space-y-6">
                               <SettingItem
                                 label={t('settings.processing.ai.connector.title')}
-                                tooltip={t('settings.processing.ai.connector.tooltip')}
+                                description={t('settings.processing.ai.connector.description')}
                               />
                               <SettingItem
                                 label={t('settings.processing.ai.connector.address')}
-                                tooltip={t('settings.processing.ai.connector.addressDesc')}
+                                description={t('settings.processing.ai.connector.addressDesc')}
                               >
                                 <div className="flex items-center gap-2">
                                   <Input
@@ -1426,10 +1432,10 @@ export default function SettingsPanel({
                           >
                             <SettingItem
                               label={t('settings.processing.ai.cloud.title')}
-                              tooltip={t('settings.processing.ai.cloud.tooltip')}
+                              description={t('settings.processing.ai.cloud.description')}
                             />
 
-                            <div className="mt-8">
+                            <div className="mt-6">
                               {authStatus === 'ready' && user && (
                                 <div className="p-6 bg-bg-primary rounded-xl border border-border-color shadow-inner">
                                   <CloudDashboard />
@@ -1490,9 +1496,9 @@ export default function SettingsPanel({
                   </SettingsSection>
 
                   <SettingsSection title={t('settings.lenses.title')} tooltip={t('settings.lenses.description')}>
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                       <div className="bg-bg-primary rounded-lg p-4 border border-border-color">
-                        <Text variant={TextVariants.heading} className="mb-3">
+                        <Text variant={settingTitle} className="mb-3">
                           {t('settings.lenses.addNew')}
                         </Text>
                         <div className="space-y-4">
@@ -1521,7 +1527,7 @@ export default function SettingsPanel({
                       </div>
 
                       <div>
-                        <Text variant={TextVariants.heading} className="mb-2">
+                        <Text variant={settingTitle} className="mb-2">
                           {t('settings.lenses.saved')}
                         </Text>
                         {(!appSettings?.myLenses || appSettings.myLenses.length === 0) && (
@@ -1561,16 +1567,16 @@ export default function SettingsPanel({
                   <ImmichSettings />
 
                   <SettingsSection title={t('settings.tagging.title')}>
-                    <div className="space-y-8">
-                      <div className="space-y-4">
+                    <div className="space-y-6">
+                      <div className="space-y-3">
                         <SettingItem
+                          inline
                           label={t('settings.tagging.aiTagging')}
                           tooltip={t('settings.tagging.aiTaggingDesc')}
                         >
                           <Switch
                             checked={appSettings?.enableAiTagging ?? false}
                             id="ai-tagging-toggle"
-                            label={t('settings.tagging.automaticAiTagging')}
                             onChange={(checked) => onSettingsChange({ ...appSettings, enableAiTagging: checked })}
                           />
                         </SettingItem>
@@ -1584,7 +1590,7 @@ export default function SettingsPanel({
                               transition={{ duration: 0.3, ease: 'easeInOut' }}
                               className="overflow-hidden"
                             >
-                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-8">
+                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-5">
                                 <SettingItem
                                   label={t('settings.tagging.maxAiTags')}
                                   tooltip={t('settings.tagging.maxAiTagsDesc')}
@@ -1790,7 +1796,7 @@ export default function SettingsPanel({
                   className="space-y-10"
                 >
                   <SettingsSection title={t('settings.processing.title')}>
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                       <SettingItem
                         label={t('settings.processing.previewStrategy')}
                         tooltip={t('settings.processing.previewStrategyDesc')}
@@ -1834,7 +1840,7 @@ export default function SettingsPanel({
                                 exit={{ opacity: 0, x: -10 }}
                                 transition={{ duration: 0.2 }}
                               >
-                                <div className="pl-4 border-l-2 border-border-color ml-1 space-y-6">
+                                <div className="pl-4 border-l-2 border-border-color ml-1 space-y-5">
                                   <SettingItem
                                     label={t('settings.processing.renderScale')}
                                     tooltip={t('settings.processing.renderScaleDesc')}
@@ -1850,6 +1856,7 @@ export default function SettingsPanel({
                                   </SettingItem>
 
                                   <SettingItem
+                                    inline
                                     label={t('settings.processing.highDpi')}
                                     tooltip={
                                       dpr > 1
@@ -1861,7 +1868,6 @@ export default function SettingsPanel({
                                       checked={processingSettings.useFullDpiRendering}
                                       disabled={dpr <= 1}
                                       id="full-dpi-rendering-toggle"
-                                      label={t('settings.processing.nativeDpi')}
                                       onChange={(checked) =>
                                         handleProcessingSettingChange('useFullDpiRendering', checked)
                                       }
@@ -1874,15 +1880,15 @@ export default function SettingsPanel({
                         </div>
                       </SettingItem>
 
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         <SettingItem
+                          inline
                           label={t('settings.processing.livePreviews')}
                           tooltip={t('settings.processing.livePreviewsDesc')}
                         >
                           <Switch
                             checked={appSettings?.enableLivePreviews ?? true}
                             id="live-previews-toggle"
-                            label={t('settings.processing.enableLivePreviews')}
                             onChange={(checked) => {
                               setHasInteractedWithLivePreview(true);
                               onSettingsChange({ ...appSettings, enableLivePreviews: checked });
@@ -1943,13 +1949,13 @@ export default function SettingsPanel({
                       </SettingItem>
 
                       <SettingItem
+                        inline
                         label={t('settings.processing.alwaysDecodeRaw')}
                         tooltip={t('settings.processing.alwaysDecodeRawDesc')}
                       >
                         <Switch
                           checked={appSettings?.alwaysDecodeRawThumbnails ?? false}
                           id="always-decode-raw-thumbnails-toggle"
-                          label={t('settings.processing.alwaysDecodeRawLabel')}
                           onChange={(checked) => {
                             onSettingsChange({ ...appSettings, alwaysDecodeRawThumbnails: checked });
                           }}
@@ -1957,6 +1963,7 @@ export default function SettingsPanel({
                       </SettingItem>
 
                       <SettingItem
+                        inline
                         label={t('settings.processing.wgpu')}
                         tooltip={t('settings.processing.wgpuDesc')}
                         status={
@@ -1973,7 +1980,6 @@ export default function SettingsPanel({
                           checked={processingSettings.useWgpuRenderer}
                           disabled={osPlatform === 'android' || !isWgpuSupported}
                           id="wgpu-renderer-toggle"
-                          label={t('settings.processing.wgpuLabel')}
                           onChange={(checked) => handleProcessingSettingChange('useWgpuRenderer', checked)}
                         />
                       </SettingItem>
@@ -2050,13 +2056,13 @@ export default function SettingsPanel({
 
                       {osPlatform !== 'macos' && osPlatform !== 'windows' && (
                         <SettingItem
+                          inline
                           label={t('settings.processing.linuxCompat')}
                           tooltip={t('settings.processing.linuxCompatDesc')}
                         >
                           <Switch
                             checked={processingSettings.linuxGpuOptimization}
                             id="gpu-compat-toggle"
-                            label={t('settings.processing.linuxCompatLabel')}
                             onChange={(checked) => handleProcessingSettingChange('linuxGpuOptimization', checked)}
                           />
                         </SettingItem>
@@ -2092,7 +2098,7 @@ export default function SettingsPanel({
                                 transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
                                 className="overflow-hidden"
                               >
-                                <div className="px-4 pb-4 pt-4 border-t border-surface/50 space-y-8">
+                                <div className="px-4 pb-4 pt-4 border-t border-surface/50 space-y-5">
                                   <SettingItem
                                     label={t('settings.processing.workerThreads')}
                                     tooltip={t('settings.processing.workerThreadsDesc')}
@@ -2185,7 +2191,7 @@ export default function SettingsPanel({
                   </SettingsSection>
 
                   <SettingsSection title={t('settings.processing.display.title')}>
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                       <SettingItem
                         label={t('settings.processing.colorManagement.profile')}
                         tooltip={t('settings.processing.colorManagement.profileDesc')}
@@ -2254,7 +2260,7 @@ export default function SettingsPanel({
                   </SettingsSection>
 
                   <SettingsSection title={t('settings.processing.preprocessing.title')}>
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                       {/* turn off highlights clipping setting for now - needs clean cleanup across other files.
                       <SettingItem
                         label={t('settings.processing.preprocessing.highlightRecovery')}
@@ -2276,13 +2282,13 @@ export default function SettingsPanel({
                       */}
 
                       <SettingItem
+                        inline
                         label={t('settings.processing.preprocessing.hotPixels')}
                         tooltip={t('settings.processing.preprocessing.hotPixelsDesc')}
                       >
                         <Switch
                           checked={processingSettings.removeHotPixels}
                           id="hot-pixels-toggle"
-                          label={t('settings.processing.preprocessing.enableHotPixels')}
                           onChange={(checked) => handleProcessingSettingChange('removeHotPixels', checked)}
                         />
                       </SettingItem>
@@ -2306,26 +2312,44 @@ export default function SettingsPanel({
                       </SettingItem>
 
                       <SettingItem
+                        label={t('settings.processing.preprocessing.captureSharpening')}
+                        tooltip={t('settings.processing.preprocessing.captureSharpeningDesc')}
+                      >
+                        <Slider
+                          label={t('settings.tagging.amount')}
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={processingSettings.captureSharpening}
+                          defaultValue={100}
+                          onChange={(e: SliderChangeEvent) =>
+                            handleProcessingSettingChange('captureSharpening', Number(e.target.value))
+                          }
+                          fillOrigin="min"
+                        />
+                      </SettingItem>
+
+                      <SettingItem
+                        inline
                         label={t('settings.processing.preprocessing.applyPreprocessing')}
                         tooltip={t('settings.processing.preprocessing.applyPreprocessingDesc')}
                       >
                         <Switch
                           checked={processingSettings.applyPreprocessingToNonRaws}
                           id="preprocessing-non-raws-toggle"
-                          label={t('settings.processing.preprocessing.enablePreprocessingNonRaws')}
                           onChange={(checked) => handleProcessingSettingChange('applyPreprocessingToNonRaws', checked)}
                         />
                       </SettingItem>
 
                       {osPlatform === 'macos' && (
                         <SettingItem
+                          inline
                           label={t('settings.processing.preprocessing.appleRaw9')}
                           tooltip={t('settings.processing.preprocessing.appleRaw9Desc')}
                         >
                           <Switch
                             checked={processingSettings.useAppleRaw9}
                             id="apple-raw9-toggle"
-                            label={t('settings.processing.preprocessing.enableAppleRaw9')}
                             onChange={(checked) => handleProcessingSettingChange('useAppleRaw9', checked)}
                           />
                         </SettingItem>
@@ -2343,15 +2367,15 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
 
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         <SettingItem
+                          inline
                           label={t('settings.processing.preprocessing.baselineExposure')}
                           tooltip={t('settings.processing.preprocessing.baselineExposureDesc')}
                         >
                           <Switch
                             checked={appSettings?.enableBaselineExposure ?? true}
                             id="baseline-exposure-toggle"
-                            label={t('settings.processing.preprocessing.enableBaselineExposure')}
                             onChange={(checked) =>
                               onSettingsChange({ ...appSettings, enableBaselineExposure: checked })
                             }
@@ -2366,7 +2390,7 @@ export default function SettingsPanel({
                               exit={{ height: 0, opacity: 0 }}
                               transition={{ duration: 0.3, ease: 'easeInOut' }}
                             >
-                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-6">
+                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-5">
                                 <SettingItem
                                   label={t('settings.processing.preprocessing.baselineExposureAmount')}
                                   tooltip={t('settings.processing.preprocessing.baselineExposureAmountDesc')}
@@ -2392,28 +2416,28 @@ export default function SettingsPanel({
                       </div>
 
                       <SettingItem
+                        inline
                         label={t('settings.processing.preprocessing.highlightPreservation')}
                         tooltip={t('settings.processing.preprocessing.highlightPreservationDesc')}
                       >
                         <Switch
                           checked={appSettings?.compensateHighlightPreservation ?? true}
                           id="highlight-preservation-toggle"
-                          label={t('settings.processing.preprocessing.enableHighlightPreservation')}
                           onChange={(checked) =>
                             onSettingsChange({ ...appSettings, compensateHighlightPreservation: checked })
                           }
                         />
                       </SettingItem>
 
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         <SettingItem
+                          inline
                           label={t('settings.processing.preprocessing.tonemapperOverride')}
                           tooltip={t('settings.processing.preprocessing.tonemapperOverrideDesc')}
                         >
                           <Switch
                             checked={appSettings?.tonemapperOverrideEnabled ?? false}
                             id="tonemapper-override-toggle"
-                            label={t('settings.processing.preprocessing.enableTonemapperOverride')}
                             onChange={(checked) =>
                               onSettingsChange({ ...appSettings, tonemapperOverrideEnabled: checked })
                             }
@@ -2428,7 +2452,7 @@ export default function SettingsPanel({
                               exit={{ height: 0, opacity: 0 }}
                               transition={{ duration: 0.3, ease: 'easeInOut' }}
                             >
-                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-6">
+                              <div className="pl-4 border-l-2 border-border-color ml-1 space-y-5">
                                 <SettingItem
                                   label={t('settings.processing.preprocessing.defaultRawTonemapper')}
                                   tooltip={t('settings.processing.preprocessing.defaultRawTonemapperDesc')}
@@ -2495,7 +2519,7 @@ export default function SettingsPanel({
                   className="space-y-10"
                 >
                   <SettingsSection title={t('settings.controls.title')}>
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                       <SettingItem
                         label={t('settings.controls.optimization')}
                         tooltip={t('settings.controls.optimizationDesc')}
@@ -2521,13 +2545,13 @@ export default function SettingsPanel({
                         />
                       </SettingItem>
                       <SettingItem
+                        inline
                         label={t('settings.controls.zoomClick')}
                         tooltip={t('settings.controls.zoomClickInfo')}
                       >
                         <Switch
                           checked={appSettings?.zoomPhotoToPixelClick ?? false}
                           id="zoom-photo-to-pixel-click"
-                          label={t('settings.controls.zoomClickDesc')}
                           onChange={(checked) => {
                             onSettingsChange({ ...appSettings, zoomPhotoToPixelClick: checked });
                           }}
@@ -2537,7 +2561,7 @@ export default function SettingsPanel({
                   </SettingsSection>
 
                   <SettingsSection title={t('settings.controls.speedEdit.title')}>
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                       <div>
                         <div className="flex items-end gap-6">
                           {[SPEED_EDIT_KEY_ROWS, SPEED_EDIT_ARROW_ROWS].map((rows) => (
@@ -2613,13 +2637,13 @@ export default function SettingsPanel({
                   </SettingsSection>
 
                   <SettingsSection title={t('settings.controls.keyboardTitle')}>
-                    <div className="space-y-8">
+                    <div className="space-y-6">
                       {KEYBIND_SECTIONS.map((section) => {
                         const sectionDefs = KEYBIND_DEFINITIONS.filter((d) => d.section === section.id);
                         const userKb = appSettings?.keybinds || {};
                         return (
                           <div key={section.id}>
-                            <Text variant={TextVariants.heading}>
+                            <Text variant={settingTitle}>
                               <TooltipLabel tooltip={section.tooltip && t(section.tooltip)}>
                                 {t(section.label as any)}
                               </TooltipLabel>

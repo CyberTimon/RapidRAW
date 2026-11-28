@@ -152,7 +152,6 @@
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "Detall",
       "blueYellow": "Blau/Groc",
-      "capture": "Captura",
       "centre": "Centre",
       "chromaticAberration": "Aberració cromàtica",
       "clarity": "Claredat",
@@ -2038,8 +2037,7 @@
       },
       "title": "Controls del ratolí",
       "zoom": "Multiplicador de velocitat del zoom",
-      "zoomClick": "Amplia la foto al 100%",
-      "zoomClickDesc": "Zoom al 100% en fer clic",
+      "zoomClick": "Zoom al 100% en fer clic",
       "zoomClickInfo": "En fer clic a la foto s'amplia directament al 100% per comprovar la nitidesa i el soroll. Si està desactivat, el clic amplia gradualment.",
       "zoomDesc": "Velocitat del zoom del llenç amb la roda o el gest de pessigar."
     },
@@ -2141,14 +2139,8 @@
     "general": {
       "createXmp": "Crear fitxers XMP que falten",
       "createXmpDesc": "Escriu un fitxer XMP per a les fotos que no en tenen, perquè altres aplicacions vegin les puntuacions, etiquetes de color i etiquetes.",
-      "createXmpMissing": "Crear XMP si falta",
       "displayEditIcon": "Mostrar icona d'edició",
       "displayEditIconDesc": "Marca les fotos editades amb una icona a la biblioteca.",
-      "enableFocusMode": "Activar mode de concentració",
-      "enableNeutralGreyCanvas": "Activa el fons gris neutre",
-      "enableOsTitlebar": "Activar barra de títol del SO",
-      "enableToolFocusMode": "Activar mode de concentració en eines",
-      "enableXmpSync": "Activar sincronització XMP",
       "focusMode": "Mode de concentració",
       "focusModeDesc": "Tanca els altres taulers quan n'obres un.",
       "folderImageCounts": "Recomptes d'imatges a les carpetes",
@@ -2162,7 +2154,6 @@
       "neutralGreyCanvas": "Llenç gris neutre",
       "neutralGreyCanvasDesc": "Mostra les fotos sobre gris neutre per valorar el color i l'exposició, sigui quin sigui el tema.",
       "poppins": "Poppins",
-      "showImageCounts": "Mostrar recomptes d'imatges",
       "system": "Predeterminat del sistema",
       "theme": "Tema",
       "themeDesc": "Colors de la interfície.",
@@ -2175,8 +2166,7 @@
       "uiScaleDesc": "Independent de l'escalat de pantalla del sistema. Les mides compactes mostren més contingut en pantalles petites.",
       "uiScaleLarge": "Gran",
       "xmpSync": "Sincronització de metadades XMP",
-      "xmpSyncDesc": "Sincronitza puntuacions, etiquetes de color i etiquetes amb fitxers sidecar XMP.",
-      "showEditIcon": "Mostrar a les miniatures editades"
+      "xmpSyncDesc": "Sincronitza puntuacions, etiquetes de color i etiquetes amb fitxers sidecar XMP."
     },
     "keybinds": {
       "actions": {
@@ -2355,6 +2345,7 @@
           "title": "Sense IA"
         },
         "cloud": {
+          "description": "Executa les edicions generatives als servidors de RapidRAW, amb una subscripció. Els mateixos resultats que l'autoallotjament sense configuració ni una GPU potent. A més, dona suport al projecte.",
           "signedIn": {
             "active": "Subscripció al núvol Activa",
             "inactive": "Sense subscripció activa",
@@ -2374,24 +2365,22 @@
             "retry": "Tornar a intentar la connexió",
             "unsupported": "L'inici de sessió al núvol actualment només està disponible a l'escriptori."
           },
-          "title": "Servei al núvol",
-          "tooltip": "Executa les edicions generatives als servidors de RapidRAW, amb una subscripció. Els mateixos resultats que l'autoallotjament sense configuració ni una GPU potent. A més, dona suport al projecte."
+          "title": "Servei al núvol"
         },
         "connector": {
           "address": "Adreça de l'AI Connector",
           "addressDesc": "Adreça i port del teu AI Connector en execució.",
+          "description": "Utilitza el teu propi servidor ComfyUI per a edicions generatives i fluxos de treball personalitzats. Gratuït, però cal una GPU potent i ComfyUI en execució.",
           "failed": "La connexió ha fallat.",
           "success": "Connexió correcta!",
           "test": "Prova",
           "testing": "S'està provant...",
-          "title": "Autoallotjat (RapidRAW AI Connector)",
-          "tooltip": "Utilitza el teu propi servidor ComfyUI per a edicions generatives i fluxos de treball personalitzats. Gratuït, però cal una GPU potent i ComfyUI en execució."
+          "title": "Autoallotjat (RapidRAW AI Connector)"
         },
         "cpu": {
           "description": "Executa màscares, etiquetatge i substitució generativa simple en aquest ordinador.",
           "gpuAcceleration": "Acceleració per GPU",
           "gpuAccelerationDesc": "Executa la reducció de soroll, les màscares, els mapes de profunditat i l'etiquetatge a la targeta gràfica. Desactiva-ho si les funcions d'IA fallen o donen resultats incorrectes.",
-          "gpuAccelerationLabel": "Utilitza la GPU per als models d'IA",
           "title": "IA integrada"
         },
         "description": "Tria on s'executen les funcions d'IA.",
@@ -2403,9 +2392,8 @@
         },
         "title": "IA Generativa"
       },
-      "alwaysDecodeRaw": "Descodificar sempre els RAW",
+      "alwaysDecodeRaw": "Descodificar sempre els RAW per a miniatures",
       "alwaysDecodeRawDesc": "Descodifica els fitxers RAW per a les miniatures en lloc d'utilitzar el JPEG incrustat. Activa-ho si les miniatures no coincideixen amb la foto oberta.",
-      "alwaysDecodeRawLabel": "Descodificar sempre els RAW per a miniatures",
       "backend": "Motor de processament",
       "backendDesc": "L'API de gràfics que s'utilitza per al processament. Mantén Auto tret que una altra solucioni bloquejos.",
       "backendFallback": "{{failed}} ha fallat en iniciar-se en aquesta GPU, així que de moment s'utilitza {{using}}.",
@@ -2441,20 +2429,18 @@
         "addCamera": "Afegir càmera…",
         "applyToNonRaw": "Aplicar també als fitxers no RAW",
         "applyToNonRawDesc": "Inclou JPEG, TIFF i PNG. Els JPEG de la càmera solen estar ja processats, així que els valors per defecte poden ser excessius.",
-        "autoLensCorrection": "Correcció automàtica d'objectiu",
         "autoLensCorrectionDesc": "Corregeix la distorsió, l'aberració cromàtica i el vinyetatge amb el perfil d'objectiu de les metadades de cada foto.",
         "cameraDefaults": "Valors per defecte per càmera",
         "cameraDefaultsDesc": "Les fotos d'aquestes càmeres tenen el seu propi preajust; les altres càmeres fan servir el preajust per defecte.",
         "cameraPresetMissing": "El preajust escollit s'ha eliminat, per això aquesta càmera fa servir el preajust per defecte.",
         "description": "Amb valors per defecte, les miniatures RAW es renderitzen en lloc de fer servir les previsualitzacions incrustades, i al principi carreguen més lentament.",
-        "lensCorrection": "Correcció d'objectiu",
+        "lensCorrection": "Correcció automàtica d'objectiu",
         "noCamerasFound": "No s'han trobat altres càmeres a la carpeta oberta.",
         "noPreset": "Cap (neutre)",
         "preset": "Preajust per defecte",
         "presetMissing": "El preajust escollit s'ha eliminat, per això les fotos sense editar fan servir valors neutres.",
         "removeCamera": "Treure la càmera",
         "sameAsAllCameras": "Igual que totes les càmeres",
-        "scope": "S'aplica a",
         "sliderReset": "Restabliment dels controls lliscants",
         "sliderResetDefaults": "Ajustaments per defecte",
         "sliderResetDesc": "El valor al qual torna un control lliscant amb doble clic o a l'edició ràpida. Els controls de màscara sempre tornen al seu valor neutre.",
@@ -2481,7 +2467,6 @@
         "remove": "Elimina",
         "title": "Edita a"
       },
-      "enableLivePreviews": "Activar vistes prèvies en directe",
       "ffmpeg": "FFmpeg",
       "ffmpegDesc": "Descodifica i codifica vídeo i àudio. RapidRAW n'inclou la seva pròpia còpia.",
       "ffmpegBundledDesc": "Els vídeos fan servir l'FFmpeg {{version}} integrat.",
@@ -2503,7 +2488,6 @@
       "images": "Imatges",
       "linuxCompat": "Mode de compatibilitat de Linux",
       "linuxCompatDesc": "Evita errors dels controladors de GPU que deixen la finestra en blanc. Nvidia amb X11 ja ho té automàticament.",
-      "linuxCompatLabel": "Activar el mode de compatibilitat",
       "livePreviewQuality": "Qualitat de la vista prèvia en directe",
       "livePreviewQualityDesc": "Resolució i compressió mentre arrossegues els controls lliscants. El mode Rendiment respon millor.",
       "livePreviews": "Vistes prèvies interactives en directe",
@@ -2514,7 +2498,6 @@
         "dynamic": "Dinàmica",
         "static": "Resolució fixa"
       },
-      "nativeDpi": "Renderitzar a la DPI nativa",
       "preprocessing": {
         "appleRaw9": "Motor Apple RAW 9",
         "appleRaw9Desc": "Descodifica amb Core Image d'Apple, que redueix el soroll al Neural Engine però és més lent. Requereix macOS 27 i una càmera compatible; els altres fitxers fan servir el descodificador integrat.",
@@ -2524,18 +2507,14 @@
         "baselineExposureAmount": "Quantitat base",
         "baselineExposureAmountDesc": "Exposició afegida als fitxers RAW. darktable utilitza +0,7 EV.",
         "baselineExposureDesc": "Aclareix els fitxers RAW en una quantitat fixa, o segons l'etiqueta DNG BaselineExposure si n'hi ha.",
+        "captureSharpening": "Enfocament de captura",
+        "captureSharpeningDesc": "Recupera el detall fi perdut per l'objectiu, el sensor i el demosaicat als fitxers RAW.",
         "colorNr": "Reducció de soroll de color base",
         "colorNrDesc": "Elimina el soroll de color al principi del processament RAW.",
         "defaultNonRawTonemapper": "Mapejador de tons predeterminat No-RAW",
         "defaultNonRawTonemapperDesc": "Mapejador de tons per a totes les imatges no RAW.",
         "defaultRawTonemapper": "Mapejador de tons predeterminat RAW",
         "defaultRawTonemapperDesc": "Mapejador de tons per a tots els fitxers RAW.",
-        "enableAppleRaw9": "Utilitza Apple RAW 9 per als fitxers RAW",
-        "enableBaselineExposure": "Aplica l'exposició base als fitxers RAW",
-        "enableHighlightPreservation": "Compensa els modes de preservació de llums de la càmera",
-        "enableHotPixels": "Elimina els píxels calents i morts",
-        "enablePreprocessingNonRaws": "Activar per a No-RAW",
-        "enableTonemapperOverride": "Activar la sobreescriptura del mapejador de tons",
         "highlightPreservation": "Compensació de la preservació de llums",
         "highlightPreservationDesc": "Restaura l'exposició reduïda per modes com Fujifilm DR200/DR400 o D-Lighting actiu de Nikon.",
         "highlightRecovery": "Recuperació de llums altes RAW",
@@ -2589,7 +2568,6 @@
       "wgpuDescAndroid": "No disponible a Android.",
       "wgpuDescLinuxExperimental": "Experimental a Linux i pot ser inestable.",
       "wgpuDescLinuxX11": "No disponible a X11.",
-      "wgpuLabel": "Activar la renderització directa WGPU",
       "workerThreads": "Fils de treball per a les miniatures",
       "workerThreadsDesc": "Més fils carreguen les carpetes més ràpid, però fan servir més CPU i RAM.",
       "wgpuDesc": "Dibuixa la previsualització directament a la GPU en lloc de passar per la vista web, per a previsualitzacions en directe més ràpides."
@@ -2602,7 +2580,6 @@
       "aiTagging": "Etiquetatge per IA",
       "aiTaggingDesc": "Etiqueta les fotos amb un model CLIP local per a la cerca. Baixa el model i alenteix la navegació per carpetes.",
       "amount": "Quantitat",
-      "automaticAiTagging": "Etiquetatge automàtic per IA",
       "clearCustomTooltip": "Esborrar la llista d'etiquetes d'IA",
       "clearShortcutsTooltip": "Esborrar les dreceres d'etiquetatge",
       "customList": "Llista d'etiquetes d'IA personalitzada",

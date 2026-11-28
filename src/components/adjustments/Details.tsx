@@ -13,7 +13,6 @@ import {
   getAiDenoiseEnablePatch,
   getHiddenAdjustmentTools,
   areSectionPropsEqual,
-  isToolActive,
 } from '../../utils/adjustments';
 import { AppSettings } from '../../types/settings';
 import AdjustmentSubSection from './AdjustmentSubSection';
@@ -46,9 +45,6 @@ function DetailsPanel({
   );
   const aiModelDownloadStatus = useProcessStore(selectAiModelDownloadStatus);
   const isVideo = useVideoKind() !== 'none';
-  const isRaw = useEditorStore((state) => state.selectedImage?.isRaw ?? false);
-  const upscaled = !!adjustments.aiUpscaleEnabled && isToolActive(adjustments.activeTools ?? {}, 'superResolution');
-  const showsCapture = !isForMask && !isVideo && isRaw && !adjustments.negativeConversionEnabled && !upscaled;
 
   const handleAdjustmentChange = (key: string, value: string) => {
     const numericValue = parseInt(value, 10);
@@ -76,22 +72,6 @@ function DetailsPanel({
           order={toolOrder.indexOf('sharpening')}
           title={t('adjustments.details.sharpening')}
         >
-          {showsCapture && (
-            <Slider
-              resetKey="captureSharpening"
-              label={t('adjustments.details.capture')}
-              max={100}
-              min={0}
-              onChange={(e: SliderChangeEvent) =>
-                handleAdjustmentChange(DetailsAdjustment.CaptureSharpening, String(e.target.value))
-              }
-              step={1}
-              value={adjustments.captureSharpening ?? 100}
-              onDragStateChange={onDragStateChange}
-              defaultValue={100}
-              fillOrigin="min"
-            />
-          )}
           <Slider
             resetKey="sharpness"
             label={t('adjustments.details.sharpness')}

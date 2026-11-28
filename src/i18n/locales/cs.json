@@ -152,7 +152,6 @@
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "Detail",
       "blueYellow": "Modrá/Žlutá",
-      "capture": "Zachycení",
       "centre": "Střed",
       "chromaticAberration": "Chromatická aberace",
       "clarity": "Zřetelnost",
@@ -2106,8 +2105,7 @@
       },
       "title": "Ovládání myší",
       "zoom": "Rychlost zoomu",
-      "zoomClick": "Přiblížit snímek na 100 %",
-      "zoomClickDesc": "Přiblížit na 100 % kliknutím",
+      "zoomClick": "Přiblížit na 100 % kliknutím",
       "zoomClickInfo": "Kliknutím na snímek přiblížíte přímo na 100 % a zkontrolujete ostrost a šum. Při vypnutí se kliknutím přibližuje postupně.",
       "zoomDesc": "Jak rychle se plátno přibližuje kolečkem myši nebo gestem sevření."
     },
@@ -2212,14 +2210,8 @@
     "general": {
       "createXmp": "Vytvořit chybějící soubory XMP",
       "createXmpDesc": "Zapíše soubor XMP k fotkám, které ho nemají, aby ostatní aplikace viděly hodnocení, barevné štítky a značky.",
-      "createXmpMissing": "Pokud chybí, vytvořit XMP",
       "displayEditIcon": "Zobrazit ikonu úprav",
       "displayEditIconDesc": "Označí upravené fotky v knihovně ikonou.",
-      "enableFocusMode": "Povolit focus mode",
-      "enableNeutralGreyCanvas": "Povolit neutrální šedé pozadí",
-      "enableOsTitlebar": "Povolit záhlaví OS",
-      "enableToolFocusMode": "Povolit režim zaměření na nástroj",
-      "enableXmpSync": "Povolit synchronizaci XMP",
       "focusMode": "Focus mode",
       "focusModeDesc": "Při otevření panelu zavře ostatní panely.",
       "folderImageCounts": "Počet snímků ve složce",
@@ -2233,7 +2225,6 @@
       "neutralGreyCanvas": "Neutrální šedé plátno",
       "neutralGreyCanvasDesc": "Zobrazí fotografie na neutrální šedé pro posouzení barev a expozice bez ohledu na motiv.",
       "poppins": "Poppins",
-      "showImageCounts": "Zobrazit počet snímků",
       "system": "Výchozí nastavení systému",
       "theme": "Motiv",
       "themeDesc": "Barvy rozhraní.",
@@ -2246,8 +2237,7 @@
       "uiScaleDesc": "Nezávisle na systémovém škálování displeje. Kompaktní velikost pojme na malých obrazovkách více.",
       "uiScaleLarge": "Velké",
       "xmpSync": "Synchronizace metadat XMP",
-      "xmpSyncDesc": "Synchronizuje hodnocení, barevné štítky a značky s doprovodnými soubory XMP.",
-      "showEditIcon": "Zobrazit na upravených miniaturách"
+      "xmpSyncDesc": "Synchronizuje hodnocení, barevné štítky a značky s doprovodnými soubory XMP."
     },
     "keybinds": {
       "actions": {
@@ -2426,6 +2416,7 @@
           "title": "Bez AI"
         },
         "cloud": {
+          "description": "S předplatným spouští generativní úpravy na serverech RapidRAW. Stejné výsledky jako vlastní hosting bez nastavování a výkonného GPU. Zároveň tím podpoříte projekt.",
           "signedIn": {
             "active": "Cloudové předplatné je aktivní",
             "inactive": "Žádné aktivní předplatné",
@@ -2445,24 +2436,22 @@
             "retry": "Opakovat připojení",
             "unsupported": "Přihlášení do cloudu je momentálně k dispozici pouze na počítači."
           },
-          "title": "Cloudová služba",
-          "tooltip": "S předplatným spouští generativní úpravy na serverech RapidRAW. Stejné výsledky jako vlastní hosting bez nastavování a výkonného GPU. Zároveň tím podpoříte projekt."
+          "title": "Cloudová služba"
         },
         "connector": {
           "address": "Adresa konektoru AI",
           "addressDesc": "Adresa a port vašeho spuštěného AI Connectoru.",
+          "description": "Používá váš vlastní server ComfyUI pro generativní úpravy a vlastní pracovní postupy. Zdarma, ale vyžaduje výkonné GPU a spuštěné ComfyUI.",
           "failed": "Připojení se nezdařilo.",
           "success": "Připojení úspěšné!",
           "test": "Test",
           "testing": "Testování...",
-          "title": "Vlastní (konektor RapidRAW AI)",
-          "tooltip": "Používá váš vlastní server ComfyUI pro generativní úpravy a vlastní pracovní postupy. Zdarma, ale vyžaduje výkonné GPU a spuštěné ComfyUI."
+          "title": "Vlastní (konektor RapidRAW AI)"
         },
         "cpu": {
           "description": "Spouští masky, značkování a jednoduchou generativní náhradu na tomto počítači.",
           "gpuAcceleration": "Akcelerace GPU",
           "gpuAccelerationDesc": "Spouští odšumění, masky, hloubkové mapy a značkování na grafické kartě. Vypněte, pokud funkce AI padají nebo dávají chybné výsledky.",
-          "gpuAccelerationLabel": "Používat GPU pro modely AI",
           "title": "Vestavěná AI"
         },
         "description": "Vyberte, kde běží funkce AI.",
@@ -2474,9 +2463,8 @@
         },
         "title": "Generativní AI"
       },
-      "alwaysDecodeRaw": "Vždy dekódovat RAW",
+      "alwaysDecodeRaw": "Vždy dekódovat RAW pro miniatury",
       "alwaysDecodeRawDesc": "Dekóduje soubory RAW pro miniatury místo použití vloženého JPEG. Zapněte, pokud se miniatury liší od otevřeného snímku.",
-      "alwaysDecodeRawLabel": "Vždy dekódovat RAW pro miniatury",
       "backend": "Backend zpracování",
       "backendDesc": "Grafické API použité ke zpracování. Ponechte Auto, pokud jiné neopraví pády.",
       "backendFallback": "{{failed}} při spuštění na této GPU spadl, proto se zatím používá {{using}}.",
@@ -2512,20 +2500,18 @@
         "addCamera": "Přidat fotoaparát…",
         "applyToNonRaw": "Použít také na soubory jiné než RAW",
         "applyToNonRawDesc": "Včetně JPEG, TIFF a PNG. JPEG z fotoaparátu jsou obvykle už zpracované, takže je výchozí hodnoty mohou přehnat.",
-        "autoLensCorrection": "Automatická korekce objektivu",
         "autoLensCorrectionDesc": "Opraví zkreslení, chromatickou vadu a vinětaci podle profilu objektivu v metadatech každé fotografie.",
         "cameraDefaults": "Výchozí hodnoty pro fotoaparáty",
         "cameraDefaultsDesc": "Fotografie z těchto fotoaparátů dostanou vlastní předvolbu; ostatní fotoaparáty používají výchozí předvolbu.",
         "cameraPresetMissing": "Vybraná předvolba byla smazána, proto tento fotoaparát používá výchozí předvolbu.",
         "description": "S nastavenými výchozími hodnotami se miniatury RAW vykreslují místo použití vložených náhledů, takže se zpočátku načítají pomaleji.",
-        "lensCorrection": "Korekce objektivu",
+        "lensCorrection": "Automatická korekce objektivu",
         "noCamerasFound": "V otevřené složce nebyly nalezeny žádné další fotoaparáty.",
         "noPreset": "Žádná (neutrální)",
         "preset": "Výchozí předvolba",
         "presetMissing": "Vybraná předvolba byla smazána, proto neupravené fotografie používají neutrální hodnoty.",
         "removeCamera": "Odebrat fotoaparát",
         "sameAsAllCameras": "Stejně jako všechny fotoaparáty",
-        "scope": "Platí pro",
         "sliderReset": "Obnovení posuvníků",
         "sliderResetDefaults": "Výchozí úpravy",
         "sliderResetDesc": "Hodnota, na kterou se posuvník vrátí po dvojkliku nebo v rychlé úpravě. Posuvníky masek se vždy vrací na neutrální hodnotu.",
@@ -2552,7 +2538,6 @@
         "remove": "Odebrat",
         "title": "Upravit v"
       },
-      "enableLivePreviews": "Povolit živé náhledy",
       "ffmpeg": "FFmpeg",
       "ffmpegDesc": "Dekóduje a kóduje video a zvuk. RapidRAW obsahuje vlastní kopii.",
       "ffmpegBundledDesc": "Videa používají vestavěné FFmpeg {{version}}.",
@@ -2574,7 +2559,6 @@
       "images": "snímky",
       "linuxCompat": "Režim kompatibility se systémem Linux",
       "linuxCompatDesc": "Obchází chyby ovladačů GPU, kvůli kterým zůstává okno prázdné. Nvidia na X11 to již dostává automaticky.",
-      "linuxCompatLabel": "Povolit režim kompatibility",
       "livePreviewQuality": "Kvalita živého náhledu",
       "livePreviewQualityDesc": "Rozlišení a komprese při tažení posuvníků. Režim Výkon reaguje svižněji.",
       "livePreviews": "Živé interaktivní náhledy",
@@ -2585,7 +2569,6 @@
         "dynamic": "Dynamický",
         "static": "Pevné rozlišení"
       },
-      "nativeDpi": "Vykreslování v nativním DPI",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9 Engine",
         "appleRaw9Desc": "Dekóduje pomocí Apple Core Image, který odšumuje na Neural Engine, ale je pomalejší. Vyžaduje macOS 27 a podporovaný fotoaparát; ostatní soubory používají vestavěný dekodér.",
@@ -2595,18 +2578,14 @@
         "baselineExposureAmount": "Velikost základu",
         "baselineExposureAmountDesc": "Expozice přidaná k souborům RAW. darktable používá +0,7 EV.",
         "baselineExposureDesc": "Zesvětlí soubory RAW o pevnou hodnotu, nebo podle značky DNG BaselineExposure, pokud existuje.",
+        "captureSharpening": "Doostření při zachycení",
+        "captureSharpeningDesc": "Obnovuje jemné detaily ztracené objektivem, snímačem a demozaikováním v souborech RAW.",
         "colorNr": "Redukce šumu základní barvy",
         "colorNrDesc": "Odstraní barevný šum na začátku zpracování RAW.",
         "defaultNonRawTonemapper": "Výchozí Non-RAW Tonemapper",
         "defaultNonRawTonemapperDesc": "Tonemapper pro všechny obrázky, které nejsou RAW.",
         "defaultRawTonemapper": "Výchozí RAW Tonemapper",
         "defaultRawTonemapperDesc": "Tonemapper pro všechny soubory RAW.",
-        "enableAppleRaw9": "Použít Apple RAW 9 pro soubory RAW",
-        "enableBaselineExposure": "Použít základní expozici u souborů RAW",
-        "enableHighlightPreservation": "Kompenzovat režimy ochrany světel fotoaparátu",
-        "enableHotPixels": "Odstranit horké a mrtvé pixely",
-        "enablePreprocessingNonRaws": "Povolit pro soubory bez RAW",
-        "enableTonemapperOverride": "Povolte přepsání Tonemapperu",
         "highlightPreservation": "Kompenzace ochrany světel",
         "highlightPreservationDesc": "Vrátí expozici sníženou režimy jako Fujifilm DR200/DR400 nebo Nikon Active D-Lighting.",
         "highlightRecovery": "Obnova světel RAW",
@@ -2660,7 +2639,6 @@
       "wgpuDescAndroid": "Není k dispozici v systému Android.",
       "wgpuDescLinuxExperimental": "Experimentální na Linuxu a může být nestabilní.",
       "wgpuDescLinuxX11": "Není k dispozici na X11.",
-      "wgpuLabel": "Povolit přímé vykreslování WGPU",
       "workerThreads": "Pracovní vlákna miniatur",
       "workerThreadsDesc": "Více vláken načítá složky rychleji, ale spotřebuje více CPU a RAM.",
       "wgpuDesc": "Vykresluje náhled přímo na GPU místo přes webview pro rychlejší živé náhledy."
@@ -2673,7 +2651,6 @@
       "aiTagging": "AI značkování",
       "aiTaggingDesc": "Označuje fotografie značkami pomocí lokálního modelu CLIP pro vyhledávání. Stáhne model a zpomalí procházení složek.",
       "amount": "Počet",
-      "automaticAiTagging": "Automatické značkování AI",
       "clearCustomTooltip": "Vymazat seznam značek AI",
       "clearShortcutsTooltip": "Vymazat zkratky značek",
       "customList": "Vlastní seznam značek AI",

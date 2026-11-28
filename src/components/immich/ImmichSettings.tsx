@@ -88,7 +88,7 @@ export default function ImmichSettings() {
 
   return (
     <SettingsSection title={t('immich.settings.title')} tooltip={t('immich.settings.tooltip')}>
-      <div className="space-y-8">
+      <div className="space-y-6">
         <SettingItem label={t('immich.settings.serverUrl')} tooltip={t('immich.settings.serverUrlDesc')}>
           <Input
             value={serverUrl}

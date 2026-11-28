@@ -40,7 +40,6 @@ import { useEditorActions } from '../../hooks/useEditorActions';
 import {
   CLIP_MAPS,
   ClipMaps,
-  DEFAULT_SHUTTER,
   MapKind,
   dismissClipMaps,
   prepareClipMaps,
@@ -574,7 +573,6 @@ function EffectsPanel({
                 label={t('adjustments.effects.motionBlurShutter')}
                 max={720}
                 min={0}
-                defaultValue={DEFAULT_SHUTTER}
                 onChange={(e: SliderChangeEvent) => {
                   if (blurUntouched)
                     setAdjustments((prev: Partial<Adjustments>) => ({ ...prev, [Effect.MotionBlurType]: 'shutter' }));
@@ -582,7 +580,7 @@ function EffectsPanel({
                 }}
                 step={1}
                 suffix="°"
-                value={blurUntouched ? 0 : (adjustments.motionBlurShutter ?? DEFAULT_SHUTTER)}
+                value={blurUntouched ? 0 : (adjustments.motionBlurShutter ?? 0)}
                 onDragStateChange={onDragStateChange}
                 fillOrigin="min"
               />

@@ -152,7 +152,6 @@
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "Detail",
       "blueYellow": "Blauw/Geel",
-      "capture": "Opname",
       "centre": "Centrum",
       "chromaticAberration": "Chromatische aberratie",
       "clarity": "Lokaal contrast",
@@ -1970,8 +1969,7 @@
       },
       "title": "Muisbesturing",
       "zoom": "Zoomsnelheidsmultiplicator",
-      "zoomClick": "Foto zoomen naar 100%",
-      "zoomClickDesc": "Zoomen naar 100% bij klikken",
+      "zoomClick": "Zoomen naar 100% bij klikken",
       "zoomClickInfo": "Klikken op de foto zoomt direct naar 100% om scherpte en ruis te controleren. Als dit uit staat, zoomt klikken geleidelijk in.",
       "zoomDesc": "Hoe snel het canvas zoomt met het scrollwiel of een knijpgebaar."
     },
@@ -2070,14 +2068,8 @@
     "general": {
       "createXmp": "Ontbrekende XMP-bestanden maken",
       "createXmpDesc": "Schrijft een XMP-bestand voor foto's zonder, zodat andere apps je beoordelingen, kleurlabels en tags zien.",
-      "createXmpMissing": "XMP maken indien ontbrekend",
       "displayEditIcon": "Bewerkingspictogram weergeven",
       "displayEditIconDesc": "Markeert bewerkte foto's in de bibliotheek met een pictogram.",
-      "enableFocusMode": "Focusmodus inschakelen",
-      "enableNeutralGreyCanvas": "Neutrale grijze achtergrond inschakelen",
-      "enableOsTitlebar": "OS-titelbalk inschakelen",
-      "enableToolFocusMode": "Toolfocusmodus inschakelen",
-      "enableXmpSync": "XMP-synchronisatie inschakelen",
       "focusMode": "Focusmodus",
       "focusModeDesc": "Sluit andere panelen wanneer je er een opent.",
       "folderImageCounts": "Aantal afbeeldingen in map",
@@ -2091,7 +2083,6 @@
       "neutralGreyCanvas": "Neutraal grijs canvas",
       "neutralGreyCanvasDesc": "Toont foto's op neutraal grijs om kleur en belichting te beoordelen, ongeacht het thema.",
       "poppins": "Poppins",
-      "showImageCounts": "Aantal afbeeldingen weergeven",
       "system": "Systeemstandaard",
       "theme": "Thema",
       "themeDesc": "Kleuren van de interface.",
@@ -2104,8 +2095,7 @@
       "uiScaleDesc": "Los van de schermschaal van het systeem. Compact past meer op kleine schermen.",
       "uiScaleLarge": "Groot",
       "xmpSync": "XMP-metadatasynchronisatie",
-      "xmpSyncDesc": "Synchroniseert beoordelingen, kleurlabels en tags met XMP-sidecarbestanden.",
-      "showEditIcon": "Tonen op bewerkte miniaturen"
+      "xmpSyncDesc": "Synchroniseert beoordelingen, kleurlabels en tags met XMP-sidecarbestanden."
     },
     "keybinds": {
       "actions": {
@@ -2284,6 +2274,7 @@
           "title": "Zonder AI"
         },
         "cloud": {
+          "description": "Voert generatieve bewerkingen uit op RapidRAW-servers, met een abonnement. Dezelfde resultaten als zelfhosting, zonder installatie of krachtige GPU. Het steunt ook het project.",
           "signedIn": {
             "active": "Cloudabonnement actief",
             "inactive": "Geen actief abonnement",
@@ -2303,24 +2294,22 @@
             "retry": "Verbinding opnieuw proberen",
             "unsupported": "Aanmelden bij de cloud is momenteel alleen beschikbaar op desktop."
           },
-          "title": "Cloudservice",
-          "tooltip": "Voert generatieve bewerkingen uit op RapidRAW-servers, met een abonnement. Dezelfde resultaten als zelfhosting, zonder installatie of krachtige GPU. Het steunt ook het project."
+          "title": "Cloudservice"
         },
         "connector": {
           "address": "AI-verbindingsadres",
           "addressDesc": "Adres en poort van je actieve AI Connector.",
+          "description": "Gebruikt je eigen ComfyUI-server voor generatieve bewerkingen en aangepaste workflows. Gratis, maar vereist een krachtige GPU en een actieve ComfyUI.",
           "failed": "Verbinding mislukt.",
           "success": "Verbinding geslaagd!",
           "test": "Testen",
           "testing": "Testen...",
-          "title": "Zelfgehost (RapidRAW AI Connector)",
-          "tooltip": "Gebruikt je eigen ComfyUI-server voor generatieve bewerkingen en aangepaste workflows. Gratis, maar vereist een krachtige GPU en een actieve ComfyUI."
+          "title": "Zelfgehost (RapidRAW AI Connector)"
         },
         "cpu": {
           "description": "Voert maskers, tagging en eenvoudige generatieve vervanging uit op deze computer.",
           "gpuAcceleration": "GPU-versnelling",
           "gpuAccelerationDesc": "Voert ruisonderdrukking, maskers, dieptekaarten en tagging uit op de grafische kaart. Schakel dit uit als AI-functies crashen of er verkeerd uitzien.",
-          "gpuAccelerationLabel": "GPU gebruiken voor AI-modellen",
           "title": "Ingebouwde AI"
         },
         "description": "Kies waar AI-functies worden uitgevoerd.",
@@ -2332,9 +2321,8 @@
         },
         "title": "Generatieve AI"
       },
-      "alwaysDecodeRaw": "RAW altijd decoderen",
+      "alwaysDecodeRaw": "RAW altijd decoderen voor miniaturen",
       "alwaysDecodeRawDesc": "Decodeert RAW-bestanden voor miniaturen in plaats van de ingesloten JPEG te gebruiken. Schakel dit in als miniaturen afwijken van de geopende foto.",
-      "alwaysDecodeRawLabel": "RAW altijd decoderen voor miniaturen",
       "backend": "Verwerkingsbackend",
       "backendDesc": "De grafische API voor verwerking. Laat dit op Automatisch staan, tenzij een andere crashes verhelpt.",
       "backendFallback": "{{failed}} is bij het starten op deze GPU gecrasht, dus voorlopig wordt {{using}} gebruikt.",
@@ -2370,20 +2358,18 @@
         "addCamera": "Camera toevoegen…",
         "applyToNonRaw": "Ook toepassen op niet-RAW-bestanden",
         "applyToNonRawDesc": "Inclusief JPEG, TIFF en PNG. JPEG's uit de camera zijn meestal al bewerkt, dus de standaardwaarden kunnen te veel worden.",
-        "autoLensCorrection": "Automatische lenscorrectie",
         "autoLensCorrectionDesc": "Corrigeert vertekening, chromatische aberratie en vignettering met het lensprofiel uit de metadata van elke foto.",
         "cameraDefaults": "Standaardwaarden per camera",
         "cameraDefaultsDesc": "Foto's van deze camera's krijgen een eigen voorinstelling; andere camera's gebruiken de standaardvoorinstelling.",
         "cameraPresetMissing": "De gekozen voorinstelling is verwijderd, daarom gebruikt deze camera de standaardvoorinstelling.",
         "description": "Met standaardwaarden worden RAW-miniaturen gerenderd in plaats van ingesloten voorbeelden te gebruiken, dus ze laden eerst trager.",
-        "lensCorrection": "Lenscorrectie",
+        "lensCorrection": "Automatische lenscorrectie",
         "noCamerasFound": "Geen andere camera's gevonden in de geopende map.",
         "noPreset": "Geen (neutraal)",
         "preset": "Standaardvoorinstelling",
         "presetMissing": "De gekozen voorinstelling is verwijderd, daarom gebruiken onbewerkte foto's neutrale waarden.",
         "removeCamera": "Camera verwijderen",
         "sameAsAllCameras": "Zelfde als alle camera's",
-        "scope": "Van toepassing op",
         "sliderReset": "Schuifregelaar herstellen",
         "sliderResetDefaults": "Standaardaanpassingen",
         "sliderResetDesc": "Waar een schuifregelaar naar teruggaat bij dubbelklikken of in snelbewerken. Maskerregelaars gaan altijd terug naar neutraal.",
@@ -2410,7 +2396,6 @@
         "remove": "Verwijderen",
         "title": "Bewerken in"
       },
-      "enableLivePreviews": "Live voorbeelden inschakelen",
       "ffmpeg": "FFmpeg",
       "ffmpegDesc": "Decodeert en codeert video en audio. RapidRAW levert een eigen kopie mee.",
       "ffmpegBundledDesc": "Video's gebruiken de ingebouwde FFmpeg {{version}}.",
@@ -2432,7 +2417,6 @@
       "images": "Afbeeldingen",
       "linuxCompat": "Linux-compatibiliteitsmodus",
       "linuxCompatDesc": "Omzeilt fouten in GPU-stuurprogramma's die het venster leeg laten. Nvidia op X11 krijgt dit al automatisch.",
-      "linuxCompatLabel": "Compatibiliteitsmodus inschakelen",
       "livePreviewQuality": "Live-voorbeeldkwaliteit",
       "livePreviewQualityDesc": "Resolutie en compressie tijdens het slepen van schuifregelaars. De bediening reageert sneller.",
       "livePreviews": "Live interactieve voorbeelden",
@@ -2443,7 +2427,6 @@
         "dynamic": "Dynamisch",
         "static": "Vaste resolutie"
       },
-      "nativeDpi": "Renderen op native DPI",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9-engine",
         "appleRaw9Desc": "Decodeert met Apple's Core Image, dat ruis onderdrukt op de Neural Engine maar trager is. Vereist macOS 27 en een ondersteunde camera; andere bestanden gebruiken de ingebouwde decoder.",
@@ -2453,18 +2436,14 @@
         "baselineExposureAmount": "Basiswaarde",
         "baselineExposureAmountDesc": "Belichting die aan RAW-bestanden wordt toegevoegd. darktable gebruikt +0,7 EV.",
         "baselineExposureDesc": "Maakt RAW-bestanden een vaste hoeveelheid lichter, of met de DNG-tag BaselineExposure indien aanwezig.",
+        "captureSharpening": "Opnameverscherping",
+        "captureSharpeningDesc": "Herstelt fijne details die in RAW-bestanden verloren gaan door objectief, sensor en demozaïeken.",
         "colorNr": "Basis kleurruisonderdrukking",
         "colorNrDesc": "Verwijdert kleurruis vroeg in de RAW-pijplijn.",
         "defaultNonRawTonemapper": "Standaard niet-RAW-toonmapping",
         "defaultNonRawTonemapperDesc": "Toonmapping voor alle niet-RAW-afbeeldingen.",
         "defaultRawTonemapper": "Standaard RAW-toonmapping",
         "defaultRawTonemapperDesc": "Toonmapping voor alle RAW-bestanden.",
-        "enableAppleRaw9": "Apple RAW 9 gebruiken voor RAW-bestanden",
-        "enableBaselineExposure": "Basisbelichting toepassen op RAW-bestanden",
-        "enableHighlightPreservation": "Cameramodi voor bescherming van hoge lichten compenseren",
-        "enableHotPixels": "Hete en dode pixels verwijderen",
-        "enablePreprocessingNonRaws": "Inschakelen voor niet-RAW-bestanden",
-        "enableTonemapperOverride": "Toonmappingoverride inschakelen",
         "highlightPreservation": "Compensatie voor bescherming van hoge lichten",
         "highlightPreservationDesc": "Herstelt belichting die is verlaagd door modi zoals Fujifilm DR200/DR400 of Nikon Actieve D-Lighting.",
         "highlightRecovery": "RAW-hooglichtenherstel",
@@ -2518,7 +2497,6 @@
       "wgpuDescAndroid": "Niet beschikbaar op Android.",
       "wgpuDescLinuxExperimental": "Experimenteel op Linux en mogelijk instabiel.",
       "wgpuDescLinuxX11": "Niet beschikbaar op X11.",
-      "wgpuLabel": "Directe WGPU-rendering inschakelen",
       "workerThreads": "Miniatuurwerkerthreads",
       "workerThreadsDesc": "Meer threads laden mappen sneller, maar gebruiken meer CPU en RAM.",
       "wgpuDesc": "Tekent het voorbeeld direct op de GPU in plaats van via de webweergave, voor snellere live voorbeelden."
@@ -2531,7 +2509,6 @@
       "aiTagging": "AI-tagging",
       "aiTaggingDesc": "Tagt foto's met een lokaal CLIP-model om te zoeken. Het model wordt gedownload en het bladeren door mappen wordt trager.",
       "amount": "Hoeveelheid",
-      "automaticAiTagging": "Automatische AI-tagging",
       "clearCustomTooltip": "Aangepaste AI-taglijst wissen",
       "clearShortcutsTooltip": "Tagsnelkoppelingen wissen",
       "customList": "Aangepaste AI-taglijst",

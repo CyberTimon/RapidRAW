@@ -152,7 +152,6 @@
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "Detalj",
       "blueYellow": "Blå/gul",
-      "capture": "Fångst",
       "centre": "Centré",
       "chromaticAberration": "Kromatisk aberration",
       "clarity": "Klarhet",
@@ -1970,8 +1969,7 @@
       },
       "title": "Muskontroller",
       "zoom": "Zoomhastighetsfaktor",
-      "zoomClick": "Zooma bilden till 100 %",
-      "zoomClickDesc": "Zooma till 100 % vid klick",
+      "zoomClick": "Zooma till 100 % vid klick",
       "zoomClickInfo": "Ett klick på bilden zoomar direkt till 100 % för att kontrollera skärpa och brus. När detta är avstängt zoomar klick in stegvis.",
       "zoomDesc": "Hur snabbt bildytan zoomar med rullhjulet eller en nypgest."
     },
@@ -2070,14 +2068,8 @@
     "general": {
       "createXmp": "Skapa saknade XMP-filer",
       "createXmpDesc": "Skriver en XMP-fil för foton som saknar en, så att andra appar ser dina betyg, färgetiketter och taggar.",
-      "createXmpMissing": "Skapa XMP om det saknas",
       "displayEditIcon": "Visa redigeringsikon",
       "displayEditIconDesc": "Markerar redigerade foton med en ikon i biblioteket.",
-      "enableFocusMode": "Aktivera fokusläge",
-      "enableNeutralGreyCanvas": "Aktivera neutralgrå bakgrund",
-      "enableOsTitlebar": "Aktivera operativsystemets namnlist",
-      "enableToolFocusMode": "Aktivera verktygsfokus",
-      "enableXmpSync": "Aktivera XMP-synkronisering",
       "focusMode": "Fokusläge",
       "focusModeDesc": "Stänger andra paneler när du öppnar en.",
       "folderImageCounts": "Antal bilder i mappar",
@@ -2091,7 +2083,6 @@
       "neutralGreyCanvas": "Neutralgrå bildyta",
       "neutralGreyCanvasDesc": "Visar foton på neutralgrått för bedömning av färg och exponering, oavsett tema.",
       "poppins": "Poppins",
-      "showImageCounts": "Visa antal bilder",
       "system": "Systemets standard",
       "theme": "Tema",
       "themeDesc": "Gränssnittets färger.",
@@ -2104,8 +2095,7 @@
       "uiScaleDesc": "Oberoende av systemets bildskärmsskalning. Kompakt ger plats för mer på små skärmar.",
       "uiScaleLarge": "Stor",
       "xmpSync": "Synkronisering av XMP-metadata",
-      "xmpSyncDesc": "Synkroniserar betyg, färgetiketter och taggar med XMP-metadatafiler.",
-      "showEditIcon": "Visa på redigerade miniatyrer"
+      "xmpSyncDesc": "Synkroniserar betyg, färgetiketter och taggar med XMP-metadatafiler."
     },
     "keybinds": {
       "actions": {
@@ -2284,6 +2274,7 @@
           "title": "Utan AI"
         },
         "cloud": {
+          "description": "Kör generativa redigeringar på RapidRAW:s servrar, med en prenumeration. Samma resultat som egen drift, utan installation eller kraftfullt grafikkort. Det stöder också projektet.",
           "signedIn": {
             "active": "Molnprenumerationen är aktiv",
             "inactive": "Ingen aktiv prenumeration",
@@ -2303,24 +2294,22 @@
             "retry": "Försök ansluta igen",
             "unsupported": "Molninloggning är för närvarande endast tillgänglig på datorer."
           },
-          "title": "Molntjänst",
-          "tooltip": "Kör generativa redigeringar på RapidRAW:s servrar, med en prenumeration. Samma resultat som egen drift, utan installation eller kraftfullt grafikkort. Det stöder också projektet."
+          "title": "Molntjänst"
         },
         "connector": {
           "address": "Adress till AI Connector",
           "addressDesc": "Adress och port för din körande AI Connector.",
+          "description": "Använder din egen ComfyUI-server för generativa redigeringar och egna arbetsflöden. Gratis, men kräver ett kraftfullt grafikkort och en körande ComfyUI.",
           "failed": "Anslutningen misslyckades.",
           "success": "Anslutningen lyckades!",
           "test": "Testa",
           "testing": "Testar...",
-          "title": "Egen drift (RapidRAW AI Connector)",
-          "tooltip": "Använder din egen ComfyUI-server för generativa redigeringar och egna arbetsflöden. Gratis, men kräver ett kraftfullt grafikkort och en körande ComfyUI."
+          "title": "Egen drift (RapidRAW AI Connector)"
         },
         "cpu": {
           "description": "Kör masker, taggning och enkel generativ ersättning på den här datorn.",
           "gpuAcceleration": "GPU-acceleration",
           "gpuAccelerationDesc": "Kör brusreducering, masker, djupkartor och taggning på grafikkortet. Stäng av detta om AI-funktioner kraschar eller ser fel ut.",
-          "gpuAccelerationLabel": "Använd GPU för AI-modeller",
           "title": "Inbyggd AI"
         },
         "description": "Välj var AI-funktionerna körs.",
@@ -2332,9 +2321,8 @@
         },
         "title": "Generativ AI"
       },
-      "alwaysDecodeRaw": "Avkoda alltid RAW",
+      "alwaysDecodeRaw": "Avkoda alltid RAW för miniatyrer",
       "alwaysDecodeRawDesc": "Avkodar RAW-filer för miniatyrer i stället för att använda den inbäddade JPEG-bilden. Aktivera detta om miniatyrerna skiljer sig från den öppnade bilden.",
-      "alwaysDecodeRawLabel": "Avkoda alltid RAW för miniatyrer",
       "backend": "Bearbetningsmotor",
       "backendDesc": "Grafik-API:t som används för bearbetning. Behåll Automatiskt om inte ett annat åtgärdar krascher.",
       "backendFallback": "{{failed}} kraschade vid start på den här GPU:n, så {{using}} används tills vidare.",
@@ -2370,20 +2358,18 @@
         "addCamera": "Lägg till kamera…",
         "applyToNonRaw": "Tillämpa även på filer som inte är RAW",
         "applyToNonRawDesc": "Gäller JPEG, TIFF och PNG. JPEG-bilder från kameran är oftast redan bearbetade, så standardinställningarna kan bli för kraftiga.",
-        "autoLensCorrection": "Automatisk objektivkorrigering",
         "autoLensCorrectionDesc": "Korrigerar distorsion, kromatisk aberration och vinjettering med objektivprofilen i varje fotos metadata.",
         "cameraDefaults": "Kameraspecifika standardinställningar",
         "cameraDefaultsDesc": "Foton från de här kamerorna får en egen förinställning; andra kameror använder standardförinställningen.",
         "cameraPresetMissing": "Den valda förinställningen har raderats, så den här kameran använder standardförinställningen.",
         "description": "När standardinställningar har angetts renderas RAW-miniatyrerna i stället för att använda inbäddade förhandsvisningar, så de läses in långsammare första gången.",
-        "lensCorrection": "Objektivkorrigering",
+        "lensCorrection": "Automatisk objektivkorrigering",
         "noCamerasFound": "Inga andra kameror hittades i den öppna mappen.",
         "noPreset": "Ingen (neutral)",
         "preset": "Standardförinställning",
         "presetMissing": "Den valda förinställningen har raderats, så oredigerade foton använder neutrala värden.",
         "removeCamera": "Ta bort kamera",
         "sameAsAllCameras": "Samma som för alla kameror",
-        "scope": "Gäller för",
         "sliderReset": "Återställning av reglage",
         "sliderResetDefaults": "Standardjusteringar",
         "sliderResetDesc": "Vad ett reglage återgår till vid dubbelklick eller i snabbredigering. Maskreglage återställs alltid till neutralt.",
@@ -2410,7 +2396,6 @@
         "remove": "Ta bort",
         "title": "Redigera i"
       },
-      "enableLivePreviews": "Aktivera förhandsvisning i realtid",
       "ffmpeg": "FFmpeg",
       "ffmpegDesc": "Avkodar och kodar video och ljud. RapidRAW har en egen kopia med sig.",
       "ffmpegBundledDesc": "Videor använder det inbyggda FFmpeg {{version}}.",
@@ -2432,7 +2417,6 @@
       "images": "Bilder",
       "linuxCompat": "Kompatibilitetsläge för Linux",
       "linuxCompatDesc": "Kringgår fel i grafikdrivrutiner som lämnar fönstret tomt. Nvidia på X11 får redan detta automatiskt.",
-      "linuxCompatLabel": "Aktivera kompatibilitetsläge",
       "livePreviewQuality": "Kvalitet för förhandsvisning i realtid",
       "livePreviewQualityDesc": "Upplösning och komprimering medan du drar i reglagen. Gränssnittet svarar snabbare.",
       "livePreviews": "Interaktiv förhandsvisning i realtid",
@@ -2443,7 +2427,6 @@
         "dynamic": "Dynamisk",
         "static": "Fast upplösning"
       },
-      "nativeDpi": "Rendera med skärmens faktiska DPI",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9-motor",
         "appleRaw9Desc": "Avkodar med Apples Core Image, som brusreducerar på Neural Engine men är långsammare. Kräver macOS 27 och en kamera som stöds; andra filer använder den inbyggda avkodaren.",
@@ -2453,18 +2436,14 @@
         "baselineExposureAmount": "Grundmängd",
         "baselineExposureAmountDesc": "Exponering som läggs till i RAW-filer. darktable använder +0,7 EV.",
         "baselineExposureDesc": "Ljusar upp RAW-filer med ett fast värde, eller med DNG-taggen BaselineExposure om den finns.",
+        "captureSharpening": "Fångstskärpa",
+        "captureSharpeningDesc": "Återställer fina detaljer i RAW-filer som gått förlorade genom objektiv, sensor och demosaicing.",
         "colorNr": "Grundläggande färgbrusreducering",
         "colorNrDesc": "Tar bort färgbrus tidigt i RAW-bearbetningen.",
         "defaultNonRawTonemapper": "Standardtonmappning för andra format än RAW",
         "defaultNonRawTonemapperDesc": "Tonmappning för alla bilder som inte är RAW.",
         "defaultRawTonemapper": "Standardtonmappning för RAW",
         "defaultRawTonemapperDesc": "Tonmappning för alla RAW-filer.",
-        "enableAppleRaw9": "Använd Apple RAW 9 för RAW-filer",
-        "enableBaselineExposure": "Tillämpa grundexponering på RAW-filer",
-        "enableHighlightPreservation": "Kompensera för kameralägen som bevarar högdagrar",
-        "enableHotPixels": "Ta bort heta och döda pixlar",
-        "enablePreprocessingNonRaws": "Aktivera för andra format än RAW",
-        "enableTonemapperOverride": "Aktivera åsidosättning av tonmappning",
         "highlightPreservation": "Kompensation för högdagerbevarande",
         "highlightPreservationDesc": "Återställer exponering som sänkts av lägen som Fujifilm DR200/DR400 eller Nikon Active D-Lighting.",
         "highlightRecovery": "Återställning av högdagrar i RAW",
@@ -2518,7 +2497,6 @@
       "wgpuDescAndroid": "Inte tillgängligt på Android.",
       "wgpuDescLinuxExperimental": "Experimentellt på Linux och kan vara instabilt.",
       "wgpuDescLinuxX11": "Inte tillgängligt på X11.",
-      "wgpuLabel": "Aktivera direktrendering med WGPU",
       "workerThreads": "Arbetstrådar för miniatyrer",
       "workerThreadsDesc": "Fler trådar läser in mappar snabbare men använder mer CPU och RAM.",
       "wgpuDesc": "Ritar förhandsvisningen direkt på GPU:n i stället för via webbvyn, för snabbare förhandsvisning i realtid."
@@ -2531,7 +2509,6 @@
       "aiTagging": "AI-taggning",
       "aiTaggingDesc": "Taggar foton med en lokal CLIP-modell för sökning. Modellen hämtas och mappbläddringen blir långsammare.",
       "amount": "Antal",
-      "automaticAiTagging": "Automatisk AI-taggning",
       "clearCustomTooltip": "Rensa AI-tagglistan",
       "clearShortcutsTooltip": "Rensa tagggenvägar",
       "customList": "Egen AI-tagglista",

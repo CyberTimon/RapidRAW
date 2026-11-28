@@ -152,7 +152,6 @@
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "Detail",
       "blueYellow": "Blue/Yellow",
-      "capture": "Capture",
       "centre": "Centré",
       "chromaticAberration": "Chromatic Aberration",
       "clarity": "Clarity",
@@ -1970,8 +1969,7 @@
       },
       "title": "Mouse Controls",
       "zoom": "Zoom Speed Multiplier",
-      "zoomClick": "Zoom Photo to 100%",
-      "zoomClickDesc": "Zoom to 100% on Click",
+      "zoomClick": "Zoom to 100% on Click",
       "zoomClickInfo": "Clicking the photo zooms straight to 100% to check sharpness and noise. When off, clicking zooms in gradually.",
       "zoomDesc": "How fast the canvas zooms with the scroll wheel or a pinch."
     },
@@ -2070,14 +2068,8 @@
     "general": {
       "createXmp": "Create Missing XMP Files",
       "createXmpDesc": "Writes an XMP file for photos that have none, so other apps see your ratings, labels and tags.",
-      "createXmpMissing": "Create XMP If Missing",
       "displayEditIcon": "Display Edit Icon",
       "displayEditIconDesc": "Marks edited photos with an icon in the library.",
-      "enableFocusMode": "Enable Focus Mode",
-      "enableNeutralGreyCanvas": "Enable Neutral Grey Background",
-      "enableOsTitlebar": "Enable OS Titlebar",
-      "enableToolFocusMode": "Enable Tool Focus Mode",
-      "enableXmpSync": "Enable XMP Sync",
       "focusMode": "Focus Mode",
       "focusModeDesc": "Closes other panels when you open one.",
       "folderImageCounts": "Folder Image Counts",
@@ -2091,7 +2083,6 @@
       "neutralGreyCanvas": "Neutral Grey Canvas",
       "neutralGreyCanvasDesc": "Shows photos on neutral grey for judging color and exposure, whatever the theme.",
       "poppins": "Poppins",
-      "showImageCounts": "Show Image Counts",
       "system": "System Default",
       "theme": "Theme",
       "themeDesc": "Colors of the interface.",
@@ -2104,8 +2095,7 @@
       "uiScaleDesc": "Independent of the system display scaling. Compact fits more on small screens.",
       "uiScaleLarge": "Large",
       "xmpSync": "XMP Metadata Sync",
-      "xmpSyncDesc": "Syncs ratings, color labels and tags with XMP sidecar files.",
-      "showEditIcon": "Show on Edited Thumbnails"
+      "xmpSyncDesc": "Syncs ratings, color labels and tags with XMP sidecar files."
     },
     "keybinds": {
       "actions": {
@@ -2284,6 +2274,7 @@
           "title": "AI-Free"
         },
         "cloud": {
+          "description": "Runs generative edits on RapidRAW servers, with a subscription. Same results as self-hosting without setup or a strong GPU. It also supports the project.",
           "signedIn": {
             "active": "Cloud Subscription Active",
             "inactive": "No Active Subscription",
@@ -2303,24 +2294,22 @@
             "retry": "Retry Connection",
             "unsupported": "Cloud sign-in is currently only available on desktop."
           },
-          "title": "Cloud Service",
-          "tooltip": "Runs generative edits on RapidRAW servers, with a subscription. Same results as self-hosting without setup or a strong GPU. It also supports the project."
+          "title": "Cloud Service"
         },
         "connector": {
           "address": "AI Connector Address",
           "addressDesc": "Address and port of your running AI Connector.",
+          "description": "Uses your own ComfyUI server for generative edits and custom workflows. Free, but needs a capable GPU and a running ComfyUI.",
           "failed": "Connection failed.",
           "success": "Connection successful!",
           "test": "Test",
           "testing": "Testing...",
-          "title": "Self-Hosted (RapidRAW AI Connector)",
-          "tooltip": "Uses your own ComfyUI server for generative edits and custom workflows. Free, but needs a capable GPU and a running ComfyUI."
+          "title": "Self-Hosted (RapidRAW AI Connector)"
         },
         "cpu": {
           "description": "Runs masks, tagging and simple generative replace on this computer.",
           "gpuAcceleration": "GPU Acceleration",
           "gpuAccelerationDesc": "Runs denoise, masks, depth maps and tagging on the graphics card. Turn it off if AI features crash or look wrong.",
-          "gpuAccelerationLabel": "Use GPU for AI Models",
           "title": "Built-in AI"
         },
         "description": "Choose where AI features run.",
@@ -2332,9 +2321,8 @@
         },
         "title": "Generative AI"
       },
-      "alwaysDecodeRaw": "Always Decode RAW",
+      "alwaysDecodeRaw": "Always Decode RAW for Thumbnails",
       "alwaysDecodeRawDesc": "Decodes RAW files for thumbnails instead of using the embedded JPEG. Turn it on if thumbnails differ from the opened photo.",
-      "alwaysDecodeRawLabel": "Always Decode RAW for Thumbnails",
       "backend": "Processing Backend",
       "backendDesc": "The graphics API used for processing. Keep Auto unless another one fixes crashes.",
       "backendFallback": "{{failed}} crashed while starting on this GPU, so {{using}} is used for now.",
@@ -2370,20 +2358,18 @@
         "addCamera": "Add Camera…",
         "applyToNonRaw": "Also Apply to Non-RAW Files",
         "applyToNonRawDesc": "Includes JPEG, TIFF and PNG. Camera JPEGs are usually already processed, so the defaults can overdo them.",
-        "autoLensCorrection": "Automatic Lens Correction",
         "autoLensCorrectionDesc": "Corrects distortion, chromatic aberration and vignetting from the lens profile in each photo's metadata.",
         "cameraDefaults": "Camera-Specific Defaults",
         "cameraDefaultsDesc": "Photos from these cameras get their own preset; other cameras use the default preset.",
         "cameraPresetMissing": "The selected preset was deleted, so this camera uses the default preset.",
         "description": "With defaults set, RAW thumbnails are rendered instead of using embedded previews, so they load slower at first.",
-        "lensCorrection": "Lens Correction",
+        "lensCorrection": "Automatic Lens Correction",
         "noCamerasFound": "No other cameras found in the open folder.",
         "noPreset": "None (Neutral)",
         "preset": "Default Preset",
         "presetMissing": "The selected preset was deleted, so unedited photos use neutral values.",
         "removeCamera": "Remove Camera",
         "sameAsAllCameras": "Same as All Cameras",
-        "scope": "Applies To",
         "sliderReset": "Slider Reset",
         "sliderResetDefaults": "Default Adjustments",
         "sliderResetDesc": "What a slider returns to on double-click or in speed edit. Mask sliders always reset to neutral.",
@@ -2410,7 +2396,6 @@
         "remove": "Remove",
         "title": "Edit In"
       },
-      "enableLivePreviews": "Enable Live Previews",
       "ffmpeg": "FFmpeg",
       "ffmpegDesc": "Decodes and encodes video and audio. RapidRAW ships its own copy.",
       "ffmpegBundledDesc": "Videos use the built-in FFmpeg {{version}}.",
@@ -2432,7 +2417,6 @@
       "images": "Images",
       "linuxCompat": "Linux Compatibility Mode",
       "linuxCompatDesc": "Works around GPU driver bugs that leave the window blank. Nvidia on X11 already gets this automatically.",
-      "linuxCompatLabel": "Enable Compatibility Mode",
       "livePreviewQuality": "Live Preview Quality",
       "livePreviewQualityDesc": "Resolution and compression while dragging sliders. Performance is more responsive.",
       "livePreviews": "Live Interactive Previews",
@@ -2443,7 +2427,6 @@
         "dynamic": "Dynamic",
         "static": "Fixed Resolution"
       },
-      "nativeDpi": "Render at Native DPI",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9 Engine",
         "appleRaw9Desc": "Decodes with Apple's Core Image, which denoises on the Neural Engine but is slower. Needs macOS 27 and a supported camera; other files use the built-in decoder.",
@@ -2453,18 +2436,14 @@
         "baselineExposureAmount": "Baseline Amount",
         "baselineExposureAmountDesc": "Exposure added to RAW files. darktable uses +0.7 EV.",
         "baselineExposureDesc": "Brightens RAW files by a fixed amount, or by the DNG BaselineExposure tag when present.",
+        "captureSharpening": "Capture Sharpening",
+        "captureSharpeningDesc": "Restores fine detail lost to the lens, sensor and demosaicing in RAW files.",
         "colorNr": "Base Color Noise Reduction",
         "colorNrDesc": "Removes color noise early in the RAW pipeline.",
         "defaultNonRawTonemapper": "Default Non-RAW Tonemapper",
         "defaultNonRawTonemapperDesc": "Tonemapper used for all non-RAW images.",
         "defaultRawTonemapper": "Default RAW Tonemapper",
         "defaultRawTonemapperDesc": "Tonemapper used for all RAW files.",
-        "enableAppleRaw9": "Use Apple RAW 9 for RAW Files",
-        "enableBaselineExposure": "Apply Baseline Exposure to RAW Files",
-        "enableHighlightPreservation": "Compensate Highlight-Preserving Camera Modes",
-        "enableHotPixels": "Remove Hot and Dead Pixels",
-        "enablePreprocessingNonRaws": "Enable for Non-RAWs",
-        "enableTonemapperOverride": "Enable Tonemapper Override",
         "highlightPreservation": "Highlight Preservation Compensation",
         "highlightPreservationDesc": "Restores exposure lowered by modes such as Fujifilm DR200/DR400 or Nikon Active D-Lighting.",
         "highlightRecovery": "RAW Highlight Recovery",
@@ -2518,7 +2497,6 @@
       "wgpuDescAndroid": "Not available on Android.",
       "wgpuDescLinuxExperimental": "Experimental on Linux and may be unstable.",
       "wgpuDescLinuxX11": "Not available on X11.",
-      "wgpuLabel": "Enable Direct WGPU Render",
       "workerThreads": "Thumbnail Worker Threads",
       "workerThreadsDesc": "More threads load folders faster but use more CPU and RAM.",
       "wgpuDesc": "Draws the preview directly on the GPU instead of through the webview, for faster live previews."
@@ -2531,7 +2509,6 @@
       "aiTagging": "AI Tagging",
       "aiTaggingDesc": "Tags photos with a local CLIP model for search. It downloads the model and slows down folder browsing.",
       "amount": "Amount",
-      "automaticAiTagging": "Automatic AI Tagging",
       "clearCustomTooltip": "Clear AI Tag List",
       "clearShortcutsTooltip": "Clear Tagging Shortcuts",
       "customList": "Custom AI Tag List",

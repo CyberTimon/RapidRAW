@@ -160,15 +160,10 @@ fn hash_effect_keys(adjustments: &serde_json::Value, keys: &[&str], hasher: &mut
 
 pub fn calculate_patch_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
-    hash_patch_sources(adjustments, &mut hasher);
-    crate::adjustments::capture_sharpening::hash(adjustments, &mut hasher);
-    hasher.finish()
-}
 
-fn hash_patch_sources(adjustments: &serde_json::Value, hasher: &mut DefaultHasher) {
-    hash_ai_patches(adjustments, hasher);
-    hash_ai_denoise(adjustments, hasher);
-    hash_negative_conversion(adjustments, hasher);
+    hash_ai_patches(adjustments, &mut hasher);
+    hash_ai_denoise(adjustments, &mut hasher);
+    hash_negative_conversion(adjustments, &mut hasher);
 
     let uses_generated_masks = adjustments
         .get("aiPatches")
@@ -182,24 +177,26 @@ fn hash_patch_sources(adjustments: &serde_json::Value, hasher: &mut DefaultHashe
                     .is_none_or(|mask| mask.is_empty())
             })
         });
-    uses_generated_masks.hash(hasher);
+    uses_generated_masks.hash(&mut hasher);
 
     if uses_generated_masks {
-        hash_orientation(adjustments, hasher);
+        hash_orientation(adjustments, &mut hasher);
 
         for key in GEOMETRY_KEYS {
             if let Some(val) = adjustments.get(key) {
-                key.hash(hasher);
-                val.to_string().hash(hasher);
+                key.hash(&mut hasher);
+                val.to_string().hash(&mut hasher);
             }
         }
     }
+
+    hasher.finish()
 }
 
 pub fn calculate_geometry_hash(adjustments: &serde_json::Value) -> u64 {
     let mut hasher = DefaultHasher::new();
 
-    hash_patch_sources(adjustments, &mut hasher);
+    calculate_patch_hash(adjustments).hash(&mut hasher);
 
     for key in GEOMETRY_KEYS {
         if let Some(val) = adjustments.get(key) {
@@ -500,6 +497,7 @@ type DecodeSettings<'a> = (
     Option<u32>,
     &'a str,
     Option<u32>,
+    Option<u32>,
     Option<bool>,
     Option<bool>,
     Option<bool>,
@@ -510,6 +508,7 @@ fn decode_settings(settings: &AppSettings) -> DecodeSettings<'_> {
         settings.raw_highlight_compression.map(f32::to_bits),
         &settings.linear_raw_mode,
         settings.raw_preprocessing_color_nr.map(f32::to_bits),
+        settings.capture_sharpening.map(f32::to_bits),
         settings.apply_preprocessing_to_non_raws,
         settings.use_apple_raw9,
         settings.remove_hot_pixels,

@@ -152,7 +152,6 @@
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "Details",
       "blueYellow": "Blau/Gelb",
-      "capture": "Eingangsschärfe",
       "centre": "Zentriert",
       "chromaticAberration": "Chromatische Aberration",
       "clarity": "Klarheit",
@@ -1970,8 +1969,7 @@
       },
       "title": "Maussteuerung",
       "zoom": "Zoom-Geschwindigkeitsfaktor",
-      "zoomClick": "Foto auf 100% zoomen",
-      "zoomClickDesc": "Bei Klick auf 100% zoomen",
+      "zoomClick": "Bei Klick auf 100% zoomen",
       "zoomClickInfo": "Ein Klick auf das Foto zoomt direkt auf 100%, um Schärfe und Rauschen zu prüfen. Wenn deaktiviert, zoomt ein Klick stufenweise hinein.",
       "zoomDesc": "Wie schnell die Arbeitsfläche mit dem Mausrad oder per Fingergeste zoomt."
     },
@@ -2070,14 +2068,8 @@
     "general": {
       "createXmp": "Fehlende XMP-Dateien erstellen",
       "createXmpDesc": "Schreibt eine XMP-Datei für Fotos ohne eine, damit andere Apps Bewertungen, Farbmarkierungen und Tags sehen.",
-      "createXmpMissing": "XMP erstellen, falls fehlend",
       "displayEditIcon": "Bearbeitungssymbol anzeigen",
       "displayEditIconDesc": "Markiert bearbeitete Fotos in der Bibliothek mit einem Symbol.",
-      "enableFocusMode": "Fokusmodus aktivieren",
-      "enableNeutralGreyCanvas": "Neutralgrauen Hintergrund aktivieren",
-      "enableOsTitlebar": "OS-Titelleiste aktivieren",
-      "enableToolFocusMode": "Werkzeug-Fokusmodus aktivieren",
-      "enableXmpSync": "XMP-Sync aktivieren",
       "focusMode": "Fokusmodus",
       "focusModeDesc": "Schließt andere Panels, wenn du eines öffnest.",
       "folderImageCounts": "Bildanzahl im Ordner",
@@ -2091,7 +2083,6 @@
       "neutralGreyCanvas": "Neutralgraue Arbeitsfläche",
       "neutralGreyCanvasDesc": "Zeigt Fotos unabhängig vom Design auf neutralem Grau, um Farbe und Belichtung zu beurteilen.",
       "poppins": "Poppins",
-      "showImageCounts": "Bildanzahl anzeigen",
       "system": "Systemstandard",
       "theme": "Design",
       "themeDesc": "Farben der Oberfläche.",
@@ -2104,8 +2095,7 @@
       "uiScaleDesc": "Unabhängig von der Anzeigeskalierung des Systems. Kompakt bietet mehr Platz auf kleinen Bildschirmen.",
       "uiScaleLarge": "Groß",
       "xmpSync": "XMP-Metadaten-Sync",
-      "xmpSyncDesc": "Synchronisiert Bewertungen, Farbmarkierungen und Tags mit XMP-Begleitdateien.",
-      "showEditIcon": "Auf bearbeiteten Miniaturen anzeigen"
+      "xmpSyncDesc": "Synchronisiert Bewertungen, Farbmarkierungen und Tags mit XMP-Begleitdateien."
     },
     "keybinds": {
       "actions": {
@@ -2284,6 +2274,7 @@
           "title": "KI-frei"
         },
         "cloud": {
+          "description": "Führt generative Bearbeitungen per Abonnement auf RapidRAW-Servern aus. Gleiche Ergebnisse wie beim Selbst-Hosting, ohne Einrichtung oder starke GPU. Außerdem unterstützt es das Projekt.",
           "signedIn": {
             "active": "Cloud-Abonnement Aktiv",
             "inactive": "Kein aktives Abonnement",
@@ -2303,24 +2294,22 @@
             "retry": "Verbindung erneut versuchen",
             "unsupported": "Die Cloud-Anmeldung ist derzeit nur auf dem Desktop verfügbar."
           },
-          "title": "Cloud-Dienst",
-          "tooltip": "Führt generative Bearbeitungen per Abonnement auf RapidRAW-Servern aus. Gleiche Ergebnisse wie beim Selbst-Hosting, ohne Einrichtung oder starke GPU. Außerdem unterstützt es das Projekt."
+          "title": "Cloud-Dienst"
         },
         "connector": {
           "address": "AI Connector Adresse",
           "addressDesc": "Adresse und Port deines laufenden AI Connector.",
+          "description": "Nutzt deinen eigenen ComfyUI-Server für generative Bearbeitungen und eigene Workflows. Kostenlos, erfordert aber eine leistungsfähige GPU und ein laufendes ComfyUI.",
           "failed": "Verbindung fehlgeschlagen.",
           "success": "Verbindung erfolgreich!",
           "test": "Testen",
           "testing": "Wird getestet...",
-          "title": "Selbstgehostet (RapidRAW AI Connector)",
-          "tooltip": "Nutzt deinen eigenen ComfyUI-Server für generative Bearbeitungen und eigene Workflows. Kostenlos, erfordert aber eine leistungsfähige GPU und ein laufendes ComfyUI."
+          "title": "Selbstgehostet (RapidRAW AI Connector)"
         },
         "cpu": {
           "description": "Führt Masken, Tagging und einfaches generatives Ersetzen auf diesem Computer aus.",
           "gpuAcceleration": "GPU-Beschleunigung",
           "gpuAccelerationDesc": "Führt Entrauschen, Masken, Tiefenkarten und Tagging auf der Grafikkarte aus. Deaktiviere es, wenn KI-Funktionen abstürzen oder falsch aussehen.",
-          "gpuAccelerationLabel": "GPU für KI-Modelle verwenden",
           "title": "Integrierte KI"
         },
         "description": "Wähle, wo KI-Funktionen ausgeführt werden.",
@@ -2332,9 +2321,8 @@
         },
         "title": "Generative KI"
       },
-      "alwaysDecodeRaw": "RAW immer decodieren",
+      "alwaysDecodeRaw": "RAW für Vorschaubilder immer decodieren",
       "alwaysDecodeRawDesc": "Decodiert RAW-Dateien für Vorschaubilder, statt das eingebettete JPEG zu verwenden. Aktiviere es, wenn Vorschaubilder vom geöffneten Foto abweichen.",
-      "alwaysDecodeRawLabel": "RAW für Vorschaubilder immer decodieren",
       "backend": "Verarbeitungs-Backend",
       "backendDesc": "Die Grafik-API für die Verarbeitung. Belasse sie auf Auto, außer eine andere behebt Abstürze.",
       "backendFallback": "{{failed}} ist beim Start auf dieser GPU abgestürzt, daher wird vorerst {{using}} verwendet.",
@@ -2370,20 +2358,18 @@
         "addCamera": "Kamera hinzufügen…",
         "applyToNonRaw": "Auch auf Nicht-RAW-Dateien anwenden",
         "applyToNonRawDesc": "Gilt für JPEG, TIFF und PNG. Kamera-JPEGs sind meist schon bearbeitet, daher können die Standardwerte zu viel des Guten sein.",
-        "autoLensCorrection": "Automatische Objektivkorrektur",
         "autoLensCorrectionDesc": "Korrigiert Verzeichnung, chromatische Aberration und Vignettierung anhand des Objektivprofils in den Metadaten jedes Fotos.",
         "cameraDefaults": "Kameraspezifische Standardwerte",
         "cameraDefaultsDesc": "Fotos dieser Kameras erhalten ein eigenes Preset; andere Kameras verwenden das Standard-Preset.",
         "cameraPresetMissing": "Das gewählte Preset wurde gelöscht, daher verwendet diese Kamera das Standard-Preset.",
         "description": "Mit Standardwerten werden RAW-Miniaturen berechnet, statt eingebettete Vorschauen zu nutzen, und laden anfangs langsamer.",
-        "lensCorrection": "Objektivkorrektur",
+        "lensCorrection": "Automatische Objektivkorrektur",
         "noCamerasFound": "Keine weiteren Kameras im geöffneten Ordner gefunden.",
         "noPreset": "Keins (neutral)",
         "preset": "Standard-Preset",
         "presetMissing": "Das gewählte Preset wurde gelöscht, daher verwenden unbearbeitete Fotos neutrale Werte.",
         "removeCamera": "Kamera entfernen",
         "sameAsAllCameras": "Wie alle Kameras",
-        "scope": "Anwenden auf",
         "sliderReset": "Regler zurücksetzen",
         "sliderResetDefaults": "Standardanpassungen",
         "sliderResetDesc": "Worauf ein Regler per Doppelklick oder in der Schnellbearbeitung zurückkehrt. Maskenregler werden immer auf neutral zurückgesetzt.",
@@ -2410,7 +2396,6 @@
         "remove": "Entfernen",
         "title": "Bearbeiten in"
       },
-      "enableLivePreviews": "Live-Vorschauen aktivieren",
       "ffmpeg": "FFmpeg",
       "ffmpegDesc": "Dekodiert und kodiert Video und Audio. RapidRAW bringt eine eigene Kopie mit.",
       "ffmpegBundledDesc": "Videos verwenden das integrierte FFmpeg {{version}}.",
@@ -2432,7 +2417,6 @@
       "images": "Bilder",
       "linuxCompat": "Linux Kompatibilitätsmodus",
       "linuxCompatDesc": "Umgeht GPU-Treiberfehler, die das Fenster leer lassen. Nvidia unter X11 erhält dies bereits automatisch.",
-      "linuxCompatLabel": "Kompatibilitätsmodus aktivieren",
       "livePreviewQuality": "Qualität der Live-Vorschau",
       "livePreviewQualityDesc": "Auflösung und Kompression beim Ziehen von Reglern. Die Bedienung reagiert schneller.",
       "livePreviews": "Interaktive Live-Vorschauen",
@@ -2443,7 +2427,6 @@
         "dynamic": "Dynamisch",
         "static": "Feste Auflösung"
       },
-      "nativeDpi": "In nativer DPI rendern",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9 Engine",
         "appleRaw9Desc": "Decodiert mit Apples Core Image, das auf der Neural Engine entrauscht, aber langsamer ist. Erfordert macOS 27 und eine unterstützte Kamera; andere Dateien nutzen den integrierten Decoder.",
@@ -2453,18 +2436,14 @@
         "baselineExposureAmount": "Basiswert",
         "baselineExposureAmountDesc": "Belichtung, die zu RAW-Dateien addiert wird. darktable verwendet +0,7 LW.",
         "baselineExposureDesc": "Hellt RAW-Dateien um einen festen Wert auf, oder um den Wert des DNG-Tags BaselineExposure, falls vorhanden.",
+        "captureSharpening": "Eingangsschärfe",
+        "captureSharpeningDesc": "Stellt in RAW-Dateien feine Details wieder her, die durch Objektiv, Sensor und Demosaicing verloren gehen.",
         "colorNr": "Basis-Farbrauschreduzierung",
         "colorNrDesc": "Entfernt Farbrauschen früh in der RAW-Pipeline.",
         "defaultNonRawTonemapper": "Standard-Tonemapper (Nicht-RAW)",
         "defaultNonRawTonemapperDesc": "Tonemapper für alle Nicht-RAW-Bilder.",
         "defaultRawTonemapper": "Standard-Tonemapper (RAW)",
         "defaultRawTonemapperDesc": "Tonemapper für alle RAW-Dateien.",
-        "enableAppleRaw9": "Apple RAW 9 für RAW-Dateien verwenden",
-        "enableBaselineExposure": "Basisbelichtung auf RAW-Dateien anwenden",
-        "enableHighlightPreservation": "Lichterschutz-Modi der Kamera ausgleichen",
-        "enableHotPixels": "Hot- und Deadpixel entfernen",
-        "enablePreprocessingNonRaws": "Für Nicht-RAWs aktivieren",
-        "enableTonemapperOverride": "Tonemapper-Override aktivieren",
         "highlightPreservation": "Ausgleich der Lichterschutz-Modi",
         "highlightPreservationDesc": "Gleicht die Belichtung aus, die Modi wie Fujifilm DR200/DR400 oder Nikon Active D-Lighting zurückhalten.",
         "highlightRecovery": "RAW-Lichterwiederherstellung",
@@ -2518,7 +2497,6 @@
       "wgpuDescAndroid": "Unter Android nicht verfügbar.",
       "wgpuDescLinuxExperimental": "Experimentell unter Linux und möglicherweise instabil.",
       "wgpuDescLinuxX11": "Unter X11 nicht verfügbar.",
-      "wgpuLabel": "Direktes WGPU-Rendern aktivieren",
       "workerThreads": "Miniaturbild-Worker-Threads",
       "workerThreadsDesc": "Mehr Threads laden Ordner schneller, nutzen aber mehr CPU und RAM.",
       "wgpuDesc": "Zeichnet die Vorschau direkt auf der GPU statt über die Webansicht, für schnellere Live-Vorschauen."
@@ -2531,7 +2509,6 @@
       "aiTagging": "KI-Tagging",
       "aiTaggingDesc": "Taggt Fotos für die Suche mit einem lokalen CLIP-Modell. Das Modell wird heruntergeladen und das Durchsuchen von Ordnern wird langsamer.",
       "amount": "Betrag",
-      "automaticAiTagging": "Automatisches KI-Tagging",
       "clearCustomTooltip": "KI-Tag-Liste löschen",
       "clearShortcutsTooltip": "Tagging-Shortcuts löschen",
       "customList": "Benutzerdefinierte KI-Tag-Liste",

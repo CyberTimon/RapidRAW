@@ -152,7 +152,6 @@
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "ディテール",
       "blueYellow": "ブルー/イエロー",
-      "capture": "キャプチャー",
       "centre": "中央",
       "chromaticAberration": "色収差",
       "clarity": "明瞭度",
@@ -1970,8 +1969,7 @@
       },
       "title": "マウス操作設定",
       "zoom": "ズーム速度の倍率",
-      "zoomClick": "写真を100%にズーム",
-      "zoomClickDesc": "クリックで100%にズーム",
+      "zoomClick": "クリックで100%にズーム",
       "zoomClickInfo": "写真をクリックするとすぐに100%にズームされ、シャープネスとノイズを確認できます。オフの場合、クリックすると段階的にズームインします。",
       "zoomDesc": "スクロールホイールやピンチでキャンバスをズームする速さです。"
     },
@@ -2070,14 +2068,8 @@
     "general": {
       "createXmp": "見つからないXMPファイルを作成",
       "createXmpDesc": "XMP ファイルがない写真に作成し、他のアプリでもレーティング、カラーラベル、タグが見えるようにします。",
-      "createXmpMissing": "見つからない場合はXMPを作成",
       "displayEditIcon": "編集アイコンを表示",
       "displayEditIconDesc": "編集済みの写真にライブラリでアイコンを表示します。",
-      "enableFocusMode": "フォーカスモードを有効にする",
-      "enableNeutralGreyCanvas": "ニュートラルグレーの背景を有効にする",
-      "enableOsTitlebar": "OSのタイトルバーを有効にする",
-      "enableToolFocusMode": "ツールフォーカスモードを有効にする",
-      "enableXmpSync": "XMP同期を有効にする",
       "focusMode": "フォーカスモード",
       "focusModeDesc": "パネルを開くと、他のパネルを閉じます。",
       "folderImageCounts": "フォルダ内画像数",
@@ -2091,7 +2083,6 @@
       "neutralGreyCanvas": "ニュートラルグレーのキャンバス",
       "neutralGreyCanvasDesc": "テーマに関係なく、色と露出を判断しやすいニュートラルグレーの背景に写真を表示します。",
       "poppins": "Poppins",
-      "showImageCounts": "画像数を表示",
       "system": "システムデフォルト",
       "theme": "テーマ",
       "themeDesc": "インターフェースの配色です。",
@@ -2104,8 +2095,7 @@
       "uiScaleDesc": "システムの表示スケーリングとは別に設定します。コンパクトにすると小さな画面により多く表示できます。",
       "uiScaleLarge": "大",
       "xmpSync": "XMPメタデータ同期",
-      "xmpSyncDesc": "評価、カラーラベル、タグを XMP サイドカーファイルと同期します。",
-      "showEditIcon": "編集済みのサムネイルに表示"
+      "xmpSyncDesc": "評価、カラーラベル、タグを XMP サイドカーファイルと同期します。"
     },
     "keybinds": {
       "actions": {
@@ -2284,6 +2274,7 @@
           "title": "AIなし"
         },
         "cloud": {
+          "description": "サブスクリプションで、生成編集を RapidRAW のサーバーで実行します。セットアップや高性能な GPU なしで、セルフホストと同じ結果が得られます。プロジェクトの支援にもなります。",
           "signedIn": {
             "active": "クラウドサブスクリプション有効",
             "inactive": "サブスクリプションが無効です",
@@ -2303,24 +2294,22 @@
             "retry": "接続を再試行",
             "unsupported": "クラウドへのサインインは現在、デスクトップでのみ利用可能です。"
           },
-          "title": "クラウドサービス",
-          "tooltip": "サブスクリプションで、生成編集を RapidRAW のサーバーで実行します。セットアップや高性能な GPU なしで、セルフホストと同じ結果が得られます。プロジェクトの支援にもなります。"
+          "title": "クラウドサービス"
         },
         "connector": {
           "address": "AI Connectorのアドレス",
           "addressDesc": "起動中の AI Connector のアドレスとポート。",
+          "description": "生成編集やカスタムワークフローに、ご自身の ComfyUI サーバーを使用します。無料ですが、高性能な GPU と起動中の ComfyUI が必要です。",
           "failed": "接続に失敗しました。",
           "success": "接続に成功しました！",
           "test": "テスト",
           "testing": "テスト中...",
-          "title": "セルフホスト (RapidRAW AI Connector)",
-          "tooltip": "生成編集やカスタムワークフローに、ご自身の ComfyUI サーバーを使用します。無料ですが、高性能な GPU と起動中の ComfyUI が必要です。"
+          "title": "セルフホスト (RapidRAW AI Connector)"
         },
         "cpu": {
           "description": "マスク、タグ付け、シンプルな生成置換をこのコンピューター上で実行します。",
           "gpuAcceleration": "GPUアクセラレーション",
           "gpuAccelerationDesc": "ノイズ除去、マスク、深度マップ、タグ付けをグラフィックカードで実行します。AI 機能がクラッシュしたり結果がおかしい場合はオフにしてください。",
-          "gpuAccelerationLabel": "AIモデルにGPUを使用",
           "title": "内蔵AI"
         },
         "description": "AI 機能を実行する場所を選択します。",
@@ -2332,9 +2321,8 @@
         },
         "title": "生成AI"
       },
-      "alwaysDecodeRaw": "常にRAWをデコード",
+      "alwaysDecodeRaw": "サムネイル用に常にRAWをデコード",
       "alwaysDecodeRawDesc": "埋め込み JPEG の代わりに RAW ファイルをデコードしてサムネイルを作成します。サムネイルが開いた写真と異なる場合はオンにしてください。",
-      "alwaysDecodeRawLabel": "サムネイル用に常にRAWをデコード",
       "backend": "処理バックエンド",
       "backendDesc": "処理に使用するグラフィックス API です。別の API でクラッシュが直る場合を除き、「自動」のままにしてください。",
       "backendFallback": "{{failed}} がこの GPU での起動中にクラッシュしたため、当面は {{using}} を使用します。",
@@ -2370,20 +2358,18 @@
         "addCamera": "カメラを追加…",
         "applyToNonRaw": "RAW 以外のファイルにも適用",
         "applyToNonRawDesc": "JPEG、TIFF、PNG が対象です。カメラ JPEG は通常すでに処理済みのため、デフォルトが効きすぎることがあります。",
-        "autoLensCorrection": "自動レンズ補正",
         "autoLensCorrectionDesc": "各写真のメタデータにあるレンズプロファイルで、歪曲収差、色収差、周辺減光を補正します。",
         "cameraDefaults": "カメラ別のデフォルト",
         "cameraDefaultsDesc": "これらのカメラの写真には専用のプリセットが適用され、その他のカメラにはデフォルトのプリセットが使用されます。",
         "cameraPresetMissing": "選択したプリセットが削除されたため、このカメラにはデフォルトのプリセットが使用されます。",
         "description": "デフォルトを設定すると、RAW のサムネイルは埋め込みプレビューではなく生成されるため、最初は読み込みが遅くなります。",
-        "lensCorrection": "レンズ補正",
+        "lensCorrection": "自動レンズ補正",
         "noCamerasFound": "開いているフォルダに他のカメラは見つかりませんでした。",
         "noPreset": "なし（ニュートラル）",
         "preset": "デフォルトのプリセット",
         "presetMissing": "選択したプリセットが削除されたため、未編集の写真にはニュートラル値が使用されます。",
         "removeCamera": "カメラを削除",
         "sameAsAllCameras": "すべてのカメラと同じ",
-        "scope": "適用対象",
         "sliderReset": "スライダーのリセット",
         "sliderResetDefaults": "デフォルトの補正",
         "sliderResetDesc": "ダブルクリックやクイック編集でスライダーが戻る値です。マスクのスライダーは常にニュートラル値に戻ります。",
@@ -2410,7 +2396,6 @@
         "remove": "削除",
         "title": "外部アプリで編集"
       },
-      "enableLivePreviews": "リアルタイムプレビューを有効化",
       "ffmpeg": "FFmpeg",
       "ffmpegDesc": "動画と音声のデコードとエンコードを行います。RapidRAW には専用のコピーが同梱されています。",
       "ffmpegBundledDesc": "動画には内蔵の FFmpeg {{version}} を使用します。",
@@ -2432,7 +2417,6 @@
       "images": "画像",
       "linuxCompat": "Linux互換モード",
       "linuxCompatDesc": "ウィンドウが真っ白になる GPU ドライバーの不具合を回避します。X11 上の Nvidia には自動的に適用されます。",
-      "linuxCompatLabel": "互換モードを有効にする",
       "livePreviewQuality": "ライブプレビュー画質",
       "livePreviewQualityDesc": "スライダーをドラッグしている間の解像度と圧縮です。操作のレスポンスが向上します。",
       "livePreviews": "インタラクティブなリアルタイムプレビュー",
@@ -2443,7 +2427,6 @@
         "dynamic": "ダイナミック",
         "static": "固定解像度"
       },
-      "nativeDpi": "本来の解像度でレンダリング",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9 エンジン",
         "appleRaw9Desc": "Apple の Core Image でデコードします。Neural Engine でノイズ除去を行いますが低速です。macOS 27 と対応カメラが必要で、その他のファイルは内蔵デコーダを使用します。",
@@ -2453,18 +2436,14 @@
         "baselineExposureAmount": "ベース量",
         "baselineExposureAmountDesc": "RAWファイルに加える露出量です。darktableは+0.7 EVを使用します。",
         "baselineExposureDesc": "RAWファイルを一定量明るくします。DNGのBaselineExposureタグがある場合はその値を使います。",
+        "captureSharpening": "キャプチャーシャープニング",
+        "captureSharpeningDesc": "RAWファイルで、レンズ、センサー、デモザイクによって失われた細部を復元します。",
         "colorNr": "カラーノイズ低減 (基本)",
         "colorNrDesc": "RAW パイプラインの初期段階でカラーノイズを除去します。",
         "defaultNonRawTonemapper": "標準トーンマッパー (RAW以外)",
         "defaultNonRawTonemapperDesc": "RAW 以外のすべての画像に使うトーンマッパーです。",
         "defaultRawTonemapper": "標準トーンマッパー (RAW)",
         "defaultRawTonemapperDesc": "すべての RAW ファイルに使うトーンマッパーです。",
-        "enableAppleRaw9": "RAWファイルにApple RAW 9を使用する",
-        "enableBaselineExposure": "RAWファイルにベース露出を適用",
-        "enableHighlightPreservation": "カメラのハイライト保護モードを補正",
-        "enableHotPixels": "ホットピクセルとデッドピクセルを除去",
-        "enablePreprocessingNonRaws": "RAW以外の画像にも適用",
-        "enableTonemapperOverride": "トーンマッパーの上書きを有効化",
         "highlightPreservation": "ハイライト保護の補正",
         "highlightPreservationDesc": "富士フイルム DR200/DR400 やニコン アクティブD-ライティングなどのモードで抑えられた露出を戻します。",
         "highlightRecovery": "RAWハイライト再現",
@@ -2518,7 +2497,6 @@
       "wgpuDescAndroid": "Android では利用できません。",
       "wgpuDescLinuxExperimental": "Linuxでは実験的な機能で、不安定な場合があります。",
       "wgpuDescLinuxX11": "X11では利用できません。",
-      "wgpuLabel": "WGPUダイレクトレンダリングを有効化",
       "workerThreads": "サムネイルワーカー数",
       "workerThreadsDesc": "スレッドを増やすとフォルダの読み込みが速くなりますが、CPU とメモリを多く使用します。",
       "wgpuDesc": "Webビューを介さずにプレビューを GPU で直接描画し、ライブプレビューを高速化します。"
@@ -2531,7 +2509,6 @@
       "aiTagging": "AIタグ付け",
       "aiTaggingDesc": "検索用にローカルの CLIP モデルで写真にタグを付けます。モデルがダウンロードされ、フォルダの閲覧が遅くなります。",
       "amount": "適用度",
-      "automaticAiTagging": "自動AIタグ付け",
       "clearCustomTooltip": "AIタグリストをクリア",
       "clearShortcutsTooltip": "タグのショートカットをクリア",
       "customList": "カスタムAIタグリスト",

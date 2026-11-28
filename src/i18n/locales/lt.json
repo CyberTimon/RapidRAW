@@ -152,7 +152,6 @@
       "aiUpscale": "RapidRes 2x",
       "aiUpscaleDetail": "Detalumas",
       "blueYellow": "Mėlyna / Geltona",
-      "capture": "Fiksavimas",
       "centre": "Centras",
       "chromaticAberration": "Chromatinė aberacija",
       "clarity": "Aiškumas",
@@ -2106,8 +2105,7 @@
       },
       "title": "Pelės valdymas",
       "zoom": "Mastelio greičio daugiklis",
-      "zoomClick": "Didinti nuotrauką iki 100%",
-      "zoomClickDesc": "Spustelėjus didinti iki 100%",
+      "zoomClick": "Spustelėjus didinti iki 100%",
       "zoomClickInfo": "Spustelėjus nuotrauką ji iškart priartinama iki 100%, kad įvertintumėte ryškumą ir triukšmą. Išjungus, spustelėjimas didina palaipsniui.",
       "zoomDesc": "Kaip greitai drobė keičia mastelį pelės ratuku ar suėmimo gestu."
     },
@@ -2212,14 +2210,8 @@
     "general": {
       "createXmp": "Kurti trūkstamus XMP failus",
       "createXmpDesc": "Sukuria XMP failą nuotraukoms, kurios jo neturi, kad kitos programos matytų įvertinimus, spalvų žymes ir žymas.",
-      "createXmpMissing": "Kurti XMP, jei trūksta",
       "displayEditIcon": "Rodyti redagavimo piktogramą",
       "displayEditIconDesc": "Bibliotekoje pažymi redaguotas nuotraukas piktograma.",
-      "enableFocusMode": "Įjungti susikaupimo režimą",
-      "enableNeutralGreyCanvas": "Įjungti neutraliai pilką foną",
-      "enableOsTitlebar": "Įjungti OS lango antraštę",
-      "enableToolFocusMode": "Įjungti įrankių susikaupimo režimą",
-      "enableXmpSync": "Įjungti XMP sinchronizavimą",
       "focusMode": "Susikaupimo režimas",
       "focusModeDesc": "Atidarius skydelį uždaro kitus.",
       "folderImageCounts": "Nuotraukų skaičius aplankuose",
@@ -2233,7 +2225,6 @@
       "neutralGreyCanvas": "Neutraliai pilka drobė",
       "neutralGreyCanvasDesc": "Rodo nuotraukas ant neutraliai pilko fono spalvoms ir ekspozicijai vertinti, nepriklausomai nuo temos.",
       "poppins": "Poppins",
-      "showImageCounts": "Rodyti nuotraukų skaičių",
       "system": "Sistemos numatytasis",
       "theme": "Tema",
       "themeDesc": "Sąsajos spalvos.",
@@ -2246,8 +2237,7 @@
       "uiScaleDesc": "Nepriklauso nuo sistemos ekrano mastelio. Kompaktiškame režime mažuose ekranuose telpa daugiau.",
       "uiScaleLarge": "Didelis",
       "xmpSync": "XMP metaduomenų sinchronizavimas",
-      "xmpSyncDesc": "Sinchronizuoja įvertinimus, spalvines žymas ir žymas su XMP šalutiniais failais.",
-      "showEditIcon": "Rodyti ant redaguotų miniatiūrų"
+      "xmpSyncDesc": "Sinchronizuoja įvertinimus, spalvines žymas ir žymas su XMP šalutiniais failais."
     },
     "keybinds": {
       "actions": {
@@ -2426,6 +2416,7 @@
           "title": "Be DI (AI-Free)"
         },
         "cloud": {
+          "description": "Su prenumerata generatyvinius pakeitimus vykdo RapidRAW serveriuose. Tie patys rezultatai kaip nuosavame serveryje, be diegimo ir galingos GPU. Kartu paremiate projektą.",
           "signedIn": {
             "active": "Debesijos prenumerata aktyvi",
             "inactive": "Nėra aktyvios prenumeratos",
@@ -2445,24 +2436,22 @@
             "retry": "Bandyti jungtis iš naujo",
             "unsupported": "Prisijungimas prie debesijos šiuo metu pasiekiamas tik kompiuteriuose."
           },
-          "title": "Debesijos paslauga",
-          "tooltip": "Su prenumerata generatyvinius pakeitimus vykdo RapidRAW serveriuose. Tie patys rezultatai kaip nuosavame serveryje, be diegimo ir galingos GPU. Kartu paremiate projektą."
+          "title": "Debesijos paslauga"
         },
         "connector": {
           "address": "DI jungties (AI Connector) adresas",
           "addressDesc": "Veikiančio AI Connector adresas ir prievadas.",
+          "description": "Naudoja jūsų ComfyUI serverį generatyviniams pakeitimams ir individualioms darbo eigoms. Nemokama, bet reikia galingos GPU ir veikiančio ComfyUI.",
           "failed": "Prisijungti nepavyko.",
           "success": "Prisijungta sėkmingai!",
           "test": "Tikrinti",
           "testing": "Tikrinama...",
-          "title": "Savas serveris (RapidRAW AI Connector)",
-          "tooltip": "Naudoja jūsų ComfyUI serverį generatyviniams pakeitimams ir individualioms darbo eigoms. Nemokama, bet reikia galingos GPU ir veikiančio ComfyUI."
+          "title": "Savas serveris (RapidRAW AI Connector)"
         },
         "cpu": {
           "description": "Vykdo kaukes, žymėjimą ir paprastą generatyvinį pakeitimą šiame kompiuteryje.",
           "gpuAcceleration": "GPU spartinimas",
           "gpuAccelerationDesc": "Vykdo triukšmo slopinimą, kaukes, gylio žemėlapius ir žymėjimą vaizdo plokštėje. Išjunkite, jei DI funkcijos stringa ar veikia netinkamai.",
-          "gpuAccelerationLabel": "Naudoti GPU DI modeliams",
           "title": "Integruotas DI"
         },
         "description": "Pasirinkite, kur veikia DI funkcijos.",
@@ -2474,9 +2463,8 @@
         },
         "title": "Generatyvinis DI"
       },
-      "alwaysDecodeRaw": "Visada dekoduoti RAW",
+      "alwaysDecodeRaw": "Visada dekoduoti RAW miniatiūroms",
       "alwaysDecodeRawDesc": "Miniatiūroms dekoduoja RAW failus vietoj įterpto JPEG. Įjunkite, jei miniatiūros skiriasi nuo atidarytos nuotraukos.",
-      "alwaysDecodeRawLabel": "Visada dekoduoti RAW miniatiūroms",
       "backend": "Apdorojimo posistemė (Backend)",
       "backendDesc": "Apdorojimui naudojama grafikos API. Palikite „Auto“, nebent kita išsprendžia strigtis.",
       "backendFallback": "{{failed}} užstrigo paleidžiant šiame GPU, todėl kol kas naudojamas {{using}}.",
@@ -2512,20 +2500,18 @@
         "addCamera": "Pridėti fotoaparatą…",
         "applyToNonRaw": "Taikyti ir ne RAW failams",
         "applyToNonRawDesc": "Įskaitant JPEG, TIFF ir PNG. Fotoaparato JPEG paprastai jau apdoroti, todėl su numatytosiomis reikšmėmis galima persistengti.",
-        "autoLensCorrection": "Automatinė objektyvo korekcija",
         "autoLensCorrectionDesc": "Ištaiso iškraipymą, chromatinę aberaciją ir vinjetavimą pagal objektyvo profilį kiekvienos nuotraukos metaduomenyse.",
         "cameraDefaults": "Numatytosios reikšmės pagal fotoaparatą",
         "cameraDefaultsDesc": "Šių fotoaparatų nuotraukos gauna savo šabloną; kiti fotoaparatai naudoja numatytąjį šabloną.",
         "cameraPresetMissing": "Pasirinktas šablonas ištrintas, todėl šis fotoaparatas naudoja numatytąjį šabloną.",
         "description": "Nustačius numatytąsias reikšmes, RAW miniatiūros atvaizduojamos vietoj įterptų peržiūrų, todėl iš pradžių įkeliamos lėčiau.",
-        "lensCorrection": "Objektyvo korekcija",
+        "lensCorrection": "Automatinė objektyvo korekcija",
         "noCamerasFound": "Atidarytame aplanke kitų fotoaparatų nerasta.",
         "noPreset": "Nėra (neutralu)",
         "preset": "Numatytasis šablonas",
         "presetMissing": "Pasirinktas šablonas ištrintas, todėl neredaguotos nuotraukos naudoja neutralias reikšmes.",
         "removeCamera": "Pašalinti fotoaparatą",
         "sameAsAllCameras": "Kaip visiems fotoaparatams",
-        "scope": "Taikoma",
         "sliderReset": "Slankiklių atstatymas",
         "sliderResetDefaults": "Numatytieji koregavimai",
         "sliderResetDesc": "Reikšmė, į kurią grįžta slankiklis dukart spustelėjus arba greitajame redagavime. Kaukių slankikliai visada atstatomi į neutralią reikšmę.",
@@ -2552,7 +2538,6 @@
         "remove": "Pašalinti",
         "title": "Redaguoti su"
       },
-      "enableLivePreviews": "Įjungti tiesiogines peržiūras",
       "ffmpeg": "FFmpeg",
       "ffmpegDesc": "Dekoduoja ir koduoja vaizdo įrašus bei garsą. RapidRAW turi savo kopiją.",
       "ffmpegBundledDesc": "Vaizdo įrašai naudoja integruotą FFmpeg {{version}}.",
@@ -2574,7 +2559,6 @@
       "images": "Nuotraukos",
       "linuxCompat": "Linux suderinamumo režimas",
       "linuxCompatDesc": "Apeina vaizdo plokštės tvarkyklių klaidas, dėl kurių langas lieka tuščias. Nvidia su X11 tai gauna automatiškai.",
-      "linuxCompatLabel": "Įjungti suderinamumo režimą",
       "livePreviewQuality": "Tiesioginės peržiūros kokybė",
       "livePreviewQualityDesc": "Raiška ir glaudinimas tempiant slankiklius. „Maksimalus našumas“ reaguoja greičiau.",
       "livePreviews": "Tiesioginės interaktyvios peržiūros",
@@ -2585,7 +2569,6 @@
         "dynamic": "Dinaminis",
         "static": "Statinis"
       },
-      "nativeDpi": "Atvaizduoti gimtąja ekrano DPI raiška",
       "preprocessing": {
         "appleRaw9": "Apple RAW 9 variklis",
         "appleRaw9Desc": "Dekoduoja naudojant Apple Core Image, kuris slopina triukšmą Neural Engine, bet veikia lėčiau. Reikia macOS 27 ir palaikomo fotoaparato; kiti failai naudoja integruotą dekoderį.",
@@ -2595,18 +2578,14 @@
         "baselineExposureAmount": "Bazinė reikšmė",
         "baselineExposureAmountDesc": "RAW failams pridedama ekspozicija. „darktable“ naudoja +0.7 EV.",
         "baselineExposureDesc": "Pašviesina RAW failus fiksuota reikšme arba, jei yra, DNG BaselineExposure žymos reikšme.",
+        "captureSharpening": "Fiksavimo ryškinimas",
+        "captureSharpeningDesc": "Atkuria smulkias detales, prarastas dėl objektyvo, jutiklio ir demozaikos RAW failuose.",
         "colorNr": "Bazinis spalvinio triukšmo slopinimas",
         "colorNrDesc": "Pašalina spalvinį triukšmą ankstyvame RAW apdorojimo etape.",
         "defaultNonRawTonemapper": "Numatytasis ne RAW tonų atvaizdavimas",
         "defaultNonRawTonemapperDesc": "Tonų atvaizdavimas visiems ne RAW vaizdams.",
         "defaultRawTonemapper": "Numatytasis RAW tonų atvaizdavimas",
         "defaultRawTonemapperDesc": "Tonų atvaizdavimas visiems RAW failams.",
-        "enableAppleRaw9": "Naudoti Apple RAW 9 RAW failams",
-        "enableBaselineExposure": "Taikyti bazinę ekspoziciją RAW failams",
-        "enableHighlightPreservation": "Kompensuoti šviesių sričių išsaugojimo kameros režimus",
-        "enableHotPixels": "Šalinti karštus ir negyvus pikselius",
-        "enablePreprocessingNonRaws": "Įjungti ne RAW failams",
-        "enableTonemapperOverride": "Įjungti tonų atvaizdavimo nepaisymą",
         "highlightPreservation": "Šviesių sričių išsaugojimo kompensavimas",
         "highlightPreservationDesc": "Atkuria ekspoziciją, sumažintą tokių režimų kaip Fujifilm DR200/DR400 ar Nikon Active D-Lighting.",
         "highlightRecovery": "RAW šviesių sričių atkūrimas",
@@ -2660,7 +2639,6 @@
       "wgpuDescAndroid": "Nepasiekiama Android sistemoje.",
       "wgpuDescLinuxExperimental": "Eksperimentinis Linux sistemoje, gali būti nestabilus.",
       "wgpuDescLinuxX11": "Nepasiekiamas X11 aplinkoje.",
-      "wgpuLabel": "Įjungti tiesioginį WGPU atvaizdavimą",
       "workerThreads": "Miniatiūrų apdorojimo gijos",
       "workerThreadsDesc": "Daugiau gijų greičiau įkelia aplankus, bet naudoja daugiau CPU ir RAM.",
       "wgpuDesc": "Piešia peržiūrą tiesiai GPU, o ne per žiniatinklio rodinį, kad tiesioginė peržiūra būtų greitesnė."
@@ -2673,7 +2651,6 @@
       "aiTagging": "DI žymėjimas",
       "aiTaggingDesc": "Žymi nuotraukas vietiniu CLIP modeliu paieškai. Atsisiunčia modelį ir sulėtina aplankų naršymą.",
       "amount": "Kiekis",
-      "automaticAiTagging": "Automatinis DI žymėjimas",
       "clearCustomTooltip": "Išvalyti DI žymų sąrašą",
       "clearShortcutsTooltip": "Išvalyti žymėjimo sparčiuosius pasirinkimus",
       "customList": "Individualus DI žymų sąrašas",

@@ -13,18 +13,15 @@ use rayon::prelude::*;
 use serde_json::Value;
 use wgpu::util::DeviceExt;
 
-use crate::adjustments::negative_conversion;
+use crate::app::settings::AppSettings;
 use crate::decode::develop::{release, storage, upload, whole};
-use crate::decode::formats::is_raw_file;
 use crate::decode::gpu_fallback::{Load, on_gpu, scoped};
 use crate::library::sidecars::parse_virtual_path;
-use crate::render::adjustment_utils::{factory_adjustments, is_tool_active};
 use crate::render::color_space::working_luma;
 use crate::render::gpu::context::DecodeGpu;
 
 const SHADER: &str = include_str!("../shaders/capture.wgsl");
-const TOOL: &str = "sharpening";
-const KEY: &str = "captureSharpening";
+const DEFAULT_AMOUNT: f32 = 100.0;
 
 const PEDESTAL: f32 = 0.001;
 const STOP_PEDESTAL: f32 = 0.9;
@@ -59,6 +56,7 @@ pub struct Capture {
 #[derive(Clone, Copy)]
 struct Develop {
     dims: (u32, u32),
+    amount: f32,
     radius: f32,
     to_camera: Option<Mat3>,
     generation: u64,
@@ -72,7 +70,17 @@ fn source_key(path: &str) -> String {
     parse_virtual_path(path).0.to_string_lossy().into_owned()
 }
 
-pub fn remember(path: &str, dims: (u32, u32), capture: Capture) {
+pub fn remember(path: &str, dims: (u32, u32), capture: Option<Capture>, settings: &AppSettings) {
+    let amount = settings
+        .capture_sharpening
+        .unwrap_or(DEFAULT_AMOUNT)
+        .clamp(0.0, 100.0)
+        / 100.0;
+    let mut develops = DEVELOPS.lock().unwrap_or_else(|e| e.into_inner());
+    let Some(capture) = capture.filter(|_| amount > 0.0) else {
+        develops.remove(&source_key(path));
+        return;
+    };
     let to_camera = capture
         .camera
         .map(|rows| Mat3::from_cols_array_2d(&rows).transpose())
@@ -80,6 +88,7 @@ pub fn remember(path: &str, dims: (u32, u32), capture: Capture) {
         .map(|m| m.inverse());
     let develop = Develop {
         dims,
+        amount,
         radius: capture
             .radius
             .filter(|r| r.is_finite())
@@ -88,10 +97,7 @@ pub fn remember(path: &str, dims: (u32, u32), capture: Capture) {
         to_camera,
         generation: GENERATION.fetch_add(1, Ordering::Relaxed),
     };
-    DEVELOPS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(source_key(path), develop);
+    develops.insert(source_key(path), develop);
 }
 
 fn develop(path: &str) -> Option<Develop> {
@@ -102,53 +108,21 @@ fn develop(path: &str) -> Option<Develop> {
         .copied()
 }
 
-fn default_slider() -> f64 {
-    factory_adjustments()
-        .and_then(|factory| factory.get(KEY))
-        .and_then(Value::as_f64)
-        .unwrap_or(0.0)
-}
-
-fn slider(adjustments: &Value) -> f64 {
-    if is_tool_active(adjustments, TOOL) {
-        adjustments[KEY].as_f64().unwrap_or_else(default_slider)
-    } else {
-        0.0
-    }
-}
-
-pub fn amount(path: &str, adjustments: &Value) -> f32 {
-    if !is_raw_file(parse_virtual_path(path).0)
-        || negative_conversion::is_enabled(adjustments)
-        || crate::ai::upscale::is_enabled(adjustments)
-    {
-        return 0.0;
-    }
-    (slider(adjustments) / 100.0).clamp(0.0, 1.0) as f32
-}
-
-pub fn hash(adjustments: &Value, hasher: &mut impl Hasher) {
-    let slider = slider(adjustments);
-    if slider != default_slider() {
-        slider.to_bits().hash(hasher);
-    }
-}
-
 pub fn apply<'a>(
     image: Cow<'a, DynamicImage>,
     path: &str,
     adjustments: &Value,
 ) -> Cow<'a, DynamicImage> {
-    let amount = amount(path, adjustments);
+    if crate::ai::upscale::is_enabled(adjustments) {
+        return image;
+    }
     let DynamicImage::ImageRgb32F(rgb) = image.as_ref() else {
         return image;
     };
-    if amount <= 0.0 {
-        return image;
-    }
     let Some(develop) = develop(path).filter(|d| d.dims == rgb.dimensions()) else {
         return image;
     };
+    let amount = develop.amount;
     let Some(stops) = gains(rgb, path, develop) else {
         return image;
     };

@@ -47,7 +47,6 @@ const SEGMENTED_TYPES: [&str; 6] = [
 ];
 const DEFAULT_HIGHLIGHTS: f64 = 30.0;
 const DEFAULT_DEPTH: f64 = 50.0;
-const DEFAULT_SHUTTER: f64 = 180.0;
 const MAX_SHUTTER: f32 = 720.0;
 const SHUTTER_TYPE: &str = "shutter";
 const FIELD_PASSES: u32 = 3;
@@ -135,8 +134,7 @@ pub fn footage_shutter(adj: &Value) -> bool {
 }
 
 pub fn shutter(adj: &Value) -> Option<Shutter> {
-    let angle =
-        (adj["motionBlurShutter"].as_f64().unwrap_or(DEFAULT_SHUTTER) as f32).min(MAX_SHUTTER);
+    let angle = (adj["motionBlurShutter"].as_f64().unwrap_or(0.0) as f32).min(MAX_SHUTTER);
     (adj["motionBlurType"].as_str() == Some(SHUTTER_TYPE)
         && angle > 0.0
         && is_tool_active(adj, "motionBlur"))

@@ -120,7 +120,7 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <SettingItem
         label={t('settings.processing.defaultAdjustments.preset')}
         tooltip={t('settings.processing.defaultAdjustments.presetTooltip')}
@@ -135,25 +135,25 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
       </SettingItem>
 
       <SettingItem
+        inline
         label={t('settings.processing.defaultAdjustments.lensCorrection')}
         tooltip={t('settings.processing.defaultAdjustments.autoLensCorrectionDesc')}
       >
         <Switch
           checked={developDefaults.autoLensCorrection ?? false}
           id="default-auto-lens-correction-toggle"
-          label={t('settings.processing.defaultAdjustments.autoLensCorrection')}
           onChange={(checked) => update({ autoLensCorrection: checked })}
         />
       </SettingItem>
 
       <SettingItem
-        label={t('settings.processing.defaultAdjustments.scope')}
+        inline
+        label={t('settings.processing.defaultAdjustments.applyToNonRaw')}
         tooltip={t('settings.processing.defaultAdjustments.applyToNonRawDesc')}
       >
         <Switch
           checked={developDefaults.applyToNonRaw ?? false}
           id="default-adjustments-non-raw-toggle"
-          label={t('settings.processing.defaultAdjustments.applyToNonRaw')}
           onChange={(checked) => update({ applyToNonRaw: checked })}
         />
       </SettingItem>
