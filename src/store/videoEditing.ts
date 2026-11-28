@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ClipItem, Ticks, TimeRange, TimelineItem, VideoProject } from '../types/video';
+import { ClipItem, FrameRate, Ticks, TimeRange, TimelineItem, VideoProject } from '../types/video';
 import { Adjustments, INITIAL_ADJUSTMENTS, MaskContainer, copyableAdjustments, pastePatch } from '../utils/adjustments';
 import { stripAiMaskResults } from '../utils/maskUtils';
 import {
@@ -23,6 +23,13 @@ import {
   overwriteItemAt,
   pasteItems,
   removeKeyframes,
+  CopiedKeyframe,
+  KeyMark,
+  MarkedKeyframes,
+  copyKeyframes,
+  keyframeShiftLimit,
+  pasteKeyframes,
+  shiftKeyframes,
   rippleDelete,
   setRangeEdge,
   splitAll,
@@ -57,22 +64,65 @@ import {
 const FREEZE_SECONDS = 2;
 
 let clipboard: Array<ClipboardEntry> = [];
+let keyframeClipboard: Array<CopiedKeyframe> = [];
 
-export const hasClipboard = () => clipboard.length > 0;
+export const hasClipboard = () => clipboard.length > 0 || keyframeClipboard.length > 0;
+
+const selectedKeyframeCopy = (project: VideoProject) => {
+  const marks = selectedKeyframeMarks();
+  const primary = marks[0]?.itemId;
+  const item = primary ? locateItem(project, primary)?.item : null;
+  return item
+    ? copyKeyframes(
+        project,
+        item,
+        marks.filter((entry) => entry.itemId === primary).map((entry) => entry.mark),
+      )
+    : null;
+};
 
 export const canCopySelection = () => {
   const { project, selection } = getVideo();
-  return !!project && copyItems(project, selection).length > 0;
+  if (!project) return false;
+  const keyframes = selectedKeyframeCopy(project);
+  return keyframes ? keyframes.length > 0 : copyItems(project, selection).length > 0;
 };
 
 export const copySelection = () => {
   const { project, selection } = getVideo();
   if (!project) return;
+  const keyframes = selectedKeyframeCopy(project);
+  if (keyframes) {
+    if (keyframes.length > 0) {
+      keyframeClipboard = keyframes;
+      clipboard = [];
+    }
+    return;
+  }
   const entries = copyItems(project, selection);
-  if (entries.length > 0) clipboard = entries;
+  if (entries.length > 0) {
+    clipboard = entries;
+    keyframeClipboard = [];
+  }
+};
+
+const pasteKeyframesAtPlayhead = () => {
+  const { project, playhead, selection } = getVideo();
+  const item = project
+    ? selection.map((id) => locateItem(project, id)?.item).find((candidate) => candidate && candidate.type !== 'audio')
+    : null;
+  if (!project || !item) return;
+  const local = snapTicks(playhead, project.settings.fps) - item.start;
+  if (local < 0 || local > item.duration) return;
+  editProject((current) => pasteKeyframes(current, item.id, keyframeClipboard, local));
+  selectKeyframe({ itemId: item.id, time: local });
 };
 
 export const pasteAtPlayhead = () => {
+  if (keyframeClipboard.length > 0) {
+    pasteKeyframesAtPlayhead();
+    return;
+  }
   const { project, playhead } = getVideo();
   if (!project || clipboard.length === 0) return;
   let pasted: Array<string> = [];
@@ -166,20 +216,83 @@ interface SelectedKeyframe {
   time: Ticks;
 }
 
-export const useKeyframeSelection = create<{ selected: SelectedKeyframe | null }>(() => ({ selected: null }));
+interface KeyframeSelection {
+  selected: SelectedKeyframe | null;
+  group: Array<SelectedKeyframe>;
+  offset: Ticks | null;
+}
 
-export const selectKeyframe = (selected: SelectedKeyframe | null) => useKeyframeSelection.setState({ selected });
+export const useKeyframeSelection = create<KeyframeSelection>(() => ({ selected: null, group: [], offset: null }));
 
-const selectedKeyframeMark = () => {
-  const { selected } = useKeyframeSelection.getState();
+const sameKeyframe = (a: SelectedKeyframe, b: SelectedKeyframe, fps: FrameRate) =>
+  a.itemId === b.itemId && Math.abs(a.time - b.time) <= frameTicks(fps) / 2;
+
+export const selectKeyframe = (selected: SelectedKeyframe | null) =>
+  useKeyframeSelection.setState({ selected, group: selected ? [selected] : [], offset: null });
+
+export const toggleKeyframeSelection = (keyframe: SelectedKeyframe, fps: FrameRate) =>
+  useKeyframeSelection.setState(({ group }) => {
+    const chosen = group.some((other) => sameKeyframe(other, keyframe, fps));
+    const next = chosen ? group.filter((other) => !sameKeyframe(other, keyframe, fps)) : [...group, keyframe];
+    return { group: next, selected: chosen ? (next.at(-1) ?? null) : keyframe, offset: null };
+  });
+
+export const isKeyframeSelected = (group: Array<SelectedKeyframe>, itemId: string, mark: KeyMark, fps: FrameRate) =>
+  group.some((keyframe) => keyframe.itemId === itemId && isMarkAt(mark, keyframe.time, fps));
+
+export const selectedKeyframeMarks = (): Array<MarkedKeyframes> => {
+  const { group } = useKeyframeSelection.getState();
   const { project, selection } = getVideo();
-  const item = project && selected && selection.includes(selected.itemId) ? locateItem(project, selected.itemId) : null;
-  if (!project || !selected || !item) return null;
-  const mark = keyframeMarks(project, item.item).find((candidate) =>
-    isMarkAt(candidate, selected.time, project.settings.fps),
-  );
-  return mark ? { itemId: selected.itemId, mark } : null;
+  if (!project) return [];
+  return group.flatMap((keyframe) => {
+    const item = selection.includes(keyframe.itemId) ? locateItem(project, keyframe.itemId)?.item : null;
+    const mark = item
+      ? keyframeMarks(project, item).find((candidate) => isMarkAt(candidate, keyframe.time, project.settings.fps))
+      : null;
+    return mark ? [{ itemId: keyframe.itemId, mark }] : [];
+  });
 };
+
+export const keyframeDragOffset = (delta: Ticks) => {
+  const { project } = getVideo();
+  return project ? keyframeShiftLimit(project, selectedKeyframeMarks(), delta) : 0;
+};
+
+export const previewKeyframeOffset = (offset: Ticks | null) => useKeyframeSelection.setState({ offset });
+
+export const moveSelectedKeyframes = (delta: Ticks) => {
+  useKeyframeSelection.setState({ offset: null });
+  const { project } = getVideo();
+  const targets = selectedKeyframeMarks();
+  if (!project || targets.length === 0) return;
+  const fps = project.settings.fps;
+  const shift = keyframeShiftLimit(project, targets, delta);
+  if (shift === 0) return;
+  editProject((current) => shiftKeyframes(current, targets, shift));
+  const group = targets.map(({ itemId, mark }) => ({ itemId, time: snapTicks(mark.time + shift, fps) }));
+  const { selected } = useKeyframeSelection.getState();
+  useKeyframeSelection.setState({
+    group,
+    selected:
+      (selected &&
+        group.find((keyframe) => sameKeyframe(keyframe, { ...selected, time: selected.time + shift }, fps))) ??
+      group.at(-1) ??
+      null,
+  });
+};
+
+useVideoStore.subscribe((state, previous) => {
+  const undone = state.future.length > previous.future.length;
+  if ((state.selection !== previous.selection || undone) && useKeyframeSelection.getState().group.length > 0)
+    selectKeyframe(null);
+});
+
+export const nudgeSelectedKeyframes = (frames: number) => {
+  const { project } = getVideo();
+  if (project) moveSelectedKeyframes(frames * frameTicks(project.settings.fps));
+};
+
+export const hasKeyframeSelection = () => selectedKeyframeMarks().length > 0;
 
 export const deleteSelected = () => {
   const gap = selectedGap();
@@ -187,13 +300,15 @@ export const deleteSelected = () => {
     deleteGap(gap);
     return;
   }
-  const target = selectedKeyframeMark();
+  const targets = selectedKeyframeMarks();
   selectKeyframe(null);
-  if (!target) {
+  if (targets.length === 0) {
     deleteSelection();
     return;
   }
-  editProject((current) => removeKeyframes(current, target.itemId, target.mark.keys));
+  editProject((current) =>
+    targets.reduce((next, { itemId, mark }) => removeKeyframes(next, itemId, mark.keys), current),
+  );
 };
 
 export const jumpTo = (times: Array<Ticks>, direction: 1 | -1) => {

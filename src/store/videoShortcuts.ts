@@ -35,6 +35,8 @@ import {
   jumpToEdit,
   jumpToMarker,
   nudgeSelection,
+  hasKeyframeSelection,
+  nudgeSelectedKeyframes,
   pasteAtPlayhead,
   pasteCopiedLook,
   rippleDeleteSelection,
@@ -142,8 +144,8 @@ const nudgeTargets = () =>
 
 const nudge = (frames: number) =>
   projectOnly(
-    () => nudgeSelection(frames, nudgeTargets()),
-    () => nudgeTargets().length > 0,
+    () => (hasKeyframeSelection() ? nudgeSelectedKeyframes(frames) : nudgeSelection(frames, nudgeTargets())),
+    () => hasKeyframeSelection() || nudgeTargets().length > 0,
   );
 
 const selectClipAtPlayhead = () => {

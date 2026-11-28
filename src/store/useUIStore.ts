@@ -292,7 +292,6 @@ export const isFilmstripDocked = (state: UIState) =>
 
 export const isPanelAvailable = (state: UIState, panel: Panel) => {
   if (panel === Panel.Filmstrip) return state.activeView === 'editor';
-  if (panel === Panel.FolderTree) return state.workspaceMode !== 'video';
   if (VIDEO_ONLY_PANELS.includes(panel)) return state.workspaceMode === 'video';
   return true;
 };

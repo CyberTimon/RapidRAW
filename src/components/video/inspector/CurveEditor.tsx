@@ -67,8 +67,9 @@ const GUTTER = 30;
 const PLOT_WIDTH = WIDTH - GUTTER - PAD;
 const PLOT_HEIGHT = HEIGHT - 2 * PAD;
 const POINT_RADIUS = 5;
-const HANDLE_RADIUS = 3.5;
+const HANDLE_RADIUS = 3;
 const HIT_RADIUS = 9;
+
 const SNAP_DISTANCE = 5;
 const SAMPLES = 120;
 const RANGE_PAD = 0.15;
@@ -252,16 +253,18 @@ export default function CurveEditor({
   const hitAt = (x: number, y: number): Target | null => {
     const distance = (point: { time: Ticks; value: number } | null) =>
       point ? Math.hypot(shown.x(point.time) - x, shown.y(point.value) - y) : Number.POSITIVE_INFINITY;
-    const handle = nearestWithin(
-      handles.map((target) => ({ target, distance: distance(handlePoint(keys, target.index, target.side!)) })),
+    const keyHits = keys.flatMap((key, at) =>
+      key.time >= from && key.time <= to ? [{ target: at, distance: distance(key) }] : [],
+    );
+    const onPoint = nearestWithin(keyHits, POINT_RADIUS);
+    if (onPoint !== null) return { index: onPoint, side: null };
+    return nearestWithin<Target>(
+      [
+        ...keyHits.map(({ target, distance: away }) => ({ target: { index: target, side: null }, distance: away })),
+        ...handles.map((target) => ({ target, distance: distance(handlePoint(keys, target.index, target.side!)) })),
+      ],
       HIT_RADIUS,
     );
-    if (handle) return handle;
-    const index = nearestWithin(
-      keys.flatMap((key, at) => (key.time >= from && key.time <= to ? [{ target: at, distance: distance(key) }] : [])),
-      HIT_RADIUS,
-    );
-    return index === null ? null : { index, side: null };
   };
 
   const begin = (event: ReactPointerEvent<SVGSVGElement>, target: Target, current: Array<Keyframe>) => {
@@ -344,7 +347,12 @@ export default function CurveEditor({
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
     const current = drag.current;
-    if (!current) return;
+    if (!current) {
+      const { x, y } = local(event);
+      const hit = hitAt(x, y);
+      event.currentTarget.style.cursor = hit ? (hit.side ? 'move' : points ? 'grab' : 'pointer') : '';
+      return;
+    }
     const { x, y } = draggedPoint(current, local(event), event.shiftKey);
     const moved = current.target.side ? movedHandle(current, x, y) : movedPoint(current, x, y, event.altKey);
     const sent = JSON.stringify(moved);
@@ -456,10 +464,11 @@ export default function CurveEditor({
                   cx={shown.x(point.time)}
                   cy={shown.y(point.value)}
                   r={HANDLE_RADIUS}
-                  fill={isActive ? '#ffffff' : 'currentColor'}
+                  fill={isActive ? '#ffffff' : '#1e1e1e'}
                   stroke="currentColor"
-                  className={clsx('cursor-move', isActive ? 'text-white' : 'text-text-primary')}
-                  strokeWidth={1}
+                  className={isActive ? 'text-white' : 'text-text-secondary'}
+                  strokeWidth={1.25}
+                  pointerEvents="none"
                 />
               </g>
             );
@@ -472,7 +481,8 @@ export default function CurveEditor({
                 cy={shown.y(key.value)}
                 r={POINT_RADIUS}
                 fill={index === selected ? '#ffffff' : 'currentColor'}
-                className={clsx('text-accent', points ? 'cursor-grab' : 'cursor-pointer')}
+                className="text-accent"
+                pointerEvents="none"
                 stroke="#1e1e1e"
                 strokeWidth={1.5}
               />

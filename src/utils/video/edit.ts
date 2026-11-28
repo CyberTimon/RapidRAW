@@ -45,6 +45,7 @@ import {
   addKeys,
   channelsOf,
   easeKeys,
+  isAnimatablePath,
   lookTimeOf,
   moveKeys,
   numericLeaves,
@@ -1979,12 +1980,12 @@ export const groupMembers = (project: VideoProject, item: TimelineItem, refs: Ar
   });
 };
 
-const editKeys = (
+const editKeys = <K extends KeyRef>(
   project: VideoProject,
   id: string,
-  keys: Array<KeyRef>,
-  editValue: (value: Animated, key: KeyRef) => Animated,
-  editLook: (look: Adjustments, path: string, key: KeyRef) => Adjustments,
+  keys: Array<K>,
+  editValue: (value: Animated, key: K) => Animated,
+  editLook: (look: Adjustments, path: string, key: K) => Adjustments,
 ): VideoProject => {
   const item = locateItem(project, id)?.item;
   if (!item) return project;
@@ -2100,6 +2101,76 @@ export const toggleKeyframesAt = (project: VideoProject, id: string, local: Tick
     keys,
     (value, key) => toggleKeyAt(value, key.time, tolerance),
     (current, path, key) => addKeys(current, [path], key.time, tolerance),
+  );
+};
+
+export interface MarkedKeyframes {
+  itemId: string;
+  mark: KeyMark;
+}
+
+export const keyframeShiftLimit = (project: VideoProject, targets: Array<MarkedKeyframes>, delta: Ticks) =>
+  targets.reduce((limited, { itemId, mark }) => {
+    const duration = locateItem(project, itemId)?.item.duration ?? mark.time;
+    return Math.max(-mark.time, Math.min(duration - mark.time, limited));
+  }, delta);
+
+export const shiftKeyframes = (project: VideoProject, targets: Array<MarkedKeyframes>, delta: Ticks) => {
+  const shift = keyframeShiftLimit(project, targets, delta);
+  if (shift === 0) return project;
+  const moved =
+    targets.length > 1
+      ? targets.map((target) => ({
+          ...target,
+          mark: { ...target.mark, keys: target.mark.keys.filter((key) => key.channel !== SPEED_CHANNEL) },
+        }))
+      : targets;
+  return [...moved]
+    .sort((a, b) => (b.mark.time - a.mark.time) * Math.sign(shift))
+    .reduce((next, { itemId, mark }) => moveKeyframes(next, itemId, mark, mark.time + shift), project);
+};
+
+export interface CopiedKeyframe {
+  channel: string;
+  offset: Ticks;
+  key: Keyframe;
+}
+
+export const copyKeyframes = (project: VideoProject, item: TimelineItem, marks: Array<KeyMark>) => {
+  const first = Math.min(...marks.map((mark) => mark.time));
+  return marks.flatMap((mark) =>
+    mark.keys
+      .filter((ref) => ref.channel !== SPEED_CHANNEL)
+      .flatMap((ref): Array<CopiedKeyframe> => {
+        const key = channelAnimated(project, item, ref.channel)?.keys?.find((candidate) => candidate.time === ref.time);
+        return key ? [{ channel: ref.channel, offset: mark.time - first, key }] : [];
+      }),
+  );
+};
+
+const placeKey = (keys: Array<Keyframe>, key: Keyframe, tolerance: Ticks) =>
+  [...keys.filter((other) => Math.abs(other.time - key.time) > tolerance), key].sort((a, b) => a.time - b.time);
+
+export const pasteKeyframes = (project: VideoProject, id: string, copied: Array<CopiedKeyframe>, local: Ticks) => {
+  const item = locateItem(project, id)?.item;
+  if (!item) return project;
+  const fps = project.settings.fps;
+  const tolerance = frameTicks(fps) / 2;
+  const placed = copied.flatMap(({ channel, offset, key }) => {
+    const at = snapTicks(local + offset, fps);
+    if (at < 0 || at > item.duration) return [];
+    const time = lookChannelPath(channel) !== null && hasLook(item) ? lookTimeOf(item, item.start + at, fps) : at;
+    return [{ channel, time, key: { ...key, time } }];
+  });
+  return editKeys(
+    project,
+    id,
+    placed,
+    (value, ref) => ({ ...value, keys: placeKey(value.keys ?? [], ref.key, tolerance) }),
+    (look, path, ref) =>
+      isAnimatablePath(look, path)
+        ? withChannelKeys(look, path, placeKey(channelsOf(look)[path] ?? [], ref.key, tolerance))
+        : look,
   );
 };
 
