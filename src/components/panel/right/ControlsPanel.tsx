@@ -49,7 +49,12 @@ export default function Controls() {
   const { showContextMenu } = useContextMenu();
   const { isResizingWaveform, onToggleWaveform, setActiveWaveformChannel, handleWaveformResize } =
     useWaveformControls();
-  const { setAdjustments, handleAutoAdjustments, handleLutSelect } = useEditorActions();
+  const {
+    setAdjustments,
+    handleAutoAdjustments,
+    handleLutSelect,
+    handleResetAdjustments: handleResetAdjustmentsAction,
+  } = useEditorActions();
 
   const { appSettings, theme } = useSettingsStore(
     useShallow((state) => ({
@@ -128,20 +133,24 @@ export default function Controls() {
   );
 
   const handleResetAdjustments = async () => {
-    const defaults = await getOpenImageDefaults();
-    setAdjustments(
-      (prev: Adjustments) => ({
-        ...prev,
-        ...Object.keys(ADJUSTMENT_SECTIONS)
-          .flatMap((s) => ADJUSTMENT_SECTIONS[s])
-          .reduce((acc: any, key: string) => {
-            acc[key] = defaults[key as keyof Adjustments];
-            return acc;
-          }, {}),
-        activeTools: { ...defaults.activeTools },
-      }),
-      t('contextMenus.editor.resetAdjustments'),
-    );
+    if (selectedImage?.path) {
+      handleResetAdjustmentsAction([selectedImage.path]);
+    } else {
+      const defaults = await getOpenImageDefaults();
+      setAdjustments(
+        (prev: Adjustments) => ({
+          ...prev,
+          ...Object.keys(ADJUSTMENT_SECTIONS)
+            .flatMap((s) => ADJUSTMENT_SECTIONS[s])
+            .reduce((acc: any, key: string) => {
+              acc[key] = defaults[key as keyof Adjustments];
+              return acc;
+            }, {}),
+          activeTools: { ...defaults.activeTools },
+        }),
+        t('contextMenus.editor.resetAdjustments'),
+      );
+    }
   };
 
   const handleAutoAdjustContextMenu = (event: React.MouseEvent) => {

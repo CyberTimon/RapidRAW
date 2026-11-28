@@ -16,9 +16,11 @@ import {
   Columns,
   SlidersHorizontal,
   Rows3,
+  MapPin,
   X,
 } from 'lucide-react';
 import CullingView from './library/CullingView';
+import MapView from './library/MapView';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
@@ -108,6 +110,11 @@ function DisplayModeSwitch({ displayMode, setDisplayMode, t }: DisplayModeSwitch
         Icon: Columns,
         tooltip: t('library.viewMode.culling', { defaultValue: 'Culling View' }),
       },
+      {
+        id: LibraryDisplayMode.Map,
+        Icon: MapPin,
+        tooltip: t('library.viewMode.map', { defaultValue: 'Map View' }),
+      },
     ],
     [t],
   );
@@ -116,7 +123,7 @@ function DisplayModeSwitch({ displayMode, setDisplayMode, t }: DisplayModeSwitch
   const safeIndex = selectedIndex >= 0 ? selectedIndex : 0;
 
   return (
-    <div className="flex items-center bg-surface p-1 rounded-lg border border-border-color/20 h-14 w-40 select-none">
+    <div className="flex items-center bg-surface p-1 rounded-lg border border-border-color/20 h-14 w-52 select-none">
       <div className="relative flex w-full h-full">
         <motion.div
           className="absolute top-0 bottom-0 z-0 bg-bg-primary rounded-md shadow-sm"
@@ -644,6 +651,8 @@ export default function MainLibrary(props: MainLibraryProps) {
       {props.imageList.length > 0 ? (
         libraryDisplayMode === LibraryDisplayMode.Cull ? (
           <CullingView {...props} />
+        ) : libraryDisplayMode === LibraryDisplayMode.Map ? (
+          <MapView {...props} />
         ) : (
           <LibraryGrid
             {...props}
