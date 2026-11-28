@@ -759,6 +759,8 @@
       },
       "resetTooltip": "Återställ beskärning och transformering",
       "rotationHeading": "Rotation",
+      "sizeLabel": "Storlek",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Beskär och transformera",
       "tooltips": {
         "autoStraighten": "Räta upp automatiskt",

@@ -41,6 +41,7 @@ import { useShortcuts } from '../../../hooks/useShortcuts';
 import {
   calculateAreaPreservingCrop,
   calculateCenteredCrop,
+  getCroppedDimensions,
   getOrientedDimensions,
   MAX_FINE_ROTATION,
   resolveAspectRatio,
@@ -75,6 +76,7 @@ export default function CropPanel() {
   const isGuidedPerspectiveActive = useEditorStore((s) => s.isGuidedPerspectiveActive);
   const activeOverlay = useEditorStore((s) => s.overlayMode);
   const liveRotation = useEditorStore((s) => s.liveRotation);
+  const liveCropSize = useEditorStore((s) => s.liveCropSize);
   const setEditor = useEditorStore((s) => s.setEditor);
   const { setAdjustments, handleRotate, handleAutoStraighten } = useEditorActions();
   const shortcut = useShortcuts();
@@ -299,6 +301,18 @@ export default function CropPanel() {
 
   const displayRotation = liveRotation ?? fineRotation;
 
+  const cropSize = useMemo(() => {
+    if (liveCropSize) return liveCropSize;
+    if (!selectedImage?.width || !selectedImage?.height) return null;
+    const size = getCroppedDimensions(
+      selectedImage.width,
+      selectedImage.height,
+      adjustments.orientationSteps || 0,
+      adjustments.crop,
+    );
+    return { width: Math.round(size.width), height: Math.round(size.height) };
+  }, [liveCropSize, selectedImage, adjustments.orientationSteps, adjustments.crop]);
+
   const handleFineRotationChange = (e: { target: { value: number | string } }) => {
     const newFineRotation = parseFloat(String(e.target.value));
     if (isRotationActive) {
@@ -507,6 +521,18 @@ export default function CropPanel() {
                 </button>
               }
             />
+
+            {cropSize && (
+              <div className="flex items-center justify-between bg-surface px-3 py-2 rounded-lg">
+                <Text color={TextColors.secondary}>{t('editor.crop.sizeLabel')}</Text>
+                <Text className="tabular-nums">
+                  {t('editor.crop.sizeValue', {
+                    width: cropSize.width.toLocaleString(),
+                    height: cropSize.height.toLocaleString(),
+                  })}
+                </Text>
+              </div>
+            )}
 
             <div className="space-y-4">
               <Text variant={TextVariants.heading} className="mb-2">

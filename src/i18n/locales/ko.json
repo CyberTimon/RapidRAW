@@ -759,6 +759,8 @@
       },
       "resetTooltip": "자르기 및 변형 초기화",
       "rotationHeading": "회전",
+      "sizeLabel": "크기",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "자르기 및 변형",
       "tooltips": {
         "autoStraighten": "자동 수평 맞추기",

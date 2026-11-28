@@ -759,6 +759,8 @@
       },
       "resetTooltip": "Bijsnijden & transformeren herstellen",
       "rotationHeading": "Rotatie",
+      "sizeLabel": "Grootte",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Bijsnijden & transformeren",
       "tooltips": {
         "autoStraighten": "Automatisch rechtzetten",

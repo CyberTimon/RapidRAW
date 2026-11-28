@@ -853,6 +853,8 @@
       },
       "resetTooltip": "Resetuj Kadrowanie i Przekształcanie",
       "rotationHeading": "Obrót",
+      "sizeLabel": "Rozmiar",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Kadrowanie i Przekształcanie",
       "tooltips": {
         "autoStraighten": "Automatyczne prostowanie",

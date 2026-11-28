@@ -759,6 +759,8 @@
       },
       "resetTooltip": "重置裁剪和變換",
       "rotationHeading": "旋轉",
+      "sizeLabel": "尺寸",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "裁剪與變換",
       "tooltips": {
         "autoStraighten": "自動拉直",

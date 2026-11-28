@@ -806,6 +806,8 @@
       },
       "resetTooltip": "Redefinir Corte e Transformação",
       "rotationHeading": "Rotação",
+      "sizeLabel": "Tamanho",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Cortar e Transformar",
       "tooltips": {
         "autoStraighten": "Endireitar automaticamente",

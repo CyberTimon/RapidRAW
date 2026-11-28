@@ -759,6 +759,8 @@
       },
       "resetTooltip": "Zuschnitt & Transformation zurücksetzen",
       "rotationHeading": "Drehung",
+      "sizeLabel": "Größe",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Zuschnitt & Form",
       "tooltips": {
         "autoStraighten": "Automatisch ausrichten",

@@ -92,6 +92,7 @@ interface EditorState {
   mixerPickerProperty: HslMixerProperty | null;
   isGuidedPerspectiveActive: boolean;
   liveRotation: number | null;
+  liveCropSize: ImageDimensions | null;
   cropSessionSnapshot: { path: string | null; geometry: CropGeometry } | null;
   brushSettings: BrushSettings | null;
 
@@ -242,6 +243,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   mixerPickerProperty: null,
   isGuidedPerspectiveActive: false,
   liveRotation: null,
+  liveCropSize: null,
   cropSessionSnapshot: null,
 
   copiedSectionAdjustments: null,

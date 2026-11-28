@@ -853,6 +853,8 @@
       },
       "resetTooltip": "Скинути кадрування й трансформацію",
       "rotationHeading": "Поворот",
+      "sizeLabel": "Розмір",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Кадрування й трансформація",
       "tooltips": {
         "autoStraighten": "Автовирівнювання",

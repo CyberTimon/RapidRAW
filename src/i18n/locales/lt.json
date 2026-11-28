@@ -853,6 +853,8 @@
       },
       "resetTooltip": "Atstatyti kadravimą ir transformaciją",
       "rotationHeading": "Pasukimas",
+      "sizeLabel": "Dydis",
+      "sizeValue": "{{width}} × {{height}} px",
       "title": "Kadravimas ir transformacija",
       "tooltips": {
         "autoStraighten": "Automatinis tiesinimas",
