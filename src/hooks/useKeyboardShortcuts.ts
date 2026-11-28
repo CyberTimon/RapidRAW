@@ -760,6 +760,46 @@ export const useKeyboardShortcuts = ({
         },
       },
       {
+        match: (e: KeyboardEvent, s: ShortcutState) =>
+          s.ui.activeView === 'library' &&
+          ['PageUp', 'PageDown', 'Home', 'End'].includes(e.key) &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !e.altKey &&
+          !e.shiftKey,
+        execute: (e: KeyboardEvent, s: ShortcutState) => {
+          e.preventDefault();
+          const gridRows = s.library.libraryGridRows;
+          if (gridRows.length === 0) return;
+          const selectPath = (path: string) => {
+            s.library.setLibrary({ libraryActivePath: path, multiSelectedPaths: [path] });
+            handleImageSelect(path, false);
+          };
+          if (e.key === 'Home') {
+            selectPath(gridRows[0][0].path);
+            return;
+          }
+          if (e.key === 'End') {
+            const lastRow = gridRows[gridRows.length - 1];
+            selectPath(lastRow[lastRow.length - 1].path);
+            return;
+          }
+          const activePath = s.library.libraryActivePath;
+          const rowIndex = gridRows.findIndex((row) => row.some((item) => item.path === activePath));
+          if (rowIndex === -1) {
+            selectPath(gridRows[0][0].path);
+            return;
+          }
+          const offset = (e.key === 'PageDown' ? 1 : -1) * s.library.libraryGridPageRows;
+          const targetRow = gridRows[Math.max(0, Math.min(gridRows.length - 1, rowIndex + offset))];
+          const center = gridRows[rowIndex].find((item) => item.path === activePath)!.center;
+          const closest = targetRow.reduce((best, item) =>
+            Math.abs(item.center - center) < Math.abs(best.center - center) ? item : best,
+          );
+          selectPath(closest.path);
+        },
+      },
+      {
         match: (e: KeyboardEvent, s: any) =>
           s.ui.activeView === 'library' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code),
         execute: (e: KeyboardEvent, s: any) => {
