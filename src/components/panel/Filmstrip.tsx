@@ -392,6 +392,7 @@ const FilmstripList = ({
   const ratioMapRef = useRef<Record<string, number>>({});
   const [ratioMapVersion, setRatioMapVersion] = useState(0);
   const visibleRange = useRef({ start: 0, stop: 0 });
+  const renderedRange = useRef<{ start: number; stop: number } | null>(null);
   const prevSelectedPath = useRef<string | null>(null);
   const isReadyForSmooth = useRef(false);
   const resizeEndTimer = useRef<number | null>(null);
@@ -510,6 +511,26 @@ const FilmstripList = ({
     setRatioMapVersion((v) => v + 1);
   }, [data.thumbnailAspectRatio]);
 
+  const requestRenderedThumbnails = useCallback(() => {
+    const { onRequestThumbnails, imageList } = currentDataRef.current;
+    const range = renderedRange.current;
+    if (!onRequestThumbnails || !range) return;
+
+    const cached = useProcessStore.getState().thumbnails;
+    const pathsToRequest: string[] = [];
+
+    for (let i = range.start; i <= range.stop; i++) {
+      const img = imageList[i];
+      if (img && !cached[img.path]) {
+        pathsToRequest.push(img.path);
+      }
+    }
+
+    if (pathsToRequest.length > 0) {
+      onRequestThumbnails(pathsToRequest);
+    }
+  }, []);
+
   const onCellsRendered = useCallback(
     (
       visibleCells: { columnStartIndex: number; columnStopIndex: number; rowStartIndex: number; rowStopIndex: number },
@@ -519,26 +540,18 @@ const FilmstripList = ({
         start: visibleCells.columnStartIndex,
         stop: visibleCells.columnStopIndex,
       };
-
-      const currentData = currentDataRef.current;
-      if (!currentData.onRequestThumbnails) return;
-
-      const cached = useProcessStore.getState().thumbnails;
-      const pathsToRequest: string[] = [];
-
-      for (let i = allCells.columnStartIndex; i <= allCells.columnStopIndex; i++) {
-        const img = currentData.imageList[i];
-        if (img && !cached[img.path]) {
-          pathsToRequest.push(img.path);
-        }
-      }
-
-      if (pathsToRequest.length > 0) {
-        currentData.onRequestThumbnails(pathsToRequest);
-      }
+      renderedRange.current = {
+        start: allCells.columnStartIndex,
+        stop: allCells.columnStopIndex,
+      };
+      requestRenderedThumbnails();
     },
-    [],
+    [requestRenderedThumbnails],
   );
+
+  useEffect(() => {
+    requestRenderedThumbnails();
+  }, [data.imageList, requestRenderedThumbnails]);
 
   const isItemVisible = useCallback((index: number) => {
     const { start, stop } = visibleRange.current;

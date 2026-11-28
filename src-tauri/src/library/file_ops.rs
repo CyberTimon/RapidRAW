@@ -158,12 +158,43 @@ pub fn write_unique_output(
                 Err(error) if error.error.kind() == io::ErrorKind::AlreadyExists => {
                     temporary = error.file;
                 }
+                Err(error) if is_exclusive_rename_unsupported(&error.error) => {
+                    temporary = error.file;
+                    match fs::OpenOptions::new()
+                        .write(true)
+                        .create_new(true)
+                        .open(&path)
+                    {
+                        Ok(_) => {
+                            if let Err(error) = temporary.persist(&path) {
+                                let _ = fs::remove_file(&path);
+                                return Err(error.error);
+                            }
+                            return Ok(path);
+                        }
+                        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+                        Err(error) => return Err(error),
+                    }
+                }
                 Err(error) => return Err(error.error),
             }
         }
         counter = counter
             .checked_add(1)
             .ok_or_else(|| io::Error::other("No available output filename"))?;
+    }
+}
+
+fn is_exclusive_rename_unsupported(error: &std::io::Error) -> bool {
+    match error.kind() {
+        std::io::ErrorKind::Unsupported | std::io::ErrorKind::PermissionDenied => true,
+        #[cfg(unix)]
+        _ => matches!(
+            error.raw_os_error(),
+            Some(code) if code == libc::ENOTSUP || code == libc::EOPNOTSUPP
+        ),
+        #[cfg(not(unix))]
+        _ => false,
     }
 }
 
