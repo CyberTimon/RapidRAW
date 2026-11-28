@@ -1148,7 +1148,7 @@
       "advanced": "詳細設定",
       "destination": "保存先",
       "fileNaming": "ファイル名の命名",
-      "fileSettings": "ファイル設定",
+      "format": "フォーマット",
       "imageSizing": "画像サイズ",
       "metadata": "メタデータ",
       "watermark": "ウォーターマーク"
@@ -2881,6 +2881,7 @@
       "kbps": "{{value}} kbps",
       "fps": "{{fps}} fps",
       "originalRate": "オリジナル ({{fps}} fps)",
+      "originalSize": "オリジナル ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

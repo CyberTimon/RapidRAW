@@ -1246,7 +1246,7 @@
       "advanced": "Додатково",
       "destination": "Місце збереження",
       "fileNaming": "Найменування файлів",
-      "fileSettings": "Параметри файлу",
+      "format": "Формат",
       "imageSizing": "Розмір зображення",
       "metadata": "Метадані",
       "watermark": "Водяний знак"
@@ -3035,6 +3035,7 @@
       "kbps": "{{value}} кбіт/с",
       "fps": "{{fps}} fps",
       "originalRate": "Оригінал ({{fps}} fps)",
+      "originalSize": "Оригінал ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

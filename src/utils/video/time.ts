@@ -29,6 +29,9 @@ export const FRAME_RATES: Array<{ label: string; rate: FrameRate }> = [
   { label: '50', rate: { num: 50, den: 1 } },
   { label: '59.94', rate: { num: 60000, den: 1001 } },
   { label: '60', rate: { num: 60, den: 1 } },
+  { label: '100', rate: { num: 100, den: 1 } },
+  { label: '119.88', rate: { num: 120000, den: 1001 } },
+  { label: '120', rate: { num: 120, den: 1 } },
 ];
 
 export const roundFps = (fps: number) => String(Math.round(fps * 1000) / 1000);

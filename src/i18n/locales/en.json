@@ -1148,7 +1148,7 @@
       "advanced": "Advanced",
       "destination": "Destination",
       "fileNaming": "File Naming",
-      "fileSettings": "File Settings",
+      "format": "Format",
       "imageSizing": "Image Sizing",
       "metadata": "Metadata",
       "watermark": "Watermark"
@@ -2881,6 +2881,7 @@
       "kbps": "{{value}} kbps",
       "fps": "{{fps}} fps",
       "originalRate": "Original ({{fps}} fps)",
+      "originalSize": "Original ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

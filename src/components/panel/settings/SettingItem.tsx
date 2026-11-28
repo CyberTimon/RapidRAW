@@ -13,9 +13,10 @@ interface SettingItemProps {
   description?: string | null;
   inline?: boolean;
   label: string;
+  stacked?: boolean;
   status?: string | null;
   statusAction?: { label: string; onClick(): void } | null;
-  tooltip?: string | null;
+  wide?: boolean;
 }
 
 interface SettingsSectionProps {
@@ -48,37 +49,48 @@ export default function SettingItem({
   description,
   inline,
   label,
+  stacked,
   status,
   statusAction,
-  tooltip,
+  wide,
 }: SettingItemProps) {
-  const title = <TooltipLabel tooltip={tooltip}>{label}</TooltipLabel>;
-  const textGap = inline ? 'mt-1' : clsx(children && 'mt-2');
+  const heading = (
+    <span className="block min-w-0">
+      <Text as="span" variant={settingTitle} className="block">
+        {label}
+      </Text>
+      {description && (
+        <Text as="span" variant={TextVariants.small} className="block mt-0.5">
+          {description}
+        </Text>
+      )}
+    </span>
+  );
+
+  const fullWidth = !!(stacked && children);
 
   return (
     <div>
       {inline ? (
-        <label className="flex items-center justify-between gap-4">
-          <Text as="span" variant={settingTitle}>
-            {title}
-          </Text>
+        <label className="flex items-center justify-between gap-6">
+          {heading}
           {children}
         </label>
-      ) : (
+      ) : fullWidth || !children ? (
         <>
-          <Text variant={settingTitle} className="block mb-2">
-            {title}
-          </Text>
+          <div className={clsx(fullWidth && 'mb-2.5')}>{heading}</div>
           {children}
         </>
-      )}
-      {description && (
-        <Text variant={TextVariants.small} className={textGap}>
-          {description}
-        </Text>
+      ) : (
+        <div className="@container">
+          <div className="flex flex-col gap-2.5 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6">
+            {heading}
+            <div className={clsx('shrink-0 *:mb-0', wide ? '@xl:w-96' : '@xl:w-72')}>{children}</div>
+          </div>
+        </div>
       )}
       {status && (
-        <Text variant={TextVariants.small} className={description ? 'mt-1' : textGap}>
+        <Text variant={TextVariants.small} className={fullWidth ? 'mt-2' : 'mt-1'}>
           {status}
           {statusAction && (
             <>

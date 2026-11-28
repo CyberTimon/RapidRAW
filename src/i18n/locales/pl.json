@@ -1246,7 +1246,7 @@
       "advanced": "Zaawansowane",
       "destination": "Miejsce docelowe",
       "fileNaming": "Nazewnictwo plików",
-      "fileSettings": "Ustawienia pliku",
+      "format": "Format",
       "imageSizing": "Rozmiar obrazu",
       "metadata": "Metadane",
       "watermark": "Znak wodny"
@@ -3035,6 +3035,7 @@
       "kbps": "{{value}} kb/s",
       "fps": "{{fps}} fps",
       "originalRate": "Oryginał ({{fps}} fps)",
+      "originalSize": "Oryginał ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

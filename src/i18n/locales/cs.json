@@ -1246,7 +1246,7 @@
       "advanced": "Pokročilé",
       "destination": "Cíl",
       "fileNaming": "Pojmenování souborů",
-      "fileSettings": "Nastavení souboru",
+      "format": "Formát",
       "imageSizing": "Velikost snímku",
       "metadata": "Metadata",
       "watermark": "Vodoznak"
@@ -3035,6 +3035,7 @@
       "kbps": "{{value}} kb/s",
       "fps": "{{fps}} fps",
       "originalRate": "Originál ({{fps}} fps)",
+      "originalSize": "Originál ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

@@ -18,7 +18,7 @@ import { Invokes } from '../../../types/invokes';
 import { editProject, ensureMedia, fileStem, isPlaceholderPath, useVideoStore } from '../../../store/useVideoStore';
 import { withCanvasSize } from '../../../store/videoReframe';
 import { useSettingsStore } from '../../../store/useSettingsStore';
-import { DynamicRange, RateControl, VideoExportPreset, VideoResolution } from '../../../types/video';
+import { DynamicRange, Interpolation, RateControl, VideoExportPreset, VideoResolution } from '../../../types/video';
 import {
   AUDIO_BITRATES,
   AUDIO_CODECS,
@@ -48,6 +48,7 @@ import {
   presetOf,
   rememberVideoExportSettings,
   restoreVideoExportSettings,
+  setVideoExportInterpolation,
   supportsBitrate,
   supportsHdr,
   useVideoExportStore,
@@ -71,6 +72,7 @@ import {
   secondsToTicks,
   ticksToSeconds,
 } from '../../../utils/video/time';
+import { framesMissing, interpolationOptions, missingFrames } from '../../../utils/video/interpolation';
 import { formatBytes } from '../../../utils/formatBytes';
 
 interface VideoExportSectionProps {
@@ -130,6 +132,7 @@ export default function VideoExportSection({
       height: state.height,
       lockAspect: state.lockAspect,
       frameRate: state.frameRate,
+      interpolation: state.interpolation,
       audioCodec: state.audioCodec,
       audioBitrate: state.audioBitrate,
       dynamicRange: state.dynamicRange,
@@ -237,6 +240,25 @@ export default function VideoExportSection({
     : maxFps && sourceFps > maxFps
       ? sourceFps / Math.ceil(sourceFps / maxFps)
       : sourceFps;
+  const interpolates = useVideoStore((state) =>
+    target.kind === 'project'
+      ? !!project &&
+        allItems(project).some(
+          (item) =>
+            item.type === 'clip' &&
+            missingFrames(item, state.media[mediaPathOf(project, item) ?? '']?.fps ?? 0, outputFps),
+        )
+      : !!explicitRate && target.paths.some((path) => framesMissing(state.media[path]?.fps ?? 0, outputFps)),
+  );
+  const interpolation =
+    target.kind === 'project' ? (project?.settings.interpolation ?? 'none') : settings.interpolation;
+  const changeInterpolation = (next: Interpolation) =>
+    target.kind === 'project'
+      ? editProject((edited) => ({
+          ...edited,
+          settings: { ...edited.settings, interpolation: next === 'none' ? undefined : next },
+        }))
+      : setVideoExportInterpolation(next);
   const bitrateSupported = supportsBitrate(codec);
   const usesBitrate = bitrateSupported && rateControl === 'bitrate';
   const estimatedBytes =
@@ -447,12 +469,15 @@ export default function VideoExportSection({
         </PanelSection>
 
         <PanelSection title={t('video.export.sections.resolution')}>
-          <SegmentedControl
+          <Dropdown<VideoResolution>
+            className="w-full"
             options={VIDEO_RESOLUTIONS.map((id) => ({
-              id,
+              value: id,
               label:
                 id === 'original'
-                  ? t('video.export.original')
+                  ? source && count === 1
+                    ? t('video.export.originalSize', { width: even(source.width), height: even(source.height) })
+                    : t('video.export.original')
                   : id === 'custom'
                     ? t('video.export.preset.custom')
                     : `${id}p`,
@@ -508,6 +533,17 @@ export default function VideoExportSection({
             disabled={busy}
             onChange={(value) => changeVideoExport({ frameRate: value })}
           />
+          {interpolates && (
+            <div>
+              <FieldLabel>{t('video.inspector.frameInterpolation')}</FieldLabel>
+              <SegmentedControl<Interpolation>
+                options={interpolationOptions(t)}
+                value={interpolation}
+                disabled={busy}
+                onChange={changeInterpolation}
+              />
+            </div>
+          )}
         </PanelSection>
 
         {project?.range && target.kind === 'project' && (

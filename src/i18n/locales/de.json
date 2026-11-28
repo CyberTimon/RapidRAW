@@ -1148,7 +1148,7 @@
       "advanced": "Erweitert",
       "destination": "Zielort",
       "fileNaming": "Dateibenennung",
-      "fileSettings": "Dateieinstellungen",
+      "format": "Format",
       "imageSizing": "Bildgröße",
       "metadata": "Metadaten",
       "watermark": "Wasserzeichen"
@@ -2881,6 +2881,7 @@
       "kbps": "{{value}} kbit/s",
       "fps": "{{fps}} fps",
       "originalRate": "Original ({{fps}} fps)",
+      "originalSize": "Original ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

@@ -88,8 +88,8 @@ export default function ImmichSettings() {
 
   return (
     <SettingsSection title={t('immich.settings.title')} tooltip={t('immich.settings.tooltip')}>
-      <div className="space-y-6">
-        <SettingItem label={t('immich.settings.serverUrl')} tooltip={t('immich.settings.serverUrlDesc')}>
+      <div className="space-y-8">
+        <SettingItem label={t('immich.settings.serverUrl')} description={t('immich.settings.serverUrlDesc')}>
           <Input
             value={serverUrl}
             placeholder="https://photos.example.com"
@@ -101,7 +101,7 @@ export default function ImmichSettings() {
           />
         </SettingItem>
 
-        <SettingItem label={t('immich.settings.apiKey')} tooltip={t('immich.settings.apiKeyDesc')}>
+        <SettingItem label={t('immich.settings.apiKey')} description={t('immich.settings.apiKeyDesc')}>
           <Input
             type="password"
             value={apiKey}

@@ -1148,7 +1148,7 @@
       "advanced": "고급",
       "destination": "대상",
       "fileNaming": "파일 이름 지정",
-      "fileSettings": "파일 설정",
+      "format": "형식",
       "imageSizing": "이미지 크기",
       "metadata": "메타데이터",
       "watermark": "워터마크"
@@ -2881,6 +2881,7 @@
       "kbps": "{{value}} kbps",
       "fps": "{{fps}} fps",
       "originalRate": "원본 ({{fps}} fps)",
+      "originalSize": "원본 ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

@@ -1246,7 +1246,7 @@
       "advanced": "Дополнительно",
       "destination": "Место назначения",
       "fileNaming": "Именование файлов",
-      "fileSettings": "Параметры файла",
+      "format": "Формат",
       "imageSizing": "Размер изображения",
       "metadata": "Метаданные",
       "watermark": "Водяной знак"
@@ -3035,6 +3035,7 @@
       "kbps": "{{value}} кбит/с",
       "fps": "{{fps}} fps",
       "originalRate": "Оригинал ({{fps}} fps)",
+      "originalSize": "Оригинал ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

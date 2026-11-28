@@ -1148,7 +1148,7 @@
       "advanced": "Geavanceerd",
       "destination": "Bestemming",
       "fileNaming": "Bestandsnaamgeving",
-      "fileSettings": "Bestandsinstellingen",
+      "format": "Formaat",
       "imageSizing": "Afbeeldingsgrootte",
       "metadata": "Metadata",
       "watermark": "Watermerk"
@@ -2881,6 +2881,7 @@
       "kbps": "{{value}} kbps",
       "fps": "{{fps}} fps",
       "originalRate": "Origineel ({{fps}} fps)",
+      "originalSize": "Origineel ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

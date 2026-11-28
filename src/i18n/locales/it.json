@@ -1197,7 +1197,7 @@
       "advanced": "Avanzate",
       "destination": "Destinazione",
       "fileNaming": "Nomenclatura File",
-      "fileSettings": "Impostazioni File",
+      "format": "Formato",
       "imageSizing": "Dimensionamento Immagine",
       "metadata": "Metadati",
       "watermark": "Filigrana"
@@ -2958,6 +2958,7 @@
       "kbps": "{{value}} kbps",
       "fps": "{{fps}} fps",
       "originalRate": "Originale ({{fps}} fps)",
+      "originalSize": "Originale ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

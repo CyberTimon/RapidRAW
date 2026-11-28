@@ -1148,7 +1148,7 @@
       "advanced": "高级",
       "destination": "目标位置",
       "fileNaming": "文件命名",
-      "fileSettings": "文件设置",
+      "format": "格式",
       "imageSizing": "图像大小",
       "metadata": "元数据",
       "watermark": "水印"
@@ -2881,6 +2881,7 @@
       "kbps": "{{value}} kbps",
       "fps": "{{fps}} fps",
       "originalRate": "原始（{{fps}} fps）",
+      "originalSize": "原始（{{width}} × {{height}}）",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

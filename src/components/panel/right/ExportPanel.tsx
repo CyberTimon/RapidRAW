@@ -9,7 +9,6 @@ import Switch from '../../ui/Switch';
 import ExportButton from '../../ui/ExportButton';
 import Dropdown from '../../ui/Dropdown';
 import Slider from '../../ui/Slider';
-import SegmentedControl from '../../ui/SegmentedControl';
 import PanelSection from '../../ui/PanelSection';
 import ColorField, { normalizeHexColor, useParsedTextField } from '../../ui/ColorField';
 import ValidatedNumberInput from '../../ui/ValidatedNumberInput';
@@ -67,6 +66,8 @@ interface ExportPanelProps {
 }
 
 const MAX_PAD_RATIO = 1000;
+
+const FILE_FORMAT_OPTIONS = FILE_FORMATS.map((format: FileFormat) => ({ label: format.name, value: format.id }));
 
 function parseRatio(value: string): number | null {
   const parsed = Number(value.trim().replace(',', '.'));
@@ -724,12 +725,13 @@ export default function ExportPanel({
               />
             </div>
 
-            <PanelSection title={t('export.sections.fileSettings')}>
-              <SegmentedControl<string>
-                options={FILE_FORMATS.map((format: FileFormat) => ({ id: format.id, label: format.name }))}
+            <PanelSection title={t('export.sections.format')}>
+              <Dropdown
+                options={FILE_FORMAT_OPTIONS}
                 value={fileFormat}
                 onChange={setFileFormat}
                 disabled={isExporting}
+                className="w-full"
               />
               {[FileFormats.Jpeg, FileFormats.Webp, FileFormats.Jxl].includes(fileFormat as FileFormats) && (
                 <div className={isExporting ? 'opacity-50 pointer-events-none' : ''}>

@@ -429,6 +429,7 @@ export interface VideoExportSettings {
   height: number;
   lockAspect: boolean;
   frameRate: string;
+  interpolation: Interpolation;
   audioCodec: AudioCodec;
   audioBitrate: number;
   dynamicRange: DynamicRange;

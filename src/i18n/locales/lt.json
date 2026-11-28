@@ -1246,7 +1246,7 @@
       "advanced": "Išplėstiniai",
       "destination": "Paskirtis",
       "fileNaming": "Failų pervadinimas",
-      "fileSettings": "Failų nustatymai",
+      "format": "Formatas",
       "imageSizing": "Nuotraukos dydis",
       "metadata": "Metaduomenys",
       "watermark": "Vandens ženklas"
@@ -3035,6 +3035,7 @@
       "kbps": "{{value}} kb/s",
       "fps": "{{fps}} fps",
       "originalRate": "Originalas ({{fps}} fps)",
+      "originalSize": "Originalas ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",

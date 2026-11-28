@@ -9,6 +9,7 @@ import {
   AudioCodec,
   DynamicRange,
   EncoderInfo,
+  Interpolation,
   LoudnessTarget,
   Ticks,
   VideoCodec,
@@ -118,7 +119,10 @@ export const LOUDNESS_TARGETS: Array<{ id: LoudnessTarget; lufs: number | null }
   { id: 'broadcast', lufs: -23 },
 ];
 
-type PresetSettings = Omit<VideoExportSettings, 'preset' | 'bitrate' | 'width' | 'height' | 'lockAspect'>;
+type PresetSettings = Omit<
+  VideoExportSettings,
+  'preset' | 'bitrate' | 'width' | 'height' | 'lockAspect' | 'interpolation'
+>;
 
 interface VideoExportPresetSpec {
   id: Exclude<VideoExportPreset, 'custom'>;
@@ -203,6 +207,7 @@ export const useVideoExportStore = create<VideoExportState>(() => ({
   height: 1080,
   lockAspect: true,
   frameRate: ORIGINAL_FRAME_RATE,
+  interpolation: 'flow',
   audioCodec: 'aac',
   audioBitrate: AUDIO_DEFAULT_KBPS.aac,
   loudness: 'off',
@@ -233,6 +238,7 @@ const settingsOf = (source: VideoExportSettings): VideoExportSettings => ({
   height: source.height,
   lockAspect: source.lockAspect,
   frameRate: source.frameRate,
+  interpolation: source.interpolation,
   audioCodec: source.audioCodec,
   audioBitrate: source.audioBitrate,
   dynamicRange: source.dynamicRange,
@@ -266,6 +272,8 @@ export const changeVideoExport = (update: Partial<VideoExportSettings>) => {
 
 export const applyVideoExportPreset = (preset: VideoExportPreset) =>
   setExport({ preset, ...presetOf(preset)?.settings });
+
+export const setVideoExportInterpolation = (interpolation: Interpolation) => setExport({ interpolation });
 
 let settingsRestored = false;
 
@@ -376,6 +384,7 @@ const buildVideoProject = async (path: string, output: ExportSnapshot): Promise<
     ...settingsFor(info),
     ...outputCanvas(frame.width, frame.height, output),
     fps,
+    interpolation: output.interpolation === 'none' ? undefined : output.interpolation,
   });
   const media = createMediaRef(path, 'video');
   const clip = createClipItem(media, info, project.settings, CLIP_LOOK);

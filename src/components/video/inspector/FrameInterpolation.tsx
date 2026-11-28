@@ -6,6 +6,7 @@ import { ClipItem, Interpolation } from '../../../types/video';
 import { useVideoStore } from '../../../store/useVideoStore';
 import { sourceFpsOf } from '../../../store/videoEditing';
 import { interpolationOptions, missingFrames } from '../../../utils/video/interpolation';
+import { fpsValue } from '../../../utils/video/time';
 import { editItem } from './InspectorControls';
 
 export function InterpolationField({
@@ -28,7 +29,7 @@ export function InterpolationField({
 
 export function FrameInterpolation({ item }: { item: ClipItem }) {
   const fallback = useVideoStore((state) => state.project?.settings.interpolation ?? 'none');
-  const projectFps = useVideoStore((state) => state.project?.settings.fps);
+  const projectFps = useVideoStore((state) => (state.project ? fpsValue(state.project.settings.fps) : undefined));
   const sourceFps = useVideoStore((state) => (state.project ? sourceFpsOf(state.project, item) : undefined));
   if (!projectFps || !sourceFps) return null;
   if (!missingFrames(item, sourceFps, projectFps) && (item.interpolation ?? 'none') === 'none') return null;

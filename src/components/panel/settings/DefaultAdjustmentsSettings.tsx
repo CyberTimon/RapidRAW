@@ -120,10 +120,10 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <SettingItem
         label={t('settings.processing.defaultAdjustments.preset')}
-        tooltip={t('settings.processing.defaultAdjustments.presetTooltip')}
+        description={t('settings.processing.defaultAdjustments.presetTooltip')}
         status={presetMissing ? t('settings.processing.defaultAdjustments.presetMissing') : null}
       >
         <Dropdown
@@ -137,7 +137,7 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
       <SettingItem
         inline
         label={t('settings.processing.defaultAdjustments.lensCorrection')}
-        tooltip={t('settings.processing.defaultAdjustments.autoLensCorrectionDesc')}
+        description={t('settings.processing.defaultAdjustments.autoLensCorrectionDesc')}
       >
         <Switch
           checked={developDefaults.autoLensCorrection ?? false}
@@ -149,7 +149,7 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
       <SettingItem
         inline
         label={t('settings.processing.defaultAdjustments.applyToNonRaw')}
-        tooltip={t('settings.processing.defaultAdjustments.applyToNonRawDesc')}
+        description={t('settings.processing.defaultAdjustments.applyToNonRawDesc')}
       >
         <Switch
           checked={developDefaults.applyToNonRaw ?? false}
@@ -160,7 +160,7 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
 
       <SettingItem
         label={t('settings.processing.defaultAdjustments.sliderReset')}
-        tooltip={t('settings.processing.defaultAdjustments.sliderResetDesc')}
+        description={t('settings.processing.defaultAdjustments.sliderResetDesc')}
       >
         <Dropdown
           onChange={(value: SliderResetTarget) =>
@@ -173,8 +173,9 @@ export default function DefaultAdjustmentsSettings({ appSettings, onSettingsChan
       </SettingItem>
 
       <SettingItem
+        stacked
         label={t('settings.processing.defaultAdjustments.cameraDefaults')}
-        tooltip={t('settings.processing.defaultAdjustments.cameraDefaultsDesc')}
+        description={t('settings.processing.defaultAdjustments.cameraDefaultsDesc')}
       >
         <div className="space-y-3">
           {cameraRules.map((rule, index) => (

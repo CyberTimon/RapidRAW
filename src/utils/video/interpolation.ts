@@ -1,7 +1,6 @@
 import type { TFunction } from 'i18next';
-import { ClipItem, FrameRate, Interpolation } from '../../types/video';
+import { ClipItem, Interpolation } from '../../types/video';
 import { clipSpeed } from './model';
-import { fpsValue } from './time';
 
 const RATE_TOLERANCE = 0.01;
 const INTERPOLATIONS: Array<Interpolation> = ['none', 'blend', 'flow'];
@@ -14,5 +13,8 @@ const slowestSpeed = (item: ClipItem) =>
     ? Math.min(...item.speedRamp.map((key) => clipSpeed({ speed: key.value })))
     : clipSpeed(item);
 
-export const missingFrames = (item: ClipItem, sourceFps: number, projectFps: FrameRate) =>
-  !item.freeze && sourceFps > 0 && sourceFps * slowestSpeed(item) < fpsValue(projectFps) * (1 - RATE_TOLERANCE);
+export const framesMissing = (sourceFps: number, targetFps: number) =>
+  sourceFps > 0 && sourceFps < targetFps * (1 - RATE_TOLERANCE);
+
+export const missingFrames = (item: ClipItem, sourceFps: number, targetFps: number) =>
+  !item.freeze && framesMissing(sourceFps * slowestSpeed(item), targetFps);

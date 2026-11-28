@@ -1197,7 +1197,7 @@
       "advanced": "Avançat",
       "destination": "Destinació",
       "fileNaming": "Nomenclatura de fitxers",
-      "fileSettings": "Configuració del fitxer",
+      "format": "Format",
       "imageSizing": "Mida de la imatge",
       "metadata": "Metadades",
       "watermark": "Marca d'aigua"
@@ -2958,6 +2958,7 @@
       "kbps": "{{value}} kbps",
       "fps": "{{fps}} fps",
       "originalRate": "Original ({{fps}} fps)",
+      "originalSize": "Original ({{width}} × {{height}})",
       "proResQuality": {
         "high": "422 HQ",
         "medium": "422",
