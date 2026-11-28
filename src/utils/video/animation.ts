@@ -135,6 +135,13 @@ const rounded = (value: number) => Math.round(value * HANDLE_PRECISION) / HANDLE
 export const withHandle = (keys: Array<Keyframe>, index: number, side: HandleSide, [x, y]: Handle) =>
   keys.map((key, at) => (at === index ? { ...key, [side]: [rounded(clampUnit(x)), rounded(y)] } : key));
 
+export const withoutHandle = (keys: Array<Keyframe>, index: number, side: HandleSide) =>
+  keys.map((key, at) => {
+    if (at !== index || !key[side]) return key;
+    const { [side]: _removed, ...rest } = key;
+    return rest;
+  });
+
 export const easeAt = (value: Animated, time: Ticks, tolerance: Ticks): EaseChoice | null => {
   const index = keyIndexAt(value, time, tolerance);
   return index < 0 ? null : easeOfKey(value.keys!, index);

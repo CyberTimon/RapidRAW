@@ -7,6 +7,7 @@ import { TextVariants, TextWeights } from '../../types/typography';
 import { useCollapsibleHeight } from '../../hooks/useCollapsibleHeight';
 
 interface CollapsibleSectionProps {
+  actions?: ReactNode;
   canToggleVisibility?: boolean;
   children: ReactNode;
   isContentVisible: boolean;
@@ -18,6 +19,7 @@ interface CollapsibleSectionProps {
 }
 
 export default function CollapsibleSection({
+  actions,
   canToggleVisibility = true,
   children,
   isContentVisible,
@@ -73,6 +75,11 @@ export default function CollapsibleSection({
             </div>
           )}
         </div>
+        {actions && (
+          <div className="flex items-center ml-auto mr-2" onClick={(event) => event.stopPropagation()}>
+            {actions}
+          </div>
+        )}
         <ChevronDown
           className={clsx('shrink-0 text-accent transition-transform duration-300', { 'rotate-180': isOpen })}
           size={20}

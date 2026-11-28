@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Dropdown from '../../ui/Dropdown';
 import Text from '../../ui/Text';
 import { TextColors } from '../../../types/typography';
@@ -24,7 +25,7 @@ import { frameTicks } from '../../../utils/video/time';
 import { formatGain } from '../../../utils/video/sound';
 import { channelLabel } from '../timeline/KeyframeMarks';
 import CurveEditor, { easeOptions } from './CurveEditor';
-import { FieldRow, InspectorSection } from './InspectorControls';
+import { FieldRow, InspectorSection, KeyframeButton } from './InspectorControls';
 
 const PERCENT_CHANNELS = new Set([
   'transform.x',
@@ -70,14 +71,43 @@ export default function KeyframeSection({ item, project }: { item: TimelineItem;
       merge ? `keyCurve:${item.id}` : undefined,
     );
   const applyEase = (at: number, preset: EasePreset) => commit(withEase(keys, at, preset), false);
+  const clampToItem = (time: Ticks) =>
+    Math.min(Math.max(time, item.start), item.start + item.duration - frameTicks(fps));
   const select = (at: number) => {
     const local = localOf(keys[at].time);
     selectKeyframe({ itemId: item.id, time: local });
     setPlayhead(item.start + Math.min(local, item.duration - frameTicks(fps)));
   };
+  const reachable = (at: number) => {
+    const local = at >= 0 && at < keys.length ? localOf(keys[at].time) : -1;
+    return local >= 0 && local <= item.duration;
+  };
+  const step = (at: number) => {
+    setPicked(channelGroup(ref.channel));
+    select(at);
+  };
 
   return (
-    <InspectorSection id="keyframe" title={t('video.keyframes.keyframe')}>
+    <InspectorSection
+      id="keyframe"
+      title={t('video.keyframes.keyframe')}
+      actions={
+        <>
+          <KeyframeButton
+            icon={ChevronLeft}
+            label={t('video.inspector.previousKeyframe')}
+            disabled={!reachable(index - 1)}
+            onClick={() => step(index - 1)}
+          />
+          <KeyframeButton
+            icon={ChevronRight}
+            label={t('video.inspector.nextKeyframe')}
+            disabled={!reachable(index + 1)}
+            onClick={() => step(index + 1)}
+          />
+        </>
+      }
+    >
       <FieldRow label={t('video.keyframes.value')}>
         {refs.length > 1 ? (
           <Dropdown<string>
@@ -122,8 +152,11 @@ export default function KeyframeSection({ item, project }: { item: TimelineItem;
               if (playhead < item.start || playhead >= item.start + item.duration) return null;
               return lookItem ? lookTimeOf(lookItem, playhead, fps) : playhead - item.start;
             }}
+            seek={(time) =>
+              setPlayhead(clampToItem(lookItem ? timelineTimeOf(lookItem, time, fps) : item.start + time))
+            }
             onSelect={select}
-            onChange={(next) => commit(next, true)}
+            onChange={(next, _index, merge) => commit(next, merge)}
             onMenu={(event, at) =>
               showContextMenu(
                 event.clientX,

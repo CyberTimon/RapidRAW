@@ -173,9 +173,10 @@ function SpeedGraph({ item, onEdit }: { item: Timed; onEdit: AnimatedEdit }) {
         playhead={(playhead) =>
           playhead >= item.start && playhead < item.start + item.duration ? playhead - item.start : null
         }
+        seek={(time) => setPlayhead(item.start + Math.min(time, item.duration - step))}
         points={{ step, add, remove }}
         onSelect={focus}
-        onChange={(next, index) => commit(next, true, index)}
+        onChange={(next, index, merge) => commit(next, merge, index)}
         onMenu={openMenu}
       />
     </div>

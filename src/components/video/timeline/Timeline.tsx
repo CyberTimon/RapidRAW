@@ -1210,7 +1210,7 @@ export default function Timeline() {
   const beginScrub = (event: ReactPointerEvent) => {
     if (event.button !== 0) return;
     event.stopPropagation();
-    capture(event);
+    startDrag(event);
     interactionRef.current = { kind: 'scrub' };
     holdSeekResume(true);
     setPlayhead(pointerTime(event.clientX));

@@ -31,12 +31,14 @@ import {
   keyframeMarks,
   lookChannelPath,
   removeKeyframes,
+  SPEED_CHANNEL,
   trackedSpans,
 } from '../../../utils/video/edit';
 import { lookOf } from '../../../utils/video/model';
 import { lookValueLabel } from '../../../utils/video/lookLabels';
 import { formatTimecode, secondsToTicks, snapTicks, ticksToSeconds } from '../../../utils/video/time';
 import { easeOptions } from '../inspector/CurveEditor';
+import { revealInspectorSection } from '../inspector/InspectorControls';
 import { dragStarted, usePointerDrag } from './gestures';
 
 const VALUE_LABELS: Record<string, ParseKeys> = {
@@ -164,6 +166,7 @@ export default function KeyframeMarks({ item, pps }: { item: TimelineItem; pps: 
     const editCurve = () => {
       selectKeyframe({ itemId: item.id, time: mark.time });
       useUIStore.getState().setPanel(Panel.Inspector);
+      revealInspectorSection(mark.keys.every((key) => key.channel === SPEED_CHANNEL) ? 'timing' : 'keyframe');
     };
     const ease = (preset: Parameters<typeof easeKeyframes>[3]) =>
       editProject((next) =>

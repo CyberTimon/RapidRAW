@@ -57,11 +57,13 @@ export type AnimatedEdit = (update: (value: Animated) => Animated, merge: boolea
 
 interface SectionState {
   collapsed: Record<string, boolean>;
+  reveal: { section: string; token: number } | null;
   toggle(id: string): void;
 }
 
 const useSectionState = create<SectionState>((set) => ({
   collapsed: {},
+  reveal: null,
   toggle: (id) => set((state) => ({ collapsed: { ...state.collapsed, [id]: !state.collapsed[id] } })),
 }));
 
@@ -72,12 +74,38 @@ export const focusInspectorText = (section: string) => {
   useTextFocus.setState(({ request }) => ({ request: { section, token: (request?.token ?? 0) + 1 } }));
 };
 
-export function InspectorSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+export const revealInspectorSection = (section: string) =>
+  useSectionState.setState(({ collapsed, reveal }) => ({
+    collapsed: { ...collapsed, [section]: false },
+    reveal: { section, token: (reveal?.token ?? 0) + 1 },
+  }));
+
+export const useInspectorReveal = () => useSectionState((state) => state.reveal);
+
+export function InspectorSection({
+  id,
+  title,
+  actions,
+  children,
+}: {
+  id: string;
+  title: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
   const isOpen = useSectionState((state) => !state.collapsed[id]);
   const toggle = useSectionState((state) => state.toggle);
+  const revealToken = useSectionState((state) => (state.reveal?.section === id ? state.reveal.token : null));
+  useEffect(() => {
+    if (revealToken === null) return;
+    useSectionState.setState({ reveal: null });
+    requestAnimationFrame(() => ref.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  }, [revealToken]);
   return (
-    <div className="shrink-0">
+    <div className="shrink-0" ref={ref}>
       <CollapsibleSection
+        actions={actions}
         canToggleVisibility={false}
         isContentVisible
         isOpen={isOpen}
@@ -376,7 +404,7 @@ export const useAnimatedKeys = (values: Array<Animated>, start: Ticks, duration:
   };
 };
 
-function KeyframeButton({
+export function KeyframeButton({
   icon: Icon,
   label,
   disabled,

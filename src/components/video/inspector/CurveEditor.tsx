@@ -10,6 +10,7 @@ import clsx from 'clsx';
 import { Check } from 'lucide-react';
 import { Animated, Keyframe, Ticks } from '../../../types/video';
 import { getVideo, useVideoStore } from '../../../store/useVideoStore';
+import { holdSeekResume } from '../../../store/videoPlayback';
 import { FINE_ADJUSTMENT_MULTIPLIER } from '../../../utils/fineAdjustment';
 import { frameTicks } from '../../../utils/video/time';
 import { alignHaptic } from '../../../utils/haptics';
@@ -21,6 +22,7 @@ import {
   segmentHandles,
   valueAt,
   withHandle,
+  withoutHandle,
 } from '../../../utils/video/animation';
 
 export interface CurveScale {
@@ -69,6 +71,7 @@ const PLOT_HEIGHT = HEIGHT - 2 * PAD;
 const POINT_RADIUS = 5;
 const HANDLE_RADIUS = 3;
 const HIT_RADIUS = 9;
+const PLAYHEAD_HIT = 4;
 
 const SNAP_DISTANCE = 5;
 const SAMPLES = 120;
@@ -132,6 +135,11 @@ const handlePoint = (keys: Array<Keyframe>, index: number, side: HandleSide) => 
     : { time: to.time - incoming[0] * span, value: to.value - incoming[1] * delta };
 };
 
+const bends = (keys: Array<Keyframe>, target: Target) => {
+  const segment = segmentOf(keys, target.index, target.side!);
+  return !!segment && Math.abs(segment.to.value - segment.from.value) > 1e-9;
+};
+
 const visibleHandles = (keys: Array<Keyframe>, selected: number | null): Array<Target> =>
   selected === null
     ? []
@@ -140,7 +148,7 @@ const visibleHandles = (keys: Array<Keyframe>, selected: number | null): Array<T
         { index: selected, side: 'in' as const },
         { index: selected, side: 'out' as const },
         { index: selected + 1, side: 'in' as const },
-      ].filter((target) => segmentOf(keys, target.index, target.side));
+      ].filter((target) => bends(keys, target));
 
 const sampleTimes = (keys: Array<Keyframe>, from: Ticks, to: Ticks) =>
   [
@@ -223,6 +231,7 @@ export default function CurveEditor({
   selected,
   format,
   playhead,
+  seek,
   points,
   onSelect,
   onChange,
@@ -235,13 +244,15 @@ export default function CurveEditor({
   selected: number | null;
   format(value: number): string;
   playhead?(playhead: Ticks): Ticks | null;
+  seek?(time: Ticks): void;
   points?: PointEditing;
   onSelect(index: number): void;
-  onChange(keys: Array<Keyframe>, index: number): void;
+  onChange(keys: Array<Keyframe>, index: number, merge: boolean): void;
   onMenu(event: ReactMouseEvent, index: number): void;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<Drag | null>(null);
+  const scrubbing = useRef(false);
   const [active, setActive] = useState<{ target: Target; scale: CurveScale } | null>(null);
   const keys = value.keys ?? [];
   const handles = visibleHandles(keys, selected);
@@ -265,6 +276,21 @@ export default function CurveEditor({
       ],
       HIT_RADIUS,
     );
+  };
+
+  const onPlayhead = (x: number) => {
+    const time = seek && playhead ? playhead(getVideo().playhead) : null;
+    return time !== null && time >= from && time <= to && Math.abs(shown.x(time) - x) <= PLAYHEAD_HIT;
+  };
+
+  const scrubTo = (x: number) => {
+    const snap = nearestWithin(
+      keys.flatMap((key) =>
+        key.time >= from && key.time <= to ? [{ target: key.time, distance: Math.abs(shown.x(key.time) - x) }] : [],
+      ),
+      SNAP_DISTANCE,
+    );
+    seek?.(snap ?? clamp(Math.round(shown.time(x)), from, to));
   };
 
   const begin = (event: ReactPointerEvent<SVGSVGElement>, target: Target, current: Array<Keyframe>) => {
@@ -298,10 +324,17 @@ export default function CurveEditor({
       if (points) begin(event, hit, keys);
       return;
     }
+    if (onPlayhead(x)) {
+      svgRef.current?.setPointerCapture(event.pointerId);
+      scrubbing.current = true;
+      holdSeekResume(true);
+      scrubTo(x);
+      return;
+    }
     if (!points || x < GUTTER) return;
     const added = points.add(keys, clamp(Math.round(shown.time(x)), from, to));
     begin(event, { index: added.index, side: null }, added.keys);
-    onChange(added.keys, added.index);
+    onChange(added.keys, added.index, true);
   };
 
   const movedPoint = (current: Drag, x: number, y: number, free: boolean) => {
@@ -346,11 +379,23 @@ export default function CurveEditor({
   };
 
   const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (scrubbing.current) {
+      scrubTo(local(event).x);
+      return;
+    }
     const current = drag.current;
     if (!current) {
       const { x, y } = local(event);
       const hit = hitAt(x, y);
-      event.currentTarget.style.cursor = hit ? (hit.side ? 'move' : points ? 'grab' : 'pointer') : '';
+      event.currentTarget.style.cursor = hit
+        ? hit.side
+          ? 'move'
+          : points
+            ? 'grab'
+            : 'pointer'
+        : onPlayhead(x)
+          ? 'ew-resize'
+          : '';
       return;
     }
     const { x, y } = draggedPoint(current, local(event), event.shiftKey);
@@ -364,10 +409,15 @@ export default function CurveEditor({
         ? moved
         : moved.map((key) => ({ ...key, time: Math.round(from + (key.time - current.from) * ratio) })),
       current.target.index,
+      true,
     );
   };
 
   const handlePointerUp = () => {
+    if (scrubbing.current) {
+      scrubbing.current = false;
+      holdSeekResume(false);
+    }
     drag.current = null;
     setActive(null);
   };
@@ -388,8 +438,12 @@ export default function CurveEditor({
   };
 
   const handleDoubleClick = (event: ReactMouseEvent<SVGSVGElement>) => {
-    const index = pointAt(event);
-    if (index !== null) points?.remove(index);
+    const { x, y } = local(event);
+    const hit = hitAt(x, y);
+    if (hit?.side) {
+      const next = withoutHandle(keys, hit.index, hit.side);
+      if (next.some((key, at) => key !== keys[at])) onChange(next, hit.index, false);
+    } else if (hit) points?.remove(hit.index);
   };
 
   const path = sampleTimes(keys, from, to)

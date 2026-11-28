@@ -31,6 +31,7 @@ import {
 } from './ItemSections';
 import { StabilizeSection, TrackingSection } from './MotionSections';
 import KeyframeSection from './KeyframeSection';
+import { useInspectorReveal } from './InspectorControls';
 import TimelapseSection from './TimelapseSection';
 import AudioSections from './AudioSections';
 import { KenBurnsSection, SelectionInspector } from './MontageSections';
@@ -89,6 +90,11 @@ function ClipInspector({
     rememberedView = next;
     setView(next);
   };
+
+  const reveal = useInspectorReveal();
+  useEffect(() => {
+    if (reveal && view === 'audio') changeView('video');
+  }, [reveal]);
 
   return (
     <>
