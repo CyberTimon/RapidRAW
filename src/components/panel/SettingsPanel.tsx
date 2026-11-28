@@ -1335,7 +1335,7 @@ export default function SettingsPanel({
                               description={t('settings.processing.ai.cpu.description')}
                             />
                             {(osPlatform === 'windows' || osPlatform === 'macos' || osPlatform === 'linux') && (
-                              <div className="mt-8">
+                              <div className="mt-8 space-y-8">
                                 <SettingItem
                                   inline
                                   label={t('settings.processing.ai.cpu.gpuAcceleration')}
@@ -1347,6 +1347,22 @@ export default function SettingsPanel({
                                     onChange={(checked) =>
                                       onSettingsChange({ ...appSettings, aiGpuAcceleration: checked })
                                     }
+                                  />
+                                </SettingItem>
+                                <SettingItem
+                                  label={t('settings.processing.ai.cpu.denoiseModel')}
+                                  description={t('settings.processing.ai.cpu.denoiseModelDesc')}
+                                >
+                                  <Dropdown
+                                    onChange={(value: string) =>
+                                      onSettingsChange({ ...appSettings, aiDenoiseModel: value })
+                                    }
+                                    options={[
+                                      { value: 'nind', label: t('settings.processing.ai.cpu.denoiseModels.nind') },
+                                      { value: 'rawrefinery', label: t('settings.processing.ai.cpu.denoiseModels.rawrefinery') },
+                                    ]}
+                                    value={appSettings?.aiDenoiseModel || 'nind'}
+                                    triggerClassName="bg-bg-primary"
                                   />
                                 </SettingItem>
                               </div>

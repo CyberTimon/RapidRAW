@@ -2379,6 +2379,12 @@
         },
         "cpu": {
           "description": "Executa máscaras, marcação e substituição generativa simples neste computador.",
+          "denoiseModel": "Modelo de redução de ruído IA",
+          "denoiseModelDesc": "O modelo de IA usado para redução de ruído. NIND é o padrão; RawRefinery usa uma arquitetura de rede diferente que pode se adequar melhor a algumas imagens.",
+          "denoiseModels": {
+            "nind": "NIND (padrão)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "Aceleração por GPU",
           "gpuAccelerationDesc": "Executa redução de ruído, máscaras, mapas de profundidade e marcação na placa de vídeo. Desative se os recursos de IA travarem ou parecerem errados.",
           "title": "IA Integrada"

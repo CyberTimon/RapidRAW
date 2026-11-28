@@ -2379,6 +2379,12 @@
         },
         "cpu": {
           "description": "Esegue maschere, tagging e semplici sostituzioni generative su questo computer.",
+          "denoiseModel": "Modello di riduzione del rumore IA",
+          "denoiseModelDesc": "Il modello IA usato per la riduzione del rumore. NIND è il predefinito; RawRefinery utilizza un'architettura di rete diversa che può essere più adatta ad alcune immagini.",
+          "denoiseModels": {
+            "nind": "NIND (predefinito)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "Accelerazione GPU",
           "gpuAccelerationDesc": "Esegue riduzione del rumore, maschere, mappe di profondità e tagging sulla scheda grafica. Disattivala se le funzioni IA si bloccano o danno risultati errati.",
           "title": "AI Integrata"

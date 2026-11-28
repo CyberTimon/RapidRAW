@@ -13,6 +13,7 @@ use tauri::Manager;
 
 const MODEL_TAG: &str = "nind-v7";
 const BM3D_TAG: &str = "bm3d-v4";
+const RAWREFINERY_TAG: &str = "rawrefinery-v1";
 const BM3D_INTENSITY: f32 = 0.15;
 
 static CACHE: BaseCache = BaseCache::new(
@@ -40,14 +41,18 @@ pub fn is_enabled(adjustments: &serde_json::Value) -> bool {
 pub enum DenoiseMethod {
     Nind,
     Bm3d,
+    RawRefinery,
 }
 
 impl DenoiseMethod {
-    const ALL: [Self; 2] = [Self::Nind, Self::Bm3d];
+    const ALL: [Self; 3] = [Self::Nind, Self::Bm3d, Self::RawRefinery];
 
     pub fn from_adjustments(adjustments: &serde_json::Value) -> Self {
-        match adjustments["aiDenoiseMethod"].as_str() {
-            Some("bm3d") => Self::Bm3d,
+        if let Some("bm3d") = adjustments["aiDenoiseMethod"].as_str() {
+            return Self::Bm3d;
+        }
+        match crate::app::settings::current_ai_denoise_model().as_str() {
+            "rawrefinery" => Self::RawRefinery,
             _ => Self::Nind,
         }
     }
@@ -56,6 +61,7 @@ impl DenoiseMethod {
         match self {
             Self::Nind => MODEL_TAG,
             Self::Bm3d => BM3D_TAG,
+            Self::RawRefinery => RAWREFINERY_TAG,
         }
     }
 }
@@ -392,18 +398,28 @@ fn restore_low_frequencies(denoised: &mut Rgb32FImage, source: &Rgb32FImage) {
 fn run_denoiser(
     base: &DynamicImage,
     session: Option<&Session>,
+    method: DenoiseMethod,
     on_progress: &(dyn Fn(f32) + Sync),
 ) -> Result<Rgb32FImage, String> {
     let source = base.to_rgb32f();
-    let mut output = match session {
-        Some(session) => {
-            let mut output = crate::ai::tiling::run_ai_denoise(&source, session, on_progress)
+    let mut output = match method {
+        DenoiseMethod::RawRefinery => {
+            let session = session.expect("RawRefinery always loads a session");
+            crate::ai::tiling::run_ai_denoise_rr(&source, session, on_progress)
                 .map_err(|e| e.to_string())?
-                .into_rgb32f();
-            remove_tile_grid(&mut output);
-            output
+                .into_rgb32f()
         }
-        None => crate::ai::bm3d::denoise(&source, BM3D_INTENSITY, on_progress),
+        DenoiseMethod::Nind => match session {
+            Some(session) => {
+                let mut output = crate::ai::tiling::run_ai_denoise(&source, session, on_progress)
+                    .map_err(|e| e.to_string())?
+                    .into_rgb32f();
+                remove_tile_grid(&mut output);
+                output
+            }
+            None => crate::ai::bm3d::denoise(&source, BM3D_INTENSITY, on_progress),
+        },
+        DenoiseMethod::Bm3d => crate::ai::bm3d::denoise(&source, BM3D_INTENSITY, on_progress),
     };
 
     output
@@ -419,14 +435,26 @@ async fn load_session(
     app_handle: tauri::AppHandle,
     method: DenoiseMethod,
 ) -> Result<Option<Session>, String> {
-    if method != DenoiseMethod::Nind {
-        return Ok(None);
-    }
     let state = app_handle.state::<AppState>();
-    crate::ai::models::get_or_init_denoise_model(&app_handle, &state.ai_state, &state.ai_init_lock)
+    match method {
+        DenoiseMethod::Bm3d => Ok(None),
+        DenoiseMethod::Nind => crate::ai::models::get_or_init_denoise_model(
+            &app_handle,
+            &state.ai_state,
+            &state.ai_init_lock,
+        )
         .await
         .map(Some)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string()),
+        DenoiseMethod::RawRefinery => crate::ai::models::get_or_init_denoise_model_rr(
+            &app_handle,
+            &state.ai_state,
+            &state.ai_init_lock,
+        )
+        .await
+        .map(Some)
+        .map_err(|e| e.to_string()),
+    }
 }
 
 pub fn ensure_generated(
@@ -454,7 +482,7 @@ pub fn ensure_generated(
         job,
         true,
         session,
-        |session, base, progress| run_denoiser(base, session.as_ref(), progress),
+        move |session, base, progress| run_denoiser(base, session.as_ref(), method, progress),
     );
 }
 
@@ -483,7 +511,7 @@ pub fn generate_for_base(
         base,
         key,
         load_session(app_handle.clone(), method),
-        |session, base, progress| run_denoiser(base, session.as_ref(), progress),
+        move |session, base, progress| run_denoiser(base, session.as_ref(), method, progress),
     )
 }
 

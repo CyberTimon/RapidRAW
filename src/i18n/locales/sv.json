@@ -2308,6 +2308,12 @@
         },
         "cpu": {
           "description": "Kör masker, taggning och enkel generativ ersättning på den här datorn.",
+          "denoiseModel": "AI-brusreduceringsmodell",
+          "denoiseModelDesc": "AI-modellen som används för brusreducering. NIND är standard; RawRefinery använder en annan nätverksarkitektur som kan passa bättre för vissa bilder.",
+          "denoiseModels": {
+            "nind": "NIND (standard)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "GPU-acceleration",
           "gpuAccelerationDesc": "Kör brusreducering, masker, djupkartor och taggning på grafikkortet. Stäng av detta om AI-funktioner kraschar eller ser fel ut.",
           "title": "Inbyggd AI"

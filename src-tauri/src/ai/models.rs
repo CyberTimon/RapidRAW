@@ -115,6 +115,12 @@ const DENOISE_FILENAME: &str = "nind_denoise_utnet_684.onnx";
 
 const DENOISE_SHA256: &str = "ee3586279d514df557ff3f7dec6df37fafc51ba5d3a3435b2cc9ac2d9017e7fe";
 
+const RAWREFINERY_URL: &str = "https://speets.eu/download/ShadowWeightedL1_24_deep_500_32_256.onnx";
+
+const RAWREFINERY_FILENAME: &str = "ShadowWeightedL1_24_deep_500_32_256.onnx";
+
+const RAWREFINERY_SHA256: &str = "b009ca72cf524251817643bbf03dfb08fba5347a448f3e886dd589d57bb3d667";
+
 const UPSCALE_URL: &str = "https://huggingface.co/CyberTimon/RapidRAW-Models/resolve/main/2xBHI_small_span_rapidraw.onnx?download=true";
 
 const UPSCALE_FILENAME: &str = "2xBHI_small_span_rapidraw.onnx";
@@ -270,6 +276,13 @@ const DENOISE_ASSET: ModelAsset = ModelAsset {
     url: DENOISE_URL,
     sha256: Some(DENOISE_SHA256),
     name: "NIND Denoise Model",
+};
+
+const RAWREFINERY_ASSET: ModelAsset = ModelAsset {
+    filename: RAWREFINERY_FILENAME,
+    url: RAWREFINERY_URL,
+    sha256: Some(RAWREFINERY_SHA256),
+    name: "RawRefinery Denoise Model",
 };
 
 const UPSCALE_ASSET: ModelAsset = ModelAsset {
@@ -1076,6 +1089,46 @@ pub async fn get_or_init_denoise_model(
     Ok(denoise_model)
 }
 
+pub async fn get_or_init_denoise_model_rr(
+    app_handle: &tauri::AppHandle,
+    ai_state_mutex: &Mutex<Option<AiState>>,
+    ai_init_lock: &TokioMutex<()>,
+) -> Result<Arc<Mutex<Session>>> {
+    if let Some(denoise_model_rr) =
+        cached_ai_state(ai_state_mutex, |state| state.denoise_model_rr.clone())
+    {
+        return Ok(denoise_model_rr);
+    }
+
+    let _guard = ai_init_lock.lock().await;
+
+    if let Some(denoise_model_rr) =
+        cached_ai_state(ai_state_mutex, |state| state.denoise_model_rr.clone())
+    {
+        return Ok(denoise_model_rr);
+    }
+
+    let models_dir = get_models_dir(app_handle)?;
+    download_and_verify_model(app_handle, &models_dir, &RAWREFINERY_ASSET).await?;
+
+    let model_path = models_dir.join(RAWREFINERY_FILENAME);
+    let session = build_session(
+        &model_path,
+        SessionKind::Persistent,
+        gpu_acceleration_enabled(app_handle),
+        None,
+    )?;
+    let denoise_model_rr = Arc::new(Mutex::new(session));
+
+    ai_state_mutex
+        .lock()
+        .unwrap()
+        .get_or_insert_with(AiState::default)
+        .denoise_model_rr = Some(denoise_model_rr.clone());
+
+    Ok(denoise_model_rr)
+}
+
 pub async fn get_or_init_upscale_model(
     app_handle: &tauri::AppHandle,
     ai_state_mutex: &Mutex<Option<AiState>>,
@@ -1266,6 +1319,7 @@ pub struct Esam3Prompt {
 pub struct AiState {
     pub models: Option<Arc<AiModels>>,
     pub denoise_model: Option<Arc<Mutex<Session>>>,
+    pub denoise_model_rr: Option<Arc<Mutex<Session>>>,
     pub upscale_model: Option<Arc<Mutex<Session>>>,
     pub clip_models: Option<Arc<ClipModels>>,
     pub lama_model: Option<Arc<Mutex<Session>>>,
@@ -1279,6 +1333,7 @@ impl AiState {
     pub fn release_sessions(&mut self) {
         self.models = None;
         self.denoise_model = None;
+        self.denoise_model_rr = None;
         self.upscale_model = None;
         self.clip_models = None;
         self.lama_model = None;

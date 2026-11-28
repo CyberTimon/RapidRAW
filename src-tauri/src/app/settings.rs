@@ -686,6 +686,8 @@ pub struct AppSettings {
     pub thumbnail_size: Option<String>,
     pub thumbnail_aspect_ratio: Option<String>,
     pub ai_provider: Option<String>,
+    #[serde(default)]
+    pub ai_denoise_model: Option<String>,
     #[serde(default = "default_ai_gpu_acceleration")]
     pub ai_gpu_acceleration: bool,
     #[serde(default = "default_open_tree_sections")]
@@ -943,6 +945,7 @@ impl Default for AppSettings {
             thumbnail_size: Some("medium".to_string()),
             thumbnail_aspect_ratio: Some("contain".to_string()),
             ai_provider: Some("cpu".to_string()),
+            ai_denoise_model: None,
             ai_gpu_acceleration: default_ai_gpu_acceleration(),
             open_tree_sections: default_open_tree_sections(),
             copy_paste_settings: CopyPasteSettings::default(),
@@ -1062,6 +1065,13 @@ static SETTINGS_CACHE: LazyLock<Mutex<Option<AppSettings>>> = LazyLock::new(|| M
 
 fn settings_cache() -> std::sync::MutexGuard<'static, Option<AppSettings>> {
     SETTINGS_CACHE.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+pub fn current_ai_denoise_model() -> String {
+    settings_cache()
+        .as_ref()
+        .and_then(|s| s.ai_denoise_model.clone())
+        .unwrap_or_else(|| "nind".to_string())
 }
 
 #[tauri::command]

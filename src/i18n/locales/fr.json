@@ -2379,6 +2379,12 @@
         },
         "cpu": {
           "description": "Exécute les masques, l'étiquetage et le remplacement génératif simple sur cet ordinateur.",
+          "denoiseModel": "Modèle de débruitage IA",
+          "denoiseModelDesc": "Le modèle IA utilisé pour le débruitage. NIND est le modèle par défaut ; RawRefinery utilise une architecture réseau différente qui peut mieux convenir à certaines images.",
+          "denoiseModels": {
+            "nind": "NIND (par défaut)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "Accélération GPU",
           "gpuAccelerationDesc": "Exécute le débruitage, les masques, les cartes de profondeur et l'étiquetage sur la carte graphique. Désactivez-la si les fonctions d'IA plantent ou donnent de mauvais résultats.",
           "title": "IA intégrée"

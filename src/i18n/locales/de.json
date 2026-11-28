@@ -2308,6 +2308,12 @@
         },
         "cpu": {
           "description": "Führt Masken, Tagging und einfaches generatives Ersetzen auf diesem Computer aus.",
+          "denoiseModel": "KI-Entrauschungsmodell",
+          "denoiseModelDesc": "Das KI-Modell für die Entrauschung. NIND ist der Standard; RawRefinery verwendet eine andere Netzwerkarchitektur, die für einige Bilder besser geeignet sein kann.",
+          "denoiseModels": {
+            "nind": "NIND (Standard)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "GPU-Beschleunigung",
           "gpuAccelerationDesc": "Führt Entrauschen, Masken, Tiefenkarten und Tagging auf der Grafikkarte aus. Deaktiviere es, wenn KI-Funktionen abstürzen oder falsch aussehen.",
           "title": "Integrierte KI"

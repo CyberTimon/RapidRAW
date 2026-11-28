@@ -2450,6 +2450,12 @@
         },
         "cpu": {
           "description": "Vykdo kaukes, žymėjimą ir paprastą generatyvinį pakeitimą šiame kompiuteryje.",
+          "denoiseModel": "DI triukšmo slopinimo modelis",
+          "denoiseModelDesc": "DI modelis, naudojamas triukšmui slopinti. NIND yra numatytasis; RawRefinery naudoja kitokią tinklo architektūrą, kuri kai kuriems vaizdams gali geriau tikti.",
+          "denoiseModels": {
+            "nind": "NIND (numatytasis)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "GPU spartinimas",
           "gpuAccelerationDesc": "Vykdo triukšmo slopinimą, kaukes, gylio žemėlapius ir žymėjimą vaizdo plokštėje. Išjunkite, jei DI funkcijos stringa ar veikia netinkamai.",
           "title": "Integruotas DI"

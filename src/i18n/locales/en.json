@@ -2308,6 +2308,12 @@
         },
         "cpu": {
           "description": "Runs masks, tagging and simple generative replace on this computer.",
+          "denoiseModel": "AI Denoiser Model",
+          "denoiseModelDesc": "The AI model used for denoising. NIND is the default; RawRefinery uses a different network architecture that may suit some images better.",
+          "denoiseModels": {
+            "nind": "NIND (default)",
+            "rawrefinery": "RawRefinery"
+          },
           "gpuAcceleration": "GPU Acceleration",
           "gpuAccelerationDesc": "Runs denoise, masks, depth maps and tagging on the graphics card. Turn it off if AI features crash or look wrong.",
           "title": "Built-in AI"
