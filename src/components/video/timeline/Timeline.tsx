@@ -735,18 +735,6 @@ const SequencePath = memo(function SequencePath({ project }: { project: VideoPro
   );
 });
 
-const JoinButton = memo(function JoinButton({
-  project,
-  selection,
-}: {
-  project: VideoProject;
-  selection: Array<string>;
-}) {
-  const { t } = useTranslation();
-  const joinable = useMemo(() => canJoin(project, selection), [project, selection]);
-  return <ToolbarButton icon={Merge} tooltip={t('video.timeline.join')} onClick={joinSelection} disabled={!joinable} />;
-});
-
 const SplitButton = memo(function SplitButton({ project }: { project: VideoProject }) {
   const { t } = useTranslation();
   const canSplit = useVideoStore((s) =>
@@ -1915,7 +1903,6 @@ export default function Timeline() {
           <PanelToggles edge="start" />
           <SequencePath project={shown} />
           <SplitButton project={shown} />
-          <JoinButton project={shown} selection={selection} />
           <ToolbarButton
             icon={Trash2}
             tooltip={t('video.timeline.delete')}
