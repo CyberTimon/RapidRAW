@@ -625,9 +625,14 @@ pub fn has_cached_entry(path: &str, adjustments: &serde_json::Value) -> bool {
 }
 
 pub fn is_generating(path: &str) -> bool {
-    [None, Some(DenoiseMethod::Nind), Some(DenoiseMethod::Bm3d)]
-        .into_iter()
-        .any(|input| CACHE.is_pending(&key(path, input)))
+    [
+        None,
+        Some(DenoiseMethod::Nind),
+        Some(DenoiseMethod::Bm3d),
+        Some(DenoiseMethod::RawRefinery),
+    ]
+    .into_iter()
+    .any(|input| CACHE.is_pending(&key(path, input)))
 }
 
 pub fn generate_for_base(

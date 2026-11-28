@@ -1,7 +1,7 @@
 use crate::ai::models::{DENOISE_OUTPUT, gpu_inference};
 use anyhow::Result;
 use image::{DynamicImage, Rgb32FImage};
-use ndarray::Array4;
+use ndarray::{Array2, Array4};
 use ort::session::{OutputSelector, RunOptions, Session};
 use ort::value::Tensor;
 use rayon::prelude::*;
@@ -225,4 +225,127 @@ pub fn run_ai_upscale(
     on_progress: &dyn Fn(f32),
 ) -> Result<Rgb32FImage> {
     run_tiled(rgb_img, session, UPSCALE_TILE, scale, on_progress)
+}
+
+// RawRefinery model uses 256×256 tiles with a 4-pixel margin and 3-pixel blend overlap.
+// Inputs are named: "batch_rgb" (the tile) and "conditioning" (1×1 scalar).
+const RAWREFINERY_CS: usize = 256;
+const RAWREFINERY_MARGIN: usize = 4;
+const RAWREFINERY_COND: f32 = 15.0;
+
+const RAWREFINERY_TILE: TileParams = TileParams {
+    cs: RAWREFINERY_CS,
+    margin: RAWREFINERY_MARGIN,
+    overlap: 3,
+    output: "",
+};
+
+pub fn run_ai_denoise_rr(
+    rgb_img: &Rgb32FImage,
+    session: &Mutex<Session>,
+    on_progress: &dyn Fn(f32),
+) -> Result<DynamicImage> {
+    let (width, height) = (rgb_img.width() as usize, rgb_img.height() as usize);
+    let valid = RAWREFINERY_CS - 2 * RAWREFINERY_MARGIN;
+    let weights = tile_blend_weights(RAWREFINERY_TILE);
+    let xs = tile_origins(width, RAWREFINERY_TILE);
+    let ys = tile_origins(height, RAWREFINERY_TILE);
+    let total = xs.len() * ys.len();
+    let origins: Vec<(i32, i32)> = ys
+        .iter()
+        .flat_map(|&y| xs.iter().map(move |&x| (y, x)))
+        .collect();
+
+    let mut accumulator = vec![0.0f32; width * height * 3];
+    let mut weight_sum = vec![0.0f32; width * height];
+
+    std::thread::scope(|scope| -> Result<()> {
+        let (sender, receiver) = std::sync::mpsc::sync_channel::<Result<Array4<f32>>>(1);
+        let origins_ref = &origins;
+        scope.spawn(move || {
+            let cond: Array2<f32> = Array2::from_elem((1, 1), RAWREFINERY_COND);
+            for &(y0, x0) in origins_ref {
+                let tile = (|| -> Result<Array4<f32>> {
+                    let crop = extract_tile_mirror(rgb_img, x0, y0, RAWREFINERY_CS);
+                    let t_rgb = Tensor::from_array(crop)?;
+                    let t_cond = Tensor::from_array(cond.clone())?;
+                    let mut sess = session.lock().unwrap();
+                    let outputs = gpu_inference(
+                        sess.run(ort::inputs!["batch_rgb" => t_rgb, "conditioning" => t_cond]),
+                    )?;
+                    outputs[0]
+                        .try_extract_array::<f32>()?
+                        .as_standard_layout()
+                        .into_owned()
+                        .into_dimensionality::<ndarray::Ix4>()
+                        .map_err(|e| anyhow::anyhow!("Unexpected RR output shape: {}", e))
+                })();
+                let failed = tile.is_err();
+                if sender.send(tile).is_err() || failed {
+                    break;
+                }
+            }
+        });
+
+        for (i, (&(y0, x0), tile)) in origins.iter().zip(receiver).enumerate() {
+            on_progress(i as f32 / total as f32);
+            let tile = tile?;
+            let (tile_h, tile_w) = (tile.dim().2, tile.dim().3);
+            if tile_h < RAWREFINERY_CS || tile_w < RAWREFINERY_CS {
+                return Err(anyhow::anyhow!(
+                    "Unexpected RR tile size {:?} for a {} px input",
+                    tile.dim(),
+                    RAWREFINERY_CS
+                ));
+            }
+            let data = tile
+                .as_slice()
+                .ok_or_else(|| anyhow::anyhow!("RR output tile is not contiguous"))?;
+            let plane = tile_h * tile_w;
+
+            let top = y0 + RAWREFINERY_MARGIN as i32;
+            let first = top.max(0) as usize;
+            let last = (top + valid as i32).clamp(0, height as i32) as usize;
+            if first >= last {
+                continue;
+            }
+            accumulator[first * width * 3..last * width * 3]
+                .par_chunks_exact_mut(width * 3)
+                .zip(weight_sum[first * width..last * width].par_chunks_exact_mut(width))
+                .enumerate()
+                .for_each(|(row, (acc, wsum))| {
+                    let ty = (first + row) as i32 - top;
+                    let ty = ty as usize;
+                    let line = (RAWREFINERY_MARGIN + ty) * tile_w + RAWREFINERY_MARGIN;
+                    for tx in 0..valid {
+                        let gx = x0 + (RAWREFINERY_MARGIN + tx) as i32;
+                        if gx < 0 || gx >= width as i32 {
+                            continue;
+                        }
+                        let w = weights[ty] * weights[tx];
+                        let gx = gx as usize;
+                        for c in 0..3 {
+                            let v = data[c * plane + line + tx].clamp(0.0, 1.0);
+                            acc[gx * 3 + c] += v * w;
+                        }
+                        wsum[gx] += w;
+                    }
+                });
+        }
+        Ok(())
+    })?;
+
+    accumulator
+        .par_chunks_exact_mut(3)
+        .zip(weight_sum.par_iter())
+        .for_each(|(px, &w)| {
+            let inv = if w > 0.0 { 1.0 / w } else { 0.0 };
+            for v in px {
+                *v = (*v * inv).clamp(0.0, 1.0);
+            }
+        });
+
+    Rgb32FImage::from_raw(width as u32, height as u32, accumulator)
+        .map(DynamicImage::ImageRgb32F)
+        .ok_or_else(|| anyhow::anyhow!("RR output does not match its dimensions"))
 }
