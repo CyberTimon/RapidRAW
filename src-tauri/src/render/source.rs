@@ -183,6 +183,7 @@ pub struct RenderSource<'a> {
     pub adjustments: &'a Value,
     pub transform: SourceTransform,
     pub stamps: Option<Arc<Stamps>>,
+    pub footage: bool,
 }
 
 impl<'a> RenderSource<'a> {
@@ -198,6 +199,7 @@ impl<'a> RenderSource<'a> {
             adjustments,
             transform,
             stamps: None,
+            footage: false,
         }
     }
 
@@ -213,6 +215,7 @@ impl<'a> RenderSource<'a> {
             adjustments,
             transform,
             stamps: None,
+            footage: false,
         }
     }
 
@@ -245,6 +248,10 @@ impl<'a> RenderSource<'a> {
 
     pub fn with_stamps(self, stamps: Option<Arc<Stamps>>) -> Self {
         Self { stamps, ..self }
+    }
+
+    pub fn as_footage(self, footage: bool) -> Self {
+        Self { footage, ..self }
     }
 
     pub fn scaled(mut self, scale: f32) -> Self {

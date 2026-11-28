@@ -718,6 +718,7 @@ export function TitleSection({ item }: { item: TitleItem }) {
       <TextBox
         value={item.text}
         placeholder={t('video.inspector.textPlaceholder')}
+        focusSection="title"
         onChange={(text) => patch('title.text', { text })}
       />
       <FieldRow label={t('video.inspector.font')}>

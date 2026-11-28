@@ -1,4 +1,4 @@
-import { ReactNode, Ref, TextareaHTMLAttributes, useRef, useState } from 'react';
+import { ReactNode, Ref, TextareaHTMLAttributes, useEffect, useRef, useState } from 'react';
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 import clsx from 'clsx';
@@ -64,6 +64,13 @@ const useSectionState = create<SectionState>((set) => ({
   collapsed: {},
   toggle: (id) => set((state) => ({ collapsed: { ...state.collapsed, [id]: !state.collapsed[id] } })),
 }));
+
+const useTextFocus = create<{ request: { section: string; token: number } | null }>(() => ({ request: null }));
+
+export const focusInspectorText = (section: string) => {
+  useSectionState.setState(({ collapsed }) => ({ collapsed: { ...collapsed, [section]: false } }));
+  useTextFocus.setState(({ request }) => ({ request: { section, token: (request?.token ?? 0) + 1 } }));
+};
 
 export function InspectorSection({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   const isOpen = useSectionState((state) => !state.collapsed[id]);
@@ -293,14 +300,28 @@ export function AutoTextArea({
 export function TextBox({
   value,
   placeholder,
+  focusSection,
   onChange,
   onBlur,
 }: {
   value: string;
   placeholder?: string;
+  focusSection?: string;
   onChange(value: string): void;
   onBlur?(): void;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const focusToken = useTextFocus((state) =>
+    focusSection && state.request?.section === focusSection ? state.request.token : null,
+  );
+  useEffect(() => {
+    const element = ref.current;
+    if (focusToken === null || !element) return;
+    useTextFocus.setState({ request: null });
+    element.focus();
+    element.select();
+    element.scrollIntoView({ block: 'nearest' });
+  }, [focusToken]);
   return (
     <div className="pt-0.5 mb-3">
       <AutoTextArea
@@ -309,6 +330,7 @@ export function TextBox({
           'bg-bg-primary border-surface text-text-primary placeholder:text-text-secondary',
           'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-accent',
         )}
+        ref={ref}
         rows={2}
         value={value}
         placeholder={placeholder}

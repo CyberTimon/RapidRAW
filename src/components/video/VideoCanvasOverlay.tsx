@@ -18,6 +18,7 @@ import { alignHaptic } from '../../utils/haptics';
 import { ROTATE_RING_PX, rotateCursor } from '../../utils/rotateCursor';
 import { Region, dragRegion, layerSimilarity, layerSurface, pinnedQuad, placementAt } from '../../utils/video/tracking';
 import { PlaneOutline, QuadEditor } from './PlaneOverlay';
+import { focusInspectorText } from './inspector/InspectorControls';
 
 const SNAP_PX = 6;
 const HANDLE = 9;
@@ -555,7 +556,12 @@ export default function VideoCanvasOverlay({
             onPointerUp={end}
             onPointerCancel={end}
             onMouseDown={(event) => event.stopPropagation()}
-            onDoubleClick={(event) => event.stopPropagation()}
+            onDoubleClick={(event) => {
+              event.stopPropagation();
+              if (box.item.type !== 'title') return;
+              useUIStore.getState().setPanel(Panel.Inspector);
+              focusInspectorText('title');
+            }}
           >
             {isSelected &&
               CORNERS.map(([x, y]) => (

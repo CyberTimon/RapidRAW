@@ -222,7 +222,9 @@ fn process_preview_job(
         }
         _ => None,
     };
-    let processing_source = processing_source.with_stamps(stamps);
+    let processing_source = processing_source
+        .with_stamps(stamps)
+        .as_footage(loaded_image.footage);
 
     let pixel_roi = if is_interactive {
         roi.map(|(nx, ny, nw, nh)| crate::render::gpu::processor::Roi {

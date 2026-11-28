@@ -230,7 +230,8 @@ fn process_and_get_dynamic_image_inner(
             cache.sources.remove(0);
         }
 
-        let guided = processor.build_guided_coeffs(&input.view, width, height, is_raw);
+        let guided =
+            processor.build_guided_coeffs(&input.view, width, height, is_raw, source.footage);
 
         cache.entries.push(GpuImageEntry {
             id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
@@ -241,6 +242,7 @@ fn process_and_get_dynamic_image_inner(
             haze_view: guided.haze,
             airlight_view: guided.airlight,
             is_raw,
+            footage: source.footage,
             width,
             height,
             transform_key,

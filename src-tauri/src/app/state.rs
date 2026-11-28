@@ -235,6 +235,7 @@ pub struct GpuImageEntry {
     pub haze_view: TextureView,
     pub airlight_view: TextureView,
     pub is_raw: u32,
+    pub footage: bool,
     pub width: u32,
     pub height: u32,
     pub transform_key: u64,

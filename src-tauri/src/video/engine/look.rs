@@ -161,6 +161,7 @@ pub struct LookTarget<'a> {
     pub maps: &'a [(&'static str, String)],
     pub follows: &'a [(String, Follow)],
     pub stamps: bool,
+    pub footage: bool,
 }
 
 enum MaskWarp {
@@ -484,7 +485,8 @@ pub fn render_look(
         json,
         SourceTransform::from_adjustments(target.path, json),
     )
-    .scaled(base_scale);
+    .scaled(base_scale)
+    .as_footage(target.footage);
     let crop_offset = render_source.crop_offset();
     let (width, height) = render_source.size();
     let stamp_space = StampSpace::new(

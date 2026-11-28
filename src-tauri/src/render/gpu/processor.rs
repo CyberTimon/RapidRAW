@@ -228,7 +228,7 @@ struct GfParams {
     radius: u32,
     is_raw: u32,
     eps: f32,
-    _pad: f32,
+    footage: u32,
 }
 
 pub struct GpuProcessor {
@@ -579,6 +579,7 @@ impl GpuProcessor {
         width: u32,
         height: u32,
         is_raw: u32,
+        footage: bool,
     ) -> GuidedTextures {
         let device = &self.context.device;
         let queue = &self.context.queue;
@@ -621,7 +622,7 @@ impl GpuProcessor {
                     radius,
                     is_raw,
                     eps,
-                    _pad: 0.0,
+                    footage: footage as u32,
                 }),
                 usage: wgpu::BufferUsages::UNIFORM,
             })
@@ -1193,8 +1194,13 @@ impl GpuProcessor {
         else {
             return Ok(None);
         };
-        let guided =
-            self.build_guided_coeffs(&output.view, input.width, input.height, input.is_raw);
+        let guided = self.build_guided_coeffs(
+            &output.view,
+            input.width,
+            input.height,
+            input.is_raw,
+            input.footage,
+        );
         let blurred = Arc::new(MotionBlurred {
             entry: GpuImageEntry {
                 id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
@@ -1205,6 +1211,7 @@ impl GpuProcessor {
                 haze_view: guided.haze,
                 airlight_view: guided.airlight,
                 is_raw: input.is_raw,
+                footage: input.footage,
                 width: input.width,
                 height: input.height,
                 transform_key: input.transform_key,
@@ -1248,8 +1255,13 @@ impl GpuProcessor {
         let output = crate::render::gpu::compute::encode(&self.context, |enc| {
             pixelation.encode(enc, &input.texture_view, size, mask_view)
         })?;
-        let guided =
-            self.build_guided_coeffs(&output.view, input.width, input.height, input.is_raw);
+        let guided = self.build_guided_coeffs(
+            &output.view,
+            input.width,
+            input.height,
+            input.is_raw,
+            input.footage,
+        );
         let entry = Arc::new(GpuImageEntry {
             id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
             texture: output.texture.clone(),
@@ -1259,6 +1271,7 @@ impl GpuProcessor {
             haze_view: guided.haze,
             airlight_view: guided.airlight,
             is_raw: input.is_raw,
+            footage: input.footage,
             width: input.width,
             height: input.height,
             transform_key: input.transform_key,
