@@ -115,8 +115,7 @@ const DENOISE_FILENAME: &str = "nind_denoise_utnet_684.onnx";
 
 const DENOISE_SHA256: &str = "ee3586279d514df557ff3f7dec6df37fafc51ba5d3a3435b2cc9ac2d9017e7fe";
 
-const RAWREFINERY_URL: &str =
-    "https://speets.eu/download/ShadowWeightedL1_24_deep_500_32_256.onnx";
+const RAWREFINERY_URL: &str = "https://speets.eu/download/ShadowWeightedL1_24_deep_500_32_256.onnx";
 
 const RAWREFINERY_FILENAME: &str = "ShadowWeightedL1_24_deep_500_32_256.onnx";
 

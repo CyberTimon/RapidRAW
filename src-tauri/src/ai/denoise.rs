@@ -411,10 +411,9 @@ fn run_denoiser(
         }
         DenoiseMethod::Nind => match session {
             Some(session) => {
-                let mut output =
-                    crate::ai::tiling::run_ai_denoise(&source, session, on_progress)
-                        .map_err(|e| e.to_string())?
-                        .into_rgb32f();
+                let mut output = crate::ai::tiling::run_ai_denoise(&source, session, on_progress)
+                    .map_err(|e| e.to_string())?
+                    .into_rgb32f();
                 remove_tile_grid(&mut output);
                 output
             }
@@ -439,26 +438,22 @@ async fn load_session(
     let state = app_handle.state::<AppState>();
     match method {
         DenoiseMethod::Bm3d => Ok(None),
-        DenoiseMethod::Nind => {
-            crate::ai::models::get_or_init_denoise_model(
-                &app_handle,
-                &state.ai_state,
-                &state.ai_init_lock,
-            )
-            .await
-            .map(Some)
-            .map_err(|e| e.to_string())
-        }
-        DenoiseMethod::RawRefinery => {
-            crate::ai::models::get_or_init_denoise_model_rr(
-                &app_handle,
-                &state.ai_state,
-                &state.ai_init_lock,
-            )
-            .await
-            .map(Some)
-            .map_err(|e| e.to_string())
-        }
+        DenoiseMethod::Nind => crate::ai::models::get_or_init_denoise_model(
+            &app_handle,
+            &state.ai_state,
+            &state.ai_init_lock,
+        )
+        .await
+        .map(Some)
+        .map_err(|e| e.to_string()),
+        DenoiseMethod::RawRefinery => crate::ai::models::get_or_init_denoise_model_rr(
+            &app_handle,
+            &state.ai_state,
+            &state.ai_init_lock,
+        )
+        .await
+        .map(Some)
+        .map_err(|e| e.to_string()),
     }
 }
 
