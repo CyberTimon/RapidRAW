@@ -4,6 +4,7 @@
 @theme {
   --color-bg-primary: var(--app-bg-primary);
   --color-bg-secondary: var(--app-bg-secondary);
+  --color-editor-bg: var(--app-editor-bg, var(--app-bg-secondary));
   --color-surface: var(--app-surface);
   --color-card-active: var(--app-card-active);
   --color-button-text: var(--app-button-text);

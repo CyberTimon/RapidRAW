@@ -24,6 +24,7 @@ import { ThumbnailAspectRatio } from '../../types/settings';
 
 interface EditorViewProps {
   transformWrapperRef: RefObject<any>;
+  wgpuBackgroundRef: RefObject<HTMLDivElement | null>;
   isResizing: boolean;
   layoutMode: 'compact' | 'wide' | 'full';
   isAndroid: boolean;
@@ -77,6 +78,7 @@ function FilmstripDropzone({ height }: { height: number }) {
 
 export default function EditorView({
   transformWrapperRef,
+  wgpuBackgroundRef,
   isResizing,
   layoutMode,
   isAndroid,
@@ -161,6 +163,7 @@ export default function EditorView({
       onContextMenu={handleEditorContextMenu}
       onImageSelect={handleImageClick}
       transformWrapperRef={transformWrapperRef}
+      wgpuBackgroundRef={wgpuBackgroundRef}
     />
   );
 

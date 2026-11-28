@@ -459,34 +459,35 @@ impl WgpuDisplay {
 
     fn apply_backgrounds(&mut self) {
         let [primary, secondary] = self.backgrounds;
-        let in_srgb = self.space == OutputColorSpace::Srgb;
         let to_frame = self.space.srgb_converter();
-        let frame_color = |color: [f32; 4]| {
-            if in_srgb {
-                return color;
-            }
-            let [r, g, b] = to_frame([color[0], color[1], color[2]]);
-            [r, g, b, color[3]]
-        };
+        let in_srgb = self.space == OutputColorSpace::Srgb;
+        let tagged_space = matches!(self.tag, SurfaceTag::Space(_));
         let white = self.latest_transform.hdr_white;
-        let [r, g, b] = if white > 0.0 {
-            [primary[0], primary[1], primary[2]]
-                .map(|channel| TransferCurve::SRGB.decode(channel) * white)
-        } else {
-            let [r, g, b, _] = frame_color(primary);
-            match &self.lut {
-                Some(lut) => lut.convert([r, g, b]),
-                None => [r, g, b],
+        let output_color = |[r, g, b, alpha]: [f32; 4], use_monitor_profile: bool| {
+            let srgb = [r, g, b];
+            if white > 0.0 {
+                let [r, g, b] = srgb.map(|channel| TransferCurve::SRGB.decode(channel) * white);
+                return [r, g, b, alpha];
             }
+            let frame = if !in_srgb && (use_monitor_profile || tagged_space) {
+                to_frame(srgb)
+            } else {
+                srgb
+            };
+            let lut = self.lut.as_ref().filter(|_| use_monitor_profile);
+            let [r, g, b] = lut.map_or(frame, |lut| lut.convert(frame));
+            [r, g, b, alpha]
         };
+        let [r, g, b, a] = output_color(primary, true);
         self.clear_color = wgpu::Color {
             r: f64::from(r),
             g: f64::from(g),
             b: f64::from(b),
-            a: f64::from(primary[3]),
+            a: f64::from(a),
         };
         self.latest_transform.bg_primary = primary;
-        self.latest_transform.bg_secondary = frame_color(secondary);
+        // The embedded canvas background matches the WebView theme across the preview handoff.
+        self.latest_transform.bg_secondary = output_color(secondary, self.standalone);
     }
 
     pub fn set_backgrounds(&mut self, primary: [f32; 4], secondary: [f32; 4]) {
