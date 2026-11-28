@@ -673,6 +673,7 @@ fn create_session(
     patch: Option<ModelPatch>,
     fixed_dims: &[(&str, i64)],
 ) -> ort::Result<Session> {
+    let model = crate::ai::onnx_rewrite::optimized_model(model_path, use_gpu);
     let mut builder = session_builder()?;
     if use_gpu || kind == SessionKind::OneShot {
         builder = builder.with_memory_pattern(false)?;
@@ -692,12 +693,18 @@ fn create_session(
     let mut builder = builder.with_execution_providers([cpu])?;
     match patch {
         Some(patch) => {
-            let model = patch()?;
-            let mut session = builder.edit_from_file(model_path)?;
-            session.apply_model(&model)?;
+            let patch = patch()?;
+            let mut session = match &model {
+                Some(model) => builder.edit_from_memory(model)?,
+                None => builder.edit_from_file(model_path)?,
+            };
+            session.apply_model(&patch)?;
             session.into_session()
         }
-        None => builder.commit_from_file(model_path),
+        None => match &model {
+            Some(model) => builder.commit_from_memory(model),
+            None => builder.commit_from_file(model_path),
+        },
     }
 }
 
