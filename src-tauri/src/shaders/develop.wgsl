@@ -24,7 +24,6 @@ struct Finish {
 
 const HIGHLIGHTS: u32 = 1u;
 const DENOISE: u32 = 2u;
-const SHARPEN: u32 = 4u;
 const COLOR: u32 = 8u;
 
 const CLIP_THRESHOLD: f32 = 0.985;
@@ -64,7 +63,6 @@ const MED_QUARTER_Q: u32 = 2u;
 const MED_QUARTER_C: u32 = 3u;
 const MED_CORE: u32 = 4u;
 const MED_FULL_C: u32 = 5u;
-const MED_SHARPEN: u32 = 6u;
 
 var<workgroup> bins: array<atomic<u32>, 2048>;
 
@@ -904,31 +902,6 @@ fn nr_core(@builtin(global_invocation_id) id: vec3<u32>) {
     pl[F.planes[2].w + o] = rb + eb * keep;
 }
 
-fn luma_at(x: i32, y: i32) -> f32 {
-    let cx = clamp(x, 0, i32(F.dims.z) - 1);
-    let cy = clamp(y, 0, i32(F.dims.w) - 1);
-    return pl[F.planes[4].x + u32(cy * i32(F.dims.z) + cx)];
-}
-
-@compute @workgroup_size(8, 8)
-fn sh_luma(@builtin(global_invocation_id) id: vec3<u32>) {
-    if (id.x >= F.dims.z || id.y >= F.dims.w) {
-        return;
-    }
-    let p = developed(vec2<i32>(id.xy));
-    pl[F.planes[4].x + id.y * F.dims.z + id.x] = sqrt(max(dot(p, LUMA_COEFF), 0.0) + FLOOR);
-}
-
-fn blur(x: i32, y: i32) -> f32 {
-    var v: array<f32, 5>;
-    for (var k = 0; k < 5; k++) {
-        let cx = x + k - 2;
-        v[k] = (luma_at(cx, y - 2) + luma_at(cx, y + 2) + 4.0 * (luma_at(cx, y - 1) + luma_at(cx, y + 1))
-            + 6.0 * luma_at(cx, y)) * (1.0 / 16.0);
-    }
-    return (v[0] + v[4] + 4.0 * (v[1] + v[3]) + 6.0 * v[2]) * (1.0 / 16.0);
-}
-
 @compute @workgroup_size(256)
 fn md_sample(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) nw: vec3<u32>) {
     let n = T.y;
@@ -955,7 +928,7 @@ fn md_sample(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgro
                 let eb = pl[F.planes[2].w + i] - pl[F.planes[1].z + i];
                 v = sqrt(er * er + eb * eb);
             }
-            case 5u: {
+            default: {
                 let w = F.dims.z;
                 let cols = (w - 4u + 6u) / 7u;
                 let k = s / 2u;
@@ -965,14 +938,8 @@ fn md_sample(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgro
                 let b = stabilize(developed(vec2<i32>(i32(x) + 4, i32(y))));
                 v = select(abs(b.z - a.z), abs(b.y - a.y), s % 2u == 0u);
             }
-            default: {
-                let cols = (F.dims.z + 4u) / 5u;
-                let y = i32((s / cols) * 16u);
-                let x = i32((s % cols) * 5u);
-                v = abs(luma_at(x, y) - blur(x, y));
-            }
         }
-        pl[F.planes[4].y + s] = v;
+        pl[F.planes[4].x + s] = v;
     }
 }
 
@@ -986,7 +953,7 @@ fn md_hist(@builtin(local_invocation_index) li: u32, @builtin(global_invocation_
     let n = T.y;
     let prefix = atomicLoad(&stats[PREFIX]);
     for (var s = gid.x; s < n; s += nw.x * 256u) {
-        let bits = bitcast<u32>(pl[F.planes[4].y + s]);
+        let bits = bitcast<u32>(pl[F.planes[4].x + s]);
         if (pass_index == 0u) {
             atomicAdd(&bins[bits >> 21u], 1u);
         } else if (pass_index == 1u) {
@@ -1071,8 +1038,8 @@ fn out_band(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     var rgb = developed(vec2<i32>(x, y));
-    let qc = sqrt(max(dot(rgb, LUMA_COEFF), 0.0) + FLOOR);
     if (flag(DENOISE)) {
+        let qc = sqrt(max(dot(rgb, LUMA_COEFF), 0.0) + FLOOR);
         let a = F.amounts.x;
         let lk = dot(rgb, LUMA_COEFF);
         let cr = sqrt(max(rgb.x, 0.0) + FLOOR) - qc;
@@ -1099,43 +1066,6 @@ fn out_band(@builtin(global_invocation_id) id: vec3<u32>) {
         let s = select(1.0, -lk / m, lk + m < 0.0);
         if (lk > 0.0) {
             rgb = max(vec3<f32>(lk + dr * s, lk + dg * s, lk + db * s), vec3<f32>(0.0));
-        }
-    }
-    if (flag(SHARPEN)) {
-        let n = median(MED_SHARPEN) * 1.4826;
-        let threshold = max((1.5 * n) * (1.5 * n), 1e-12);
-        let strength = 4.5 * F.amounts.y;
-        let taper = 0.3 / sqrt(threshold);
-        var d = qc - blur(x, y);
-        d = d * d * d / (d * d + threshold);
-        d = d / (1.0 + abs(d) * taper);
-        var lo = 3.4e38;
-        var hi = -3.4e38;
-        for (var i = -1; i <= 1; i++) {
-            for (var j = -1; j <= 1; j++) {
-                let v = luma_at(x + i, y + j);
-                lo = min(lo, v);
-                hi = max(hi, v);
-            }
-        }
-        let delta = strength * d;
-        let range = hi - lo;
-        let up_room = hi - qc + range * 0.15 + 0.004;
-        let down_room = qc - lo + range * 0.05 + 0.002;
-        let up = max(delta, 0.0);
-        let down = max(-delta, 0.0) * 0.7;
-        let qn = qc + up * up_room / (up_room + up) - down * down_room / (down_room + down);
-        let l = qc * qc - FLOOR;
-        let ln = max(qn * qn - FLOOR, 0.0);
-        if (l > 1e-6) {
-            let peak = max(max(rgb.x, rgb.y), rgb.z);
-            var ratio = ln / l;
-            if (ratio > 1.0 && peak * ratio > 1.0) {
-                ratio = max(1.0 / peak, 1.0);
-            }
-            rgb *= ratio;
-        } else {
-            rgb = max(rgb + vec3<f32>(ln - l), vec3<f32>(0.0));
         }
     }
     let o = (id.y * F.dims.z + id.x) * 3u;

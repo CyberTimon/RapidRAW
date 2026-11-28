@@ -1,3 +1,4 @@
+use crate::adjustments::capture_sharpening::Capture;
 use crate::decode::as_shot::AsShot;
 use crate::decode::demosaic::{Mosaic, white_level};
 use crate::decode::develop::{self, Camera, Finish};
@@ -250,10 +251,9 @@ pub fn develop_raw_image(
     _highlight_compression: f32,
     linear_mode: String,
     denoise: f32,
-    sharpen: f32,
     remove_hot_pixels: bool,
     cancel_token: Option<(Arc<AtomicUsize>, usize)>,
-) -> Result<DynamicImage> {
+) -> Result<(DynamicImage, Capture)> {
     let check_cancel = || -> Result<()> {
         if let Some((tracker, generation)) = &cancel_token
             && tracker.load(Ordering::SeqCst) != *generation
@@ -306,23 +306,31 @@ pub fn develop_raw_image(
     let cfa_balance = (!is_linear_format && camera_to_working.is_some())
         .then(|| cfa_white_balance(&raw_image))
         .flatten();
-    let (clamp_limit, denoise, sharpen) = if fast_demosaic {
-        (1.0, 0.0, 0.0)
+    let (clamp_limit, denoise) = if fast_demosaic {
+        (1.0, 0.0)
     } else {
-        (HIGHLIGHT_HEADROOM, denoise, sharpen)
+        (HIGHLIGHT_HEADROOM, denoise)
     };
     let finish = |camera: Option<Camera>| Finish {
         camera,
         orientation,
         denoise,
-        sharpen,
     };
 
     if let (Some(wb), Some(camera_to_working)) = (cfa_balance, &camera_to_working)
         && let Some(mosaic) = Mosaic::new(&raw_image, wb)
     {
         check_cancel()?;
-        let finish = finish(Some(camera_to_working.camera(wb, clamp_limit)));
+        let camera = camera_to_working.camera(wb, clamp_limit);
+        let capture = Capture {
+            radius: if fast_demosaic {
+                None
+            } else {
+                mosaic.blur_radius()
+            },
+            camera: Some(camera.matrix),
+        };
+        let finish = finish(Some(camera));
         let crop = |dim| {
             default_crop(
                 raw_image.crop_area,
@@ -350,7 +358,7 @@ pub fn develop_raw_image(
             );
             mosaic.develop(crop, &finish, check_cancel)?
         };
-        return Ok(DynamicImage::ImageRgb32F(image));
+        return Ok((DynamicImage::ImageRgb32F(image), capture));
     }
 
     for level in raw_image.whitelevel.0.iter_mut() {
@@ -422,13 +430,17 @@ pub fn develop_raw_image(
             });
             check_cancel()?;
 
+            let capture = Capture {
+                radius: None,
+                camera: Some(camera.matrix),
+            };
             let image = develop::finish_rgb(
                 &data,
                 crop.d.w as u32,
                 crop.d.h as u32,
                 &finish(Some(camera)),
             );
-            return Ok(DynamicImage::ImageRgb32F(image));
+            return Ok((DynamicImage::ImageRgb32F(image), capture));
         }
         Intermediate::ThreeColor(pixels) => {
             let uncalibrated_to_working = camera_to_working.is_none().then(srgb_to_working);
@@ -481,10 +493,9 @@ pub fn develop_raw_image(
         }
     };
 
-    Ok(develop::enhance(
-        apply_orientation(dynamic_image, orientation),
-        denoise,
-        sharpen,
+    Ok((
+        develop::enhance(apply_orientation(dynamic_image, orientation), denoise),
+        Capture::default(),
     ))
 }
 

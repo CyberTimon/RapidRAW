@@ -119,6 +119,7 @@ export enum DetailsAdjustment {
   NegativeExposure = 'negativeExposure',
   NegativeGreenWeight = 'negativeGreenWeight',
   NegativeRedWeight = 'negativeRedWeight',
+  CaptureSharpening = 'captureSharpening',
   Sharpness = 'sharpness',
   SharpnessThreshold = 'sharpnessThreshold',
   ChromaticAberrationRedCyan = 'chromaticAberrationRedCyan',
@@ -318,6 +319,7 @@ export interface Adjustments {
   baselineExposure: boolean;
   blacks: number;
   brightness: number;
+  captureSharpening: number;
   centré: number;
   centréX: number;
   centréY: number;
@@ -974,7 +976,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     },
     {
       label: 'modals.copyPaste.groups.sharpness',
-      keys: [DetailsAdjustment.Sharpness, DetailsAdjustment.SharpnessThreshold],
+      keys: [DetailsAdjustment.CaptureSharpening, DetailsAdjustment.Sharpness, DetailsAdjustment.SharpnessThreshold],
     },
     {
       label: 'modals.copyPaste.groups.noiseReduction',
@@ -1239,6 +1241,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     DetailsAdjustment.Centré,
     DetailsAdjustment.CentréX,
     DetailsAdjustment.CentréY,
+    DetailsAdjustment.CaptureSharpening,
     DetailsAdjustment.Sharpness,
     DetailsAdjustment.SharpnessThreshold,
     DetailsAdjustment.LumaNoiseReduction,

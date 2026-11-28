@@ -197,7 +197,8 @@ static KERNELS_FAILED: AtomicBool = AtomicBool::new(false);
 
 pub fn prepare(context: &DecodeGpu) -> bool {
     let built = crate::decode::demosaic::warm(&context.device)
-        .and_then(|()| crate::decode::develop::warm(&context.device));
+        .and_then(|()| crate::decode::develop::warm(&context.device))
+        .and_then(|()| crate::adjustments::capture_sharpening::warm(&context.device));
     let failed = built.is_err();
     if !KERNELS_FAILED.swap(failed, Ordering::AcqRel)
         && let Err(e) = built
@@ -259,6 +260,7 @@ pub(crate) fn on_gpu<T>(load: Load, run: impl FnOnce(&DecodeGpu) -> Result<T>) -
             if release_decode_gpu(&context.device) {
                 crate::decode::demosaic::forget();
                 crate::decode::develop::forget();
+                crate::adjustments::capture_sharpening::forget();
             }
             None
         }

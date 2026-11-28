@@ -73,6 +73,7 @@ fn check(backend: &str) -> Result<String, CheckError> {
     let decode_errors = [
         crate::decode::demosaic::warm(&device),
         crate::decode::develop::warm(&device),
+        crate::adjustments::capture_sharpening::warm(&device),
     ]
     .into_iter()
     .filter_map(|built| built.err().map(|e| e.to_string()));

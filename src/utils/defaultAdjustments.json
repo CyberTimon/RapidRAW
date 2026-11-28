@@ -11,6 +11,7 @@
   "baselineExposure": true,
   "blacks": 0,
   "brightness": 0,
+  "captureSharpening": 100,
   "centré": 0,
   "centréX": 0.5,
   "centréY": 0.5,

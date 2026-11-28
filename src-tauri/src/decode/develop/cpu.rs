@@ -41,11 +41,8 @@ pub(super) fn finish(
             .map_or(observed, |highlights| highlights.developed(x, y, observed))
     });
 
-    let luma =
-        (finish.denoise > 0.0).then(|| reduce_chroma_noise(&mut image, finish.denoise.min(1.0)));
-    if finish.sharpen > 0.0 {
-        let luma = luma.unwrap_or_else(|| sqrt_luma_plane(&image));
-        sharpen(&mut image, &luma, finish.sharpen);
+    if finish.denoise > 0.0 {
+        reduce_chroma_noise(&mut image, finish.denoise.min(1.0));
     }
     image
 }
@@ -896,7 +893,7 @@ fn upsample_taps(v: usize, n: usize) -> [(usize, f32); 2] {
     }
 }
 
-fn reduce_chroma_noise(buffer: &mut Rgb32FImage, amount: f32) -> Vec<f32> {
+fn reduce_chroma_noise(buffer: &mut Rgb32FImage, amount: f32) {
     let w = buffer.width() as usize;
     let h = buffer.height() as usize;
     let luma = working_luma();
@@ -915,12 +912,10 @@ fn reduce_chroma_noise(buffer: &mut Rgb32FImage, amount: f32) -> Vec<f32> {
     let texture = 4.0 * (0.5 + amount);
     let (hw, hh) = (half.w, half.h);
 
-    let mut q = vec![0.0f32; w * h];
     buffer
         .par_chunks_mut(w * 3)
-        .zip(q.par_chunks_mut(w))
         .enumerate()
-        .for_each(|(y, (row, q_row))| {
+        .for_each(|(y, row)| {
             let low_rows = upsample_taps(y, hh).map(|(ly, wy)| {
                 let o = half.at(0, ly);
                 (
@@ -952,7 +947,6 @@ fn reduce_chroma_noise(buffer: &mut Rgb32FImage, amount: f32) -> Vec<f32> {
                     cb[k] = (rgb[2][k].max(0.0) + FLOOR).sqrt() - s;
                 }
 
-                q_row[x0..x0 + n].copy_from_slice(&qc[..n]);
                 let up = upsample_chunk(low_rows, &qc[..n], x0, hw, eps);
 
                 for k in 0..n {
@@ -985,7 +979,6 @@ fn reduce_chroma_noise(buffer: &mut Rgb32FImage, amount: f32) -> Vec<f32> {
                 }
             }
         });
-    q
 }
 
 fn estimate_noise(w: usize, h: usize, channels: &[&(dyn Fn(usize) -> f32 + Sync)]) -> f32 {
@@ -1005,105 +998,4 @@ fn estimate_noise(w: usize, h: usize, channels: &[&(dyn Fn(usize) -> f32 + Sync)
     let mid = diffs.len() / 2;
     let (_, median, _) = diffs.select_nth_unstable_by(mid, f32::total_cmp);
     *median * 1.4826 / std::f32::consts::SQRT_2
-}
-
-fn sqrt_luma_plane(buffer: &Rgb32FImage) -> Vec<f32> {
-    let luma = working_luma();
-    buffer
-        .as_raw()
-        .par_chunks_exact(3)
-        .map(|p| ((luma[0] * p[0] + luma[1] * p[1] + luma[2] * p[2]).max(0.0) + FLOOR).sqrt())
-        .collect()
-}
-
-fn sharpen(buffer: &mut Rgb32FImage, q: &[f32], amount: f32) {
-    let w = buffer.width() as usize;
-    let h = buffer.height() as usize;
-    let row_at = |y: isize| {
-        let y = y.clamp(0, h as isize - 1) as usize;
-        &q[y * w..(y + 1) * w]
-    };
-    let blur_row = |y: usize, v: &mut [f32], out: &mut [f32]| {
-        let r: [&[f32]; 5] = std::array::from_fn(|k| row_at(y as isize + k as isize - 2));
-        for x in 0..w {
-            v[x + 2] =
-                (r[0][x] + r[4][x] + 4.0 * (r[1][x] + r[3][x]) + 6.0 * r[2][x]) * (1.0 / 16.0);
-        }
-        (v[0], v[1]) = (v[2], v[2]);
-        (v[w + 2], v[w + 3]) = (v[w + 1], v[w + 1]);
-        for x in 0..w {
-            out[x] =
-                (v[x] + v[x + 4] + 4.0 * (v[x + 1] + v[x + 3]) + 6.0 * v[x + 2]) * (1.0 / 16.0);
-        }
-    };
-
-    let mut samples: Vec<f32> = (0..h)
-        .into_par_iter()
-        .step_by(16)
-        .flat_map_iter(|y| {
-            let (mut v, mut blur) = (vec![0.0f32; w + 4], vec![0.0f32; w]);
-            blur_row(y, &mut v, &mut blur);
-            let row = &q[y * w..(y + 1) * w];
-            (0..w)
-                .step_by(5)
-                .map(|x| (row[x] - blur[x]).abs())
-                .collect::<Vec<_>>()
-        })
-        .collect();
-    if samples.is_empty() {
-        return;
-    }
-    let mid = samples.len() / 2;
-    let noise = *samples.select_nth_unstable_by(mid, f32::total_cmp).1 * 1.4826;
-    let threshold = (1.5 * noise).powi(2).max(1e-12);
-    let strength = 4.5 * amount;
-    let taper = 0.3 / threshold.sqrt();
-
-    buffer.par_chunks_mut(w * 3).enumerate().for_each_init(
-        || {
-            (
-                vec![0.0f32; w + 4],
-                vec![0.0f32; w],
-                vec![0.0f32; w + 2],
-                vec![0.0f32; w + 2],
-            )
-        },
-        |(v, blur, lo, hi), (y, row)| {
-            blur_row(y, v, blur);
-            let r: [&[f32]; 3] = std::array::from_fn(|k| row_at(y as isize + k as isize - 1));
-            for x in 0..w {
-                lo[x + 1] = r[0][x].min(r[1][x]).min(r[2][x]);
-                hi[x + 1] = r[0][x].max(r[1][x]).max(r[2][x]);
-            }
-            (lo[0], hi[0], lo[w + 1], hi[w + 1]) = (lo[1], hi[1], lo[w], hi[w]);
-            let center = r[1];
-            for (x, p) in row.as_chunks_mut::<3>().0.iter_mut().enumerate() {
-                let qc = center[x];
-                let d = qc - blur[x];
-                let d = d * d * d / (d * d + threshold);
-                let d = d / (1.0 + d.abs() * taper);
-                let min = lo[x].min(lo[x + 1]).min(lo[x + 2]);
-                let max = hi[x].max(hi[x + 1]).max(hi[x + 2]);
-                let delta = strength * d;
-                let range = max - min;
-                let up_room = max - qc + range * 0.15 + 0.004;
-                let down_room = qc - min + range * 0.05 + 0.002;
-                let up = delta.max(0.0);
-                let down = (-delta).max(0.0) * 0.7;
-                let qn = qc + up * up_room / (up_room + up) - down * down_room / (down_room + down);
-                let l = qc * qc - FLOOR;
-                let ln = (qn * qn - FLOOR).max(0.0);
-                if l > 1e-6 {
-                    let peak = p[0].max(p[1]).max(p[2]);
-                    let mut ratio = ln / l;
-                    if ratio > 1.0 && peak * ratio > 1.0 {
-                        ratio = (1.0 / peak).max(1.0);
-                    }
-                    p.iter_mut().for_each(|c| *c *= ratio);
-                } else {
-                    p.iter_mut().for_each(|c| *c = (*c + ln - l).max(0.0));
-                }
-            }
-        },
-    );
 }

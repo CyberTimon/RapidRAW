@@ -32,7 +32,6 @@ impl<'a> SourceLoader<'a> {
         let settings = if linear_raw {
             let mut unprocessed = settings.clone();
             unprocessed.raw_preprocessing_color_nr = Some(0.0);
-            unprocessed.raw_preprocessing_sharpening = Some(0.0);
             Cow::Owned(unprocessed)
         } else {
             Cow::Borrowed(settings)

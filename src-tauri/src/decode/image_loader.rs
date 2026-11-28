@@ -130,8 +130,9 @@ fn prepare_reduced_base_image<'a>(
         let denoised = crate::ai::denoise::apply_ai_denoise(base_image, path, adjustments);
         crate::ai::upscale::apply_ai_upscale(base_image, denoised, path, adjustments)
     };
+    let sharpened = crate::adjustments::capture_sharpening::apply(upscaled, path, adjustments);
     let prepared = crate::adjustments::negative_conversion::apply_negative_conversion(
-        upscaled,
+        sharpened,
         is_raw_file(path),
         adjustments,
     );
@@ -151,7 +152,6 @@ pub fn load_base_image_from_bytes(
         .raw_preprocessing_color_nr
         .unwrap_or(0.5)
         .clamp(0.0, 1.0);
-    let sharpening_amount = settings.raw_preprocessing_sharpening.unwrap_or(0.35);
     let apply_to_non_raws = settings.apply_preprocessing_to_non_raws.unwrap_or(false);
     let remove_hot_pixels = settings.remove_hot_pixels.unwrap_or(true);
 
@@ -202,13 +202,19 @@ pub fn load_base_image_from_bytes(
                 highlight_compression,
                 linear_mode,
                 color_nr_amount,
-                sharpening_amount,
                 remove_hot_pixels,
                 cancel_token,
             )
         }) {
-            Ok(Ok(image)) => {
+            Ok(Ok((image, capture))) => {
                 record_embedded_preview(false);
+                if !use_fast_raw_dev {
+                    crate::adjustments::capture_sharpening::remember(
+                        path_for_ext_check,
+                        image.dimensions(),
+                        capture,
+                    );
+                }
                 Ok(image)
             }
             Ok(Err(e)) => {
@@ -240,7 +246,7 @@ pub fn load_base_image_from_bytes(
             crate::decode::as_shot::record_source_peak(path_for_ext_check, peak);
         }
         Ok(if apply_to_non_raws && !use_fast_raw_dev {
-            crate::decode::develop::enhance(image, color_nr_amount, sharpening_amount)
+            crate::decode::develop::enhance(image, color_nr_amount)
         } else {
             image
         })

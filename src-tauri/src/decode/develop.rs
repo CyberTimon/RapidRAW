@@ -32,7 +32,6 @@ const PLATEAU_SHARE: u32 = 5000;
 
 const HIGHLIGHTS: u32 = 1;
 const DENOISE: u32 = 2;
-const SHARPEN: u32 = 4;
 const COLOR: u32 = 8;
 
 const ENTRIES: &[&str] = &[
@@ -51,7 +50,6 @@ const ENTRIES: &[&str] = &[
     "nr_filter",
     "nr_upsample",
     "nr_core",
-    "sh_luma",
     "md_sample",
     "md_hist",
     "md_pick",
@@ -71,7 +69,6 @@ pub struct Finish {
     pub camera: Option<Camera>,
     pub orientation: Orientation,
     pub denoise: f32,
-    pub sharpen: f32,
 }
 
 #[repr(C)]
@@ -268,14 +265,11 @@ fn layout(w: u32, h: u32, finish: &Finish) -> Layout {
         (w, h)
     };
     let denoise = finish.denoise > 0.0;
-    let sharpen_samples = oh.div_ceil(16) * ow.div_ceil(5);
-    let sharpen = finish.sharpen > 0.0 && sharpen_samples > 0;
     let highlights = finish.camera.is_some();
 
     let mut flags = 0;
     flags |= if highlights { HIGHLIGHTS | COLOR } else { 0 };
     flags |= if denoise { DENOISE } else { 0 };
-    flags |= if sharpen { SHARPEN } else { 0 };
 
     let cell = (w.max(h) / 1024).clamp(1, 8);
     let gw = w.div_ceil(cell);
@@ -328,7 +322,6 @@ fn layout(w: u32, h: u32, finish: &Finish) -> Layout {
         2 * quarter_samples,
         core_samples,
         full_samples,
-        sharpen_samples,
     ]
     .into_iter()
     .max()
@@ -360,8 +353,7 @@ fn layout(w: u32, h: u32, finish: &Finish) -> Layout {
     let quarter_widen = plane(qpadded, denoise);
     let quarter_fr = plane(qunpadded, denoise);
     let quarter_fb = plane(qunpadded, denoise);
-    let luma = plane(ow as u64 * oh as u64, sharpen);
-    let samples = plane(max_samples as u64, denoise || sharpen);
+    let samples = plane(max_samples as u64, denoise);
 
     let (wb, neutral, matrix, comp, clamp_limit) = match finish.camera {
         Some(camera) => (
@@ -390,7 +382,7 @@ fn layout(w: u32, h: u32, finish: &Finish) -> Layout {
         comp,
         amounts: [
             finish.denoise.min(1.0),
-            finish.sharpen,
+            0.0,
             0.25 * (cell * cell) as f32,
             0.5 * support * support,
         ],
@@ -401,7 +393,7 @@ fn layout(w: u32, h: u32, finish: &Finish) -> Layout {
             [half_widen, ref_r, ref_b, half_fr],
             [quarter_q, quarter_cr, quarter_cb, half_fb],
             [quarter_rel, quarter_widen, quarter_fr, quarter_fb],
-            [luma, samples, 0, 0],
+            [samples, 0, 0, 0],
         ],
         cells,
         pyr,
@@ -452,10 +444,6 @@ fn layout(w: u32, h: u32, finish: &Finish) -> Layout {
         plan.median(4, 4, core_samples);
         plan.grid("nr_core", [0; 4], hw, hh);
         plan.median(5, 5, full_samples);
-    }
-    if sharpen {
-        plan.grid("sh_luma", [0; 4], ow, oh);
-        plan.median(6, 6, sharpen_samples);
     }
 
     Layout {
@@ -553,8 +541,8 @@ pub fn finish_rgb(data: &[[f32; 3]], width: u32, height: u32, finish: &Finish) -
     .unwrap_or_else(|| cpu::finish(data, width as usize, height as usize, finish))
 }
 
-pub fn enhance(image: DynamicImage, denoise: f32, sharpen: f32) -> DynamicImage {
-    if denoise <= 0.0 && sharpen <= 0.0 {
+pub fn enhance(image: DynamicImage, denoise: f32) -> DynamicImage {
+    if denoise <= 0.0 {
         return image;
     }
     let image = into_rgb32f_parallel(image);
@@ -567,7 +555,6 @@ pub fn enhance(image: DynamicImage, denoise: f32, sharpen: f32) -> DynamicImage 
             camera: None,
             orientation: Orientation::Normal,
             denoise: denoise.max(0.0),
-            sharpen: sharpen.max(0.0),
         },
     );
     DynamicImage::ImageRgb32F(enhanced)

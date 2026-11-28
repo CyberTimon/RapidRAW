@@ -154,6 +154,7 @@ pub fn all_available_adjustments() -> HashSet<String> {
         "clarity",
         "structure",
         "dehaze",
+        "captureSharpening",
         "sharpness",
         "sharpnessThreshold",
         "centré",
@@ -797,8 +798,6 @@ pub struct AppSettings {
     #[serde(default)]
     pub raw_preprocessing_color_nr: Option<f32>,
     #[serde(default)]
-    pub raw_preprocessing_sharpening: Option<f32>,
-    #[serde(default)]
     pub apply_preprocessing_to_non_raws: Option<bool>,
     #[serde(default)]
     pub use_apple_raw9: Option<bool>,
@@ -1009,7 +1008,6 @@ impl Default for AppSettings {
             hide_collapsed_panels: Some(false),
             folder_icons: Some(HashMap::new()),
             raw_preprocessing_color_nr: Some(0.5),
-            raw_preprocessing_sharpening: Some(0.35),
             apply_preprocessing_to_non_raws: Some(false),
             use_apple_raw9: Some(false),
             remove_hot_pixels: Some(true),

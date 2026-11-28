@@ -1,6 +1,8 @@
 use crate::ai::base_cache::{BaseCache, entry_key, source_string};
 use crate::ai::denoise::DenoiseMethod;
 use crate::app::state::{AppState, LoadedImage};
+use crate::decode::formats::is_raw_file;
+use crate::library::sidecars::parse_virtual_path;
 use crate::render::adjustment_utils::is_effect_enabled;
 use crate::render::color_space::working_luma;
 use image::{DynamicImage, GenericImageView, Rgb32FImage};
@@ -18,6 +20,8 @@ const DETAIL_NOISE_FLOOR: f32 = 2.0;
 const DETAIL_OVERSHOOT: f32 = 0.25;
 const DETAIL_BAND: usize = 32;
 const DETAIL_SAMPLE_STEP: usize = 8;
+const PRESHARPEN: f32 = 0.35;
+const PRESHARPEN_FLOOR: f32 = 0.002;
 
 static CACHE: BaseCache = BaseCache::new(
     "ai_upscale",
@@ -240,6 +244,149 @@ fn soft_limit(value: f32, lo: f32, hi: f32, knee: f32) -> f32 {
     }
 }
 
+fn sqrt_luma_row(pixels: &[f32], out: &mut [f32]) {
+    let [luma_r, luma_g, luma_b] = working_luma();
+    for (q, p) in out.iter_mut().zip(pixels.as_chunks::<3>().0) {
+        *q = ((luma_r * p[0] + luma_g * p[1] + luma_b * p[2]).max(0.0) + PRESHARPEN_FLOOR).sqrt();
+    }
+}
+
+fn binomial_blur(rows: [&[f32]; 5], v: &mut [f32], out: &mut [f32]) {
+    let w = out.len();
+    for x in 0..w {
+        v[x + 2] = (rows[0][x] + rows[4][x] + 4.0 * (rows[1][x] + rows[3][x]) + 6.0 * rows[2][x])
+            * (1.0 / 16.0);
+    }
+    (v[0], v[1]) = (v[2], v[2]);
+    (v[w + 2], v[w + 3]) = (v[w + 1], v[w + 1]);
+    for x in 0..w {
+        out[x] = (v[x] + v[x + 4] + 4.0 * (v[x + 1] + v[x + 3]) + 6.0 * v[x + 2]) * (1.0 / 16.0);
+    }
+}
+
+fn presharpen_threshold(base: &Rgb32FImage) -> Option<f32> {
+    let (w, h) = (base.width() as usize, base.height() as usize);
+    let raw = base.as_raw();
+    let mut samples: Vec<f32> = (0..h)
+        .into_par_iter()
+        .step_by(16)
+        .flat_map_iter(|y| {
+            let rows: [Vec<f32>; 5] = std::array::from_fn(|k| {
+                let row = (y + k).saturating_sub(2).min(h - 1);
+                let mut q = vec![0.0; w];
+                sqrt_luma_row(&raw[row * w * 3..][..w * 3], &mut q);
+                q
+            });
+            let (mut v, mut blur) = (vec![0.0; w + 4], vec![0.0; w]);
+            binomial_blur(rows.each_ref().map(Vec::as_slice), &mut v, &mut blur);
+            (0..w)
+                .step_by(5)
+                .map(|x| (rows[2][x] - blur[x]).abs())
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    if samples.is_empty() {
+        return None;
+    }
+    let mid = samples.len() / 2;
+    let noise = *samples.select_nth_unstable_by(mid, f32::total_cmp).1 * 1.4826;
+    Some((1.5 * noise).powi(2).max(1e-12))
+}
+
+fn presharpen(image: &mut Rgb32FImage, threshold: f32) {
+    let (w, h) = (image.width() as usize, image.height() as usize);
+    let mut q = vec![0.0f32; w * h];
+    q.par_chunks_mut(w)
+        .zip(image.as_raw().par_chunks(w * 3))
+        .for_each(|(q, pixels)| sqrt_luma_row(pixels, q));
+    let row_at = |y: isize| {
+        let y = y.clamp(0, h as isize - 1) as usize;
+        &q[y * w..(y + 1) * w]
+    };
+    let strength = 4.5 * PRESHARPEN;
+    let taper = 0.3 / threshold.sqrt();
+
+    image.par_chunks_mut(w * 3).enumerate().for_each_init(
+        || {
+            (
+                vec![0.0f32; w + 4],
+                vec![0.0f32; w],
+                vec![0.0f32; w + 2],
+                vec![0.0f32; w + 2],
+            )
+        },
+        |(v, blur, lo, hi), (y, row)| {
+            binomial_blur(
+                std::array::from_fn(|k| row_at(y as isize + k as isize - 2)),
+                v,
+                blur,
+            );
+            let r: [&[f32]; 3] = std::array::from_fn(|k| row_at(y as isize + k as isize - 1));
+            for x in 0..w {
+                lo[x + 1] = r[0][x].min(r[1][x]).min(r[2][x]);
+                hi[x + 1] = r[0][x].max(r[1][x]).max(r[2][x]);
+            }
+            (lo[0], hi[0], lo[w + 1], hi[w + 1]) = (lo[1], hi[1], lo[w], hi[w]);
+            let center = r[1];
+            for (x, p) in row.as_chunks_mut::<3>().0.iter_mut().enumerate() {
+                let qc = center[x];
+                let d = qc - blur[x];
+                let d = d * d * d / (d * d + threshold);
+                let d = d / (1.0 + d.abs() * taper);
+                let min = lo[x].min(lo[x + 1]).min(lo[x + 2]);
+                let max = hi[x].max(hi[x + 1]).max(hi[x + 2]);
+                let delta = strength * d;
+                let range = max - min;
+                let up_room = max - qc + range * 0.15 + 0.004;
+                let down_room = qc - min + range * 0.05 + 0.002;
+                let up = delta.max(0.0);
+                let down = (-delta).max(0.0) * 0.7;
+                let qn = qc + up * up_room / (up_room + up) - down * down_room / (down_room + down);
+                let l = qc * qc - PRESHARPEN_FLOOR;
+                let ln = (qn * qn - PRESHARPEN_FLOOR).max(0.0);
+                if l > 1e-6 {
+                    let peak = p[0].max(p[1]).max(p[2]);
+                    let mut ratio = ln / l;
+                    if ratio > 1.0 && peak * ratio > 1.0 {
+                        ratio = (1.0 / peak).max(1.0);
+                    }
+                    p.iter_mut().for_each(|c| *c *= ratio);
+                } else {
+                    p.iter_mut().for_each(|c| *c = (*c + ln - l).max(0.0));
+                }
+            }
+        },
+    );
+}
+
+fn model_input<'a>(
+    image: Cow<'a, DynamicImage>,
+    base: &DynamicImage,
+    path: &str,
+) -> Cow<'a, Rgb32FImage> {
+    let threshold = is_raw_file(parse_virtual_path(path).0)
+        .then(|| match base.as_rgb32f() {
+            Some(base) => presharpen_threshold(base),
+            None => presharpen_threshold(&base.to_rgb32f()),
+        })
+        .flatten();
+    match image {
+        Cow::Borrowed(DynamicImage::ImageRgb32F(image)) if threshold.is_none() => {
+            Cow::Borrowed(image)
+        }
+        image => {
+            let mut image = match image {
+                Cow::Borrowed(image) => image.to_rgb32f(),
+                Cow::Owned(image) => image.into_rgb32f(),
+            };
+            if let Some(threshold) = threshold {
+                presharpen(&mut image, threshold);
+            }
+            Cow::Owned(image)
+        }
+    }
+}
+
 fn enhance_detail(out: &mut Rgb32FImage, source: &Rgb32FImage, amount: f32) {
     let [luma_r, luma_g, luma_b] = working_luma();
     let source_luma: Vec<f32> = source
@@ -367,10 +514,7 @@ pub fn apply_ai_upscale<'a>(
     };
     let amount = detail_amount(adjustments);
     if amount > 0.0 {
-        match image.as_rgb32f() {
-            Some(source) => enhance_detail(&mut out, source, amount),
-            None => enhance_detail(&mut out, &image.to_rgb32f(), amount),
-        }
+        enhance_detail(&mut out, &model_input(image, base, path), amount);
     }
     Cow::Owned(DynamicImage::ImageRgb32F(out))
 }
@@ -380,13 +524,14 @@ fn input_for(
     path: &str,
     denoise: Option<DenoiseMethod>,
 ) -> Result<Rgb32FImage, String> {
-    let Some(method) = denoise else {
-        return Ok(base.to_rgb32f());
+    let input = match denoise {
+        None => Cow::Borrowed(base),
+        Some(method) => crate::ai::denoise::full_strength(path, method)
+            .filter(|entry| (entry.width, entry.height) == base.dimensions())
+            .map(|entry| Cow::Owned(DynamicImage::ImageRgb32F(entry.to_rgb32f())))
+            .ok_or_else(|| "AI denoise result is not available".to_string())?,
     };
-    crate::ai::denoise::full_strength(path, method)
-        .filter(|entry| (entry.width, entry.height) == base.dimensions())
-        .map(|entry| entry.to_rgb32f())
-        .ok_or_else(|| "AI denoise result is not available".to_string())
+    Ok(model_input(input, base, path).into_owned())
 }
 
 fn run_upscaler(
@@ -431,7 +576,10 @@ async fn load_session(app_handle: tauri::AppHandle) -> Result<Session, String> {
 }
 
 fn waiting_for_denoise(path: &str, denoise: Option<DenoiseMethod>) -> bool {
-    denoise.is_some_and(|method| crate::ai::denoise::full_strength(path, method).is_none())
+    denoise.is_some_and(|method| {
+        crate::ai::denoise::is_generating(path)
+            || crate::ai::denoise::full_strength(path, method).is_none()
+    })
 }
 
 pub fn ensure_generated(

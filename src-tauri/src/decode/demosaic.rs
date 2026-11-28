@@ -22,6 +22,9 @@ const WORKGROUP: u32 = 8;
 const TILE_BUDGET: u64 = 320 << 20;
 const MAX_TILE: u32 = 2048;
 const RAW_ROW_SLACK: usize = 8;
+const BLUR_FLOOR: f32 = 1000.0 / 65535.0;
+const BLUR_CLIP: f32 = 0.98;
+const BLUR_LONE_RATIO: f32 = 4.0;
 
 const BAYER_STAGES: &[&str] = &[
     "unpack",
@@ -338,6 +341,61 @@ impl<'a> Mosaic<'a> {
 
     pub fn domain(&self) -> Rect {
         self.domain
+    }
+
+    pub fn blur_radius(&self) -> Option<f32> {
+        let Rect { p, d } = self.domain;
+        let (x0, x1) = (p.x + 3, (p.x + d.w).saturating_sub(3));
+        let (y0, y1) = (p.y + 2, (p.y + d.h).saturating_sub(3));
+        if x1 <= x0 || y1 <= y0 {
+            return None;
+        }
+        let green = |y: usize, x: usize| self.colors[y % 6][x % 6] == 1;
+        let value = |y: usize, x: usize| {
+            (self.data[y * self.stride + x] as f32 - self.black[(y & 1) * 2 + (x & 1)]) * self.scale
+        };
+        let unreliable = |(by, bx): (usize, usize), (py, px): (usize, usize), bright: f32| {
+            let mut lone = true;
+            for y in by - 2..=by + 2 {
+                for x in bx - 2..=bx + 2 {
+                    if !green(y, x) || (y, x) == (by, bx) || (y, x) == (py, px) {
+                        continue;
+                    }
+                    let v = value(y, x);
+                    if v >= BLUR_CLIP {
+                        return true;
+                    }
+                    lone &= v * BLUR_LONE_RATIO < bright;
+                }
+            }
+            lone
+        };
+        let ratio = (y0..y1)
+            .into_par_iter()
+            .map(|y| {
+                let mut best = 1.0f32;
+                for x in (x0..x1).filter(|&x| green(y, x)) {
+                    let here = value(y, x);
+                    for nx in [x - 1, x + 1].into_iter().filter(|&nx| green(y + 1, nx)) {
+                        let there = value(y + 1, nx);
+                        let (bright, dim, at, other) = if here > there {
+                            (here, there, (y, x), (y + 1, nx))
+                        } else {
+                            (there, here, (y + 1, nx), (y, x))
+                        };
+                        if dim > BLUR_FLOOR
+                            && bright < BLUR_CLIP
+                            && bright > best * dim
+                            && !unreliable(at, other, bright)
+                        {
+                            best = bright / dim;
+                        }
+                    }
+                }
+                best
+            })
+            .reduce(|| 1.0, f32::max);
+        (ratio > 1.0).then(|| (1.0 / ratio.ln()).sqrt())
     }
 
     pub fn bin(&self) -> (Vec<[f32; 3]>, Dim2) {
